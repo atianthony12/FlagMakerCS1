@@ -6,11 +6,11 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The in-game panel (F6): two tabs, Create new (the next flag, and the button that places it)
-    /// and Existing flags (every flag in the city; a click selects one to edit), with the wind at
-    /// the foot of both (the author: "A small in-game menu, with two tabs: Create new and
-    /// Existing Flags ... The wave depends on the wind which can be controlled in the mod in-game
-    /// menu for now").
+    /// The in-game panel (F6): Create new (the next flag, and the button that places it), Existing
+    /// flags (every flag in the city; a click selects one to edit) and Settings (the wind -- the
+    /// game's unless the player sets their own -- and the cloth). The author: "A small in-game
+    /// menu, with two tabs: Create new and Existing Flags"; then "Wind should be by default based
+    /// on the game's wind, and can be overridden in a 3rd tab, Settings".
     /// </summary>
     /// <remarks>
     /// Volumetric Explosions' panel, cut down and grown where flags need it: the rows are built
@@ -29,7 +29,7 @@ namespace RealFlag.UI
         private const float Margin = 14f;
         public const float HeadingHeight = 24f;
 
-        private static readonly PanelPage[] Tabs = { PanelPage.Create, PanelPage.Existing };
+        private static readonly PanelPage[] Tabs = { PanelPage.Create, PanelPage.Existing, PanelPage.Settings };
 
         /// <summary>Where to open, when replacing a panel that was already on screen. Null = the default spot.</summary>
         public Vector3? InitialPosition;
@@ -38,8 +38,6 @@ namespace RealFlag.UI
         private readonly List<UIPanel> _pages = new List<UIPanel>();
         private readonly List<float> _contentHeights = new List<float>();
         private RowSet _rows;
-        private UIPanel _wind;
-        private float _windHeight;
         private int _page;
 
         private const float RefreshInterval = 0.25f;
@@ -107,7 +105,6 @@ namespace RealFlag.UI
             foreach (PanelPage page in Tabs)
                 _contentHeights.Add(_rows.BuildRows(AddPage(SettingsCatalog.TabName(page)), page, 0f));
 
-            BuildWind();
             LayoutTabs();
             SelectPage(0);
 
@@ -137,12 +134,12 @@ namespace RealFlag.UI
                     return;
 
                 p.Use();
-                FlagTool.StepBack();
+                string step = FlagTool.StepBack();
                 Unfocus();
-                Log.Msg("flags: Esc stepped the tool back (the key kept from the game's pause menu)");
+                Log.Msg("flags: Esc: " + step + " (the key kept from the game's pause menu)");
             };
 
-            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs and the wind");
+            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs");
         }
 
         public override void Update()
@@ -229,12 +226,11 @@ namespace RealFlag.UI
                     UIBuilder.SetTabSelected(_tabs[i], i == index);
             }
 
-            // As tall as the selected page needs, the wind under it.
+            // As tall as the selected page needs.
             float content = _contentHeights[index];
             _pages[index].height = content;
             float top = TitleBarHeight + TabHeight + Margin * 0.5f;
-            _wind.relativePosition = new Vector3(Margin, top + content + 4f);
-            height = Mathf.Max(MinPanelHeight, top + content + 4f + _windHeight + Margin);
+            height = Mathf.Max(MinPanelHeight, top + content + Margin);
 
             // The selection and its gizmo belong to Existing flags; placing to Create new.
             if (index != 1)
@@ -249,17 +245,6 @@ namespace RealFlag.UI
             ColourPicker.Close();
             CountryPicker.Close();
             PolePanel.Close();
-        }
-
-        /// <summary>The wind, under the pages: its own panel, moved as the tab changes height.</summary>
-        private void BuildWind()
-        {
-            _wind = AddUIComponent<UIPanel>();
-            _wind.size = new Vector2(PanelWidth - 2f * Margin, 10f);
-
-            UIBuilder.AddHeading(_wind, SettingsCatalog.TabName(PanelPage.Wind), 4f);
-            _windHeight = _rows.BuildRows(_wind, PanelPage.Wind, HeadingHeight);
-            _wind.height = _windHeight;
         }
 
         /// <summary>A little in from the left edge, a third of the way down: clear of the middle of the screen.</summary>

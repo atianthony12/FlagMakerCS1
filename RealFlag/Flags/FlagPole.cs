@@ -176,6 +176,18 @@ namespace RealFlag.Flags
         {
             float growth = ShaftTop > 0f ? (RadiusFoot - RadiusTop) / ShaftTop : 0f;
             cloth.SetPole(-Offset * fx, -Offset * fy, -Offset * fz, RadiusAt(Length), growth, -(Tip - Length), Length);
+
+            // With its ropes, the flag is on a halyard: clipped by its grommets, free between.
+            cloth.SetHalyard(Ropes > 0);
+        }
+
+        /// <summary>
+        /// The bottom clip below the anchor, up the axis: the hoist's length, less the halyard's
+        /// slack when the flag hangs on one (FlagCloth.HalyardSlack), where the lower rope ends.
+        /// </summary>
+        public float BottomClip
+        {
+            get { return Ropes > 0 ? FlagHeight * (1f - FlagCloth.HalyardSlack) : FlagHeight; }
         }
 
         /// <summary>The same pole to within a centimetre: its mesh need not be made again.</summary>

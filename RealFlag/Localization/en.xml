@@ -42,7 +42,7 @@
 
   <String key="Tab.Create">Create new</String>
   <String key="Tab.Existing">Existing flags</String>
-  <String key="Tab.Wind">Wind</String>
+  <String key="Tab.Settings">Settings</String>
 
   <String key="Key.Press">Press a key</String>
 
@@ -123,9 +123,9 @@
   <String key="Pole.Spear">Spear top</String>
 
   <String key="NewRopes.Label">Ropes</String>
-  <String key="NewRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line.</String>
+  <String key="NewRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line. On a halyard the flag hangs from its top and bottom clips only, and its edge bows out between them in the wind; with none it is held along its whole edge.</String>
   <String key="SelRopes.Label">Ropes</String>
-  <String key="SelRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line.</String>
+  <String key="SelRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line. On a halyard the flag hangs from its top and bottom clips only, and its edge bows out between them in the wind; with none it is held along its whole edge.</String>
   <String key="Ropes.None">None</String>
   <String key="Ropes.One">One</String>
   <String key="Ropes.Two">Two</String>
@@ -217,16 +217,29 @@
   <String key="Picker.Saturation">Saturation</String>
   <String key="Picker.Brightness">Brightness</String>
   <String key="Picker.Done">Done</String>
+  <String key="Picker.HexTip">The colour's code. Type or paste one (#RRGGBB, or #RGB), then Enter; Ctrl+C copies it.</String>
+  <String key="Picker.Copy">Copy</String>
+  <String key="Picker.CopyTip">Copies this colour's code, #RRGGBB, for another colour or another program.</String>
+  <String key="Picker.Paste">Paste</String>
+  <String key="Picker.PasteTip">Takes the colour code on the clipboard: #RRGGBB, RRGGBB, #RGB, or one inside other text.</String>
   <String key="Country.None">None: a pattern</String>
   <String key="Country.Search">Search</String>
 
-  <!-- The wind, at the foot of both tabs. -->
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <String key="Group.Wind">Wind</String>
+  <String key="WindFromGame.Label">Use the game's wind</String>
+  <String key="WindFromGame.Tooltip">The flags fly the way the game's wind blows, stronger in rain and calmer in fog, on hills more and in valleys and by forests less, as its wind turbines feel it. Off: your own wind below.</String>
+  <String key="GameWindNow.Status">Now {0} at 10 m, towards {1}°</String>
+  <String key="GameWindNow.Rain">, rain +{0}%</String>
+  <String key="GameWindNow.Fog">, fog -{0}%</String>
+  <String key="GameWindNow.Own">Your own wind, below</String>
+  <String key="GameWindNow.NoCity">The game's wind, once a city is loaded</String>
   <String key="WindSpeed.Label">Wind speed</String>
   <String key="WindSpeed.Tooltip">At 10 m up, where it is measured; higher flags get more. Bf is its Beaufort force: 3 extends a light flag.</String>
   <String key="WindGusts.Label">Gusts</String>
   <String key="WindGusts.Tooltip">How much the wind rises, falls and swings. 100%: a town's usual.</String>
   <String key="WindMode.Label">Direction</String>
-  <String key="WindMode.Tooltip">Along each flag: every flag flies its own way. Fixed: all flags fly the angle below. The game's: the game's wind.</String>
+  <String key="WindMode.Tooltip">Along each flag: every flag flies its own way. Fixed: all flags fly the angle below. The game's: the game's wind direction, at your speed.</String>
   <String key="WindMode.EachFlag">Along each flag</String>
   <String key="WindMode.Fixed">Fixed</String>
   <String key="WindMode.Game">The game's</String>
@@ -250,7 +263,7 @@
   <String key="FreezeWhenPaused.Label">Flags stop when the game is paused</String>
   <String key="FreezeWhenPaused.Tooltip">For screenshots. Off: they wave on while the city stands still.</String>
 
-  <!-- On the options page and at the foot of the in-game panel, under the wind. -->
+  <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Cloth</String>
   <String key="ClothDetail.Label">Cloth detail</String>
   <String key="ClothDetail.Tooltip">How finely flags fold, up to this; only flags big on the screen get it. A flag costs about twice Normal at High, four to eight times at Very high, seven to thirteen at Ultra.</String>

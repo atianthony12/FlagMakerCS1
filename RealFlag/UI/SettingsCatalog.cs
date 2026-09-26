@@ -43,10 +43,10 @@ namespace RealFlag.UI
     }
 
     /// <summary>
-    /// Which part of the in-game panel a row is in: a tab, the wind at the foot of both, or a page
-    /// of the Flagpole popup (each tab's own). None = not in it.
+    /// Which part of the in-game panel a row is in: one of its three tabs, or a page of the
+    /// Flagpole popup (each design tab's own). None = not in it.
     /// </summary>
-    public enum PanelPage { None, Create, Existing, Wind, PoleCreate, PoleExisting }
+    public enum PanelPage { None, Create, Existing, Settings, PoleCreate, PoleExisting }
 
     /// <summary>General = the game's mod options page. None = not on it.</summary>
     public enum OptionsPage { None, General }
@@ -316,9 +316,10 @@ namespace RealFlag.UI
     /// Weather's design).
     /// </summary>
     /// <remarks>
-    /// The split: the flags and the wind are in the in-game panel (Row.Panel) -- two tabs, Create
-    /// new and Existing flags, with the wind at their foot; the options page has only the mod
-    /// itself (Row.Options == General). The words are in Localization/en.xml, in the same order.
+    /// The split: the flags, the wind and the cloth are in the in-game panel (Row.Panel) -- three
+    /// tabs, Create new, Existing flags and Settings; the options page has the mod itself
+    /// (Row.Options == General), the cloth and the pause among it too. The words are in
+    /// Localization/en.xml, in the same order.
     /// </remarks>
     public static class SettingsCatalog
     {
@@ -382,7 +383,7 @@ namespace RealFlag.UI
             }
 
             Log.Msg("settings catalog: " + Rows.Count + " rows | Create new=" + CountForPanel(PanelPage.Create) +
-                    " | Existing flags=" + CountForPanel(PanelPage.Existing) + " | wind=" + CountForPanel(PanelPage.Wind) +
+                    " | Existing flags=" + CountForPanel(PanelPage.Existing) + " | Settings=" + CountForPanel(PanelPage.Settings) +
                     " | options page=" + CountForOptions(OptionsPage.General) + " | rows with no UI=" + nowhere);
 
             var missing = new List<string>();
@@ -984,51 +985,101 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// The wind, under both tabs (the author: "The wave depends on the wind which can be
-        /// controlled in the mod in-game menu for now").
+        /// The Settings tab's wind: the game's by default -- its direction, its weather, its wind
+        /// map (GameWind) -- or the player's own (the author: "Wind should be by default based on
+        /// the game's wind, and can be overridden in a 3rd tab, Settings").
         /// </summary>
         private static void BuildWind()
         {
+            Func<bool> own = () => Settings.WindFromGame != null && !Settings.WindFromGame.value;
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Group = "Wind",
+                Bool = Settings.WindFromGame,
+                DefaultBool = Settings.Defaults.WindFromGame,
+                AfterChange = State("the game's wind", OnOff(Settings.WindFromGame)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Status,
+                Panel = PanelPage.Settings,
+                Id = "GameWindNow",
+                StatusText = GameWindText,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Value,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Float = Settings.WindSpeed,
                 DefaultFloat = Settings.Defaults.WindSpeed,
                 Min = 0f, Max = 30f, Step = 0.5f,
                 Format = WindText,
+                Enabled = own,
             });
 
             Add(new Row
             {
                 Kind = RowKind.Percent,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Float = Settings.WindGusts,
                 DefaultFloat = Settings.Defaults.WindGusts,
                 Min = 0f, Max = 200f, Step = 5f,
+                Enabled = own,
             });
 
             Add(new Row
             {
                 Kind = RowKind.Choice,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Int = Settings.WindMode,
                 DefaultInt = Settings.Defaults.WindMode,
                 ChoiceValues = Settings.WindModes.Values,
                 ChoiceKeys = Settings.WindModes.NameKeys,
                 AfterChange = () => Log.Msg("setting: wind direction = " + Settings.WindModes.LogName(Settings.WindMode.value)),
+                Enabled = own,
             });
 
             Add(new Row
             {
                 Kind = RowKind.Value,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Float = Settings.WindDirection,
                 DefaultFloat = Settings.Defaults.WindDirection,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
-                Enabled = () => Settings.WindMode == null || Settings.WindMode.value == Settings.WindModes.Fixed,
+                Enabled = () => own() && (Settings.WindMode == null || Settings.WindMode.value == Settings.WindModes.Fixed),
             });
+        }
+
+        /// <summary>
+        /// The Settings tab's line under the switch: the game's wind as it is now (over open level
+        /// ground: a flag on a hill gets more, in a valley or by a forest less), or that the
+        /// player's own is in use.
+        /// </summary>
+        private static string GameWindText()
+        {
+            if (Settings.WindFromGame != null && !Settings.WindFromGame.value)
+                return Localization.Get("GameWindNow.Own");
+
+            UnityEngine.Vector3 direction;
+            float weather, rain, fog;
+            if (!GameWind.Read(out direction, out weather, out rain, out fog))
+                return Localization.Get("GameWindNow.NoCity");
+
+            float speed = GameWind.BaseSpeed * weather;
+            // As a flag's rotation, the way the "Angle" slider reads it (FlagProps.Direction).
+            float degrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(direction.z, direction.x) * UnityEngine.Mathf.Rad2Deg, 360f);
+            string text = Localization.Get("GameWindNow.Status", WindText(speed), degrees.ToString("F0"));
+            if (rain >= 0.01f)
+                text += Localization.Get("GameWindNow.Rain", (50f * rain).ToString("F0"));
+            if (fog >= 0.01f)
+                text += Localization.Get("GameWindNow.Fog", (50f * fog).ToString("F0"));
+            return text;
         }
 
         /// <summary>The game's options page: the mod itself, and the reset button at the very bottom.</summary>
@@ -1069,9 +1120,12 @@ namespace RealFlag.UI
                 AfterChange = ModController.RefreshButton,
             });
 
+            // The pause and the cloth: on this page and in the panel's Settings tab (the author:
+            // "give it as an option for users"), where a change can be watched as it happens.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
                 Options = OptionsPage.General,
                 Group = "Flags",
                 Bool = Settings.FreezeWhenPaused,
@@ -1079,12 +1133,10 @@ namespace RealFlag.UI
                 AfterChange = State("flags stop while the game is paused", OnOff(Settings.FreezeWhenPaused)),
             });
 
-            // The cloth: on this page and at the foot of the panel, under the wind (the author:
-            // "give it as an option for users"), where a change can be watched as it happens.
             Add(new Row
             {
                 Kind = RowKind.Choice,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Options = OptionsPage.General,
                 Group = "Cloth",
                 Int = Settings.ClothDetail,
@@ -1101,7 +1153,7 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Toggle,
-                Panel = PanelPage.Wind,
+                Panel = PanelPage.Settings,
                 Options = OptionsPage.General,
                 Bool = Settings.SelfCollision,
                 DefaultBool = Settings.Defaults.SelfCollision,

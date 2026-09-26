@@ -920,10 +920,11 @@ public static class ClothTests
     /// particle came to the pole's axis less the pole's own radius there, in cm, over the last
     /// 6 s (never inside the pole: at least 0).
     /// </summary>
-    public static string Pole(float wind, float yawDegrees)
+    public static string Pole(float wind, float yawDegrees, int ropes)
     {
         FlagSpec spec = FlagSpec.Default;
         spec.Pole = FlagPoleStyle.Ball;
+        spec.Ropes = ropes;
         FlagPoleShape shape = FlagPoleShape.For(spec, 10f);
         FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
         c.GroundY = -10f;
@@ -942,9 +943,10 @@ public static class ClothTests
             c.Step(dt, ref air);
             if (s * dt > 2f) { float st = c.MaxStretch(); if (st > worst) worst = st; }
             if (s * dt < 6f) continue;
+            // Every particle: the held ones hang off the pole on the halyard's line, and on a
+            // halyard the heading between its clips is as free as the rest.
             for (int k = 0; k < c.Count; k++)
             {
-                if (k % c.Columns == 0) continue;
                 double down = -c.Y[k];
                 if (down < -(shape.Tip - shape.Length) || down > shape.Length) continue;
                 double r = Math.Sqrt((c.X[k] - ax) * (c.X[k] - ax) + c.Z[k] * c.Z[k]) - (shape.RadiusAt(shape.Length) + growth * down);
@@ -952,6 +954,74 @@ public static class ClothTests
             }
         }
         return c.IsFinite() + "," + worst.ToString("F3", Inv) + "," + (nearest * 100.0).ToString("F1", Inv);
+    }
+
+    /// <summary>
+    /// A flag on a halyard (a drawn pole with its ropes: FlagCloth.SetHalyard): 8 s to settle,
+    /// then 12 s: the two clips where they are held (the worst error, mm); the heading's middle
+    /// off the hoist line, on average and at most, as a share of the hoist; the worst stretch;
+    /// the drawn triangles crossing (every 0.5 s); the links against the same flag sewn on; and
+    /// sewn on again, every hoist particle back on its line.
+    /// </summary>
+    public static string Halyard(float length, int detail, float wind)
+    {
+        FlagSpec spec = FlagSpec.Default;
+        spec.Length = length;
+        spec.Pole = FlagPoleStyle.Ball;
+        spec.Ropes = 2;
+        float height = 12f;
+        FlagPoleShape shape = FlagPoleShape.For(spec, height);
+        FlagCloth c = new FlagCloth(length, spec.Height, FlagFabric.Standard(1f), 1f, 0f, detail);
+        int sewnLinks = c.LinkCount;
+        c.GroundY = -height;
+        shape.ApplyTo(c, 1f, 0f, 0f);
+        int[] tris = Triangles(c.Columns, c.Rows);
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub, worst = 1f, clipError = 0f, bowMax = 0f;
+        double bowSum = 0;
+        int samples = 0, crossing = 0, bottom = (c.Rows - 1) * c.Columns, middle = c.Rows / 2 * c.Columns;
+        for (int step = 0; step < 20 * 60; step++)
+        {
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, height, 1f, length, step / 60f + i * dt, 0f, 0f);
+                c.Step(dt, ref air);
+            }
+            if (step < 8 * 60) continue;
+            float st = c.MaxStretch(); if (st > worst) worst = st;
+            float e = Math.Abs(c.X[0]) + Math.Abs(c.Y[0]) + Math.Abs(c.Z[0]) +
+                      Math.Abs(c.X[bottom]) + Math.Abs(c.Y[bottom] + shape.BottomClip) + Math.Abs(c.Z[bottom]);
+            if (e > clipError) clipError = e;
+            float bow = (float)Math.Sqrt(c.X[middle] * c.X[middle] + c.Z[middle] * c.Z[middle]);
+            bowSum += bow; samples++;
+            if (bow > bowMax) bowMax = bow;
+            if (step % 30 == 0) crossing += CrossingPairs(c, tris);
+        }
+        bool clipped = c.Clipped, finite = c.IsFinite();
+        int halyardLinks = c.LinkCount;
+        c.SetHalyard(false);
+        float off = 0f;
+        for (int j = 0; j < c.Rows; j++)
+        {
+            int k = j * c.Columns;
+            off = Math.Max(off, Math.Abs(c.X[k]) + Math.Abs(c.Y[k] + j * c.CellV) + Math.Abs(c.Z[k]));
+        }
+        bool links = halyardLinks > sewnLinks && c.LinkCount == sewnLinks;
+        return finite + "," + clipped + "," + (clipError * 1000f).ToString("F3", Inv) + "," + (bowSum / samples / spec.Height).ToString("F3", Inv) + "," +
+               (bowMax / spec.Height).ToString("F3", Inv) + "," + worst.ToString("F3", Inv) + "," + crossing + "," + links + "," +
+               (off * 1000f).ToString("F3", Inv) + "," + c.Columns + "x" + c.Rows;
+    }
+
+    /// <summary>Where the lower rope ends, down from the anchor: a 3 x 2 m flag with two ropes and with none.</summary>
+    public static string BottomClip()
+    {
+        FlagSpec spec = FlagSpec.Default;
+        spec.Pole = FlagPoleStyle.Ball;
+        spec.Ropes = 2;
+        float with = FlagPoleShape.For(spec, 10f).BottomClip;
+        spec.Ropes = 0;
+        float without = FlagPoleShape.For(spec, 10f).BottomClip;
+        return with.ToString("F3", Inv) + "," + without.ToString("F3", Inv);
     }
 
     /// <summary>
@@ -1090,6 +1160,39 @@ public static class ClothTests
                (ClothPlan.PausedTime(0f, 1f, 0.5f)).ToString("F2", Inv);
     }
 
+    /// <summary>
+    /// The flags a search along a whole ray walks (FlagPicking.Props, for Move It's pointer):
+    /// three published, one taken away, one published twice, then all cleared -- and every
+    /// snapshot handed out left as it was.
+    /// </summary>
+    public static string PickRegistry()
+    {
+        FlagPicking.Clear();
+        FlagPicking.Publish(5, new PickShape());
+        FlagPicking.Publish(9, new PickShape());
+        uint[] before = FlagPicking.Props;
+        FlagPicking.Publish(700, new PickShape());
+        FlagPicking.Publish(9, null);
+        FlagPicking.Publish(5, new PickShape());
+        string now = string.Join(" ", Array.ConvertAll(FlagPicking.Props, p => p.ToString()));
+        string kept = string.Join(" ", Array.ConvertAll(before, p => p.ToString()));
+        FlagPicking.Clear();
+        return now + "|" + kept + "|" + FlagPicking.Props.Length;
+    }
+
+    /// <summary>What the colour picker's Paste and its field take: the first colour code in the text, or none.</summary>
+    public static string Pasted()
+    {
+        string[] texts = { "#1a2b3c", " 1A2B3C ", "#abc", "abc", "color: #FF8800;", "0x00FF00", "  #ff0000 and #00ff00", "#12345", "#1234567", "rgb(1,2,3)", "#GG0000", "" };
+        string result = "";
+        foreach (string t in texts)
+        {
+            uint v;
+            result += (result.Length > 0 ? " " : "") + (FlagColours.FindHex(t, out v) ? FlagColours.Hex(v) : "refused");
+        }
+        return result;
+    }
+
     public static string Colours()
     {
         uint v;
@@ -1200,11 +1303,25 @@ foreach ($case in @(@(45, 0, 0), @(45, 0, 6), @(45, 0, 12), @(90, 0, 6), @(30, 2
 }
 $turn = [ClothTests]::TurnHoist() -split ","
 Check "a flying flag's hoist tilted 45 deg: the cloth turns whole, its hoist on the new line, flies on" ((N $turn[0]) -lt 0.5 -and $turn[1] -eq "True" -and $turn[2] -eq "True" -and (N $turn[3]) -lt 1.12 -and $turn[4] -eq "True") ("distances changed at most " + $turn[0] + " mm, then 3 s: worst stretch " + $turn[3])
-foreach ($case in @(@(0, 0), @(2, 180), @(6, 180), @(12, 180), @(6, 90))) {
-    $pl = [ClothTests]::Pole($case[0], $case[1]) -split ","
-    # Contact stretches the links that hold the cloth against the pole, as it does against itself (the self-collision checks allow 30%).
-    Check ("the cloth keeps off its pole: {0} m/s, wind {1} deg off its heading" -f $case[0], $case[1]) ($pl[0] -eq "True" -and (N $pl[2]) -ge -0.05 -and (N $pl[1]) -lt 1.20) ("nearest free particle " + $pl[2] + " cm off the pole's surface, worst stretch " + $pl[1])
+foreach ($ropes in @(0, 2)) {
+    foreach ($case in @(@(0, 0), @(2, 180), @(6, 180), @(12, 180), @(6, 90))) {
+        $pl = [ClothTests]::Pole($case[0], $case[1], $ropes) -split ","
+        # Contact stretches the links that hold the cloth against the pole, as it does against itself
+        # (the self-collision checks allow 30%). On a halyard the free heading is pressed round the
+        # pole between its clips, and the link next to a clip takes it: 20-22% at worst for moments
+        # (median 6-8%, 95% of frames under 16%; the scratchpad's profile, 2026-09-26).
+        $limit = $(if ($ropes -gt 0) { 1.25 } else { 1.20 })
+        Check ("the cloth keeps off its pole ({2}): {0} m/s, wind {1} deg off its heading" -f $case[0], $case[1], $(if ($ropes -gt 0) { "on its halyard" } else { "sewn on" })) ($pl[0] -eq "True" -and (N $pl[2]) -ge -0.05 -and (N $pl[1]) -lt $limit) ("nearest particle " + $pl[2] + " cm off the pole's surface, worst stretch " + $pl[1])
+    }
 }
+# On a halyard: held by the two clips alone; the heading between bows out -- at most as far as the
+# middle of a string 3% longer than the line between its ends can, 0.12 of the hoist.
+foreach ($case in @(@(3, 18, 0), @(3, 18, 6), @(3, 18, 12), @(3, 32, 6), @(8.1, 32, 6))) {
+    $h = [ClothTests]::Halyard($case[0], $case[1], $case[2]) -split ","
+    Check ("on its halyard: a {0} m flag at {1} cells, {2} m/s, held by its clips alone, its heading bowing, whole" -f $case[0], $case[1], $case[2]) ($h[0] -eq "True" -and $h[1] -eq "True" -and (N $h[2]) -lt 0.01 -and (N $h[3]) -gt 0.03 -and (N $h[4]) -lt 0.14 -and (N $h[5]) -lt 1.15 -and (N $h[6]) -eq 0 -and $h[7] -eq "True" -and (N $h[8]) -lt 0.01) ($h[9] + ": clips off by " + $h[2] + " mm; the heading's middle " + $h[3] + " of the hoist off its line on average, " + $h[4] + " at most; worst stretch " + $h[5] + "; " + $h[6] + " crossing pairs; its links made again both ways: " + $h[7] + "; sewn on again, off its line by " + $h[8] + " mm")
+}
+$bc = [ClothTests]::BottomClip() -split ","
+Check "the lower rope ends at the bottom clip: 3% of the hoist up on a halyard, at the hoist's foot without ropes" ([Math]::Abs((N $bc[0]) - 0.97 * (N $bc[1])) -lt 0.001) ($bc[1] + " m hoist: " + $bc[0] + " m down with ropes, " + $bc[1] + " m without")
 $ps = [ClothTests]::PoleSizes() -split ","
 $sizes = $ps[0] -split " " | ForEach-Object { [int](($_ -split "/")[0]) }
 Check "the pole's foot as the makers size it: ~16 cm for 3 x 2 m on 10 m, ~13 for 2.4 x 1.5 m on 9 m, 80-100 for a 30 m flag on 22 m" ($sizes[0] -ge 14 -and $sizes[0] -le 18 -and $sizes[1] -ge 11 -and $sizes[1] -le 15 -and $sizes[2] -ge 80 -and $sizes[2] -le 100 -and $ps[1] -eq "True" -and $ps[2] -eq "True") ("foot/top/hoist off the axis, cm: " + $ps[0] + "; hoist clear of the pole: " + $ps[1])
@@ -1297,6 +1414,10 @@ Check "a spec from a save or a paste is pulled into range" ([ClothTests]::Saniti
 
 $colours = [ClothTests]::Colours() -split "\|"
 Check "hex colours read and written" ($colours[0] -eq "#1A2B3C #00FF00 refused refused") $colours[0]
+$reg = [ClothTests]::PickRegistry()
+Check "the flags Move It's pointer walks: published, taken away, once each; a snapshot is never changed" ($reg -eq "5 700|5 9|0") $reg
+$pasted = [ClothTests]::Pasted()
+Check "a pasted colour code: alone, short, inside other text; the first of two; nothing that is not one" ($pasted -eq "#1A2B3C #1A2B3C #AABBCC #AABBCC #FF8800 #00FF00 #FF0000 refused refused refused refused refused") $pasted
 Check "every palette colour survives HSV and back" ($colours[1] -eq "0") ($colours[1] + " changed")
 Check "sRGB 0.5 is linear 0.2140, 1 is 1" ($colours[2] -eq "0.2140" -and $colours[3] -eq "1.0000") ($colours[2] + ", " + $colours[3])
 

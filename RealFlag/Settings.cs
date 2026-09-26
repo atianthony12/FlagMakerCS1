@@ -16,7 +16,8 @@ namespace RealFlag
     /// defaults" exist at all. A setting does NOT remember its default.
     ///
     /// The flags themselves are not settings: each is kept with its city (FlagSaveData). What
-    /// is here is the wind, how the NEXT flag is made (the Create new tab), and the mod itself.
+    /// is here is the wind when it is not the game's, how the NEXT flag is made (the Create new
+    /// tab), and the mod itself.
     /// The Existing flags tab's controls are TRANSIENT settings: panel controls over the selected
     /// flag, never written to the file (Volumetric Explosions' launch platform editor).
     ///
@@ -57,7 +58,13 @@ namespace RealFlag
         /// <summary>The cloth keeps out of itself (FlagCloth.CollisionThickness): its folds lie on one another instead of through.</summary>
         public static BoolSetting SelfCollision { get; private set; }
 
-        // ---- the wind (the panel's foot, under both tabs) ----
+        // ---- the wind (the panel's Settings tab) ----
+
+        /// <summary>
+        /// The game's wind (GameWind: its direction, its weather, its wind map) -- the default --
+        /// or the player's own: the four settings below.
+        /// </summary>
+        public static BoolSetting WindFromGame { get; private set; }
 
         /// <summary>The mean wind at 10 m over the ground, m/s: the weather stations' height, the Beaufort scale's.</summary>
         public static FloatSetting WindSpeed { get; private set; }
@@ -171,6 +178,9 @@ namespace RealFlag
             public const bool SelfCollision = true;
 
             // ---- the wind ----
+            /// <summary>The game's wind, until the player sets their own.</summary>
+            public const bool WindFromGame = true;
+
             /// <summary>m/s: Beaufort 3, "gentle breeze" -- "wind extends light flag".</summary>
             public const float WindSpeed = 5f;
             public const float WindGusts = 1f;
@@ -238,6 +248,7 @@ namespace RealFlag
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
 
+                WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);
                 WindGusts = new FloatSetting("WindGusts", Defaults.WindGusts);
                 WindMode = new IntSetting("WindMode", Defaults.WindMode);

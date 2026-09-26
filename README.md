@@ -17,7 +17,8 @@ Open the panel with **F6** (or its Unified UI button).
 Wales, Northern Ireland, the EU and the UN, flown as it is at its own proportions (search by
 name or code) -- or a pattern (plain, bands, crosses, a saltire, a canton, stripes and
 canton, a disc, a hoist triangle, a diagonal band, a border) in up to three colours (a palette,
-or hue, saturation and brightness); then the size (hoist to fly, 0.5 to 30 m), the proportions
+hue, saturation and brightness, or a hex code typed, pasted or copied); then the size (hoist to
+fly, 0.5 to 30 m), the proportions
 (1:1 to 1:2, a pattern's), how wavy the cloth is, the way it points and its height over the
 ground. Press
 **Place flags** and click where the pole would stand: the flag appears, blowing, at the chosen
@@ -29,7 +30,9 @@ is for a pole of your own -- or a pole the mod draws from whatever the flag stan
 the flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
 a flash collar at its foot, a truck at its top and a gilt ball, a flat cap or a spear on it,
 one or two halyard lines, your colours for the pole, its top and its ropes, and a thickness to
-taste. The cloth keeps off it: a flag the wind turns back over its pole wraps round it. Here
+taste. With ropes, the flag hangs from its top and bottom clips only, as a hoisted flag does,
+and its edge bows out between them in the wind; without, it is held along its whole edge. The
+cloth keeps off the pole: a flag the wind turns back over its pole wraps round it. Here
 too the pole's **tilt** and **lean** (a wall-mounted pole leans 30 to 45 degrees, a horizontal
 one 90) -- the flag hangs from the tilted line whether a pole is drawn or not.
 
@@ -41,20 +44,25 @@ go finely. Click elsewhere on the map, right-click or press Esc to let it go (Es
 puts the flag back). **Go to** flies the camera there, **Copy to Create new** takes its design
 for the next ones, **Delete** removes it.
 
+**Settings**: the **wind** is the game's own by default -- its direction, which turns slowly
+over time; a gentle breeze made stronger by rain and calmer by fog, as the game's weather has
+it; more wind on hills and less in valleys and by forests, as on the game's wind map; and more
+the higher a flag flies. Or switch it off and set your own: the speed at 10 m (the panel shows
+its Beaufort force), how gusty it is, and where it blows -- along each flag (every flag flies
+the way it was placed), one fixed direction for all, or the game's direction at your speed.
+Here too the **cloth detail** and whether the cloth **collides with itself**, and whether flags
+stop while the game is paused.
+
 **While the game is paused** the flags stand still (an option), but a flag you move, turn or
 redesign comes to life under your hand and settles back into a still a moment after.
-
-**Wind**, under both tabs: the wind speed at 10 m (the panel shows its Beaufort force; higher
-flags get more wind), how gusty it is, and where it blows: along each flag (every flag flies
-the way it was placed), one fixed direction for all, or the game's own wind. Rain adds to it.
 
 ### With Move It
 
 Flags are the game's props, so **Move It** selects, moves, turns, raises, copies, mirrors and
 deletes them like any other, with undo. A copied flag keeps its design. A flag is picked
 anywhere on or near its cloth, along its hoist edge or on its pole -- a wide target even seen
-edge on -- and Move It's highlight outlines the whole flag: these two need the Harmony mod,
-which the game offers to subscribe to when it is missing.
+edge on, however high it flies -- and Move It's highlight covers the whole flag and its pole:
+these need the Harmony mod, which the game offers to subscribe to when it is missing.
 
 ## How it works
 
@@ -78,6 +86,8 @@ which the game offers to subscribe to when it is missing.
 - **The pole** is sized as flagpoles are, for the wind's bending moment on its flag at its
   height (its foot grows as the cube root of flag area times height), and is a cylinder the
   cloth's particles keep off. A tilted hoist turns the whole cloth with it (Rodrigues' rotation).
+  On its halyard a flag is held at its two clips, the lower drawn up 3% of the hoist (a halyard
+  is never bar-tight), and its heading -- stiffer than the flag, as canvas is -- is free between.
 - **The air** acts on it as the theory of the fluttering flag has it: the added mass of the air
   the cloth carries sideways, pushed along by the flow (Lighthill 1960; Eloy, Souilliez and
   Schouveiler 2007), which is what makes a flag in a steady wind flutter by itself, and a flat
@@ -88,7 +98,9 @@ which the game offers to subscribe to when it is missing.
   stiffer and rougher its cloth.
 - **The wind** follows the Eurocode for towns (EN 1991-1-4): more wind higher up, gusts of the
   right size and strength, and eddies the size of a flag carried past it with the wind, so
-  flags a few metres apart feel the same gust one after the other.
+  flags a few metres apart feel the same gust one after the other. The game's own wind, which
+  has a direction but no speed, gives it its direction, and its weather and wind map (the ones
+  its wind turbines use) make a gentle breeze stronger or calmer.
 - **The shader** is a two-sided fabric: the "Charlie" sheen of cloth at grazing angles
   (Estevez and Kulla 2017; Neubelt and Pettineo 2013), light shining through the cloth from
   behind (GPU Gems ch. 16), and the design drawn from its colours -- or a country's flag from

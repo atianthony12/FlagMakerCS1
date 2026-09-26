@@ -233,6 +233,16 @@ namespace RealFlag.Flags
         /// <summary>The reactive term's ceiling, m/s^2 (see Step).</summary>
         private const float MaxReactive = 4000f;
 
+        /// <summary>
+        /// On a halyard (<see cref="SetHalyard"/>), how much nearer the top the bottom clip is held
+        /// than the hoist is long: a share of it. A halyard is hauled taut by hand and cleated,
+        /// never bar-tight, and it stretches under the flag's pull, so the heading between the
+        /// clips is a little longer than the line between them and bows out -- as far as the
+        /// middle of a string of that length can, H sqrt(3 s / 8) for a small share s: 0.03 lets
+        /// a 2 m hoist bow about 20 cm.
+        /// </summary>
+        public const float HalyardSlack = 0.03f;
+
         public readonly int Columns;
         public readonly int Rows;
         public readonly int Count;
@@ -270,7 +280,7 @@ namespace RealFlag.Flags
         /// <summary>
         /// The hoist edge's direction from the top corner down (unit): (0, -1, 0) unless the flag
         /// hangs from a tilted pole (FlagOrientation). The hoist's particles are pinned on it,
-        /// particle (0, j) at j * CellV along it.
+        /// particle (0, j) at j * CellV along it -- on a halyard only the two clips (SetHalyard).
         /// </summary>
         private float _hx, _hy = -1f, _hz;
 
@@ -288,6 +298,9 @@ namespace RealFlag.Flags
         {
             get { return _hz; }
         }
+
+        /// <summary>Held by its two grommets on a halyard, not along its whole hoist (<see cref="SetHalyard"/>).</summary>
+        private bool _clipped;
 
         /// <summary>The pole the cloth keeps off (SetPole): its axis through a point, along the hoist; its radius there and its growth per metre down; its extent down the axis; the margin kept off it.</summary>
         private bool _poleOn;
@@ -326,7 +339,18 @@ namespace RealFlag.Flags
 
         private FlagFabric _fabric;
 
-        private const byte Structural = 0, ShearLink = 1, BendLink = 2;
+        private const byte Structural = 0, ShearLink = 1, BendLink = 2, HeadingLink = 3;
+
+        /// <summary>
+        /// The heading's stiffness in bending over one step, 0..1: the hoist's own two-apart links,
+        /// which only a flag on a halyard has free (<see cref="SetHalyard"/>). A heading is a strip
+        /// of canvas sewn double over the flag's edge, far stiffer than the flag. Measured (a 3 m
+        /// flag at Normal on a halyard, calm, 12 s): at the flag's own 0.1 the slack heading
+        /// folded into the cloth and self-collision locked the folds -- 26% stretch against the
+        /// pole, 35% without one; at 0.6, 6.5% and 4%, the heading a smooth bow; at 1.0 too stiff
+        /// to bow smoothly, 26% again.
+        /// </summary>
+        public const float HeadingBend = 0.6f;
 
         /// <summary>
         /// Self-collision's working arrays: each particle's column and row, the spatial hash (a
@@ -492,6 +516,7 @@ namespace RealFlag.Flags
             float structural = PerPass(1f, n);
             float shear = PerPass(fabric.Shear, n);
             float bend = PerPass(fabric.Bend, n);
+            float heading = PerPass(Math.Max(fabric.Bend, HeadingBend), n);
 
             for (int c = 0; c < _links; c++)
             {
@@ -504,6 +529,10 @@ namespace RealFlag.Flags
                     case ShearLink:
                         _kOut[c] = shear;
                         _kIn[c] = shear * fabric.Compression;
+                        break;
+                    case HeadingLink:
+                        _kOut[c] = heading;
+                        _kIn[c] = heading;
                         break;
                     default:
                         // A fold IS the two-apart link being shortened: that is the bending stiffness.
@@ -564,11 +593,12 @@ namespace RealFlag.Flags
 
             for (int j = 0; j < Rows; j++)
             {
-                float down = j * CellV;
                 for (int i = 0; i < Columns; i++)
                 {
                     int k = j * Columns + i;
                     float u = i * CellU;
+                    // The hoist on its line: on a halyard, drawn up between its clips.
+                    float down = i == 0 ? HoistDown(j) : j * CellV;
                     float wobble = i == 0 ? 0f : 0.002f * Length * FlagNoise.Value1(k * 0.37f, 5);
                     X[k] = down * hx + u * fx + wobble * wx;
                     Y[k] = down * hy + u * fy + wobble * wy;
@@ -626,18 +656,70 @@ namespace RealFlag.Flags
             }
 
             _hx = x; _hy = y; _hz = z;
-            for (int j = 0; j < Rows; j++)
-            {
-                int k = j * Columns;
-                float down = j * CellV;
-                X[k] = down * x; Y[k] = down * y; Z[k] = down * z;
-                PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
-                Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
-            }
+            PinHoist();
 
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _primed = false;
             _listed = false;
+        }
+
+        /// <summary>
+        /// Hoisted on a halyard (a pole the mod draws, with its ropes) or not. On one, the flag
+        /// hangs from its two grommets alone -- the top clip at the anchor, the bottom one
+        /// <see cref="HalyardSlack"/> of the hoist nearer it -- and the heading between them is
+        /// free: it bows out in the wind and the flag works in the middle, as a flag on a pole's
+        /// ropes does (the author: "In real life, flags that are hoisted on ropes are attached
+        /// only by the top and bottom, creating a nice effect in the middle of the flag").
+        /// Otherwise the whole hoist is held on its line: sewn to a pole, or fixed to one of the
+        /// city's own, whose ropes the mod cannot know. Set between steps; the links are made
+        /// again for the particles now held or free.
+        /// </summary>
+        public void SetHalyard(bool clipped)
+        {
+            if (clipped == _clipped)
+                return;
+
+            _clipped = clipped;
+            for (int j = 0; j < Rows; j++)
+                _invMass[j * Columns] = clipped && j > 0 && j < Rows - 1 ? 1f : 0f;
+
+            BuildLinks();
+            SetFabric(_fabric);
+            PinHoist();
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+            _listed = false;
+        }
+
+        /// <summary>True on a halyard: held by its two grommets only.</summary>
+        public bool Clipped
+        {
+            get { return _clipped; }
+        }
+
+        /// <summary>
+        /// How far down the hoist's line particle (0, <paramref name="j"/>) is held -- or, free on
+        /// a halyard, laid out: on one, the hoist is drawn up <see cref="HalyardSlack"/> between
+        /// its clips.
+        /// </summary>
+        private float HoistDown(int j)
+        {
+            return _clipped ? j * CellV * (1f - HalyardSlack) : j * CellV;
+        }
+
+        /// <summary>Every held particle of the hoist onto its place on the hoist's line, still.</summary>
+        private void PinHoist()
+        {
+            for (int j = 0; j < Rows; j++)
+            {
+                int k = j * Columns;
+                if (_invMass[k] != 0f)
+                    continue;
+
+                float down = HoistDown(j);
+                X[k] = down * _hx; Y[k] = down * _hy; Z[k] = down * _hz;
+                PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
+                Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
+            }
         }
 
         /// <summary>v cos + (k x v) sin + k (k . v)(1 - cos), for every vector of the three arrays.</summary>
@@ -708,9 +790,10 @@ namespace RealFlag.Flags
             float scale = Length / old.Length;
             int oc = old.Columns, orows = old.Rows;
 
-            // The same flag: it hangs from the same line.
+            // The same flag: it hangs from the same line, the same way (sewn on, or clipped to a halyard).
             float hx = old._hx, hy = old._hy, hz = old._hz;
             _hx = hx; _hy = hy; _hz = hz;
+            SetHalyard(old._clipped);
 
             for (int j = 0; j < Rows; j++)
             {
@@ -728,9 +811,11 @@ namespace RealFlag.Flags
                 {
                     int k = j * Columns + i;
 
-                    if (i == 0)
+                    // Held (the hoist, or on a halyard its two clips): on the line, where PinHoist puts it.
+                    if (_invMass[k] == 0f)
                     {
-                        X[k] = hoistX; Y[k] = hoistY; Z[k] = hoistZ;
+                        float held = HoistDown(j);
+                        X[k] = held * hx; Y[k] = held * hy; Z[k] = held * hz;
                         PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
                         Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
                         continue;
@@ -1072,7 +1157,8 @@ namespace RealFlag.Flags
         /// distance of three hoist points: its own row's (which stops the rows stretching) and
         /// the two corners (which stop the cloth sagging or rising away from the hoist -- the
         /// vertical stretch the row alone lets through in a strong wind). The hoist is pinned,
-        /// so its points are where the pole would be. Written out (Mono inlines nothing).
+        /// so its points are where the pole would be -- on a halyard only its two clips are, and
+        /// the rows between hang from the corners alone. Written out (Mono inlines nothing).
         /// </summary>
         private void Attach()
         {
@@ -1088,18 +1174,26 @@ namespace RealFlag.Flags
                 int row = j * cols;
                 float hx = px[row], hy = py[row], hz = pz[row];
 
-                for (int i = 1; i < cols; i++)
+                // A row held at the hoist is tethered to its point there. On a halyard the rows
+                // between the clips hang from the free heading: only the clips are fixed points,
+                // and the heading's own particles are tethered to them like the rest.
+                bool held = _invMass[row] == 0f;
+                for (int i = held ? 1 : 0; i < cols; i++)
                 {
                     int k = row + i;
                     float x = px[k], y = py[k], z = pz[k];
+                    float dx, dy, dz, d2, reach;
 
-                    float dx = x - hx, dy = y - hy, dz = z - hz;
-                    float d2 = dx * dx + dy * dy + dz * dz;
-                    float reach = _tether[k];
-                    if (d2 > reach * reach)
+                    if (held)
                     {
-                        float s = reach / (float)Math.Sqrt(d2);
-                        x = hx + dx * s; y = hy + dy * s; z = hz + dz * s;
+                        dx = x - hx; dy = y - hy; dz = z - hz;
+                        d2 = dx * dx + dy * dy + dz * dz;
+                        reach = _tether[k];
+                        if (d2 > reach * reach)
+                        {
+                            float s = reach / (float)Math.Sqrt(d2);
+                            x = hx + dx * s; y = hy + dy * s; z = hz + dz * s;
+                        }
                     }
 
                     dx = x - tx0; dy = y - ty0; dz = z - tz0;
@@ -1397,7 +1491,7 @@ namespace RealFlag.Flags
 
             for (int j = 0; j < Rows - 2; j++)
                 for (int i = 0; i < Columns; i++)
-                    Link(j * Columns + i, (j + 2) * Columns + i, BendLink);
+                    Link(j * Columns + i, (j + 2) * Columns + i, i == 0 ? HeadingLink : BendLink);
         }
 
         private void Link(int a, int b, byte kind)

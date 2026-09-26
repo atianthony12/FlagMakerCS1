@@ -127,9 +127,9 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Esc or the right button: one step back -- a drag given up (the flag back where it was),
-        /// else the selection let go, else the tool put away.
+        /// else the selection let go, else the tool put away. Says which, for the log.
         /// </summary>
-        public static void StepBack()
+        public static string StepBack()
         {
             FlagTool tool = Instance;
             if (tool != null && tool._gizmo.IsDragging)
@@ -137,16 +137,17 @@ namespace RealFlag.Flags
                 tool._gizmo.Cancel();
                 FlagEditor.ApplyTransform(tool._gizmo.Anchor, tool._gizmo.Angle, tool._gizmo.Tilt, tool._gizmo.Lean);
                 Log.Msg("flags: the drag was given up; the flag is back where it was");
-                return;
+                return "the drag given up";
             }
 
             if (tool != null && tool.CurrentMode == Mode.Pick && FlagEditor.Selected != 0)
             {
                 FlagEditor.Deselect();
-                return;
+                return "the selection let go";
             }
 
             PutAway();
+            return "the tool put away";
         }
 
         /// <summary>Destroys the tool (the city is unloading): the default tool first, if ours is out.</summary>
@@ -278,6 +279,11 @@ namespace RealFlag.Flags
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
+                // Typing in a text field (a colour's code, the country search): Esc is the
+                // field's -- it gives the edit up -- and the game's shortcuts leave it alone too.
+                if (ColossalFramework.UI.UIView.HasInputFocus())
+                    return;
+
                 if (!UI.FlagsPanel.CatchEscape())
                     StepBack();
                 return;

@@ -301,7 +301,7 @@ namespace RealFlag.Flags
                 return;
 
             float sheave = s.ShaftTop + 0.5f * s.TruckHeight;
-            float grommetTop = s.Length, grommetBottom = s.Length - s.FlagHeight;
+            float grommetTop = s.Length, grommetBottom = s.Length - s.BottomClip;
             float cleatOut = s.RadiusAt(s.Cleat) + s.RopeRadius;
             var cleat = new Vector3(cleatOut, s.Cleat, 0f);
 

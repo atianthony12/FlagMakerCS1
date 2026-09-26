@@ -29,11 +29,13 @@ namespace RealFlag
                         ", colour space " + QualitySettings.activeColorSpace +
                         " | Harmony patches " + (Patcher.IsPatched ? "on" : "OFF (flags are picked only just above their top corner)"));
 
-                Log.Msg("features: wind=" + Value(Settings.WindSpeed, Settings.Defaults.WindSpeed).ToString("F1") + "m/s at 10 m" +
-                        " gusts=" + Percent(Settings.WindGusts, Settings.Defaults.WindGusts) +
-                        " direction=" + Settings.WindModes.LogName(Settings.WindMode != null ? Settings.WindMode.value : Settings.Defaults.WindMode) +
-                        (Settings.WindMode != null && Settings.WindMode.value == Settings.WindModes.Fixed
-                            ? " " + Value(Settings.WindDirection, 0f).ToString("F0") + "deg" : "") +
+                bool gameWind = Settings.WindFromGame == null || Settings.WindFromGame.value;
+                Log.Msg("features: wind=" + (gameWind ? "the game's" : "own") +
+                        (gameWind ? "" : " " + Value(Settings.WindSpeed, Settings.Defaults.WindSpeed).ToString("F1") + "m/s at 10 m" +
+                                         " gusts=" + Percent(Settings.WindGusts, Settings.Defaults.WindGusts) +
+                                         " direction=" + Settings.WindModes.LogName(Settings.WindMode != null ? Settings.WindMode.value : Settings.Defaults.WindMode) +
+                                         (Settings.WindMode != null && Settings.WindMode.value == Settings.WindModes.Fixed
+                                             ? " " + Value(Settings.WindDirection, 0f).ToString("F0") + "deg" : "")) +
                         " freeze when paused=" + (Settings.FreezeWhenPaused == null || Settings.FreezeWhenPaused.value ? "on" : "off") +
                         " | next flag: " + Settings.NewSpec().Describe() +
                         ", " + Value(Settings.NewHeight, Settings.Defaults.Height).ToString("F1") + " m up, " +

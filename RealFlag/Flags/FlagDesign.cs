@@ -173,6 +173,58 @@ namespace RealFlag.Flags
             return true;
         }
 
+        /// <summary>
+        /// The first colour code in any text a player might paste: "#RRGGBB" or "RRGGBB" alone,
+        /// "0xRRGGBB", CSS's short "#RGB" (each digit doubled), or a "#RRGGBB" / "#RGB" inside
+        /// other text ("color: #1a2b3c;"). Case does not matter.
+        /// </summary>
+        public static bool FindHex(string text, out uint rgb)
+        {
+            rgb = 0;
+            if (text == null)
+                return false;
+
+            if (TryParseHex(text, out rgb))
+                return true;
+
+            string t = text.Trim();
+            if (t.Length == 3 && HexDigits(t, 0) == 3)
+                return Short(t, 0, out rgb);
+
+            for (int i = t.IndexOf('#'); i >= 0 && i < t.Length; i = t.IndexOf('#', i + 1))
+            {
+                int digits = HexDigits(t, i + 1);
+                if (digits == 6)
+                    return TryParseHex(t.Substring(i + 1, 6), out rgb);
+                if (digits == 3)
+                    return Short(t, i + 1, out rgb);
+            }
+
+            return false;
+        }
+
+        /// <summary>How many hex digits run from <paramref name="start"/>.</summary>
+        private static int HexDigits(string t, int start)
+        {
+            int n = 0;
+            while (start + n < t.Length)
+            {
+                char c = t[start + n];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                    break;
+                n++;
+            }
+
+            return n;
+        }
+
+        /// <summary>"#RGB": each digit doubled.</summary>
+        private static bool Short(string t, int start, out uint rgb)
+        {
+            string full = new string(new[] { t[start], t[start], t[start + 1], t[start + 1], t[start + 2], t[start + 2] });
+            return TryParseHex(full, out rgb);
+        }
+
         /// <summary>sRGB 0..255 channels of a packed colour.</summary>
         public static void Channels(uint rgb, out int r, out int g, out int b)
         {

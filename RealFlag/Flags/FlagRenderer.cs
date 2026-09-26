@@ -404,7 +404,11 @@ namespace RealFlag.Flags
             f.PoleMesh = null;
             f.PoleApplied = false;
             if (f.Cloth != null)
+            {
+                // No pole, no ropes: the hoist held along its line again.
                 f.Cloth.ClearPole();
+                f.Cloth.SetHalyard(false);
+            }
         }
 
         /// <summary>
@@ -1149,11 +1153,12 @@ namespace RealFlag.Flags
 
             Vector3 dir = wind.DirectionFor(f.Angle);
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
-            float speed = FlagWind.SpeedAt(wind.Speed, height);
+            float at10 = wind.SpeedFor(f.Anchor, f.Ground);
+            float speed = FlagWind.SpeedAt(at10, height);
             var job = new ClothJob
             {
                 Cloth = f.Cloth,
-                Speed = wind.Speed,
+                Speed = at10,
                 Gusts = wind.Gusts,
                 DirX = dir.x,
                 DirZ = dir.z,
@@ -1511,7 +1516,7 @@ namespace RealFlag.Flags
                            ", " + (1000.0 * _unitCost).ToString("F2") + " us a particle step | " + _stepsThisReport + " cloth steps in " +
                            seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") + " | in view by detail " +
                            DetailsInView() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
-                           Settings.WindModes.LogName(w.Mode));
+                           w.Describe());
             }
 
             _costMs = 0.0;
@@ -1668,7 +1673,7 @@ namespace RealFlag.Flags
             {
                 if (f.HasAnchor && (f.Anchor - position).sqrMagnitude < 0.25f)
                 {
-                    world = f.World;
+                    world = OutlineBox(f);
                     return true;
                 }
             }
@@ -1682,14 +1687,35 @@ namespace RealFlag.Flags
         {
             FlagInstance f;
             if (FlagTool.Hovered != 0 && FlagTool.Hovered != FlagEditor.Selected && _byProp.TryGetValue(FlagTool.Hovered, out f) && f.Visible)
-                Outline(cameraInfo, f.World, new Color(1f, 0.85f, 0.35f, 0.55f));
+                Outline(cameraInfo, OutlineBox(f), new Color(1f, 0.85f, 0.35f, 0.55f));
         }
 
-        /// <summary>The game's overlay over a flag: a disc round its box, painted on whatever lies within the box's height.</summary>
+        /// <summary>What a flag's outline covers: its cloth as drawn, and its pole from foot to tip when the mod draws one.</summary>
+        private static Bounds OutlineBox(FlagInstance f)
+        {
+            Bounds box = f.World;
+            if (f.Spec.HasPole && f.PoleMesh != null)
+            {
+                FlagPoleShape pole = f.PoleShape;
+                Vector3 foot = f.Anchor - f.Fly * pole.Offset + f.Hoist * pole.Length;
+                box.Encapsulate(foot);
+                box.Encapsulate(foot - f.Hoist * pole.Tip);
+            }
+
+            return box;
+        }
+
+        /// <summary>
+        /// The game's overlay over a flag (Move It's and the bulldozer's highlight, our tool's
+        /// hover): a disc over the whole of it, painted on whatever lies within its height --
+        /// the cloth, the pole, what the pole stands on. The disc spans the box's diagonal, so a
+        /// flag flying across the axes is covered to its corners (the author: "the selector is
+        /// too small"; the first disc spanned the box's wider side only).
+        /// </summary>
         public static void Outline(RenderManager.CameraInfo cameraInfo, Bounds world, Color colour)
         {
             Vector3 c = world.center;
-            float size = Mathf.Max(world.size.x, world.size.z) + 0.6f;
+            float size = Mathf.Sqrt(world.size.x * world.size.x + world.size.z * world.size.z) + 1f;
             Singleton<RenderManager>.instance.OverlayEffect.DrawCircle(cameraInfo, colour, c, size, world.min.y - 0.5f, world.max.y + 0.5f,
                                                                       false, true);
             Singleton<ToolManager>.instance.m_drawCallData.m_overlayCalls++;
@@ -1713,18 +1739,41 @@ namespace RealFlag.Flags
     /// <summary>The wind this frame, as the panel sets it: speed at 10 m, gustiness, and where it blows.</summary>
     public struct Wind
     {
+        /// <summary>The game's wind (GameWind), not the player's own.</summary>
+        public bool FromGame;
+
+        /// <summary>
+        /// At 10 m, m/s: the player's own, or the game's over open level ground (GameWind.BaseSpeed
+        /// times its weather) -- each flag gets it times the game's wind map where it stands.
+        /// </summary>
         public float Speed;
+
         public float Gusts;
         public int Mode;
         public Vector3 Fixed;
 
+        /// <summary>The game's weather in it (its GetWindSpeedFactor), and the rain and fog behind that: for the panel's line.</summary>
+        public float Weather, Rain, Fog;
+
         public static Wind Current()
         {
+            bool fromGame = Settings.WindFromGame != null ? Settings.WindFromGame.value : Settings.Defaults.WindFromGame;
+            if (fromGame)
+            {
+                // The game's: its direction, its weather; gusts as a town's (EN 1991-1-4).
+                var g = new Wind { FromGame = true, Gusts = 1f, Mode = Settings.WindModes.Game };
+                GameWind.Read(out g.Fixed, out g.Weather, out g.Rain, out g.Fog);
+                g.Speed = GameWind.BaseSpeed * g.Weather;
+                return g;
+            }
+
+            // The player's own, exactly as set.
             var w = new Wind
             {
                 Speed = Settings.WindSpeed != null ? Mathf.Clamp(Settings.WindSpeed.value, 0f, 50f) : Settings.Defaults.WindSpeed,
                 Gusts = Settings.WindGusts != null ? Mathf.Clamp(Settings.WindGusts.value, 0f, 2f) : Settings.Defaults.WindGusts,
                 Mode = Settings.WindMode != null ? Settings.WindMode.value : Settings.Defaults.WindMode,
+                Weather = 1f,
             };
 
             if (w.Mode == Settings.WindModes.Fixed)
@@ -1734,19 +1783,8 @@ namespace RealFlag.Flags
             }
             else if (w.Mode == Settings.WindModes.Game)
             {
-                w.Fixed = GameDirection();
-            }
-
-            // More wind in rain, by the game's own rule for its wind turbines (1 + rain / 2), as
-            // Volumetric Explosions takes it.
-            try
-            {
-                WeatherManager weather = Singleton<WeatherManager>.instance;
-                if (weather != null)
-                    w.Speed *= 1f + 0.5f * Mathf.Clamp01(weather.m_currentRain);
-            }
-            catch (Exception)
-            {
+                float weather, rain, fog;
+                GameWind.Read(out w.Fixed, out weather, out rain, out fog);
             }
 
             return w;
@@ -1758,23 +1796,18 @@ namespace RealFlag.Flags
             return Mode == Settings.WindModes.EachFlag ? FlagProps.Direction(angle) : Fixed;
         }
 
-        /// <summary>The game's wind direction (WeatherManager.m_windDirection, degrees), as Volumetric Explosions reads it.</summary>
-        private static Vector3 GameDirection()
+        /// <summary>The wind at 10 m for a flag standing here over this ground: the game's wind map's share of it, or the player's own.</summary>
+        public float SpeedFor(Vector3 place, float ground)
         {
-            try
-            {
-                WeatherManager weather = Singleton<WeatherManager>.instance;
-                if (weather != null)
-                {
-                    float a = weather.m_windDirection * Mathf.Deg2Rad;
-                    return new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
-                }
-            }
-            catch (Exception)
-            {
-            }
+            return FromGame ? Speed * GameWind.Exposure(place, ground) : Speed;
+        }
 
-            return Vector3.right;
+        /// <summary>For the log: "the game's (5.8 m/s over open ground, weather x1.15)" or "fixed".</summary>
+        public string Describe()
+        {
+            return FromGame
+                ? "the game's (" + Speed.ToString("F1") + " m/s over open ground, weather x" + Weather.ToString("F2") + ")"
+                : Settings.WindModes.LogName(Mode);
         }
     }
 }

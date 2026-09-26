@@ -27,6 +27,7 @@ namespace RealFlag
             // Made during loading by FlagLoadingHook; made (and bound) here only if the mod was
             // switched on after the city had loaded.
             FlagPrefab.EnsureCreated(true);
+            Patcher.EnsureMoveIt();
 
             if (!CanDraw())
             {

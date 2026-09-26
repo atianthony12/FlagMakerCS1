@@ -162,7 +162,14 @@ namespace RealFlag.UI
                         control.Check.isChecked = row.Bool.value;
 
                     if (control.Swatch != null && row.Int != null)
+                    {
                         UIBuilder.SetSwatch(control.Swatch, (uint)row.Int.value);
+
+                        // Its code on it, to read off or type in elsewhere.
+                        string tip = row.Label + " " + FlagColours.Hex((uint)row.Int.value) + ": " + row.Tooltip;
+                        if (control.Swatch.tooltip != tip)
+                            control.Swatch.tooltip = tip;
+                    }
 
                     if (control.Button != null && row.ButtonText != null)
                     {

@@ -63,11 +63,31 @@ namespace RealFlag
                 harmony.PatchAll(typeof(Patcher).Assembly);
                 _patched = true;
                 Log.Msg("Harmony patches applied (" + HarmonyId + "): clicking a flag's cloth, Move It's outline of it");
+                Flags.FlagMoveItPick.TryPatch(harmony);
                 LogSharedMethods();
             }
             catch (Exception e)
             {
                 Log.Error("Harmony patching failed; flags are picked only just above their top corner.", e);
+            }
+        }
+
+        /// <summary>
+        /// Move It's pointer search, once a city is loaded, if it could not be patched when the
+        /// mod was enabled (Move It's assembly not loaded yet).
+        /// </summary>
+        public static void EnsureMoveIt()
+        {
+            if (!_patched || Flags.FlagMoveItPick.IsPatched)
+                return;
+
+            try
+            {
+                Flags.FlagMoveItPick.TryPatch(new Harmony(HarmonyId));
+            }
+            catch (Exception e)
+            {
+                Log.Warn("Could not patch Move It's pointer search: " + e.Message);
             }
         }
 

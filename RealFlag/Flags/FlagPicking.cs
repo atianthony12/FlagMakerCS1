@@ -213,10 +213,34 @@ namespace RealFlag.Flags
     {
         private static readonly PickShape[] ByProp = new PickShape[65536];
 
+        /// <summary>
+        /// The props with a shape, for a search along a whole ray (FlagMoveItPick): an array
+        /// replaced whole on the main thread, never changed in place, so another thread reads a
+        /// consistent one.
+        /// </summary>
+        private static volatile uint[] _props = new uint[0];
+
         public static void Publish(uint prop, PickShape shape)
         {
-            if (prop < ByProp.Length)
-                ByProp[prop] = shape;
+            if (prop >= ByProp.Length)
+                return;
+
+            bool had = ByProp[prop] != null;
+            ByProp[prop] = shape;
+            if (had == (shape != null))
+                return;
+
+            uint[] old = _props;
+            var now = new System.Collections.Generic.List<uint>(old.Length + 1);
+            foreach (uint p in old)
+            {
+                if (p != prop)
+                    now.Add(p);
+            }
+
+            if (shape != null)
+                now.Add(prop);
+            _props = now.ToArray();
         }
 
         public static PickShape Get(uint prop)
@@ -224,10 +248,17 @@ namespace RealFlag.Flags
             return prop < ByProp.Length ? ByProp[prop] : null;
         }
 
+        /// <summary>Every prop with a published shape (a snapshot: do not change it).</summary>
+        public static uint[] Props
+        {
+            get { return _props; }
+        }
+
         public static void Clear()
         {
             for (int i = 0; i < ByProp.Length; i++)
                 ByProp[i] = null;
+            _props = new uint[0];
         }
 
         /// <summary>
