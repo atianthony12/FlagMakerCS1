@@ -672,6 +672,41 @@ public static class ClothTests
         return da + "," + db + "," + held + "," + next + "," + big + "," + g;
     }
 
+    /// <summary>
+    /// Flags at 10 fps on 4 threads for 100 frames, planned as FlagRenderer.Plan does -- nearest
+    /// first, or (waitedFirst) the flags that waited last frame before the rest -- against the
+    /// first rule's budget (8 ms a thread whatever the frame) or ClothPlan.BudgetFor's. Steps of
+    /// 4.56 ms (a 3 m flag at Ultra in 7 m/s: two sub-steps of 1014 particles at 2.25 us) and,
+    /// with a big one, 2.6 ms for the second nearest (the 11 m flag: one sub-step of 1148): the
+    /// author's five flags of 2026-09-26. The fewest and the most steps a flag took.
+    /// </summary>
+    public static string Turns(int flags, bool withBig, bool fixedBudget, bool waitedFirst)
+    {
+        float size = 1f / 60f, frame = 0.1f, behind;
+        float[] pending = new float[flags];
+        bool[] waiting = new bool[flags];
+        bool[] waited = new bool[flags];
+        int[] steps = new int[flags];
+        double budget = 4 * (fixedBudget ? 8.0 : ClothPlan.BudgetFor(frame, size, 3, 8.0));
+        for (int f = 0; f < 100; f++)
+        {
+            double spent = 0.0;
+            for (int i = 0; i < flags; i++) waited[i] = waiting[i];
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int i = 0; i < flags; i++)
+                {
+                    if (waitedFirst ? waited[i] != (pass == 0) : pass == 1) continue;
+                    double cost = withBig && i == 1 ? 2.6 : 4.56;
+                    steps[i] += ClothPlan.Due(ref pending[i], frame, size, 3, cost, budget, ref spent, false, out behind, out waiting[i]);
+                }
+            }
+        }
+        int least = int.MaxValue, most = 0;
+        for (int i = 0; i < flags; i++) { least = Math.Min(least, steps[i]); most = Math.Max(most, steps[i]); }
+        return least + "," + most;
+    }
+
     /// <summary>A 1/60 s step as the mod takes it (ClothWorker.Execute: its sub-steps included), microseconds.</summary>
     public static double MicrosecondsPerStep(float wind)
     {
@@ -1420,6 +1455,17 @@ foreach ($rate in @(@(60, 600, 1), @(144, 600, 1), @(30, 600, 2), @(20, 600, 3),
 
 $budget = [ClothTests]::Budget()
 Check "over the budget the farther flag waits, then catches up; the nearest and the ghost always step" ($budget -eq "1,1,True,2,1,1") $budget
+$plan = [RealFlag.Flags.ClothPlan]
+$bf = @(144, 60, 30, 20, 10, 4) | ForEach-Object { $plan::BudgetFor(1.0 / $_, 1.0 / 60, 3, 8.0).ToString("F0") }
+Check "the budget grows with the frame, to the 3 steps a flag takes in one (144, 60, 30, 20, 10, 4 fps)" (($bf -join ",") -eq "8,8,16,24,24,24") ($bf -join ",")
+$sf = @($plan::SmoothFrame(1.0 / 60, 0.25), $plan::SmoothFrame(0.04, 1.0 / 60), $plan::SmoothFrame(0, 0.1)) | ForEach-Object { $_.ToString("F4") }
+Check "the frame it is planned on: a tenth of the way up to a hitch, down at once" (($sf -join ",") -eq "0.0400,0.0167,0.1000") ($sf -join ",")
+$was = [ClothTests]::Turns(5, $true, $true, $false) -split ","
+$now = [ClothTests]::Turns(5, $true, $false, $true) -split ","
+Check "the author's five flags at 10 fps: 3 stood still under the first rule, all move now" ([int]$was[0] -eq 0 -and [int]$now[0] -eq 300) ("fewest steps in 10 s: " + $was[0] + " then, " + $now[0] + " now (most " + $now[1] + ")")
+$crowd = [ClothTests]::Turns(12, $false, $false, $true) -split ","
+$crowdNearest = [ClothTests]::Turns(12, $false, $false, $false) -split ","
+Check "more flags than the threads have time for: they take turns, none stands still" ([int]$crowdNearest[0] -eq 0 -and [int]$crowd[0] -ge 0.5 * [int]$crowd[1]) ("12 at 10 fps, fewest/most steps: nearest first " + ($crowdNearest -join "/") + ", the waited first " + ($crowd -join "/"))
 $paused = [ClothTests]::Paused()
 Check "paused: a handled flag steps the frame's time, slowing to none over the fade, none left alone" ($paused -eq "1.00,0.50,0.00,0.00,0.00") $paused
 

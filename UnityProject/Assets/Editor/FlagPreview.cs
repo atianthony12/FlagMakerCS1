@@ -40,6 +40,7 @@ using Debug = UnityEngine.Debug;
 ///   RF_COUNTRIES "fr,us,np"  countries' flags instead of RF_PATTERNS (images from RealFlag\Resources\Flags)
 ///   RF_DARKNESS "0,20,40"    the cloth's darkness, percent (FlagSpec.Darkness): each design once per value
 ///   RF_SUN 1.3               the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
+///   RF_WET 0..1              the game's ground wetness (_WeatherParams.w): the cloth wet in the rain
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
@@ -444,6 +445,11 @@ public static class FlagPreview
         Color sunLight = s.Sun.color.linear * s.Sun.intensity;
         Shader.SetGlobalVector(FlagLook.IdSunDir, new Vector4(toSun.normalized.x, toSun.normalized.y, toSun.normalized.z, 0f));
         Shader.SetGlobalVector(FlagLook.IdSunColor, new Vector4(sunLight.r, sunLight.g, sunLight.b, 0f));
+
+        // What the game's WeatherManager.EndRenderingImpl sets every frame: _WeatherParams =
+        // (temperature, rain, fog, the ground's wetness); the cloth reads the wetness (RF_WET).
+        float wet = Mathf.Clamp01(ParseFloat(Env("RF_WET", "0")));
+        Shader.SetGlobalVector("_WeatherParams", new Vector4(15f, wet, 0f, wet));
 
         // And from the camera: half a pixel's angle, the thinnest a tube is drawn.
         float pixelsPerRadian = height / (2f * Mathf.Tan(0.5f * s.Camera.fieldOfView * Mathf.Deg2Rad));

@@ -22,6 +22,19 @@
 //   translucency). In forward, per light and shadowed; in prepass, the sun's (_RFSunDir,
 //   _RFSunColor, set every frame by FlagRenderer from the game's sun) -- unshadowed, the one
 //   known compromise;
+// - no gloss while it is dry: flag fabric is matte. The first version gave the dry cloth a
+//   Blinn-Phong highlight (gloss 0.04, exponent 15), and the prepass multiplied it by the light
+//   twice (light.rgb x light.a): under the author's Render It! sun of 2.7 it streaked the folds
+//   white -- "making the flag cloth look wet ... Only in rain should this happen";
+// - WET in the rain, as the game's ground is: _WeatherParams.w (WeatherManager.EndRenderingImpl
+//   sets _WeatherParams = temperature, rain, fog, ground wetness every frame; the wetness rises
+//   while it rains and dries over minutes after). The diffuse darkens as Lagarde 2013, "Water
+//   drop 3b - Physically based wet surfaces", has it, by lerp(1, 0.2, porosity); the water's film
+//   reflects (F0 0.02, IOR 1.33) as a normalised Blinn-Phong lobe ((n + 8) / 8 pi, pi for
+//   Unity's lights), n = 8192^gloss (Lazarov 2011, "Physically-based lighting in Call of Duty:
+//   Black Ops"), as much of it as the cloth is wet; the sheen's fuzz lies flat under the water.
+//   (Lagarde's own gloss for a damp porous surface, 0.2 here, drew a broad veil that paled the
+//   colours -- wet cloth looks deeper, not paler: its film is smoother than the knit);
 // - the design from three colours (FlagPattern.cginc) -- or a country's flag, its image
 //   (_RFImage with _RFUseImage 1; sRGB, so linear once sampled; cut out where the image is
 //   transparent, Nepal's two pennants, in every pass and the shadow: alphatest) -- then the
@@ -93,12 +106,29 @@ Shader "RealFlag/FlagCloth"
         float4 _RFSunDir;
         float4 _RFSunColor;
 
+        // Set globally by the game (and the preview): temperature, rain, fog, the ground's wetness.
+        float4 _WeatherParams;
+
         // How much of the light falling on one side comes through the other, for flag cloth
         // (knitted polyester lets a third or so through: the design shows through it against the sky).
         #define TRANSMITTANCE 0.35
         // The sheen's strength and roughness (Estevez and Kulla's alpha).
         #define SHEEN 0.45
         #define SHEEN_ROUGHNESS 0.45
+        // Wet (Lagarde 2013): the knit's porosity -- polyester fibres take up almost no water, the
+        // gaps between them do -- so soaked it keeps lerp(1, 0.2, 0.5) = 0.6 of its diffuse; and
+        // the water film's reflectance at normal incidence.
+        #define POROSITY 0.5
+        #define WATER_F0 0.02
+        // The film's Blinn-Phong exponent: 8192^gloss (Lazarov 2011) at gloss 0.4, a film that
+        // follows the knit's weave (water's own is 1.0; a bare knit's, dry, ~0).
+        #define FILM_POWER 36.8
+
+        // How wet the cloth is, 0..1: the game's ground (it wets and dries on the game's clock).
+        float RFWetness()
+        {
+            return saturate(_WeatherParams.w);
+        }
 
         struct SurfaceOutputCloth
         {
@@ -232,15 +262,21 @@ Shader "RealFlag/FlagCloth"
             float3 albedo = lerp(pattern, image.rgb, useImage);
             albedo = Make(IN.flagUV, albedo) * saturate(_RFBrightness);
 
+            // Wet: darker (Lagarde's diffuse factor), and the water's film on it reflects -- as
+            // much of it as the cloth is wet, the film's own lobe always (a broad lobe at part
+            // wetness veils the colours pale: the opposite of how wet cloth looks). None when dry.
+            float wet = RFWetness();
+            albedo *= lerp(1.0, lerp(1.0, 0.2, POROSITY), wet);
+
             o.Albedo = albedo;
             o.Normal = float3(0.0, 0.0, face);
-            o.Specular = 0.12;
-            o.Gloss = 0.04;
+            o.Specular = FILM_POWER / 128.0;
+            o.Gloss = wet * WATER_F0 * (FILM_POWER + 8.0) / 8.0;
             o.Alpha = lerp(1.0, image.a, useImage);
 
             // Seen side's cosine to the eye (viewDir is in tangent space once o.Normal is written).
             float nv = saturate(abs(normalize(IN.viewDir).z));
-            o.Sheen = SHEEN * pow(1.0 - nv, 3.0);
+            o.Sheen = SHEEN * pow(1.0 - nv, 3.0) * (1.0 - wet);
 
             o.Emission = _RFHighlight.rgb * _RFHighlight.a;
 
@@ -254,10 +290,14 @@ Shader "RealFlag/FlagCloth"
 
         // Legacy deferred: the light buffer holds the diffuse light (sun and moon with their
         // shadows, the city's lights) and, in alpha, the specular; Unity has added the ambient.
+        // The specular is a LUMINANCE (Internal-PrePassLighting: spec x Luminance(_LightColor)),
+        // so it takes only its hue from the diffuse light: Unity's own BlinnPhong_PrePass
+        // multiplies the two, which grows as the square of the light (7.3 x under a sun of 2.7).
         half4 LightingCloth_PrePass(SurfaceOutputCloth s, half4 light)
         {
             half3 c = s.Albedo * light.rgb * (1.0 + s.Sheen);
-            c += light.rgb * light.a * s.Gloss;
+            half3 hue = light.rgb / max(Luminance(light.rgb), 1e-3);
+            c += hue * light.a * s.Gloss;
             return half4(c, s.Alpha);
         }
 
@@ -277,9 +317,12 @@ Shader "RealFlag/FlagCloth"
             half inv = 1.0 / SHEEN_ROUGHNESS;
             half d = (2.0 + inv) * pow(sin2, 0.5 * inv) * 0.5;      // (2 + 1/a) sin^(1/a) / (2 pi), x pi
             half vis = 1.0 / (4.0 * (nl + nv - nl * nv) + 1e-4);
-            half3 sheenColour = lerp(s.Albedo, half3(1, 1, 1), 0.5) * SHEEN;
+            half3 sheenColour = lerp(s.Albedo, half3(1, 1, 1), 0.5) * SHEEN * (1.0 - RFWetness());
 
-            half3 c = s.Albedo * nl + sheenColour * d * vis * nl;
+            // The water's film when wet (s.Gloss 0 dry), as the prepass's light buffer has it.
+            half spec = pow(nh, s.Specular * 128.0) * s.Gloss;
+
+            half3 c = s.Albedo * nl + sheenColour * d * vis * nl + spec * nl;
             c += s.Albedo * TRANSMITTANCE * saturate(-ndl);
             c *= _LightColor0.rgb * atten;
             return half4(c, s.Alpha);

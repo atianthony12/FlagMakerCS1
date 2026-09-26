@@ -45,8 +45,12 @@ namespace RealFlag.Flags
         /// <summary>The main thread moved the cloth since the arrays were refreshed (its anchor moved): refreshed again when drawn.</summary>
         public bool MeshDirty = true;
 
-        /// <summary>Over the cloth thread's budget this frame: left as it is until the nearer flags leave room.</summary>
+        /// <summary>
+        /// Over the cloth thread's budget this frame: left as it is, and planned before the flags
+        /// that had room (WaitedLast, its value when the next plan began).
+        /// </summary>
         public bool Waiting;
+        public bool WaitedLast;
 
         /// <summary>The design went into the block (it changes rarely; the glow each frame while the flag is hovered).</summary>
         public bool BlockReady;
@@ -155,17 +159,19 @@ namespace RealFlag.Flags
         public const int MaxMoving = 48;
 
         /// <summary>
-        /// The cloth thread's work in one frame, milliseconds: under half a frame at 60 fps, so
-        /// the main thread does not wait for it, and under half a core. Planned from the measured
-        /// cost of a particle step: in the GPU preview's Unity 5.6 Mono, room for 21 flags of
-        /// 3 x 2 m in a light wind, 11 at 12 m/s (two sub-steps), 5 at 30 (four).
+        /// The cloth thread's work in a frame of 1/60 s, milliseconds: under half the frame, so
+        /// the main thread does not wait for it, and under half a core; a longer frame gives it
+        /// as much more, up to <see cref="MaxStepsPerFrame"/> times (ClothPlan.BudgetFor).
+        /// Planned from the measured cost of a particle step: in the GPU preview's Unity 5.6
+        /// Mono, room for 21 flags of 3 x 2 m in a light wind, 11 at 12 m/s (two sub-steps), 5 at
+        /// 30 (four).
         /// </summary>
         public const double BatchBudget = 8.0;
 
-        /// <summary>The frame's budget of thread time: <see cref="BatchBudget"/> on each of the cloth's threads.</summary>
+        /// <summary>The frame's budget of thread time: <see cref="BatchBudget"/> for the frame's length, on each of the cloth's threads.</summary>
         private double Budget
         {
-            get { return BatchBudget * Math.Max(1, _worker.Threads); }
+            get { return ClothPlan.BudgetFor(_frameTime, Step, MaxStepsPerFrame, BatchBudget) * Math.Max(1, _worker.Threads); }
         }
 
         /// <summary>
@@ -274,6 +280,10 @@ namespace RealFlag.Flags
         private int _detailChanges;
 
         private float _clock;
+
+        /// <summary>The real frame time the budget is planned on (ClothPlan.SmoothFrame), seconds.</summary>
+        private float _frameTime;
+
         private readonly Stopwatch _cost = new Stopwatch();
         private readonly Stopwatch _wait = new Stopwatch();
         private double _costMs, _waitMs, _batchMs, _batchWallMs;
@@ -455,7 +465,8 @@ namespace RealFlag.Flags
 
             float dt = Mathf.Clamp(Time.deltaTime, 0f, 0.25f);
             float realDt = Mathf.Clamp(Time.unscaledDeltaTime, 0f, 0.25f);
-            bool frozen = Paused && (Settings.FreezeWhenPaused == null || Settings.FreezeWhenPaused.value);
+            _frameTime = ClothPlan.SmoothFrame(_frameTime, realDt);
+            bool frozen =Paused && (Settings.FreezeWhenPaused == null || Settings.FreezeWhenPaused.value);
             if (frozen)
                 dt = 0f;
             _clock += dt;
@@ -1034,9 +1045,13 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The next batch: the placement ghost first, then the flags in view nearest first --
-        /// the nearest <see cref="MaxMoving"/> within <see cref="SimDistance"/> move -- as long as
-        /// the planned work fits <see cref="BatchBudget"/> (the nearest always moves).
+        /// The next batch: the placement ghost first, then the flags in view -- the nearest
+        /// <see cref="MaxMoving"/> within <see cref="SimDistance"/> move -- as long as the planned
+        /// work fits the <see cref="Budget"/> (the first planned always moves). Those that had no
+        /// room last frame go before the rest, nearest first among each: with more cloth than the
+        /// threads have time for, the flags take turns, all of them slower, where nearest first
+        /// alone gave the same nearer flags every frame's room and left the farther ones standing
+        /// still for as long as it lasted.
         /// </summary>
         private void Plan(float dt, bool frozen, float realDt, Wind wind)
         {
@@ -1057,19 +1072,29 @@ namespace RealFlag.Flags
 
             int n = InView();
             for (int i = 0; i < n; i++)
+                _order[i].WaitedLast = _order[i].Waiting;
+
+            for (int pass = 0; pass < 2; pass++)
             {
-                FlagInstance f = _order[i];
-                bool moving = i < MaxMoving && f.Distance <= SimDistance;
-
-                // Paused, frozen: only the flags being handled step, for a moment, slowing to a still.
-                float flagDt = dt;
-                if (frozen)
+                bool waited = pass == 0;
+                for (int i = 0; i < n; i++)
                 {
-                    flagDt = ClothPlan.PausedTime(realDt, f.AwakeUntil - now, WakeFade);
-                    f.OwnTime += flagDt;
-                }
+                    FlagInstance f = _order[i];
+                    if (f.WaitedLast != waited)
+                        continue;
 
-                PlanFlag(f, flagDt, wind, moving, false, ref spent, ref settles);
+                    bool moving = i < MaxMoving && f.Distance <= SimDistance;
+
+                    // Paused, frozen: only the flags being handled step, for a moment, slowing to a still.
+                    float flagDt = dt;
+                    if (frozen)
+                    {
+                        flagDt = ClothPlan.PausedTime(realDt, f.AwakeUntil - now, WakeFade);
+                        f.OwnTime += flagDt;
+                    }
+
+                    PlanFlag(f, flagDt, wind, moving, false, ref spent, ref settles);
+                }
             }
         }
 
@@ -1090,6 +1115,7 @@ namespace RealFlag.Flags
                 if (!f.Visible)
                 {
                     f.Pending = 0f;
+                    f.Waiting = false;
                     continue;
                 }
 
@@ -1512,7 +1538,8 @@ namespace RealFlag.Flags
                 Log.Detail("flags: " + _flags.Count + " in the city, " + VisibleCount + " in view, " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
                            (_costMs / frames).ToString("F3") + " ms a frame (" + (_waitMs / frames).ToString("F3") +
-                           " of it waiting for the cloth), cloth " + (_batchMs / frames).ToString("F3") + " ms a frame on " +
+                           " of it waiting for the cloth), cloth " + (_batchMs / frames).ToString("F3") + " ms a frame (room for " +
+                           Budget.ToString("F0") + ") on " +
                            (_worker.Threaded ? _worker.Threads + " thread(s) (" + (_batchWallMs / frames).ToString("F3") + " ms out)" : "the main thread") +
                            ", " + (1000.0 * _unitCost).ToString("F2") + " us a particle step | " + _stepsThisReport + " cloth steps in " +
                            seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") + " | in view by detail " +

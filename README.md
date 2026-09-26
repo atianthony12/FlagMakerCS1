@@ -107,10 +107,11 @@ these need the Harmony mod, which the game offers to subscribe to when it is mis
   (Estevez and Kulla 2017; Neubelt and Pettineo 2013), light shining through the cloth from
   behind (GPU Gems ch. 16), and the design drawn from its colours -- or a country's flag from
   its image, cut out where the image is (Nepal's two pennants) -- with a canvas heading, two
-  grommets and hems.
+  grommets and hems. Dry, it is matte; in the rain it gets wet as the city's ground does
+  (darker, with the water's glints on its folds), and dries with it.
 - The cloth is stepped on threads of its own (one per six of the machine's, up to four), 60
   times a second, while the game draws the frame; the nearest flags first, within a time
-  budget.
+  budget that grows with the frame's length, and flags that had to wait go first next time.
 
 The designs are saved with the city. Without the mod, a city simply has no flags.
 
@@ -148,7 +149,9 @@ Written from scratch after these, with thanks (no code from them is included):
   Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941) -- the wind.
 - A. C. Estevez and C. Kulla, *Production Friendly Microfacet Sheen BRDF* (2017); D. Neubelt
   and M. Pettineo, *Crafting a Next-Gen Material Pipeline for The Order: 1886* (2013);
-  S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004) -- the fabric.
+  S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004) -- the fabric;
+  S. Lagarde, *Water drop 3b -- Physically based wet surfaces* (2013); D. Lazarov,
+  *Physically-based lighting in Call of Duty: Black Ops* (SIGGRAPH 2011) -- the cloth wet in rain.
 - E. Catmull and R. Rom, *A class of local interpolating splines* (Computer Aided Geometric
   Design, 1974); G. Taubin, *A Signal Processing Approach to Fair Surface Design* (SIGGRAPH
   1995) -- the drawn surface.

@@ -78,6 +78,10 @@ techniques were written from scratch after them, and they are credited here with
     D. Neubelt and M. Pettineo, "Crafting a Next-Gen Material Pipeline for The Order:
       1886", SIGGRAPH 2013 course notes.
     S. Green, "Real-Time Approximations to Subsurface Scattering", GPU Gems ch. 16 (2004).
+    S. Lagarde, "Water drop 3b - Physically based wet surfaces" (2013, blog) -- the cloth
+      darker when wet.
+    D. Lazarov, "Physically-based lighting in Call of Duty: Black Ops", SIGGRAPH 2011
+      course notes -- the gloss-to-exponent mapping of the water's film.
   The drawn surface:
     E. Catmull and R. Rom, "A class of local interpolating splines", Computer Aided
       Geometric Design (1974).

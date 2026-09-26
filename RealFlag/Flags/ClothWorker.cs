@@ -80,6 +80,33 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// A thread's time for one frame's batch, milliseconds: <paramref name="perStep"/> for a
+        /// frame of one step or shorter, as much more as the frame is longer, up to the most steps
+        /// a flag takes in one frame -- so the same flags move at any frame rate, and the batch
+        /// stays under half the frame. The first rule, a fixed 8 ms (a 60 fps frame's), let a
+        /// 10 fps frame, where every flag takes three steps, move a third of the flags while the
+        /// threads idled nine tenths of it: the author's five flags at 6-16 fps, "the 3 smaller
+        /// ones refused to play ... they were frozen" (the log: "3 waiting for room").
+        /// </summary>
+        public static double BudgetFor(float frame, float step, int maxSteps, double perStep)
+        {
+            double steps = frame / Math.Max(step, 1e-6f);
+            return perStep * Math.Max(1.0, Math.Min((double)maxSteps, steps));
+        }
+
+        /// <summary>
+        /// The frame time the budget is planned on: down to a shorter frame at once, up a tenth of
+        /// the way a frame to a longer one -- one slow frame (a save, a hitch) does not plan the
+        /// next batch as if the frames that follow were as long.
+        /// </summary>
+        public static float SmoothFrame(float smoothed, float frame)
+        {
+            if (!(smoothed > 0f) || frame <= smoothed)
+                return frame;
+            return smoothed + 0.1f * (frame - smoothed);
+        }
+
+        /// <summary>
         /// The time a flag steps this frame while the game is paused and the flags are frozen:
         /// none while it is left alone; while it is handled -- dragged, turned, redesigned -- and
         /// for a moment after (<paramref name="awake"/> seconds still to go), the frame's own,
