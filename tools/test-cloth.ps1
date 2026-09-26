@@ -1297,6 +1297,15 @@ Check "the pick volumes' arithmetic: segments' closest points, a turned box's en
 
 $fr = [ClothTests]::Frames() -split ","
 Check "the hoist's frame: unit, square; straight down untilted; level at 90 deg; leaning to the side" (($fr | Where-Object { $_ -ne "True" }).Count -eq 0) ($fr -join ",")
+# Placing, a right click turns the new flag as PropTool.ToggleAngle turns a prop (its IL):
+# round(a / 45 - 1) x 45, Mathf.Round's banker's rounding at the halves.
+$orient = $asm.GetType("RealFlag.Flags.FlagOrientation", $true)
+$walk = @(); $heading = 0.0
+for ($i = 0; $i -lt 9; $i++) { $heading = $orient::StepTurn($heading); $walk += $heading }
+$offSteps = @(101, 100, 67.5, 112.5, 22.4, 359.6) | ForEach-Object { $orient::StepTurn($_) }
+$wholes = @(-45, 359.6, 360, 720.4, -0.4, 12.5, 13.5, [single]::NaN) | ForEach-Object { $orient::WholeDegrees($_) }
+$rightTurns = ($walk -join " ") + " | " + ($offSteps -join " ") + " | " + ($wholes -join " ")
+Check "a right click while placing turns the flag as the game turns a prop: 45 deg down, from off them the nearest one's next; whole degrees 0..359" ($rightTurns -eq "315 270 225 180 135 90 45 0 315 | 45 45 0 90 315 315 | 315 0 0 0 0 12 14 0") $rightTurns
 foreach ($case in @(@(45, 0, 0), @(45, 0, 6), @(45, 0, 12), @(90, 0, 6), @(30, 20, 12), @(-60, 0, 6))) {
     $t = [ClothTests]::Tilted($case[0], $case[1], $case[2], 12) -split ","
     Check ("hoist tilted {0} deg, leaning {1}, {2} m/s: finite, hoist on its line, stretched at most 15%" -f $case[0], $case[1], $case[2]) ($t[0] -eq "True" -and $t[1] -eq "True" -and (N $t[2]) -lt 1.15) ("worst stretch " + $t[2] + ", fly " + $t[3] + " L off the hoist line")

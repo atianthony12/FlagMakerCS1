@@ -40,6 +40,27 @@ namespace RealFlag.Flags
             fy = (float)ly;
             fz = (float)(lx * sa + lz * ca);
         }
+
+        /// <summary>A heading as the Create new rotation holds it: whole degrees, 0..359 (0 for NaN).</summary>
+        public static float WholeDegrees(float degrees)
+        {
+            if (float.IsNaN(degrees) || float.IsInfinity(degrees))
+                return 0f;
+
+            double whole = Math.Round(degrees);
+            whole -= 360.0 * Math.Floor(whole / 360.0);
+            return whole >= 360.0 ? 0f : (float)whole;
+        }
+
+        /// <summary>
+        /// A right click's turn of the flag being placed, the game's own for props (PropTool's
+        /// ToggleAngle, from its IL): round(a / 45 - 1) x 45 degrees -- the next multiple of 45
+        /// down, or from a heading off them, the nearest one's next. Whole degrees, 0..359.
+        /// </summary>
+        public static float StepTurn(float degrees)
+        {
+            return WholeDegrees((float)Math.Round(degrees / 45f - 1f) * 45f);
+        }
     }
 
     /// <summary>

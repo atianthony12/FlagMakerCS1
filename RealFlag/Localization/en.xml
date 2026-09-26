@@ -158,7 +158,7 @@
   <String key="SelLean.Tooltip">The pole's top to the side. The gizmo's red ring turns it too.</String>
 
   <String key="NewRotation.Label">Rotation</String>
-  <String key="NewRotation.Tooltip">The way it points. In a wind along each flag, it flies this way; otherwise the wind turns it.</String>
+  <String key="NewRotation.Tooltip">The way it points. In a wind along each flag, it flies this way; otherwise the wind turns it. While you place flags, the right button turns it: a click 45°, a drag freely.</String>
   <String key="SelRotation.Label">Rotation</String>
   <String key="SelRotation.Tooltip">The way it points. Move It and the gizmo's green ring turn it too.</String>
 
@@ -168,7 +168,7 @@
   <String key="SelHeight.Tooltip">The top of the flag above the ground. Move It raises it too.</String>
 
   <String key="PlaceFlags.Label">Place flags</String>
-  <String key="PlaceFlags.Tooltip">Click the map to place one, and again for more. Right-click or Esc when done.</String>
+  <String key="PlaceFlags.Tooltip">Click the map to place one, and again for more. Right-click turns it 45°, a right drag turns it freely. Esc when done.</String>
 
   <!-- The Existing flags tab. -->
   <String key="Existing.Empty">No flags in this city yet. Place one from the Create new tab, or pick one on the map.</String>
@@ -193,7 +193,7 @@
   <String key="Status.NoPrefab">The flag prop could not be made in this city: see the log.</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">Click to place a flag. Right-click or Esc when done</String>
+  <String key="Tool.PlaceHint">Click to place a flag. Right-click turns it 45°, a right drag freely. Esc when done</String>
   <String key="Tool.NoPrefab">Flags cannot be placed in this city: see the log</String>
   <String key="Tool.PickHint">Click to select this flag</String>
   <String key="Tool.PickNone">Point at a flag</String>

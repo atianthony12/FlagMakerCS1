@@ -8,10 +8,11 @@ namespace RealFlag.Flags
     /// <summary>
     /// The mod's tool on the map, in two modes. PLACE (the Create new tab's button): the Create
     /// new flag follows the cursor -- the real cloth, blowing -- at the chosen height over the
-    /// ground or roof under it; left click places it, again and again; right click or Esc puts
-    /// the tool away. PICK (the Existing flags tab's): the flag under the cursor lights up, a
-    /// click selects it; the selected flag carries the gizmo (FlagGizmo) -- drag its arrows to
-    /// move it, its rings to turn it -- and a click on nothing, a right click or Esc lets it go.
+    /// ground or roof under it; left click places it, again and again; the right button turns it
+    /// as the game's props turn (a click a step, a drag freely); Esc puts the tool away. PICK
+    /// (the Existing flags tab's): the flag under the cursor lights up, a click selects it; the
+    /// selected flag carries the gizmo (FlagGizmo) -- drag its arrows to move it, its rings to
+    /// turn it -- and a click on nothing, a right click or Esc lets it go.
     /// </summary>
     /// <remarks>
     /// Volumetric Explosions' MissileTool pattern, from PropTool's IL: the mouse ray taken in
@@ -24,9 +25,16 @@ namespace RealFlag.Flags
     /// (FlagsPanel.CatchEscape), as in Volumetric Explosions. The right mouse button is free:
     /// the game turns the camera with the middle one (DefaultSettings.cameraMouseRotate, Mouse2).
     ///
-    /// Esc and the right button step back one thing at a time: a drag (the flag goes back where
-    /// it was), then the selection, then the tool. The selection lives while the tool is out:
-    /// the tool put away by any means lets it go (<see cref="OnDisable"/>).
+    /// Placing, the right button is PropTool's (its IL, mode Single): pressed over the city, a
+    /// drag turns the flag by the pointer's sideways travel ("Mouse X" x 10 degrees,
+    /// DeltaAngle), and let go without one it turns to the next 45 degrees down (ToggleAngle:
+    /// round(a / 45 - 1) x 45). The turn is the Create new rotation itself, so the panel shows
+    /// it. Unlike PropTool's prop, the flag holds where it stood while a drag turns it.
+    ///
+    /// Esc (and, picking, the right button) steps back one thing at a time: a drag (the flag
+    /// goes back where it was, or the new flag the way it pointed), then the selection, then the
+    /// tool. The selection lives while the tool is out: the tool put away by any means lets it
+    /// go (<see cref="OnDisable"/>).
     /// </remarks>
     public sealed class FlagTool : ToolBase
     {
@@ -49,6 +57,17 @@ namespace RealFlag.Flags
         private readonly object _hitLock = new object();
 
         private readonly FlagGizmo _gizmo = new FlagGizmo();
+
+        // Placing: the right button's turn of the new flag (main thread). _turnTo is the drag's
+        // own sum, unrounded (the setting keeps whole degrees); _turnHit is where the flag holds.
+        private bool _rightDown;
+        private bool _turned;
+        private float _turnFrom, _turnTo;
+        private bool _turnHitValid;
+        private Vector3 _turnHit;
+
+        /// <summary>Degrees a drag turns the flag per unit of the "Mouse X" axis: PropTool.OnToolUpdate's DeltaAngle(axis x 10).</summary>
+        private const float TurnPerMouseX = 10f;
 
         private static readonly Color PlaceColour = new Color(0.95f, 0.85f, 0.4f, 0.6f);
 
@@ -81,7 +100,10 @@ namespace RealFlag.Flags
                     tool = controller.gameObject.AddComponent<FlagTool>();
 
                 if (tool.CurrentMode != mode)
+                {
                     tool._gizmo.Cancel();
+                    tool._rightDown = false;
+                }
                 tool.CurrentMode = mode;
                 controller.CurrentTool = tool;
                 if (!was)
@@ -126,8 +148,9 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// Esc or the right button: one step back -- a drag given up (the flag back where it was),
-        /// else the selection let go, else the tool put away. Says which, for the log.
+        /// Esc (or, picking, the right button): one step back -- a drag given up (the flag back
+        /// where it was, the new flag the way it pointed), else the selection let go, else the
+        /// tool put away. Says which, for the log.
         /// </summary>
         public static string StepBack()
         {
@@ -138,6 +161,15 @@ namespace RealFlag.Flags
                 FlagEditor.ApplyTransform(tool._gizmo.Anchor, tool._gizmo.Angle, tool._gizmo.Tilt, tool._gizmo.Lean);
                 Log.Msg("flags: the drag was given up; the flag is back where it was");
                 return "the drag given up";
+            }
+
+            if (tool != null && tool.CurrentMode == Mode.Place && tool._rightDown && tool._turned)
+            {
+                // The button is still down: nothing more turns until it is pressed again.
+                tool._rightDown = false;
+                SetNewDegrees(tool._turnFrom);
+                Log.Msg("flags: the turn was given up; the new flag points " + NewDegrees().ToString("F0") + " deg again");
+                return "the turn given up";
             }
 
             if (tool != null && tool.CurrentMode == Mode.Pick && FlagEditor.Selected != 0)
@@ -174,6 +206,7 @@ namespace RealFlag.Flags
             base.OnDisable();
             _mouseRayValid = false;
             _hitValid = false;
+            _rightDown = false;
             Hovered = 0;
 
             // Put away by any means: a drag stays where it got to, the selection goes.
@@ -267,10 +300,76 @@ namespace RealFlag.Flags
             return new Vector3(hit.x, hit.y + Mathf.Max(0f, height), hit.z);
         }
 
+        /// <summary>The Create new rotation, degrees: the way the next flag points.</summary>
+        private static float NewDegrees()
+        {
+            return Settings.NewRotation != null ? Settings.NewRotation.value : Settings.Defaults.Rotation;
+        }
+
         private static float NewAngle()
         {
-            float degrees = Settings.NewRotation != null ? Settings.NewRotation.value : Settings.Defaults.Rotation;
-            return degrees * Mathf.Deg2Rad;
+            return NewDegrees() * Mathf.Deg2Rad;
+        }
+
+        /// <summary>Turns the next flag: the Create new rotation in whole degrees, 0..359, as its slider has them.</summary>
+        private static void SetNewDegrees(float degrees)
+        {
+            if (Settings.NewRotation != null)
+                Settings.NewRotation.value = FlagOrientation.WholeDegrees(degrees);
+        }
+
+        /// <summary>Where the flag being placed stands: under the cursor, or where it held while a right drag turns it.</summary>
+        private bool TryGhostHit(out Vector3 hit)
+        {
+            if (_rightDown && _turned)
+            {
+                hit = _turnHit;
+                return _turnHitValid;
+            }
+
+            return TryHit(out hit);
+        }
+
+        /// <summary>Placing: the right button went down over the city. What it does is known when it moves or comes up (<see cref="UpdateTurn"/>).</summary>
+        private void BeginTurn()
+        {
+            _rightDown = true;
+            _turned = false;
+            _turnFrom = _turnTo = NewDegrees();
+            _turnHitValid = TryHit(out _turnHit);
+        }
+
+        /// <summary>
+        /// Placing, every frame: while the right button is down, the pointer's sideways travel
+        /// turns the new flag; let go without that, it turns a step. True while a drag holds it.
+        /// </summary>
+        /// <remarks>
+        /// Read from Input here, not from OnToolGUI's MouseUp: Unity calls Update before OnGUI, so
+        /// a let-go is seen here first -- and here even off the window, where no event may come.
+        /// </remarks>
+        private bool UpdateTurn()
+        {
+            if (!_rightDown)
+                return false;
+
+            if (!Input.GetMouseButton(1))
+            {
+                _rightDown = false;
+                if (!_turned)
+                    SetNewDegrees(FlagOrientation.StepTurn(NewDegrees()));
+                Log.Msg("flags: the new flag turned to " + NewDegrees().ToString("F0") + " deg (" + (_turned ? "a right drag" : "a right click") + ")");
+                return false;
+            }
+
+            float travel = Input.GetAxis("Mouse X");
+            if (travel != 0f)
+            {
+                _turned = true;
+                _turnTo = Mathf.Repeat(_turnTo + travel * TurnPerMouseX, 360f);
+                SetNewDegrees(_turnTo);
+            }
+
+            return _turned;
         }
 
         protected override void OnToolUpdate()
@@ -290,18 +389,24 @@ namespace RealFlag.Flags
             }
 
             Vector3 hit;
-            bool valid = TryHit(out hit);
+            bool valid;
 
             if (CurrentMode == Mode.Place)
             {
                 Hovered = 0;
+                bool turning = UpdateTurn();
+                valid = TryGhostHit(out hit);
                 if (valid && FlagRenderer.Instance != null)
                     FlagRenderer.Instance.SetGhost(AnchorOver(hit), NewAngle(), Settings.NewSpec());
 
-                ShowToolInfo(valid, valid ? Localization.Get(FlagPrefab.Info != null ? "Tool.PlaceHint" : "Tool.NoPrefab") : null, hit);
+                string text = FlagPrefab.Info == null ? Localization.Get("Tool.NoPrefab")
+                            : turning ? Localization.Get("Gizmo.Heading", NewDegrees().ToString("0", System.Globalization.CultureInfo.InvariantCulture))
+                            : Localization.Get("Tool.PlaceHint");
+                ShowToolInfo(valid, valid ? text : null, hit);
                 return;
             }
 
+            valid = TryHit(out hit);
             UpdatePick(valid, hit);
         }
 
@@ -374,7 +479,11 @@ namespace RealFlag.Flags
 
             if (e.button == 1)
             {
-                StepBack();
+                // Placing, it turns the new flag, as the game's props turn; picking, it steps back.
+                if (CurrentMode == Mode.Place)
+                    BeginTurn();
+                else
+                    StepBack();
                 return;
             }
 
@@ -405,7 +514,7 @@ namespace RealFlag.Flags
             }
 
             Vector3 hit;
-            if (!TryHit(out hit))
+            if (!TryGhostHit(out hit))
                 return;
 
             Vector3 anchor = AnchorOver(hit);
@@ -436,7 +545,7 @@ namespace RealFlag.Flags
                 }
 
                 Vector3 hit;
-                if (!TryHit(out hit))
+                if (!TryGhostHit(out hit))
                     return;
 
                 // Where the pole would stand, on the ground or roof.

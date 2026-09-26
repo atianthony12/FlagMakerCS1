@@ -22,8 +22,9 @@ fly, 0.5 to 30 m), the proportions
 (1:1 to 1:2, a pattern's), how wavy the cloth is, the way it points and its height over the
 ground. Press
 **Place flags** and click where the pole would stand: the flag appears, blowing, at the chosen
-height over whatever is under the cursor (ground, roof, road). Click again for another; right
-click or Esc when done.
+height over whatever is under the cursor (ground, roof, road). Click again for another. The
+right button turns it as the game's props turn: a right click turns it 45 degrees, a drag with
+the right button turns it freely (it holds its place meanwhile). Esc when done.
 
 **Flagpole** (a button in each tab, which opens beside the panel): none by default -- the flag
 is for a pole of your own -- or a pole the mod draws from whatever the flag stands over up to
