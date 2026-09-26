@@ -101,6 +101,10 @@
   <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind. 0%: stiff and calm; 200%: light and restless.</String>
   <String key="SelWaviness.Label">How wavy</String>
   <String key="SelWaviness.Tooltip">How much the cloth ripples in the same wind.</String>
+  <String key="NewDarkness.Label">Darkness</String>
+  <String key="NewDarkness.Tooltip">Darker cloth, for a flag whose white or yellow glares in bright sun: its colours as if dyed darker. 0%: as designed.</String>
+  <String key="SelDarkness.Label">Darkness</String>
+  <String key="SelDarkness.Tooltip">Darker cloth, for a flag whose white or yellow glares in bright sun. 0%: as designed.</String>
 
   <!-- The Flagpole button of each tab, and its popup. -->
   <String key="NewPoleButton.Label">Flagpole</String>

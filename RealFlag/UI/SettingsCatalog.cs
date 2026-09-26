@@ -612,10 +612,13 @@ namespace RealFlag.UI
         /// A flag's design, the same rows on both tabs: the next flag's (settings) or the selected
         /// one's (transient). First the country: with one chosen, the pattern, its colours and the
         /// proportions are the country's flag's and grey out (they are kept, for a change back);
-        /// the size and the waviness stay the player's.
+        /// the size, the waviness and the darkness stay the player's -- the darkness is for a
+        /// country's colours above all, which cannot be picked (the author: "some country flags
+        /// are too bright").
         /// </summary>
         private static void AddDesign(PanelPage page, IntSetting country, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3,
-                                      FloatSetting length, IntSetting proportion, FloatSetting waviness, Action changed, Func<bool> enabled)
+                                      FloatSetting length, IntSetting proportion, FloatSetting waviness, FloatSetting darkness,
+                                      Action changed, Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
 
@@ -714,6 +717,17 @@ namespace RealFlag.UI
                 Float = waviness,
                 DefaultFloat = Settings.Defaults.Waviness,
                 Min = 0f, Max = 200f, Step = 5f,
+                AfterChange = changed,
+                Enabled = enabled,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = darkness,
+                DefaultFloat = Settings.Defaults.Darkness,
+                Min = 0f, Max = FlagSpec.MaxDarkness * 100f, Step = 5f,
                 AfterChange = changed,
                 Enabled = enabled,
             });
@@ -850,7 +864,7 @@ namespace RealFlag.UI
         private static void BuildCreate()
         {
             AddDesign(PanelPage.Create, Settings.NewCountry, Settings.NewPattern, Settings.NewColour1, Settings.NewColour2, Settings.NewColour3,
-                      Settings.NewLength, Settings.NewProportion, Settings.NewWaviness, null, null);
+                      Settings.NewLength, Settings.NewProportion, Settings.NewWaviness, Settings.NewDarkness, null, null);
 
             AddPoleButton(PanelPage.Create, PanelPage.PoleCreate, "NewPoleButton", Settings.NewPole, Settings.NewRopes, Settings.NewTilt,
                           Settings.NewLean, null);
@@ -918,7 +932,7 @@ namespace RealFlag.UI
 
             Func<bool> selected = () => FlagEditor.HasSelection;
             AddDesign(PanelPage.Existing, Settings.SelCountry, Settings.SelPattern, Settings.SelColour1, Settings.SelColour2, Settings.SelColour3,
-                      Settings.SelLength, Settings.SelProportion, Settings.SelWaviness, FlagEditor.ApplyDesign, selected);
+                      Settings.SelLength, Settings.SelProportion, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
 
             AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", Settings.SelPole, Settings.SelRopes, Settings.SelTilt,
                           Settings.SelLean, selected);

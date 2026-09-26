@@ -19,8 +19,9 @@ name or code) -- or a pattern (plain, bands, crosses, a saltire, a canton, strip
 canton, a disc, a hoist triangle, a diagonal band, a border) in up to three colours (a palette,
 hue, saturation and brightness, or a hex code typed, pasted or copied); then the size (hoist to
 fly, 0.5 to 30 m), the proportions
-(1:1 to 1:2, a pattern's), how wavy the cloth is, the way it points and its height over the
-ground. Press
+(1:1 to 1:2, a pattern's), how wavy the cloth is, how dark (for a flag whose white or yellow
+glares in a bright sun: its colours as if dyed darker, up to 80%), the way it points and its
+height over the ground. Press
 **Place flags** and click where the pole would stand: the flag appears, blowing, at the chosen
 height over whatever is under the cursor (ground, roof, road). Click again for another. The
 right button turns it as the game's props turn: a right click turns it 45 degrees, a drag with

@@ -926,7 +926,8 @@ namespace RealFlag.Flags
         {
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
                    a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Name == b.Name &&
-                   (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b);
+                   (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
+                   Mathf.Approximately(a.Darkness, b.Darkness);
         }
 
         private static void SetSpec(FlagInstance f, FlagSpec spec)

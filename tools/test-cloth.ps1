@@ -1084,6 +1084,45 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// Format 4: the cloth's darkness round trips; a format-3 save (byte by byte) reads with none,
+    /// the colours as designed; out of range and NaN are pulled in; and its brightness follows
+    /// the sRGB curve: 50% mid grey (0.218), 20% sRGB 0.8 (0.612), none 1.
+    /// </summary>
+    public static string CodecDarkness()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.Country = "jp"; a.Darkness = 0.35f;
+        FlagSpec b;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && b.Country == "jp" && Math.Abs(b.Darkness - 0.35f) < 1e-6f;
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)3);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)2); w.Write((byte)'j'); w.Write((byte)'p');
+        w.Write((byte)FlagPoleStyle.Ball); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1.25f); w.Write(30f); w.Write(0f);
+        w.Flush();
+        FlagSpec c;
+        bool v3 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Country == "jp" && c.Pole == FlagPoleStyle.Ball &&
+                  Math.Abs(c.PoleThickness - 1.25f) < 1e-6f && Math.Abs(c.Tilt - 30f) < 1e-6f && c.Darkness == 0f && c.Brightness == 1f;
+
+        FlagSpec high = FlagSpec.Default; high.Darkness = 2f;
+        FlagSpec nan = FlagSpec.Default; nan.Darkness = float.NaN;
+        FlagSpec low = FlagSpec.Default; low.Darkness = -0.3f;
+        bool pulled = high.Sanitised().Darkness == FlagSpec.MaxDarkness && nan.Sanitised().Darkness == 0f && low.Sanitised().Darkness == 0f;
+
+        FlagSpec half = FlagSpec.Default; half.Darkness = 0.5f;
+        FlagSpec fifth = FlagSpec.Default; fifth.Darkness = 0.2f;
+        string curve = half.Brightness.ToString("F3", Inv) + " " + fifth.Brightness.ToString("F3", Inv) + " " +
+                       FlagSpec.Default.Brightness.ToString("F3", Inv);
+        return round + "," + v3 + "," + pulled + "," + curve + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
     /// The drawn surface (ClothSurface: what the shader evaluates): through every particle; the
     /// same on both sides of a cell's edge; its normal on the front, as the cloth's own
     /// (FlagCloth.ComputeNormals), everywhere on a flag flying at 12 m/s. Returns the worst
@@ -1411,6 +1450,11 @@ $cp = [ClothTests]::CodecPole() -split ","
 Check "the pole and the tilt survive the save" ($cp[0] -eq "True") ("format " + $cp[3] + ": spear, one rope, three colours, 150%, tilt 45, lean -12.5")
 Check "a save of format 2 still reads: no pole, straight down" ($cp[1] -eq "True") "format 2, byte by byte: Denmark's code, the pole's defaults ready"
 Check "a pole or tilt out of range is pulled in" ($cp[2] -eq "True") "style 9, 5 ropes, 700%, tilt 200, lean NaN"
+$cd = [ClothTests]::CodecDarkness() -split ","
+Check "the cloth's darkness survives the save" ($cd[0] -eq "True") ("format " + $cd[4] + ": Japan at 35%")
+Check "a save of format 3 still reads: the colours as designed" ($cd[1] -eq "True") "format 3, byte by byte: Japan on a ball-topped pole, tilted 30 deg"
+Check "a darkness out of range is pulled in" ($cd[2] -eq "True") "200%, NaN, -30%"
+Check "the darkness darkens evenly to the eye: 20% is sRGB 0.8, 50% mid grey" ($cd[3] -eq "0.218 0.612 1.000") ("brightness at 50%, 20%, none: " + $cd[3])
 
 $ct = [ClothTests]::Countries() -split "\|"
 $ctf = $ct[0] -split ","

@@ -38,6 +38,8 @@ using Debug = UnityEngine.Debug;
 ///   RF_REFINES "1,4"    drawn cells a cloth cell (FlagMesh.Refine), one row each; RF_SMOOTH "0": edges not smoothed
 ///   RF_COLLIDE "0"      self-collision off (on, as in the game, by default)
 ///   RF_COUNTRIES "fr,us,np"  countries' flags instead of RF_PATTERNS (images from RealFlag\Resources\Flags)
+///   RF_DARKNESS "0,20,40"    the cloth's darkness, percent (FlagSpec.Darkness): each design once per value
+///   RF_SUN 1.3               the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
@@ -122,6 +124,7 @@ public static class FlagPreview
         FlagMesh.SmoothEdges = Env("RF_SMOOTH", "1") != "0";
         bool collide = Env("RF_COLLIDE", "1") != "0";
         string[] countries = Env("RF_COUNTRIES", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        float[] darknesses = ParseFloats(Env("RF_DARKNESS", "0"));
 
         // The countries' flags from the repository's folder: the files the mod embeds.
         string flagsDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../../RealFlag/Resources/Flags"));
@@ -197,7 +200,8 @@ public static class FlagPreview
         // RF_FABRIC "A=0.5;B=0.1|A=0.8": fabric overrides per row, cycling (to compare by eye).
         string[] fabrics = Env("RF_FABRIC", "").Split('|');
 
-        // The designs: the countries' flags if asked for, the patterns otherwise.
+        // The designs: the countries' flags if asked for, the patterns otherwise; each once per
+        // darkness (RF_DARKNESS, percent as the panel shows it).
         var designs = new List<FlagSpec>();
         if (countries.Length > 0)
         {
@@ -205,7 +209,11 @@ public static class FlagPreview
             {
                 FlagSpec flag = spec;
                 flag.Country = code.Trim();
-                designs.Add(flag.Sanitised());
+                foreach (float darkness in darknesses)
+                {
+                    flag.Darkness = darkness / 100f;
+                    designs.Add(flag.Sanitised());
+                }
             }
         }
         else
@@ -214,7 +222,11 @@ public static class FlagPreview
             {
                 FlagSpec flag = spec;
                 flag.Pattern = pattern;
-                designs.Add(flag);
+                foreach (float darkness in darknesses)
+                {
+                    flag.Darkness = darkness / 100f;
+                    designs.Add(flag);
+                }
             }
         }
 
@@ -277,7 +289,9 @@ public static class FlagPreview
                               " wind=" + wind.ToString("0.#", CultureInfo.InvariantCulture) + " pattern=" + pattern +
                               " file=" + file + " | " + Droop(cloth) + ", " + cloth.Columns + "x" + cloth.Rows +
                               (mesh.Refine > 1 ? " x" + mesh.Refine : "") + (collide ? "" : " no collision") +
-                              (flag.IsCountry ? ", " + flag.Country : "") + " | " + info);
+                              (flag.IsCountry ? ", " + flag.Country : "") +
+                              (flag.Darkness > 0f ? ", darkness " + (flag.Darkness * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
+                              " | " + info);
                     col++;
                 }
 
@@ -406,7 +420,7 @@ public static class FlagPreview
         s.Sun.shadows = LightShadows.Soft;
         s.Sun.shadowStrength = 0.85f;
         s.Sun.color = night ? new Color(0.55f, 0.65f, 1f) : new Color(1f, 0.95f, 0.86f);
-        s.Sun.intensity = night ? 0.05f : 1.3f;
+        s.Sun.intensity = night ? 0.05f : ParseFloat(Env("RF_SUN", "1.3"));
         Vector3 toSun = Quaternion.Euler(0f, sunYaw, 0f) * new Vector3(0f, 0.55f, -0.83f);
         sunObject.transform.rotation = Quaternion.LookRotation(-toSun.normalized);
 

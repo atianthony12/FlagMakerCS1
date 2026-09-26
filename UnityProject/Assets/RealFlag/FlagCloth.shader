@@ -25,7 +25,9 @@
 // - the design from three colours (FlagPattern.cginc) -- or a country's flag, its image
 //   (_RFImage with _RFUseImage 1; sRGB, so linear once sampled; cut out where the image is
 //   transparent, Nepal's two pennants, in every pass and the shadow: alphatest) -- then the
-//   canvas heading at the hoist with its two grommets, and the hems.
+//   canvas heading at the hoist with its two grommets, and the hems; all of it times the
+//   flag's _RFBrightness (FlagSpec.Brightness: its Darkness setting, 1 as designed), so the
+//   light through the cloth and the sheen darken with it.
 //
 // A flag drawn finer than its particles (_RFUseGrid 1: the flags big on the screen) takes its
 // SHAPE from the particles, not the mesh: FlagMesh hands them over as a float texture (_RFGrid, a
@@ -39,7 +41,7 @@
 //
 // Per flag, in a MaterialPropertyBlock: _RFColor1..3 (LINEAR), _RFPattern, _RFAspect (height /
 // length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage
-// and _RFUseImage, _RFGrid and _RFGridSize.
+// and _RFUseImage, _RFBrightness, _RFGrid and _RFGridSize.
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagCloth"
 {
@@ -55,6 +57,7 @@ Shader "RealFlag/FlagCloth"
         _RFImage ("Country's flag (sRGB)", 2D) = "white" {}
         _RFUseImage ("Draw the image, not the pattern", Float) = 0
         _RFCutoff ("Image cut-out", Float) = 0.5
+        _RFBrightness ("Brightness (linear, 1 as designed)", Float) = 1
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
         _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
         _RFUseGrid ("Shape from the particles' texture", Float) = 0
@@ -81,6 +84,7 @@ Shader "RealFlag/FlagCloth"
         float4 _RFHighlight;
         sampler2D _RFImage;
         float _RFUseImage;
+        float _RFBrightness;
         sampler2D _RFGrid;
         float4 _RFGridSize;
         float _RFUseGrid;
@@ -226,7 +230,7 @@ Shader "RealFlag/FlagCloth"
             float4 image = tex2D(_RFImage, float2(IN.flagUV.x, 1.0 - IN.flagUV.y));
             float useImage = step(0.5, _RFUseImage);
             float3 albedo = lerp(pattern, image.rgb, useImage);
-            albedo = Make(IN.flagUV, albedo);
+            albedo = Make(IN.flagUV, albedo) * saturate(_RFBrightness);
 
             o.Albedo = albedo;
             o.Normal = float3(0.0, 0.0, face);

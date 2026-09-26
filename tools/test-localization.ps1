@@ -65,7 +65,7 @@ foreach ($b in $blocks) {
     if ($b -match 'Id = "(\w+)"') { $name = $Matches[1] }
     if (-not $name) {
         # AddDesign's and AddPole's rows, and AddPoleButton's: read from their calls below.
-        if ($b -match '(?:Float|Int) = (country|pattern|c1|c2|c3|length|proportion|waviness|pole|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean)\b') { continue }
+        if ($b -match '(?:Float|Int) = (country|pattern|c1|c2|c3|length|proportion|waviness|darkness|pole|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean)\b') { continue }
         if ($b -match 'Id = id,') { continue }
         Write-Host "FAIL  a row with neither a setting nor an Id:`n$b"; $failed++; continue
     }
@@ -104,7 +104,7 @@ Check "the pole rows are read from both tabs' AddPole calls" $poleCalls.Count 2
 $buttonCalls = [regex]::Matches($catalog, 'AddPoleButton\(PanelPage\.\w+, PanelPage\.\w+, "(\w+)"')
 foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".Label"); [void]$needed.Add($call.Groups[1].Value + ".Tooltip") }
 Check "the Flagpole buttons are read from both tabs' AddPoleButton calls" $buttonCalls.Count 2
-Write-Host "      ($rows rows in the catalog, 8 of them made twice by AddDesign, 8 by AddPole, 1 by AddPoleButton)"
+Write-Host "      ($rows rows in the catalog, 9 of them made twice by AddDesign, 8 by AddPole, 1 by AddPoleButton)"
 
 foreach ($enum in @('PanelPage')) {
     if ($catalog -match "public enum $enum \{([^}]*)\}") {

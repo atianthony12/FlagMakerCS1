@@ -18,6 +18,8 @@
 #   ... -NoSmooth                  the cloth's edges drawn as they are (ClothSurface.SmoothEdges off)
 #   ... -NoCollide                 self-collision off (on in the game by default)
 #   ... -Countries "fr,us,np"      countries' flags (their images) instead of -Patterns
+#   ... -Darkness "0,20,40"        each design once per cloth darkness (percent, the panel's)
+#   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
@@ -48,6 +50,8 @@ param(
     [switch]$NoSmooth,
     [switch]$NoCollide,
     [string]$Countries = "",
+    [string]$Darkness = "0",
+    [double]$Sun = 1.3,
     [int]$Pole = 0,
     [int]$Ropes = 2,
     [double]$Thick = 1.0,
@@ -106,6 +110,8 @@ $env:RF_REFINES = $Refines
 $env:RF_SMOOTH = if ($NoSmooth) { "0" } else { "1" }
 $env:RF_COLLIDE = if ($NoCollide) { "0" } else { "1" }
 $env:RF_COUNTRIES = $Countries
+$env:RF_DARKNESS = $Darkness
+$env:RF_SUN = $Sun.ToString($inv)
 $env:RF_POLE = "$Pole"
 $env:RF_ROPES = "$Ropes"
 $env:RF_THICK = $Thick.ToString($inv)

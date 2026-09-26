@@ -339,12 +339,14 @@ namespace RealFlag.Flags
         public static readonly int IdSunColor = Shader.PropertyToID("_RFSunColor");
         public static readonly int IdImage = Shader.PropertyToID("_RFImage");
         public static readonly int IdUseImage = Shader.PropertyToID("_RFUseImage");
+        public static readonly int IdBrightness = Shader.PropertyToID("_RFBrightness");
 
         /// <summary>
         /// The colours go in as LINEAR vectors, converted here: the game renders in linear
         /// colour space, and a vector (unlike a colour property) is passed as it is. A country's
         /// flag sets its image (FlagImages: made on first use) and _RFUseImage; without the image
-        /// it falls back to its pattern.
+        /// it falls back to its pattern. The cloth's darkness goes in as FlagSpec.Brightness, a
+        /// multiplier on all of it.
         /// </summary>
         public static void Apply(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight)
         {
@@ -354,6 +356,7 @@ namespace RealFlag.Flags
             block.SetFloat(IdPattern, spec.Pattern);
             block.SetFloat(IdAspect, FlagProportion.Ratio(spec.Proportion));
             block.SetFloat(IdLength, spec.Length);
+            block.SetFloat(IdBrightness, spec.Brightness);
             block.SetVector(IdHighlight, highlight);
 
             FlagCountry country = FlagCountries.Find(spec.Country);

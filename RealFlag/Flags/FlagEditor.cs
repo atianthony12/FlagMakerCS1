@@ -119,6 +119,7 @@ namespace RealFlag.Flags
                     Settings.SelLength.value = e.Spec.Length;
                     Settings.SelProportion.value = e.Spec.Proportion;
                     Settings.SelWaviness.value = e.Spec.Waviness;
+                    Settings.SelDarkness.value = e.Spec.Darkness;
                     Settings.SelPole.value = e.Spec.Pole;
                     Settings.SelRopes.value = e.Spec.Ropes;
                     Settings.SelPoleColour.value = (int)e.Spec.PoleColour;
@@ -146,7 +147,7 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>A design control changed (pattern, colours, size, proportions, waviness).</summary>
+        /// <summary>A design control changed (pattern, colours, size, proportions, waviness, darkness).</summary>
         public static void ApplyDesign()
         {
             FlagEntry e;
@@ -163,6 +164,7 @@ namespace RealFlag.Flags
             spec.Length = Settings.SelLength.value;
             spec.Proportion = Settings.SelProportion.value;
             spec.Waviness = Settings.SelWaviness.value;
+            spec.Darkness = Settings.SelDarkness.value;
             spec.Pole = Settings.SelPole.value;
             spec.Ropes = Settings.SelRopes.value;
             spec.PoleColour = (uint)Settings.SelPoleColour.value;
@@ -285,6 +287,7 @@ namespace RealFlag.Flags
             if (Array.IndexOf(FlagProportion.Values, e.Spec.Proportion) >= 0)
                 Settings.NewProportion.value = e.Spec.Proportion;
             Settings.NewWaviness.value = e.Spec.Waviness;
+            Settings.NewDarkness.value = e.Spec.Darkness;
             Settings.NewPole.value = e.Spec.Pole;
             Settings.NewRopes.value = e.Spec.Ropes;
             Settings.NewPoleColour.value = (int)e.Spec.PoleColour;

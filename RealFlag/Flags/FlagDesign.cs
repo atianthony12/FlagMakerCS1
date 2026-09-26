@@ -349,11 +349,21 @@ namespace RealFlag.Flags
         /// </summary>
         public float Tilt, Lean;
 
+        /// <summary>
+        /// How much darker the cloth is than its design, 0..<see cref="MaxDarkness"/> (0: the
+        /// colours as designed): for a flag whose white or yellow glares in a bright sun (the
+        /// author: "some country flags are too bright"). See <see cref="Brightness"/>.
+        /// </summary>
+        public float Darkness;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
         public const float MaxPoleThickness = 2f;
         public const float MaxTilt = 90f;
+
+        /// <summary>The darkest the panel offers: 80%, the design's white at a fifth of its sRGB value, a dark grey.</summary>
+        public const float MaxDarkness = 0.8f;
 
         public const uint DefaultPoleColour = 0xE4E5E2;   // white, as most town poles are painted
         public const uint DefaultTopColour = 0xD4AF37;    // gilt ball
@@ -369,6 +379,17 @@ namespace RealFlag.Flags
         public float Height
         {
             get { return Length * FlagProportion.Ratio(Proportion); }
+        }
+
+        /// <summary>
+        /// What the cloth reflects against its design's (linear) colours, 0..1: the colours as if
+        /// their sRGB values were (1 - <see cref="Darkness"/>) of theirs -- (1 - d)^2.2, the sRGB
+        /// curve's overall power (IEC 61966-2-1) -- so the slider darkens evenly to the eye: 20% takes
+        /// white to sRGB 0.8 (0.61 linear), 50% to mid grey (0.22).
+        /// </summary>
+        public float Brightness
+        {
+            get { return (float)Math.Pow(1.0 - Math.Max(0f, Math.Min(Darkness, MaxDarkness)), 2.2); }
         }
 
         public static FlagSpec Default
@@ -394,6 +415,7 @@ namespace RealFlag.Flags
                     PoleThickness = 1f,
                     Tilt = 0f,
                     Lean = 0f,
+                    Darkness = 0f,
                 };
             }
         }
@@ -448,6 +470,9 @@ namespace RealFlag.Flags
             s.PoleThickness = Math.Max(MinPoleThickness, Math.Min(s.PoleThickness, MaxPoleThickness));
             s.Tilt = Angle(s.Tilt);
             s.Lean = Angle(s.Lean);
+            if (float.IsNaN(s.Darkness) || float.IsInfinity(s.Darkness))
+                s.Darkness = 0f;
+            s.Darkness = Math.Max(0f, Math.Min(s.Darkness, MaxDarkness));
             return s;
         }
 
@@ -492,6 +517,8 @@ namespace RealFlag.Flags
                   FlagColours.Hex(Colour1) + "/" + FlagColours.Hex(Colour2) + "/" + FlagColours.Hex(Colour3);
             string text = design + ", " + Length.ToString("0.##", inv) + " m at " + FlagProportion.Name(Proportion) + ", waviness " +
                           (Waviness * 100f).ToString("F0", inv) + "%";
+            if (Darkness > 0f)
+                text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "");
@@ -543,9 +570,10 @@ namespace RealFlag.Flags
         /// The format written. 1: the pattern flag (2026-09-25). 2 (2026-09-26): the same, then
         /// the country's code (a byte of length, ASCII). 3 (2026-09-26): the same, then the pole
         /// (its style and ropes as bytes, its three colours, its thickness) and the hoist's tilt
-        /// and lean (floats, degrees). Every older one is still read.
+        /// and lean (floats, degrees). 4 (2026-09-26): the same, then the cloth's darkness (a
+        /// float, 0..0.8). Every older one is still read.
         /// </summary>
-        public const byte Version = 3;
+        public const byte Version = 4;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -569,6 +597,7 @@ namespace RealFlag.Flags
             w.Write(s.PoleThickness);
             w.Write(s.Tilt);
             w.Write(s.Lean);
+            w.Write(s.Darkness);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -625,6 +654,9 @@ namespace RealFlag.Flags
                 s.RopeColour = d.RopeColour;
                 s.PoleThickness = d.PoleThickness;
             }
+
+            // Before the darkness: the colours as designed.
+            s.Darkness = version >= 4 ? r.ReadSingle() : 0f;
 
             return s.Sanitised();
         }
