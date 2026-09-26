@@ -1,0 +1,126 @@
+using System;
+using System.Reflection;
+using CitiesHarmony.API;
+using HarmonyLib;
+using UnityEngine;
+
+namespace RealFlag
+{
+    /// <summary>
+    /// Harmony bootstrap (Volumetric Weather's). The CitiesHarmony mod provides the actual Harmony
+    /// assembly at runtime, so patching is deferred until it reports ready rather than assumed.
+    /// The patches are in Flags/FlagPatches.cs; without them flags are still made, drawn and saved,
+    /// but Move It and the bulldozer pick a flag only by a small spot just above its anchor.
+    /// </summary>
+    public static class Patcher
+    {
+        private const string HarmonyId = "realflag.flags";
+
+        private static bool _patched;
+
+        public static bool IsPatched
+        {
+            get { return _patched; }
+        }
+
+        public static void PatchOnReady()
+        {
+            try
+            {
+                HarmonyHelper.DoOnHarmonyReady(Patch);
+            }
+            catch (Exception e)
+            {
+                Log.Error("Could not schedule Harmony patching.", e);
+            }
+        }
+
+        /// <summary>Prompts the player to subscribe if the Harmony mod is missing.</summary>
+        public static void EnsureHarmony()
+        {
+            try
+            {
+                if (!HarmonyHelper.IsHarmonyInstalled)
+                {
+                    Log.Warn("Harmony is NOT installed: Move It and the bulldozer can only pick a flag just above its top corner.");
+                    HarmonyHelper.EnsureHarmonyInstalled();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        private static void Patch()
+        {
+            if (_patched)
+                return;
+
+            try
+            {
+                var harmony = new Harmony(HarmonyId);
+                harmony.PatchAll(typeof(Patcher).Assembly);
+                _patched = true;
+                Log.Msg("Harmony patches applied (" + HarmonyId + "): clicking a flag's cloth, Move It's outline of it");
+                LogSharedMethods();
+            }
+            catch (Exception e)
+            {
+                Log.Error("Harmony patching failed; flags are picked only just above their top corner.", e);
+            }
+        }
+
+        /// <summary>
+        /// One line naming every other Harmony ID that patches a method we patch: a clash there is
+        /// the likeliest way another mod and ours break each other.
+        /// </summary>
+        private static void LogSharedMethods()
+        {
+            try
+            {
+                string shared = "";
+                foreach (MethodBase method in new Harmony(HarmonyId).GetPatchedMethods())
+                {
+                    Patches info = Harmony.GetPatchInfo(method);
+                    if (info == null)
+                        continue;
+
+                    string others = "";
+                    foreach (string owner in info.Owners)
+                    {
+                        if (owner != HarmonyId)
+                            others += (others.Length > 0 ? ", " : "") + owner;
+                    }
+
+                    if (others.Length > 0)
+                        shared += (shared.Length > 0 ? "; " : "") + method.DeclaringType.Name + "." + method.Name + " by " + others;
+                }
+
+                Log.Msg("harmony: other mods patching the methods we patch: " + (shared.Length > 0 ? shared : "none"));
+            }
+            catch (Exception e)
+            {
+                Log.Warn("Could not list other mods' patches: " + e.Message);
+            }
+        }
+
+        public static void Unpatch()
+        {
+            if (!_patched)
+                return;
+
+            try
+            {
+                new Harmony(HarmonyId).UnpatchAll(HarmonyId);
+                Log.Msg("Harmony patches removed.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+
+            _patched = false;
+        }
+    }
+}

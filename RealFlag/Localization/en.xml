@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RealFlag: every text a player reads, in English. The source for every translation.
+
+  To translate: copy this file, name it with the game's code for your language (de.xml, es.xml,
+  fr.xml, ko.xml, pl.xml, pt.xml, ru.xml, zh.xml), set code and name below, and translate the
+  text between the tags. Leave the keys alone.
+
+  - {0}, {1}... are filled in by the mod (a number, a name). Keep every one of them.
+  - A long text can be wrapped over several lines here: the break reads as one space.
+  - \n is a real line break.
+  - A key missing from a translation shows in English, so a partial translation works.
+
+  Tooltips: as few words as possible, never more than one short line. Say only what the label
+  leaves out. Everyday words.
+-->
+<Language code="en" name="English">
+
+  <!-- ==================== The mod ==================== -->
+
+  <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
+  <String key="Mod.Description">Cloth flags that wave in the wind</String>
+  <String key="Mod.Unsupported">
+    RealFlag could not draw its flags on this computer, so it shows none in this city. Your
+    flags stay in the city and in its saves.\n\n
+    The mod needs Metal or OpenGL 3.3, and the game does not have either here.
+  </String>
+  <String key="Mod.UnsupportedWindows">
+    RealFlag could not draw its flags on this computer, so it shows none in this city. Your
+    flags stay in the city and in its saves.\n\n
+    The mod needs DirectX 11. If the game is started with a launch option that changes its
+    graphics (Steam: right-click the game, Properties, Launch Options), remove it and restart
+    the game.\n\n
+    If that is not it, please report it with the log file:\n{0}
+  </String>
+
+  <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
+  <String key="Prop.Title">RealFlag flag</String>
+  <String key="Prop.Description">A cloth flag that waves in the wind. Made and edited in the RealFlag panel.</String>
+
+  <!-- ==================== The in-game panel (F6) ==================== -->
+
+  <String key="Tab.Create">Create new</String>
+  <String key="Tab.Existing">Existing flags</String>
+  <String key="Tab.Wind">Wind</String>
+
+  <String key="Key.Press">Press a key</String>
+
+  <!-- A flag's design: the same controls on both tabs. -->
+  <String key="Colours.Label">Colours</String>
+
+  <String key="NewCountry.Label">Country's flag</String>
+  <String key="NewCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
+  <String key="SelCountry.Label">Country's flag</String>
+  <String key="SelCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
+  <String key="NewPattern.Label">Pattern</String>
+  <String key="NewPattern.Tooltip">The flag's design. Its colours are the three below: the first is the background.</String>
+  <String key="SelPattern.Label">Pattern</String>
+  <String key="SelPattern.Tooltip">The flag's design. Its colours are the three below: the first is the background.</String>
+
+  <String key="Pattern.Plain">Plain</String>
+  <String key="Pattern.HorizontalBicolour">Two bands</String>
+  <String key="Pattern.HorizontalTricolour">Three bands</String>
+  <String key="Pattern.CentreBand">Wide middle band</String>
+  <String key="Pattern.VerticalBicolour">Two vertical bands</String>
+  <String key="Pattern.VerticalTricolour">Three vertical bands</String>
+  <String key="Pattern.NordicCross">Nordic cross</String>
+  <String key="Pattern.Cross">Centred cross</String>
+  <String key="Pattern.Saltire">Saltire</String>
+  <String key="Pattern.Canton">Canton</String>
+  <String key="Pattern.StripesAndCanton">Stripes and canton</String>
+  <String key="Pattern.Disc">Disc</String>
+  <String key="Pattern.HoistTriangle">Hoist triangle</String>
+  <String key="Pattern.DiagonalBand">Diagonal band</String>
+  <String key="Pattern.Border">Border</String>
+
+  <String key="NewColour1.Label">Colour 1</String>
+  <String key="NewColour1.Tooltip">The background, and the top or first band.</String>
+  <String key="NewColour2.Label">Colour 2</String>
+  <String key="NewColour2.Tooltip">The second band, the cross, the canton or the disc.</String>
+  <String key="NewColour3.Label">Colour 3</String>
+  <String key="NewColour3.Tooltip">The third band, a cross's centre line, or a thin edge.</String>
+  <String key="SelColour1.Label">Colour 1</String>
+  <String key="SelColour1.Tooltip">The background, and the top or first band.</String>
+  <String key="SelColour2.Label">Colour 2</String>
+  <String key="SelColour2.Tooltip">The second band, the cross, the canton or the disc.</String>
+  <String key="SelColour3.Label">Colour 3</String>
+  <String key="SelColour3.Tooltip">The third band, a cross's centre line, or a thin edge.</String>
+
+  <String key="NewLength.Label">Size</String>
+  <String key="NewLength.Tooltip">From the pole to the far end. A town's flagpole flies about 3 m.</String>
+  <String key="SelLength.Label">Size</String>
+  <String key="SelLength.Tooltip">From the pole to the far end.</String>
+
+  <String key="NewProportion.Label">Proportions</String>
+  <String key="NewProportion.Tooltip">Height to length. 2:3 is the most common; 1:2 the United Kingdom's, 10:19 the United States'.</String>
+  <String key="SelProportion.Label">Proportions</String>
+  <String key="SelProportion.Tooltip">Height to length.</String>
+
+  <String key="NewWaviness.Label">How wavy</String>
+  <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind. 0%: stiff and calm; 200%: light and restless.</String>
+  <String key="SelWaviness.Label">How wavy</String>
+  <String key="SelWaviness.Tooltip">How much the cloth ripples in the same wind.</String>
+
+  <!-- The Flagpole button of each tab, and its popup. -->
+  <String key="NewPoleButton.Label">Flagpole</String>
+  <String key="NewPoleButton.Tooltip">A pole drawn under the flag, and its tilt. Opens beside the panel.</String>
+  <String key="SelPoleButton.Label">Flagpole</String>
+  <String key="SelPoleButton.Tooltip">The selected flag's pole, and its tilt. Opens beside the panel.</String>
+  <String key="PoleButton.None">Flagpole: none (for a pole of your own)</String>
+  <String key="PoleButton.Pole">Flagpole: {0}, ropes: {1}</String>
+  <String key="PoleButton.Tilted">, tilted {0}° / {1}°</String>
+  <String key="Tab.PoleCreate">Flagpole of the next flag</String>
+  <String key="Tab.PoleExisting">Flagpole of the selected flag</String>
+
+  <String key="NewPole.Label">Flagpole</String>
+  <String key="NewPole.Tooltip">A pole drawn from the ground up to the flag. None: the flag is for a pole of your own.</String>
+  <String key="SelPole.Label">Flagpole</String>
+  <String key="SelPole.Tooltip">A pole drawn from the ground up to the flag. None: the flag is for a pole of your own.</String>
+  <String key="Pole.None">None</String>
+  <String key="Pole.Ball">Ball top</String>
+  <String key="Pole.Flat">Flat top</String>
+  <String key="Pole.Spear">Spear top</String>
+
+  <String key="NewRopes.Label">Ropes</String>
+  <String key="NewRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line.</String>
+  <String key="SelRopes.Label">Ropes</String>
+  <String key="SelRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line.</String>
+  <String key="Ropes.None">None</String>
+  <String key="Ropes.One">One</String>
+  <String key="Ropes.Two">Two</String>
+
+  <String key="NewPoleColour.Label">Pole colour</String>
+  <String key="NewPoleColour.Tooltip">The pole, its cap and its foot.</String>
+  <String key="NewTopColour.Label">Top colour</String>
+  <String key="NewTopColour.Tooltip">The ball or the spear on top.</String>
+  <String key="NewRopeColour.Label">Rope colour</String>
+  <String key="NewRopeColour.Tooltip">The halyard.</String>
+  <String key="SelPoleColour.Label">Pole colour</String>
+  <String key="SelPoleColour.Tooltip">The pole, its cap and its foot.</String>
+  <String key="SelTopColour.Label">Top colour</String>
+  <String key="SelTopColour.Tooltip">The ball or the spear on top.</String>
+  <String key="SelRopeColour.Label">Rope colour</String>
+  <String key="SelRopeColour.Tooltip">The halyard.</String>
+
+  <String key="NewPoleThickness.Label">Thickness</String>
+  <String key="NewPoleThickness.Tooltip">100%: as thick as a real flagpole for this flag and height.</String>
+  <String key="SelPoleThickness.Label">Thickness</String>
+  <String key="SelPoleThickness.Tooltip">100%: as thick as a real flagpole for this flag and height.</String>
+
+  <String key="NewTilt.Label">Tilt</String>
+  <String key="NewTilt.Tooltip">The pole's top towards the way the flag points: 30° to 45° for a pole on a wall, 90° level.</String>
+  <String key="SelTilt.Label">Tilt</String>
+  <String key="SelTilt.Tooltip">The pole's top towards the way the flag points. The gizmo's blue ring turns it too.</String>
+  <String key="NewLean.Label">Lean</String>
+  <String key="NewLean.Tooltip">The pole's top to the side.</String>
+  <String key="SelLean.Label">Lean</String>
+  <String key="SelLean.Tooltip">The pole's top to the side. The gizmo's red ring turns it too.</String>
+
+  <String key="NewRotation.Label">Rotation</String>
+  <String key="NewRotation.Tooltip">The way it points. In a wind along each flag, it flies this way; otherwise the wind turns it.</String>
+  <String key="SelRotation.Label">Rotation</String>
+  <String key="SelRotation.Tooltip">The way it points. Move It and the gizmo's green ring turn it too.</String>
+
+  <String key="NewHeight.Label">Height</String>
+  <String key="NewHeight.Tooltip">The top of the flag, above the ground or roof you click: as tall as the pole you put it on.</String>
+  <String key="SelHeight.Label">Height</String>
+  <String key="SelHeight.Tooltip">The top of the flag above the ground. Move It raises it too.</String>
+
+  <String key="PlaceFlags.Label">Place flags</String>
+  <String key="PlaceFlags.Tooltip">Click the map to place one, and again for more. Right-click or Esc when done.</String>
+
+  <!-- The Existing flags tab. -->
+  <String key="Existing.Empty">No flags in this city yet. Place one from the Create new tab, or pick one on the map.</String>
+  <String key="Existing.NoneSelected">None selected: click a flag above, or pick one on the map.</String>
+  <String key="Existing.Selected">{0}, at x {1}, z {2}, {3} m up.</String>
+  <String key="Flag.Title">Flag {0}</String>
+
+  <String key="GoToFlag.Label">Go to</String>
+  <String key="GoToFlag.Tooltip">Moves the camera to the selected flag.</String>
+  <String key="PickFlag.Label">Pick on the map</String>
+  <String key="PickFlag.Tooltip">Click a flag on the map to select it.</String>
+  <String key="CopyToNew.Label">Copy to Create new</String>
+  <String key="CopyToNew.Tooltip">The next flag you place will look like this one.</String>
+  <String key="DeleteFlag.Label">Delete</String>
+  <String key="DeleteFlag.Tooltip">Removes the selected flag from the city. Move It and the bulldozer delete flags too.</String>
+  <String key="DeleteFlag.Confirm">Delete this flag?</String>
+
+  <!-- Status lines. -->
+  <String key="Status.Flags">Flags in this city: {0}, in view: {1}.</String>
+  <String key="Status.NoCity">No city loaded.</String>
+  <String key="Status.Failed">Cannot draw here: see the log.</String>
+  <String key="Status.NoPrefab">The flag prop could not be made in this city: see the log.</String>
+
+  <!-- The tool's hints at the cursor. -->
+  <String key="Tool.PlaceHint">Click to place a flag. Right-click or Esc when done</String>
+  <String key="Tool.NoPrefab">Flags cannot be placed in this city: see the log</String>
+  <String key="Tool.PickHint">Click to select this flag</String>
+  <String key="Tool.PickNone">Point at a flag</String>
+  <String key="Tool.SelectedHint">Drag the arrows to move it, the rings to turn it (Ctrl snaps, Shift is fine). Click elsewhere, right-click or Esc to let go</String>
+
+  <!-- The gizmo on the selected flag: what a handle does, and what a drag has done. -->
+  <String key="Gizmo.HintX">Drag: along the way it points</String>
+  <String key="Gizmo.HintY">Drag: up and down</String>
+  <String key="Gizmo.HintZ">Drag: sideways</String>
+  <String key="Gizmo.HintPlane">Drag: anywhere at this height</String>
+  <String key="Gizmo.HintHeading">Drag: turn the way it points</String>
+  <String key="Gizmo.HintTilt">Drag: tilt the pole towards the flag</String>
+  <String key="Gizmo.HintLean">Drag: lean the pole to the side</String>
+  <String key="Gizmo.Moved">Moved {0} m ({1} m up)</String>
+  <String key="Gizmo.Heading">Pointing {0}°</String>
+  <String key="Gizmo.Tilt">Tilted {0}°</String>
+  <String key="Gizmo.Lean">Leaning {0}°</String>
+
+  <!-- The colour picker. -->
+  <String key="Picker.Hue">Hue</String>
+  <String key="Picker.Saturation">Saturation</String>
+  <String key="Picker.Brightness">Brightness</String>
+  <String key="Picker.Done">Done</String>
+  <String key="Country.None">None: a pattern</String>
+  <String key="Country.Search">Search</String>
+
+  <!-- The wind, at the foot of both tabs. -->
+  <String key="WindSpeed.Label">Wind speed</String>
+  <String key="WindSpeed.Tooltip">At 10 m up, where it is measured; higher flags get more. Bf is its Beaufort force: 3 extends a light flag.</String>
+  <String key="WindGusts.Label">Gusts</String>
+  <String key="WindGusts.Tooltip">How much the wind rises, falls and swings. 100%: a town's usual.</String>
+  <String key="WindMode.Label">Direction</String>
+  <String key="WindMode.Tooltip">Along each flag: every flag flies its own way. Fixed: all flags fly the angle below. The game's: the game's wind.</String>
+  <String key="WindMode.EachFlag">Along each flag</String>
+  <String key="WindMode.Fixed">Fixed</String>
+  <String key="WindMode.Game">The game's</String>
+  <String key="WindDirection.Label">Angle</String>
+  <String key="WindDirection.Tooltip">With a fixed direction: the way every flag flies, as a flag's rotation.</String>
+
+  <!-- ==================== The game's options page ==================== -->
+
+  <String key="Group.Language">Language</String>
+  <String key="Language.Label">Show this mod in</String>
+  <String key="Language.Tooltip">Language of this mod's panels.</String>
+  <String key="Language.Game">Same as the game</String>
+
+  <String key="Group.Panel">The in-game panel</String>
+  <String key="ToggleKey.Label">Open the panel</String>
+  <String key="ToggleKey.Tooltip">Click, then press a key.</String>
+  <String key="ShowInUnifiedUI.Label">Show icon in Unified UI</String>
+  <String key="ShowInUnifiedUI.Tooltip">Puts the button in the Unified UI bar.</String>
+
+  <String key="Group.Flags">Flags</String>
+  <String key="FreezeWhenPaused.Label">Flags stop when the game is paused</String>
+  <String key="FreezeWhenPaused.Tooltip">For screenshots. Off: they wave on while the city stands still.</String>
+
+  <!-- On the options page and at the foot of the in-game panel, under the wind. -->
+  <String key="Group.Cloth">Cloth</String>
+  <String key="ClothDetail.Label">Cloth detail</String>
+  <String key="ClothDetail.Tooltip">How finely flags fold, up to this; only flags big on the screen get it. A flag costs about twice Normal at High, four to eight times at Very high, seven to thirteen at Ultra.</String>
+  <String key="ClothDetail.Normal">Normal</String>
+  <String key="ClothDetail.High">High</String>
+  <String key="ClothDetail.VeryHigh">Very high</String>
+  <String key="ClothDetail.Ultra">Ultra</String>
+  <String key="SelfCollision.Label">Cloth collides with itself</String>
+  <String key="SelfCollision.Tooltip">A flag's folds lie on one another instead of passing through. Costs about a third more while a flag hangs in folds, little while it flies.</String>
+
+  <String key="Group.Diagnostics">Diagnostics</String>
+  <String key="DetailedLogging.Label">Detailed logging</String>
+  <String key="DetailedLogging.Tooltip">For bug reports. Leave off normally.</String>
+
+  <String key="Group.StartingOver">Starting over</String>
+  <String key="ResetAll.Label">Reset all settings to defaults</String>
+  <String key="ResetAll.Tooltip">Every setting back to how the mod comes. Your flags are not touched.</String>
+  <String key="ResetAll.Confirm">Put every setting back to how the mod comes? Your flags are not touched.</String>
+
+  <!-- ==================== No row in either UI ==================== -->
+
+  <String key="HudButtonX.Label">The mod's button (without Unified UI): distance from the left edge</String>
+  <String key="HudButtonY.Label">The mod's button (without Unified UI): distance from the top edge</String>
+
+  <!-- ==================== Slider readouts ==================== -->
+
+  <String key="Unit.Percent">{0}%</String>
+  <String key="Unit.Metres">{0} m</String>
+  <String key="Unit.Degrees">{0}°</String>
+  <String key="Unit.Wind">{0} m/s · Bf {1}</String>
+
+  <!-- ==================== The settings file (RealFlag.xml) ==================== -->
+  <!-- Comments the mod writes into the player's settings file. The names of the settings in
+       that file are not translated. One line of the file per \n. -->
+  <String key="File.Header">
+    RealFlag settings: the wind, the next flag's design, and the mod itself. Your flags are
+    kept with your city, not here.\n
+    \n
+    You can edit this file while the game is running: the mod reads it again within a
+    second of it being saved, and the panels follow.\n
+    \n
+    - Numbers use a dot for decimals: 0.5, never 0,5.\n
+    - A percentage is written the way its slider shows it: 47 means 47%.\n
+    - A colour is written #RRGGBB, as on the web.\n
+    - A value outside its range is pulled back into it. A value that cannot be read, and a
+    name the mod does not know, are ignored. RealFlag.log says which.\n
+    - A setting whose line is missing keeps the value it has (at startup, its default).\n
+    - If the file cannot be read at all, the mod leaves it alone and says so in the log.\n
+    - The mod rewrites this file, these comments included, whenever a setting changes in
+    the game: notes of your own will not survive.\n
+    - Delete the file with the game closed to start again from every default.
+  </String>
+  <String key="File.Section.Panel">In-game panel: {0}</String>
+  <String key="File.Section.Options">The game's options page</String>
+  <String key="File.Section.None">Not shown on either page</String>
+  <String key="File.Percent">{0}, in %. {1} to {2}, default {3}.</String>
+  <String key="File.Number">{0}. {1} to {2}{3}, default {4}.</String>
+  <String key="File.AnyNumber">{0}. Default {1}.</String>
+  <String key="File.Readout">(slider: {0} to {1})</String>
+  <String key="File.Toggle">{0}. true or false, default {1}.</String>
+  <String key="File.Choice">{0}. One of {1}; default {2}.</String>
+  <String key="File.Colour">{0}. A colour #RRGGBB; default {1}.</String>
+  <String key="File.Country">{0}. A country's code (fr, de, gb-sct, eu ...) or none; default {1}.</String>
+  <String key="File.Key">{0}. A key such as F6 or Ctrl+Shift+F, or None; default {1}.</String>
+</Language>

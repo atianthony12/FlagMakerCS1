@@ -1,0 +1,67 @@
+using ICities;
+using RealFlag.Flags;
+using RealFlag.UI;
+
+namespace RealFlag
+{
+    public class Mod : IUserMod
+    {
+        /// <summary>
+        /// The mod's name wherever a player reads it: the mods list, the options page, the panel's
+        /// title, button tooltips, dialog titles, the log's first line. Files, the assembly, the
+        /// namespace and the button IDs are "RealFlag" too.
+        /// </summary>
+        public const string DisplayName = "RealFlag";
+
+        /// <summary>
+        /// The release a player has: raised once per Workshop upload (the third number for a
+        /// fix, the second for new features). Also the first three parts of the assembly version
+        /// (Properties/AssemblyInfo.cs). 0.x: not on the Workshop yet.
+        /// </summary>
+        public const string Version = "0.1.0";
+
+        /// <summary>The mods list and the options page show the version after the name, so a report can say which build it was.</summary>
+        public string Name => DisplayName + " " + Version;
+        public string Description => Localization.Get("Mod.Description");
+
+        /// <summary>Called by the game via reflection when the mod is enabled (at start-up, in the main menu).</summary>
+        public void OnEnabled()
+        {
+            Log.Start();
+            Log.Msg("Mod enabled. Log file: " + Log.Path);
+
+            // Reads RealFlag.xml and starts the saver that writes changes back and picks up edits
+            // made to the file by hand.
+            Settings.Init();
+            SettingsXml.StartSaver(); // again after a disable/enable, when Init has nothing left to do
+
+            // The flags' prop prefab has to be in the game's prop collection before a city's
+            // props are bound to their prefabs, which is during loading: the hook is how (see
+            // FlagLoadingHook). Registered now, before any city loads.
+            FlagLoadingHook.Register();
+
+            // Clicking the cloth (Move It, the bulldozer) and Move It's highlight are Harmony
+            // patches; the rest of the mod does without them.
+            Patcher.EnsureHarmony();
+            Patcher.PatchOnReady();
+        }
+
+        /// <summary>Called by the game via reflection when the mod is disabled.</summary>
+        public void OnDisabled()
+        {
+            Patcher.Unpatch();
+            FlagLoadingHook.Unregister();
+            SettingsXml.Shutdown();
+        }
+
+        /// <summary>
+        /// Called by the game via reflection when the options page is (re)built -- at least once
+        /// per scene, and again whenever any mod is enabled or disabled. The mod itself is
+        /// configured there; the flags are made and edited in the in-game panel.
+        /// </summary>
+        public void OnSettingsUI(UIHelperBase helper)
+        {
+            OptionsUI.Build(helper);
+        }
+    }
+}
