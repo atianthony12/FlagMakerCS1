@@ -590,6 +590,33 @@ namespace RealFlag.Flags
         /// </summary>
         public float Darkness;
 
+        /// <summary>
+        /// A picture of the player's own: a file in the images folder, RealFlag\Images
+        /// (FlagImageFolder), by its NAME ("castle.png"). Empty for none. Drawn over the pattern,
+        /// never stretched (FlagCrop); a country's flag goes before it. A name whose file is not
+        /// there is kept and drawn as the pattern, until the file is.
+        /// </summary>
+        public string Image;
+
+        /// <summary>
+        /// Where the flag's middle is on the picture as it stands after its turn: across from its
+        /// left edge and down from its top, 0..1 (FlagCrop.ClampCentre keeps it where the flag
+        /// shows picture only, or the picture whole).
+        /// </summary>
+        public float ImageX, ImageY;
+
+        /// <summary>1: the picture just fills the flag; more, a part of it; less, all of it with the flag's pattern round it (FlagCrop.MinZoom..MaxZoom).</summary>
+        public float ImageZoom;
+
+        /// <summary>The picture turned this many quarter turns clockwise, 0..3.</summary>
+        public int ImageTurn;
+
+        /// <summary>
+        /// A <see cref="FlagImageAlpha"/> value: the picture's see-through parts cut out of the
+        /// flag (a shaped flag, as Nepal's) or showing the flag's own pattern (a logo on it).
+        /// </summary>
+        public int ImageAlpha;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -611,6 +638,12 @@ namespace RealFlag.Flags
         public bool IsCountry
         {
             get { return !string.IsNullOrEmpty(Country); }
+        }
+
+        /// <summary>A picture of the player's on the cloth (a country's flag goes before it).</summary>
+        public bool HasImage
+        {
+            get { return !IsCountry && !string.IsNullOrEmpty(Image); }
         }
 
         public float Height
@@ -655,6 +688,12 @@ namespace RealFlag.Flags
                     Tilt = 0f,
                     Lean = 0f,
                     Darkness = 0f,
+                    Image = string.Empty,
+                    ImageX = 0.5f,
+                    ImageY = 0.5f,
+                    ImageZoom = 1f,
+                    ImageTurn = 0,
+                    ImageAlpha = FlagImageAlpha.Cut,
                 };
             }
         }
@@ -722,7 +761,24 @@ namespace RealFlag.Flags
             if (float.IsNaN(s.Darkness) || float.IsInfinity(s.Darkness))
                 s.Darkness = 0f;
             s.Darkness = Math.Max(0f, Math.Min(s.Darkness, MaxDarkness));
+
+            // A picture: a file name only; none on a country's flag, which goes before it.
+            s.Image = s.IsCountry ? string.Empty : FlagImageNames.Sanitise(s.Image);
+            s.ImageX = Unit(s.ImageX);
+            s.ImageY = Unit(s.ImageY);
+            s.ImageZoom = FlagCrop.ClampZoom(s.ImageZoom);
+            s.ImageTurn &= 3;
+            if (!FlagImageAlpha.IsKnown(s.ImageAlpha))
+                s.ImageAlpha = FlagImageAlpha.Cut;
             return s;
+        }
+
+        /// <summary>A place on a picture: finite, and near it (FlagCrop.ClampCentre holds it to the window's own range when it is used).</summary>
+        private static float Unit(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0.5f;
+            return Math.Max(-8f, Math.Min(value, 9f));
         }
 
         private static float Angle(float degrees)
@@ -757,6 +813,14 @@ namespace RealFlag.Flags
             return PoleColour == other.PoleColour && TopColour == other.TopColour && RopeColour == other.RopeColour;
         }
 
+        /// <summary>The same picture, laid the same way (only the property block changes when it does not).</summary>
+        public bool SameImage(FlagSpec other)
+        {
+            return string.Equals(Image ?? string.Empty, other.Image ?? string.Empty, StringComparison.OrdinalIgnoreCase) &&
+                   Math.Abs(ImageX - other.ImageX) < 1e-5f && Math.Abs(ImageY - other.ImageY) < 1e-5f &&
+                   Math.Abs(ImageZoom - other.ImageZoom) < 1e-5f && ImageTurn == other.ImageTurn && ImageAlpha == other.ImageAlpha;
+        }
+
         public string Describe()
         {
             var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -765,6 +829,13 @@ namespace RealFlag.Flags
                 ? country.Name + " (" + country.Code + ")"
                 : (IsCountry ? "country '" + Country + "' unknown here, as " : "") + FlagPattern.LogName(Pattern) + " " +
                   FlagColours.Hex(Colour1) + "/" + FlagColours.Hex(Colour2) + "/" + FlagColours.Hex(Colour3);
+            if (HasImage)
+                design = "image '" + Image + "' (" + (ImageZoom * 100f).ToString("0", inv) + "%" +
+                         (ImageTurn != 0 ? ", turned " + (90 * ImageTurn) + " deg" : "") +
+                         (Math.Abs(ImageX - 0.5f) > 1e-3f || Math.Abs(ImageY - 0.5f) > 1e-3f
+                             ? ", middle at " + ImageX.ToString("0.###", inv) + "/" + ImageY.ToString("0.###", inv)
+                             : "") +
+                         (ImageAlpha == FlagImageAlpha.Through ? ", the flag through its see-through parts" : "") + ") over " + design;
             string text = design + ", " + Length.ToString("0.##", inv) + " m at " + FlagProportion.Name(Proportion) + ", waviness " +
                           (Waviness * 100f).ToString("F0", inv) + "%";
             if (HoistedFrom != FlagHoist.Side)
@@ -806,6 +877,27 @@ namespace RealFlag.Flags
         }
     }
 
+    /// <summary>
+    /// What a player's picture's see-through parts do (FlagSpec.ImageAlpha): stored by VALUE in the
+    /// save and the settings file, APPEND ONLY. Cut: they are holes in the flag -- a pennant's or a
+    /// swallowtail's PNG makes a shaped flag, as Nepal's country image does (the default, the
+    /// author's choice). Through: the flag's own pattern and colours show there -- a logo on a
+    /// coloured flag.
+    /// </summary>
+    public static class FlagImageAlpha
+    {
+        public const int Cut = 0;
+        public const int Through = 1;
+
+        public static readonly int[] Values = { Cut, Through };
+        public static readonly string[] NameKeys = { "Image.Cut", "Image.Through" };
+
+        public static bool IsKnown(int value)
+        {
+            return value == Cut || value == Through;
+        }
+    }
+
     /// <summary>The halyard lines a drawn pole shows: the panel's choices.</summary>
     public static class FlagRopes
     {
@@ -826,10 +918,12 @@ namespace RealFlag.Flags
         /// and lean (floats, degrees). 4 (2026-09-26): the same, then the cloth's darkness (a
         /// float, 0..0.8). 5 (2026-09-27): the same, then the edge hoisted (a byte, FlagHoist) --
         /// and the proportion, the same short, may now be any from 1:5 to 5:1. 6 (2026-09-27): the
-        /// same, then the drawn pole's length (a float, metres; 0 not known yet). Every older one
-        /// is still read.
+        /// same, then the drawn pole's length (a float, metres; 0 not known yet). 7 (2026-09-27):
+        /// the same, then the player's picture -- its file name (a ushort of length, UTF-8), where
+        /// the flag's middle is on it and its zoom (three floats), its turn and what its see-through
+        /// parts do (two bytes). Every older one is still read.
         /// </summary>
-        public const byte Version = 6;
+        public const byte Version = 7;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -856,6 +950,12 @@ namespace RealFlag.Flags
             w.Write(s.Darkness);
             w.Write((byte)s.HoistedFrom);
             w.Write(s.PoleLength);
+            WriteLongText(w, s.Image);
+            w.Write(s.ImageX);
+            w.Write(s.ImageY);
+            w.Write(s.ImageZoom);
+            w.Write((byte)s.ImageTurn);
+            w.Write((byte)s.ImageAlpha);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -868,6 +968,27 @@ namespace RealFlag.Flags
         private static string ReadText(BinaryReader r)
         {
             int length = r.ReadByte();
+            byte[] bytes = r.ReadBytes(length);
+            if (bytes.Length != length)
+                throw new EndOfStreamException("a text runs past the data");
+            return Encoding.UTF8.GetString(bytes);
+        }
+
+        /// <summary>A text whose UTF-8 may pass 255 bytes (a file name in any script): a ushort of length.</summary>
+        private static void WriteLongText(BinaryWriter w, string text)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(text ?? string.Empty);
+            int length = Math.Min(bytes.Length, 4096);
+            w.Write((ushort)length);
+            w.Write(bytes, 0, length);
+        }
+
+        private static string ReadLongText(BinaryReader r)
+        {
+            int length = r.ReadUInt16();
+            // IOException, not InvalidDataException: Unity's 2.0 subset has no such class.
+            if (length > 4096)
+                throw new IOException("a text of " + length + " bytes");
             byte[] bytes = r.ReadBytes(length);
             if (bytes.Length != length)
                 throw new EndOfStreamException("a text runs past the data");
@@ -921,6 +1042,26 @@ namespace RealFlag.Flags
 
             // Before the pole kept its length: not known -- found down its axis once, then kept.
             s.PoleLength = version >= 6 ? r.ReadSingle() : 0f;
+
+            // Before the player's pictures: none, laid as a new one is.
+            if (version >= 7)
+            {
+                s.Image = ReadLongText(r);
+                s.ImageX = r.ReadSingle();
+                s.ImageY = r.ReadSingle();
+                s.ImageZoom = r.ReadSingle();
+                s.ImageTurn = r.ReadByte();
+                s.ImageAlpha = r.ReadByte();
+            }
+            else
+            {
+                s.Image = d.Image;
+                s.ImageX = d.ImageX;
+                s.ImageY = d.ImageY;
+                s.ImageZoom = d.ImageZoom;
+                s.ImageTurn = d.ImageTurn;
+                s.ImageAlpha = d.ImageAlpha;
+            }
 
             return s.Sanitised();
         }

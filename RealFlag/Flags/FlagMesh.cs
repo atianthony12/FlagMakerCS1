@@ -339,13 +339,18 @@ namespace RealFlag.Flags
         public static readonly int IdSunColor = Shader.PropertyToID("_RFSunColor");
         public static readonly int IdImage = Shader.PropertyToID("_RFImage");
         public static readonly int IdUseImage = Shader.PropertyToID("_RFUseImage");
+        public static readonly int IdImageMap = Shader.PropertyToID("_RFImageMap");
+        public static readonly int IdImageMap2 = Shader.PropertyToID("_RFImageMap2");
+        public static readonly int IdImageThrough = Shader.PropertyToID("_RFImageThrough");
         public static readonly int IdBrightness = Shader.PropertyToID("_RFBrightness");
 
         /// <summary>
         /// The colours go in as LINEAR vectors, converted here: the game renders in linear
         /// colour space, and a vector (unlike a colour property) is passed as it is. A country's
-        /// flag sets its image (FlagImages: made on first use) and _RFUseImage; without the image
-        /// it falls back to its pattern. The cloth's darkness goes in as FlagSpec.Brightness, a
+        /// flag sets its image (FlagImages: made on first use) and _RFUseImage; so does a picture
+        /// of the player's, with where it lies on the cloth (FlagCrop's map: _RFImageMap and
+        /// _RFImageMap2) and what its see-through parts do (_RFImageThrough). Without its image a
+        /// flag falls back to its pattern. The cloth's darkness goes in as FlagSpec.Brightness, a
         /// multiplier on all of it.
         /// </summary>
         public static void Apply(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight)
@@ -360,10 +365,29 @@ namespace RealFlag.Flags
             block.SetVector(IdHighlight, highlight);
 
             FlagCountry country = FlagCountries.Find(spec.Country);
-            Texture2D image = country != null ? FlagImages.Get(country.Image) : null;
+            Texture2D image = null;
+            CropMap map = CropMap.Whole;
+            bool through = false;
+            if (country != null)
+            {
+                image = FlagImages.Get(country.Image);
+            }
+            else if (spec.HasImage)
+            {
+                image = FlagImages.User(spec.Image);
+                if (image != null)
+                {
+                    map = FlagCrop.Map(spec, image.width, image.height);
+                    through = spec.ImageAlpha == FlagImageAlpha.Through;
+                }
+            }
+
             if (image != null)
                 block.SetTexture(IdImage, image);
             block.SetFloat(IdUseImage, image != null ? 1f : 0f);
+            block.SetVector(IdImageMap, new Vector4(map.Ox, map.Oy, map.Ax, map.Ay));
+            block.SetVector(IdImageMap2, new Vector4(map.Bx, map.By, map.EdgeS, map.EdgeT));
+            block.SetFloat(IdImageThrough, through ? 1f : 0f);
         }
 
         public static Vector4 Linear(uint rgb)

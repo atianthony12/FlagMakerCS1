@@ -59,6 +59,9 @@ namespace RealFlag.Flags
         public bool BlockReady;
         public bool Highlighted;
 
+        /// <summary>FlagImages.UserVersion when the block was last put: a picture of the player's made again (its file changed) is taken up by every flag.</summary>
+        public int ImageVersion = -1;
+
         public readonly PickShape[] Picks = { new PickShape(), new PickShape() };
         public int PickNext;
         public float PickAge = 1e6f;
@@ -363,6 +366,8 @@ namespace RealFlag.Flags
             else
                 Log.Warn("flags: the pole's shader is not in the bundle; poles are not drawn");
             FlagImages.Warn = Log.Warn;
+            FlagImages.Note = Log.Msg;
+            FlagImages.UserSource = FlagImageFolder.Bytes;
             _layer = PropLayer();
             _ready = true;
 
@@ -1048,7 +1053,7 @@ namespace RealFlag.Flags
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
                    a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Name == b.Name &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
-                   Mathf.Approximately(a.Darkness, b.Darkness);
+                   Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b);
         }
 
         private static void SetSpec(FlagInstance f, FlagSpec spec)
@@ -1418,11 +1423,12 @@ namespace RealFlag.Flags
             // gizmo shows it -- the author: "remove the highlight on the flag when an existing flag
             // is selected. No need for it").
             bool hovered = IsHovered(f);
-            if (!f.BlockReady || hovered || f.Highlighted)
+            if (!f.BlockReady || hovered || f.Highlighted || (f.Spec.HasImage && f.ImageVersion != FlagImages.UserVersion))
             {
                 FlagLook.Apply(f.Block, f.Spec, hovered ? HoverGlow : Vector4.zero);
                 f.BlockReady = true;
                 f.Highlighted = hovered;
+                f.ImageVersion = FlagImages.UserVersion;
             }
 
             // The particles' texture: the shape the vertex program lays the drawn grid on.

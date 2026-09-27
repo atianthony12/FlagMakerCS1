@@ -112,6 +112,12 @@ namespace RealFlag.Flags
                 if (all)
                 {
                     Settings.SelCountry.value = FlagCountries.NumberOf(e.Spec.Country);
+                    Settings.SelImage.value = FlagImageNames.NumberOf(e.Spec.Image);
+                    Settings.SelImageX.value = e.Spec.ImageX;
+                    Settings.SelImageY.value = e.Spec.ImageY;
+                    Settings.SelImageZoom.value = e.Spec.ImageZoom;
+                    Settings.SelImageTurn.value = e.Spec.ImageTurn;
+                    Settings.SelImageAlpha.value = e.Spec.ImageAlpha;
                     Settings.SelPattern.value = e.Spec.Pattern;
                     Settings.SelColour1.value = (int)e.Spec.Colour1;
                     Settings.SelColour2.value = (int)e.Spec.Colour2;
@@ -148,7 +154,7 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>A design control changed (pattern, colours, size and shape, the edge hoisted, waviness, darkness, the pole).</summary>
+        /// <summary>A design control changed (pattern, colours, the picture and where it lies, size and shape, the edge hoisted, waviness, darkness, the pole).</summary>
         public static void ApplyDesign()
         {
             FlagEntry e;
@@ -158,6 +164,12 @@ namespace RealFlag.Flags
             FlagSpec spec = e.Spec;
             FlagCountry country = FlagCountries.At(Settings.SelCountry.value);
             spec.Country = country != null ? country.Code : string.Empty;
+            spec.Image = FlagImageNames.At(Settings.SelImage.value);
+            spec.ImageX = Settings.SelImageX.value;
+            spec.ImageY = Settings.SelImageY.value;
+            spec.ImageZoom = Settings.SelImageZoom.value;
+            spec.ImageTurn = Settings.SelImageTurn.value;
+            spec.ImageAlpha = Settings.SelImageAlpha.value;
             spec.Pattern = Settings.SelPattern.value;
             spec.Colour1 = (uint)Settings.SelColour1.value;
             spec.Colour2 = (uint)Settings.SelColour2.value;
@@ -314,6 +326,12 @@ namespace RealFlag.Flags
                 return;
 
             Settings.NewCountry.value = FlagCountries.NumberOf(e.Spec.Country);
+            Settings.NewImage.value = FlagImageNames.NumberOf(e.Spec.Image);
+            Settings.NewImageX.value = e.Spec.ImageX;
+            Settings.NewImageY.value = e.Spec.ImageY;
+            Settings.NewImageZoom.value = e.Spec.ImageZoom;
+            Settings.NewImageTurn.value = e.Spec.ImageTurn;
+            Settings.NewImageAlpha.value = e.Spec.ImageAlpha;
             Settings.NewPattern.value = e.Spec.Pattern;
             Settings.NewColour1.value = (int)e.Spec.Colour1;
             Settings.NewColour2.value = (int)e.Spec.Colour2;

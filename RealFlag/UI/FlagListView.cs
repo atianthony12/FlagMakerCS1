@@ -6,9 +6,9 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The Flags tab's list: every flag in the city, a row each -- its name, its pattern and its
-    /// width by height as seen, its three colours -- in a scrolling box. A click selects the flag
-    /// (FlagEditor) and the controls below take it over.
+    /// The Flags tab's list: every flag in the city, a row each -- its name, its pattern (its
+    /// country, its picture) and its width by height as seen, its three colours (its image) -- in a
+    /// scrolling box. A click selects the flag (FlagEditor) and the controls below take it over.
     /// </summary>
     public class FlagListView : UIPanel
     {
@@ -23,6 +23,7 @@ namespace RealFlag.UI
         private readonly List<UIButton> _rows = new List<UIButton>();
         private readonly List<uint> _shown = new List<uint>();
         private int _shownVersion = -1;
+        private int _shownImages = -1;
         private uint _shownSelected = uint.MaxValue;
 
         /// <summary>Builds the box inside a page, <paramref name="width"/> wide.</summary>
@@ -98,7 +99,8 @@ namespace RealFlag.UI
         /// <summary>A flag came or went, or one's design changed (the registry's version moved).</summary>
         private bool Changed()
         {
-            if (_shownVersion != FlagRegistry.Version || _entries.Count != _shown.Count)
+            // A picture's textures made again (its file changed): its thumbnail with them.
+            if (_shownVersion != FlagRegistry.Version || _shownImages != FlagImages.UserVersion || _entries.Count != _shown.Count)
                 return true;
 
             for (int i = 0; i < _entries.Count; i++)
@@ -130,8 +132,8 @@ namespace RealFlag.UI
                 FlagCountry country = FlagCountries.Find(e.Spec.Country);
                 float shownWidth, shownHeight;
                 FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
-                row.text = FlagEditor.Title(e) + "  ·  " + (country != null ? country.Name : Localization.Get(PatternKey(e.Spec.Pattern))) + ", " +
-                           Localization.Get("Unit.Size", shownWidth.ToString("0.#"), shownHeight.ToString("0.#"));
+                string design = country != null ? country.Name : e.Spec.HasImage ? e.Spec.Image : Localization.Get(PatternKey(e.Spec.Pattern));
+                row.text = FlagEditor.Title(e) + "  ·  " + design + ", " + Localization.Get("Unit.Size", shownWidth.ToString("0.#"), shownHeight.ToString("0.#"));
                 row.textScale = 0.72f;
                 row.textHorizontalAlignment = UIHorizontalAlignment.Left;
                 row.textPadding = new RectOffset(8, 64, 4, 0);
@@ -141,8 +143,8 @@ namespace RealFlag.UI
                 row.focusedBgSprite = "ButtonMenu";
                 row.canFocus = false;
 
-                // At the right: a country's flag, or the pattern's colours.
-                Texture2D thumb = country != null ? FlagImages.Thumbnail(country.Image) : null;
+                // At the right: a country's flag, the player's picture, or the pattern's colours.
+                Texture2D thumb = country != null ? FlagImages.Thumbnail(country.Image) : e.Spec.HasImage ? FlagImages.UserPreview(e.Spec.Image) : null;
                 if (thumb != null)
                 {
                     float scale = Mathf.Min(40f / Mathf.Max(1, thumb.width), 16f / Mathf.Max(1, thumb.height));
@@ -179,6 +181,7 @@ namespace RealFlag.UI
             }
 
             _shownVersion = FlagRegistry.Version;
+            _shownImages = FlagImages.UserVersion;
             _shownSelected = uint.MaxValue;
             Highlight();
         }

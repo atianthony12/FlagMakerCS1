@@ -9,8 +9,9 @@ namespace RealFlag.UI
     /// A panel's rows, drawn from the catalog (SettingsCatalog), and kept up to date: the in-game
     /// panel's two tabs, the New flag window, and the Flagpole popup's two pages each hold one. A
     /// colour row is a swatch that opens the ColourPicker, a country row a button that opens the
-    /// CountryPicker, both beside the owner; up to three colour rows share a line; a shape row is
-    /// a little flag of each shape, a segmented row a button a choice, the one that holds lit.
+    /// CountryPicker, an image row a button that opens the ImagePanel and a folder button, all
+    /// beside the owner; up to three colour rows share a line; a shape row is a little flag of
+    /// each shape, a segmented row a button a choice, the one that holds lit.
     /// </summary>
     /// <remarks>
     /// What FlagsPanel did itself before the popup needed the same (Volumetric Explosions'
@@ -55,6 +56,11 @@ namespace RealFlag.UI
             public UIButton Country;
             public UITextureSprite CountryImage;
             public int CountryShown = -1;
+
+            /// <summary>An image row: its button (the picture's name), its thumbnail, and what they show -- the picture's number, the textures' and the folder's versions then.</summary>
+            public UIButton Image;
+            public UITextureSprite ImageThumb;
+            public int ImageShown = -1, ImageVersion = -1, ImageFolderVersion = -1;
 
             /// <summary>A shape or segmented row: a button per preset or choice, the little flag drawn on each, and which is lit (1), not (0), or not yet shown (-1).</summary>
             public readonly List<UIButton> Options = new List<UIButton>();
@@ -169,6 +175,12 @@ namespace RealFlag.UI
                     if (control.Country != null && row.Int != null &&
                         (control.CountryShown != row.Int.value || (row.Int.value != 0 && control.CountryImage.texture == null)))
                         ShowCountry(control);
+
+                    // A picture: again when it changed, its file did, or its folder.
+                    if (control.Image != null && row.Int != null &&
+                        (control.ImageShown != row.Int.value || control.ImageVersion != FlagImages.UserVersion ||
+                         control.ImageFolderVersion != FlagImageFolder.Version || (row.Int.value != 0 && control.ImageThumb.texture == null)))
+                        ShowImage(control);
 
                     if (control.Check != null && row.Bool != null && !row.Pending && control.Check.isChecked != row.Bool.value)
                         control.Check.isChecked = row.Bool.value;
@@ -393,6 +405,45 @@ namespace RealFlag.UI
                     break;
                 }
 
+                case RowKind.Image:
+                {
+                    // "Your image   [ castle.png   ] [picture] [folder]": the button opens the Image
+                    // window (the list of the folder's pictures, and where one lies on the flag), the
+                    // folder button the folder itself -- whatever is selected.
+                    AddRowLabel(page, row, y, control);
+
+                    const float imageWidth = 42f, folderWidth = 30f, gap = 6f;
+                    float width = page.width - 200f - imageWidth - folderWidth - 2f * gap;
+                    UIButton button = UIBuilder.AddButton(page, string.Empty, new Vector2(width, 26f), new Vector3(200f, y + 3f));
+                    button.textScale = 0.8f;
+                    button.textHorizontalAlignment = UIHorizontalAlignment.Left;
+                    button.textPadding = new RectOffset(8, 8, 5, 0);
+                    button.tooltip = row.Tooltip;
+                    Row captured = row;
+                    button.eventClick += (component, e) =>
+                    {
+                        if (captured.IsEnabled && captured.Image != null)
+                            ImagePanel.Toggle(captured.Image, _owner);
+                    };
+
+                    UITextureSprite image = page.AddUIComponent<UITextureSprite>();
+                    image.size = new Vector2(imageWidth, 26f);
+                    image.relativePosition = new Vector3(200f + width + gap, y + 3f);
+                    image.isInteractive = false;
+
+                    UIButton folder = UIBuilder.AddButton(page, string.Empty, new Vector2(folderWidth, 26f), new Vector3(page.width - folderWidth, y + 3f));
+                    folder.tooltip = Localization.Get("Image.OpenTip");
+                    new FolderIcon(folder, new Vector3(6f, 6f), new Vector2(18f, 14f));
+                    folder.eventClick += (component, e) => FlagImageFolder.Open();
+
+                    control.Image = button;
+                    control.ImageThumb = image;
+                    control.Parts.Add(button);
+                    control.Parts.Add(image);
+                    ShowImage(control);
+                    break;
+                }
+
                 case RowKind.Shape:
                 {
                     // "Shape   [▯] [▯] [▯] [□] [▭] [▭] [▭]": a little flag of each shape, hoisted as the flag is.
@@ -548,6 +599,28 @@ namespace RealFlag.UI
                 // Within the 42 x 26 kept for it, at the flag's own proportions.
                 float scale = Mathf.Min(42f / Mathf.Max(1, thumb.width), 26f / Mathf.Max(1, thumb.height));
                 control.CountryImage.size = new Vector2(Mathf.Round(thumb.width * scale), Mathf.Round(thumb.height * scale));
+            }
+        }
+
+        /// <summary>An image row as its setting stands: the picture's name on the button (or none, or that its file is missing) and its thumbnail beside it, at its own proportions.</summary>
+        private static void ShowImage(Control control)
+        {
+            Row row = control.Source;
+            int number = row.Int != null ? row.Int.value : 0;
+            control.ImageShown = number;
+            control.ImageVersion = FlagImages.UserVersion;
+            control.ImageFolderVersion = FlagImageFolder.Version;
+
+            string name = FlagImageNames.At(number);
+            Texture2D thumb = name.Length > 0 ? FlagImages.UserPreview(name) : null;
+            control.Image.text = name.Length == 0 ? Localization.Get("Image.None") : thumb == null ? Localization.Get("Image.Missing", name) : name;
+
+            control.ImageThumb.texture = thumb;
+            control.ImageThumb.isVisible = thumb != null;
+            if (thumb != null)
+            {
+                float scale = Mathf.Min(42f / Mathf.Max(1, thumb.width), 26f / Mathf.Max(1, thumb.height));
+                control.ImageThumb.size = new Vector2(Mathf.Max(1f, Mathf.Round(thumb.width * scale)), Mathf.Max(1f, Mathf.Round(thumb.height * scale)));
             }
         }
 

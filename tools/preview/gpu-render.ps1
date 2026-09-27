@@ -24,6 +24,9 @@
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
+#   ... -Images "a.png,b.jpg" -ImageDir <folder>   pictures of the player's, laid on -Patterns' first pattern
+#   ... -Crops "0.5,0.5,1,0|0.3,0.5,2,1"           each picture once per crop: the middle x,y on it, zoom, quarter turns
+#   ... -Through                   their see-through parts show the pattern (else cut out)
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
 # -Elevation (m) -Colours "#hex,#hex,#hex"; the camera: -Yaw -Pitch -Dist (flag lengths away).
 
@@ -62,6 +65,10 @@ param(
     [double]$Tilt = 0,
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
+    [string]$Images = "",
+    [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\RealFlag\Images"),
+    [string]$Crops = "0.5,0.5,1,0",
+    [switch]$Through,
     # Metres added to the point looked at (the flag's middle), "x,y,z": "-1.5,1,0" is a 3 x 2 m flag's anchor.
     [string]$Look = "0,0,0",
     # The way the wind blows, degrees from the flag's heading: 180 blows it back over its pole.
@@ -124,6 +131,10 @@ $env:RF_POLECOLOURS = $PoleColours
 $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
 $env:RF_HOIST = $Hoist
+$env:RF_IMAGES = $Images
+$env:RF_IMAGEDIR = $ImageDir
+$env:RF_CROPS = $Crops
+$env:RF_THROUGH = if ($Through) { "1" } else { "0" }
 $env:RF_LOOK = $Look
 $env:RF_WINDYAW = $WindYaw.ToString($inv)
 $env:RF_FABRIC = $Fabric

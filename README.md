@@ -31,6 +31,26 @@ turns as a flag hung upright does: the canton at the top on the left); how wavy 
 how dark (for a flag whose white or yellow glares in a bright sun: its colours as if dyed
 darker, up to 80%), the way it points and its elevation over the ground.
 
+**Your image** (in the new flag's window and in the Flags tab): a picture of your own on the
+flag. The folder button beside it opens the images folder, `RealFlag\Images` in the game's
+data folder next to `RealFlag.xml` (on Windows
+`%LOCALAPPDATA%\Colossal Order\Cities_Skylines\RealFlag\Images`); put `.png` or `.jpg` pictures
+in it. The name button opens the **Image** window: your pictures in a list, each with a
+thumbnail -- new ones appear by themselves while it is open -- and, under it, the flag as it
+hangs with the picture on it and what is cut off dimmed round it. Picking a picture gives the
+flag its shape, so all of it shows; the picture is **never stretched**. While **width and height
+go together**, the flag keeps the picture's shape as you size it (switched back on, it takes it
+back); switch that off to give the flag any shape, the picture cropped to it. Drag it to move it on
+the flag, use the wheel or the Zoom slider to zoom (100%: it just fills the flag; less shows all
+of it with the flag's own pattern round it), **Fill**, **Whole picture**, **Turn 90°**, and
+**Flag takes its shape** again after a change. A picture's see-through parts (a PNG's
+transparency) are **cut out** -- a pennant or swallowtail PNG makes a shaped flag -- or **show
+the flag** through them, its own pattern and colours: a logo on a coloured flag. On a banner
+hoisted from its top a picture stays upright. Pictures over 2048 pixels are scaled down. A
+flag keeps its picture by file name: a city opened where the file is missing shows the flag's
+pattern until the file is back, and an edited picture shows on its flags when the Image window
+is next open.
+
 **Flagpole** (a button in the new flag's window and in the Flags tab, which opens beside them): none by default -- the flag
 is for a pole of your own -- or a pole the mod draws from whatever the flag stands over up to
 the flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
@@ -121,9 +141,13 @@ it is missing.
 - **The shader** is a two-sided fabric: the "Charlie" sheen of cloth at grazing angles
   (Estevez and Kulla 2017; Neubelt and Pettineo 2013), light shining through the cloth from
   behind (GPU Gems ch. 16), and the design drawn from its colours -- or a country's flag from
-  its image, cut out where the image is (Nepal's two pennants) -- with a canvas heading, two
-  grommets and hems. Dry, it is matte; in the rain it gets wet as the city's ground does
-  (darker, with the water's glints on its folds), and dries with it.
+  its image, cut out where the image is (Nepal's two pennants), or your picture where you laid
+  it -- with a canvas heading, two grommets and hems. Dry, it is matte; in the rain it gets wet
+  as the city's ground does (darker, with the water's glints on its folds), and dries with it.
+- **Your pictures** are cropped, never stretched: the flag shows a window of the picture with
+  the flag's own shape, as large as it goes at 100%. A picture's hidden colours under its
+  see-through pixels are filled from its visible ones (the "pull-push" of Gortler et al.'s
+  Lumigraph, 1996), so its cut or blended edges show no dark fringe.
 - The cloth is stepped on threads of its own (one per six of the machine's, up to four), 60
   times a second, while the game draws the frame; the flags biggest on the screen first, within
   a time budget that grows with the frame's length, and flags that had to wait go first next
@@ -183,6 +207,12 @@ Written from scratch after these, with thanks (no code from them is included):
   flag's flutter; G. Fiedler, *Fix Your Timestep!* (2004).
 - The United States Flag Code, 4 U.S.C. § 7(i) -- a flag hung upright shows its union at the
   top, to the flag's own right: the design of a flag hoisted from its top.
+- Your pictures: the images folders of *Procedural Objects* and *Image Overlay* (Cities:
+  Skylines mods) -- a folder button and a list of the files, the idea only, no code;
+  S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996) --
+  the pull-push that fills a picture's see-through pixels with its visible colours; the PNG
+  specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81) -- a picture's size read from its
+  header.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
 

@@ -622,6 +622,15 @@ namespace RealFlag
                 return null;
             }
 
+            if (row.Kind == RowKind.Image)
+            {
+                // Any file name: one not in the folder (yet) is kept, and the flag shows its pattern until it is.
+                bool none = trimmed.Length == 0 || string.Equals(trimmed, "none", StringComparison.OrdinalIgnoreCase);
+                int number = none ? 0 : Flags.FlagImageNames.NumberOf(trimmed);
+                row.Int.value = number;
+                return none || number != 0 ? null : "ignored: not a file name";
+            }
+
             if (row.ChoiceValues != null)
             {
                 int number;
@@ -676,6 +685,13 @@ namespace RealFlag
             return country != null ? country.Code : "none";
         }
 
+        /// <summary>An image row's value as the file keeps it: the picture's file name, or "none".</summary>
+        private static string ImageText(int number)
+        {
+            string name = Flags.FlagImageNames.At(number);
+            return name.Length > 0 ? name : "none";
+        }
+
         private static int CurrentKey()
         {
             return Settings.ToggleKey != null ? (int)Settings.ToggleKey.value : 0;
@@ -692,6 +708,8 @@ namespace RealFlag
                 return Flags.FlagColours.Hex((uint)row.Int.value);
             if (row.Int != null && row.Kind == RowKind.Country)
                 return CountryText(row.Int.value);
+            if (row.Int != null && row.Kind == RowKind.Image)
+                return ImageText(row.Int.value);
             if (row.Int != null)
                 return row.Int.value.ToString(CultureInfo.InvariantCulture);
             if (row.Key != null)
@@ -740,6 +758,10 @@ namespace RealFlag
             else if (row.Int != null && row.Kind == RowKind.Country)
             {
                 text = Localization.Get("File.Country", label, CountryText(row.DefaultInt));
+            }
+            else if (row.Int != null && row.Kind == RowKind.Image)
+            {
+                text = Localization.Get("File.Image", label, ImageText(row.DefaultInt));
             }
             else if (row.Int != null)
             {

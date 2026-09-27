@@ -44,6 +44,9 @@ using Debug = UnityEngine.Debug;
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
 ///   RF_HOIST "top"      hoisted from its top (a banner on a crossbar: FlagHoist), not its side
+///   RF_IMAGES "a.png,b.jpg"  pictures of the player's (from RF_IMAGEDIR) instead of RF_PATTERNS / RF_COUNTRIES,
+///                       each once per RF_CROPS "x,y,zoom,turn|..." (FlagSpec.Image*; default "0.5,0.5,1,0"),
+///                       laid on RF_PATTERNS' first pattern; RF_THROUGH "1": their see-through parts show it
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
 /// Every frame logs "RF FRAME row=.. col=.. t=.. file=.. | ..." with the flag's droop, how much
 /// of the frame it covers, and its mean colour.
@@ -139,6 +142,18 @@ public static class FlagPreview
             return File.Exists(file) ? File.ReadAllBytes(file) : null;
         };
         FlagImages.Warn = Debug.LogWarning;
+        FlagImages.Note = Debug.Log;
+
+        // The player's pictures from a folder of the preview's own.
+        string imageDir = Env("RF_IMAGEDIR", "");
+        FlagImages.UserSource = name =>
+        {
+            string file = Path.Combine(imageDir, name);
+            return imageDir.Length > 0 && File.Exists(file) ? File.ReadAllBytes(file) : null;
+        };
+        string[] images = Env("RF_IMAGES", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        string[] crops = Env("RF_CROPS", "0.5,0.5,1,0").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+        bool through = Env("RF_THROUGH", "0") == "1";
 
         FlagSpec spec = FlagSpec.Default;
         spec.Length = ParseFloat(Env("RF_LENGTH", "3"));
@@ -209,7 +224,30 @@ public static class FlagPreview
         // The designs: the countries' flags if asked for, the patterns otherwise; each once per
         // darkness (RF_DARKNESS, percent as the panel shows it).
         var designs = new List<FlagSpec>();
-        if (countries.Length > 0)
+        if (images.Length > 0)
+        {
+            foreach (string image in images)
+            {
+                foreach (string crop in crops)
+                {
+                    float[] c4 = ParseFloats(crop);
+                    FlagSpec flag = spec;
+                    flag.Pattern = patterns[0];
+                    flag.Image = image.Trim();
+                    flag.ImageX = c4.Length > 0 ? c4[0] : 0.5f;
+                    flag.ImageY = c4.Length > 1 ? c4[1] : 0.5f;
+                    flag.ImageZoom = c4.Length > 2 ? c4[2] : 1f;
+                    flag.ImageTurn = c4.Length > 3 ? (int)c4[3] : 0;
+                    flag.ImageAlpha = through ? FlagImageAlpha.Through : FlagImageAlpha.Cut;
+                    foreach (float darkness in darknesses)
+                    {
+                        flag.Darkness = darkness / 100f;
+                        designs.Add(flag.Sanitised());
+                    }
+                }
+            }
+        }
+        else if (countries.Length > 0)
         {
             foreach (string code in countries)
             {
@@ -301,6 +339,10 @@ public static class FlagPreview
                               " file=" + file + " | " + Droop(cloth) + ", " + cloth.Columns + "x" + cloth.Rows +
                               (mesh.Refine > 1 ? " x" + mesh.Refine : "") + (collide ? "" : " no collision") +
                               (flag.IsCountry ? ", " + flag.Country : "") +
+                              (flag.HasImage ? ", image " + flag.Image + " at " + flag.ImageX.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
+                                               flag.ImageY.ToString("0.##", CultureInfo.InvariantCulture) + " x" +
+                                               flag.ImageZoom.ToString("0.##", CultureInfo.InvariantCulture) + " turn " + flag.ImageTurn +
+                                               (flag.ImageAlpha == FlagImageAlpha.Through ? " through" : "") : "") +
                               (flag.Darkness > 0f ? ", darkness " + (flag.Darkness * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
                               " | " + info);
                     col++;

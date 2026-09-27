@@ -380,6 +380,38 @@ namespace RealFlag.UI
     }
 
     /// <summary>
+    /// A folder drawn on a button, of blocks as <see cref="FlagIcon"/> is: its back with its tab,
+    /// and its front a shade lighter -- the images folder's button (the author: "a folder icon
+    /// which opens where the user should drag images", as Procedural Objects and Image Overlay
+    /// have). No sprite of the game's atlas is known to be a folder.
+    /// </summary>
+    public sealed class FolderIcon
+    {
+        private static readonly Color32 BackColour = new Color32(196, 146, 44, 255);
+        private static readonly Color32 FrontColour = new Color32(242, 193, 78, 255);
+
+        /// <param name="parent">The button it is drawn on.</param>
+        /// <param name="at">Its top left corner on it; <paramref name="size"/> its size (18 x 14 reads well).</param>
+        public FolderIcon(UIComponent parent, Vector3 at, Vector2 size)
+        {
+            float w = Mathf.Round(size.x), h = Mathf.Round(size.y);
+            float tab = Mathf.Max(2f, Mathf.Round(h * 0.2f));
+
+            UITextureSprite back = UIBuilder.AddBlock(parent, BackColour);
+            back.size = new Vector2(w, h - tab);
+            back.relativePosition = at + new Vector3(0f, tab);
+
+            UITextureSprite ear = UIBuilder.AddBlock(parent, BackColour);
+            ear.size = new Vector2(Mathf.Round(w * 0.42f), tab + 1f);
+            ear.relativePosition = at;
+
+            UITextureSprite front = UIBuilder.AddBlock(parent, FrontColour);
+            front.size = new Vector2(w, Mathf.Round((h - tab) * 0.72f));
+            front.relativePosition = at + new Vector3(0f, h - front.height);
+        }
+    }
+
+    /// <summary>
     /// A little flag drawn in a box on a button: its cloth at a shape as seen (height over width)
     /// and the edge it is hoisted from, a gilt bar along its side or its top -- the panel's shapes
     /// and its Hoisted from choice (the author: "maybe add a small square/rectangle/etc icons

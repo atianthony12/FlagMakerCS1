@@ -149,6 +149,7 @@ namespace RealFlag.UI
                     FlagTool.PutAway();
                 ColourPicker.Close();
                 CountryPicker.Close();
+                ImagePanel.CloseIf(PanelPage.New);
                 PolePanel.CloseIf(PanelPage.PoleNew);
                 Log.Msg("flags: the New flag window closed");
             };

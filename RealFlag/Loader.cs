@@ -35,6 +35,11 @@ namespace RealFlag
                 return;
             }
 
+            // The player's pictures come from their folder (before any panel asks for one).
+            FlagImages.UserSource = FlagImageFolder.Bytes;
+            FlagImages.Warn = Log.Warn;
+            FlagImages.Note = Log.Msg;
+
             _root = new GameObject("RealFlagController");
             Object.DontDestroyOnLoad(_root);
             _root.AddComponent<ModController>();

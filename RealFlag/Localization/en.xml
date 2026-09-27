@@ -54,6 +54,11 @@
   <String key="NewCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
   <String key="SelCountry.Label">Country's flag</String>
   <String key="SelCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
+  <!-- A picture of the player's own, from the RealFlag\Images folder: the row's button opens the Image window, its folder button the folder. -->
+  <String key="NewImage.Label">Your image</String>
+  <String key="NewImage.Tooltip">A picture of your own on the flag, never stretched. Click to pick one and place it; the folder button opens the folder to put pictures in.</String>
+  <String key="SelImage.Label">Your image</String>
+  <String key="SelImage.Tooltip">A picture of your own on the flag, never stretched. Click to pick one and place it; the folder button opens the folder to put pictures in.</String>
   <String key="NewPattern.Label">Pattern</String>
   <String key="NewPattern.Tooltip">The flag's design. Its colours are the three below: the first is the background.</String>
   <String key="SelPattern.Label">Pattern</String>
@@ -90,9 +95,9 @@
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
   <String key="NewShape.Label">Shape</String>
-  <String key="NewShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept.</String>
+  <String key="NewShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept. With your picture on it, turn off Width and height together first.</String>
   <String key="SelShape.Label">Shape</String>
-  <String key="SelShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept.</String>
+  <String key="SelShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept. With your picture on it, turn off Width and height together first.</String>
   <String key="NewWidth.Label">Width</String>
   <String key="NewWidth.Tooltip">Across, as it hangs. A town's flagpole flies about 3 m.</String>
   <String key="SelWidth.Label">Width</String>
@@ -102,7 +107,7 @@
   <String key="SelTall.Label">Height</String>
   <String key="SelTall.Tooltip">Top to bottom, as it hangs, and its shape: height to width.</String>
   <String key="LinkSize.Label">Width and height together</String>
-  <String key="LinkSize.Tooltip">The flag keeps its shape as either changes. Off: each on its own, from 1:5 to 5:1.</String>
+  <String key="LinkSize.Tooltip">The flag keeps its shape as either changes; with your picture on it, the picture's shape. Off: each on its own, from 1:5 to 5:1, the picture cropped to fit.</String>
   <String key="NewHoistedFrom.Label">Hoisted from</String>
   <String key="NewHoistedFrom.Tooltip">The edge held on the pole: the side, as flags fly, or the top, as a banner hangs from a crossbar. From the top, the design turns as a flag hung upright does.</String>
   <String key="SelHoistedFrom.Label">Hoisted from</String>
@@ -113,6 +118,13 @@
   <!-- What the width and height set, as the settings file names it. -->
   <String key="NewLength.Label">The new flag's length, from the pole to the far end, in metres (its width and height set it)</String>
   <String key="NewProportion.Label">The new flag's proportions: the edge on the pole over the length, x 1000 (667 is 2:3, 1500 is 3:2)</String>
+
+  <!-- Where the new flag's picture lies on it, as the settings file names it (the Image window sets them). -->
+  <String key="NewImageX.Label">The new flag's image: where the flag's middle is on it, across from its left edge (0) to its right (1)</String>
+  <String key="NewImageY.Label">The new flag's image: where the flag's middle is on it, down from its top (0) to its bottom (1)</String>
+  <String key="NewImageZoom.Label">The new flag's image: its zoom, 1 when it just fills the flag</String>
+  <String key="NewImageTurn.Label">The new flag's image: quarter turns clockwise, 0 to 3</String>
+  <String key="NewImageAlpha.Label">The new flag's image: what its see-through parts do</String>
 
   <String key="NewWaviness.Label">How wavy</String>
   <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind. 0%: stiff and calm; 200%: light and restless.</String>
@@ -247,6 +259,36 @@
   <String key="Country.None">None: a pattern</String>
   <String key="Country.Search">Search</String>
 
+  <!-- The Image window: your pictures, and where one lies on the flag. {0} of Image.Row is a file name, {1} and {2} its size in pixels. -->
+  <String key="Image.TitleNew">Image of the new flag</String>
+  <String key="Image.TitleExisting">Image of the selected flag</String>
+  <String key="Image.Open">Open the images folder</String>
+  <String key="Image.OpenTip">Opens RealFlag's images folder. Put .png or .jpg pictures in it and they appear in the list.</String>
+  <String key="Image.Hint">Your .png and .jpg pictures in RealFlag\Images, next to RealFlag.xml. New ones appear here by themselves.</String>
+  <String key="Image.Empty">No pictures yet: open the folder above and put .png or .jpg files in it. They appear here by themselves.</String>
+  <String key="Image.None">None</String>
+  <String key="Image.NoneRow">None: the pattern or the country's flag</String>
+  <String key="Image.Row">{0} ({1} × {2})</String>
+  <String key="Image.Missing">{0} (missing)</String>
+  <String key="Image.Drag">Drag the picture to move it on the flag; the wheel zooms.</String>
+  <String key="Image.DragTip">The flag as it hangs, its frame outlined; what lies outside is cut off.</String>
+  <String key="Image.Zoom">Zoom</String>
+  <String key="Image.ZoomTip">100%: the picture just fills the flag. Less shows all of it with the flag's pattern round it.</String>
+  <String key="Image.Fill">Fill</String>
+  <String key="Image.FillTip">The picture just fills the flag, centred; what does not fit is cut off.</String>
+  <String key="Image.Whole">Whole picture</String>
+  <String key="Image.WholeTip">All of the picture on the flag, centred, the flag's pattern round it.</String>
+  <String key="Image.Turn">Turn 90°</String>
+  <String key="Image.TurnTip">Turns the picture a quarter clockwise.</String>
+  <String key="Image.Shape">Flag takes its shape: {0}</String>
+  <String key="Image.ShapeNone">Flag takes its shape</String>
+  <String key="Image.ShapeTip">The flag's width and height become the picture's shape, its longer side kept: all of it shows, unstretched.</String>
+  <String key="Image.SeeThrough">See-through parts</String>
+  <String key="Image.Cut">Cut out</String>
+  <String key="Image.CutTip">Holes in the flag: a pennant or swallowtail picture makes a shaped flag.</String>
+  <String key="Image.Through">Show the flag</String>
+  <String key="Image.ThroughTip">The flag's own pattern and colours show there: a logo on a coloured flag.</String>
+
   <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
   <String key="Group.Wind">Wind</String>
   <String key="WindFromGame.Label">Use the game's wind</String>
@@ -351,5 +393,6 @@
   <String key="File.Choice">{0}. One of {1}; default {2}.</String>
   <String key="File.Colour">{0}. A colour #RRGGBB; default {1}.</String>
   <String key="File.Country">{0}. A country's code (fr, de, gb-sct, eu ...) or none; default {1}.</String>
+  <String key="File.Image">{0}. A picture's file name in the RealFlag\Images folder, or none; default {1}.</String>
   <String key="File.Key">{0}. A key such as F6 or Ctrl+Shift+F, or None; default {1}.</String>
 </Language>

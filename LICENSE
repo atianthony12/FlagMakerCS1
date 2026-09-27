@@ -102,6 +102,13 @@ techniques were written from scratch after them, and they are credited here with
   A flag hung upright:
     The United States Flag Code, 4 U.S.C. 7(i) -- "the union should be uppermost and to
       the flag's own right": the design of a flag hoisted from its top.
+  The player's pictures:
+    the images folders of Procedural Objects and Image Overlay (Cities: Skylines mods) -- a
+      folder button and a list of the files: the idea only; none of their code.
+    S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, "The Lumigraph", SIGGRAPH
+      1996 -- the pull-push: a picture's see-through pixels given its visible colours.
+    The PNG specification (W3C Recommendation / ISO/IEC 15948) and ITU-T T.81 (JPEG) -- a
+      picture's size read from its header.
   And:
     K. Perlin, "Improving Noise", SIGGRAPH 2002 -- the quintic fade.
     C. Wellons, the lowbias32 integer hash.

@@ -40,7 +40,13 @@
 //   transparent, Nepal's two pennants, in every pass and the shadow: alphatest) -- then the
 //   canvas heading at the hoist with its two grommets, and the hems; all of it times the
 //   flag's _RFBrightness (FlagSpec.Brightness: its Darkness setting, 1 as designed), so the
-//   light through the cloth and the sheen darken with it.
+//   light through the cloth and the sheen darken with it;
+// - or a picture of the player's, on the pattern: sampled through _RFImageMap / _RFImageMap2, an
+//   affine map from the cloth's uv to the texture's coordinates (FlagCrop: the picture cropped,
+//   never stretched, turned, upright on a banner), which a country's flag has as (u, 1 - v).
+//   Where the picture is smaller than the flag (zoomed out) the pattern shows round it, its
+//   edge anti-aliased over a pixel (fwidth, as the patterns' are); its see-through parts are cut
+//   out as a country's are, or (_RFImageThrough 1) the pattern shows through them.
 //
 // A flag drawn finer than its particles (_RFUseGrid 1: the flags big on the screen) takes its
 // SHAPE from the particles, not the mesh: FlagMesh hands them over as a float texture (_RFGrid, a
@@ -53,8 +59,9 @@
 // (_RFUseGrid 0, most of a city's) comes with its vertices, normals and tangents as they are.
 //
 // Per flag, in a MaterialPropertyBlock: _RFColor1..3 (LINEAR), _RFPattern, _RFAspect (height /
-// length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage
-// and _RFUseImage, _RFBrightness, _RFGrid and _RFGridSize.
+// length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage,
+// _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFGrid and
+// _RFGridSize.
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagCloth"
 {
@@ -67,8 +74,11 @@ Shader "RealFlag/FlagCloth"
         _RFAspect ("Height / length", Float) = 0.667
         _RFLength ("Length (m)", Float) = 3
         _RFHighlight ("Highlight", Vector) = (0, 0, 0, 0)
-        _RFImage ("Country's flag (sRGB)", 2D) = "white" {}
+        _RFImage ("Country's flag or the player's picture (sRGB)", 2D) = "white" {}
         _RFUseImage ("Draw the image, not the pattern", Float) = 0
+        _RFImageMap ("Image: its origin (xy) and along the fly (zw), texture coordinates", Vector) = (0, 1, 1, 0)
+        _RFImageMap2 ("Image: down the hoist (xy); it may end inside the flag along s (z), t (w)", Vector) = (0, -1, 0, 0)
+        _RFImageThrough ("Image: see-through parts show the pattern (1) or are cut out (0)", Float) = 0
         _RFCutoff ("Image cut-out", Float) = 0.5
         _RFBrightness ("Brightness (linear, 1 as designed)", Float) = 1
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
@@ -97,6 +107,9 @@ Shader "RealFlag/FlagCloth"
         float4 _RFHighlight;
         sampler2D _RFImage;
         float _RFUseImage;
+        float4 _RFImageMap;
+        float4 _RFImageMap2;
+        float _RFImageThrough;
         float _RFBrightness;
         sampler2D _RFGrid;
         float4 _RFGridSize;
@@ -253,13 +266,22 @@ Shader "RealFlag/FlagCloth"
         {
             float face = IN.face >= 0 ? 1.0 : -1.0;
 
-            // The pattern, or the country's image: both worked out, one kept (a texture fetch
-            // inside a branch would need the branch flattened anyway, for its derivatives). The
-            // image's rows run from the top as the flag's uv.y does; a texture's v from the bottom.
+            // The pattern, or the image: both worked out, one kept (a texture fetch inside a
+            // branch would need the branch flattened anyway, for its derivatives). The image where
+            // the map puts it (a country's: its rows from the top as the flag's uv.y runs, a
+            // texture's v from the bottom -- (u, 1 - v)); where it ends inside the flag, the
+            // pattern.
             float3 pattern = RFPatternColour(IN.flagUV, _RFPattern, _RFAspect, _RFColor1.rgb, _RFColor2.rgb, _RFColor3.rgb);
-            float4 image = tex2D(_RFImage, float2(IN.flagUV.x, 1.0 - IN.flagUV.y));
-            float useImage = step(0.5, _RFUseImage);
-            float3 albedo = lerp(pattern, image.rgb, useImage);
+            float2 st = _RFImageMap.xy + IN.flagUV.x * _RFImageMap.zw + IN.flagUV.y * _RFImageMap2.xy;
+            float4 image = tex2D(_RFImage, st);
+            float2 edge = max(fwidth(st), 1e-5);
+            float2 inside2 = saturate(min(st, 1.0 - st) / edge + 0.5);
+            float inside = lerp(1.0, inside2.x, _RFImageMap2.z) * lerp(1.0, inside2.y, _RFImageMap2.w);
+            float useImage = step(0.5, _RFUseImage) * inside;
+
+            // Its see-through parts: cut out (below, by the alpha), or the pattern through them.
+            float over = lerp(1.0, image.a, _RFImageThrough);
+            float3 albedo = lerp(pattern, image.rgb, useImage * over);
             albedo = Make(IN.flagUV, albedo) * saturate(_RFBrightness);
 
             // Wet: darker (Lagarde's diffuse factor), and the water's film on it reflects -- as
@@ -272,7 +294,7 @@ Shader "RealFlag/FlagCloth"
             o.Normal = float3(0.0, 0.0, face);
             o.Specular = FILM_POWER / 128.0;
             o.Gloss = wet * WATER_F0 * (FILM_POWER + 8.0) / 8.0;
-            o.Alpha = lerp(1.0, image.a, useImage);
+            o.Alpha = lerp(1.0, lerp(image.a, 1.0, _RFImageThrough), useImage);
 
             // Seen side's cosine to the eye (viewDir is in tangent space once o.Normal is written).
             float nv = saturate(abs(normalize(IN.viewDir).z));

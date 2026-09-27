@@ -1239,6 +1239,376 @@ public static class ClothTests
         return round + "," + v5 + "," + pulled + "," + differs + "," + FlagCodec.Version;
     }
 
+    // ---- the player's pictures ---------------------------------------------------------------
+
+    /// <summary>
+    /// Format 7: a picture of the player's and where it lies round trip (a name past 255 bytes of
+    /// UTF-8 too); a format-6 save (byte by byte) reads with none, laid as a new one is; a country
+    /// goes before a picture; what a paste may hold is pulled into range, a name to a file name.
+    /// </summary>
+    public static string CodecImage()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.Image = "castle.png"; a.ImageX = 0.3f; a.ImageY = 0.62f; a.ImageZoom = 2.5f; a.ImageTurn = 3; a.ImageAlpha = FlagImageAlpha.Through;
+        FlagSpec b;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && b.Image == "castle.png" && Math.Abs(b.ImageX - 0.3f) < 1e-6f &&
+                     Math.Abs(b.ImageY - 0.62f) < 1e-6f && Math.Abs(b.ImageZoom - 2.5f) < 1e-6f && b.ImageTurn == 3 &&
+                     b.ImageAlpha == FlagImageAlpha.Through && b.HasImage && b.SameImage(a);
+
+        // A long name in another script: 100 CJK characters are 300 bytes of UTF-8, which a byte's length would cut.
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < 100; i++) sb.Append((char)(0x4E00 + i));
+        sb.Append(".png");
+        FlagSpec l = FlagSpec.Default; l.Image = sb.ToString();
+        FlagSpec lb;
+        bool longName = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(l), out lb) && lb.Image == l.Sanitised().Image && lb.Image.Length == 104;
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)6);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)0);
+        w.Write((byte)FlagPoleStyle.Ball); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1f); w.Write(0f); w.Write(0f);
+        w.Write(0.1f);
+        w.Write((byte)FlagHoist.Side);
+        w.Write(12.5f);
+        w.Flush();
+        FlagSpec c;
+        bool v6 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Image == "" && !c.HasImage && c.ImageZoom == 1f && c.ImageX == 0.5f &&
+                  c.ImageTurn == 0 && c.ImageAlpha == FlagImageAlpha.Cut && Math.Abs(c.PoleLength - 12.5f) < 1e-6f;
+
+        FlagSpec both = a; both.Country = "fr";
+        FlagSpec bs = both.Sanitised();
+        bool countryFirst = bs.Country == "fr" && bs.Image == "" && !bs.HasImage;
+
+        FlagSpec bad = FlagSpec.Default;
+        bad.Image = "..\\x/evil?.png"; bad.ImageZoom = float.NaN; bad.ImageX = float.PositiveInfinity; bad.ImageY = -50f; bad.ImageTurn = 7; bad.ImageAlpha = 9;
+        FlagSpec bt = bad.Sanitised();
+        FlagSpec far = FlagSpec.Default; far.ImageZoom = 50f;
+        bool pulled = bt.Image == "evil.png" && bt.ImageZoom == 1f && bt.ImageX == 0.5f && bt.ImageY == -8f && bt.ImageTurn == 3 &&
+                      bt.ImageAlpha == FlagImageAlpha.Cut && far.Sanitised().ImageZoom == FlagCrop.MaxZoom;
+
+        FlagSpec moved = a; moved.ImageX = 0.31f;
+        bool differs = !a.SameImage(moved);
+        return round + "," + longName + "," + v6 + "," + countryFirst + "," + pulled + "," + differs + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
+    /// The author's case from the log (2026-09-27 16:47): an 800 x 400 picture (turned 180 deg)
+    /// on a flag made a 30 m square while its sides were apart, then linked again. Its shape is
+    /// the picture's 1:2 (ShapeOf), not the square's; a linked width or height scales it at that
+    /// shape -- the height back to 15 m at once (the width at its 30 m most), or 20 x 10; from its
+    /// top the cloth's proportion turns (2000) so the banner is the picture's shape as seen.
+    /// </summary>
+    public static string Relinked()
+    {
+        int shape = FlagCrop.ShapeOf(800, 400, 2);
+        int side = FlagSize.ClothProportion(shape, FlagHoist.Side), top = FlagSize.ClothProportion(shape, FlagHoist.Top);
+        float l1, l2;
+        int p1, p2;
+        FlagSize.Resize(30f, side, FlagHoist.Side, true, 29.9f, true, out l1, out p1);
+        FlagSize.Resize(30f, side, FlagHoist.Side, false, 20f, true, out l2, out p2);
+        float w1, h1, w2, h2;
+        FlagSize.Shown(l1, p1, FlagHoist.Side, out w1, out h1);
+        FlagSize.Shown(l2, p2, FlagHoist.Side, out w2, out h2);
+        bool tiedAtOnce = !FlagSize.IsShape(1000, FlagHoist.Side, shape) && FlagSize.IsShape(p1, FlagHoist.Side, shape);
+        return shape + "," + side + "," + top + "," + w1.ToString("0.#", Inv) + "x" + h1.ToString("0.#", Inv) + "," +
+               w2.ToString("0.#", Inv) + "x" + h2.ToString("0.#", Inv) + "," + tiedAtOnce;
+    }
+
+    /// <summary>The session's numbers for names: the same name (any case) the same number, none 0; names cleaned to file names.</summary>
+    public static string ImageNames()
+    {
+        int a = FlagImageNames.NumberOf("Harbour.png");
+        int b = FlagImageNames.NumberOf("harbour.PNG");
+        int c = FlagImageNames.NumberOf("other.jpg");
+        bool numbers = a > 0 && a == b && c != a && FlagImageNames.At(a) == "Harbour.png" && FlagImageNames.NumberOf("") == 0 &&
+                       FlagImageNames.NumberOf("  ") == 0 && FlagImageNames.At(0) == "" && FlagImageNames.At(100000) == "";
+        string clean = FlagImageNames.Sanitise(" C:\\Users\\me\\flag<1>.png ") + "|" + FlagImageNames.Sanitise("..") + "|" +
+                       FlagImageNames.Sanitise("a/b/c.jpg") + "|" + FlagImageNames.Sanitise(new string('x', 200)).Length;
+        return numbers + "," + clean;
+    }
+
+    /// <summary>
+    /// The crop (FlagCrop): the window has the flag's shape in the picture's own pixels -- never
+    /// stretched -- at any shape, size, zoom and turn; it fills at zoom 1 (one side whole), shows
+    /// the picture whole at WholeZoom; its middle is held so the flag shows picture only, or all of
+    /// it; the map: a picture of the flag's shape is a country's (u, 1 - v); from its top the
+    /// picture stays upright as seen, (v, 1 - u); a quarter turn clockwise puts the file's bottom
+    /// left at the flag's top left; turns undo; a drag moves the window against the pointer; the
+    /// wheel keeps the point under the pointer; a window wider than the picture marks its edges.
+    /// </summary>
+    public static string Crop()
+    {
+        var r = new Random(7);
+        double worst = 0;
+        for (int i = 0; i < 2000; i++)
+        {
+            float seen = (float)(0.2 + 4.8 * r.NextDouble());
+            int pw = 16 + r.Next(4000), ph = 16 + r.Next(4000), turn = r.Next(4);
+            float zoom = (float)(FlagCrop.MinZoom + (FlagCrop.MaxZoom - FlagCrop.MinZoom) * r.NextDouble());
+            int tw, th;
+            FlagCrop.TurnedSize(pw, ph, turn, out tw, out th);
+            float ww, wh;
+            FlagCrop.Window(seen, tw, th, zoom, out ww, out wh);
+            double shape = (wh * th) / (ww * (double)tw);
+            worst = Math.Max(worst, Math.Abs(shape / seen - 1));
+        }
+
+        float w1, h1;
+        FlagCrop.Window(1f, 900, 600, 1f, out w1, out h1);
+        float w2, h2;
+        FlagCrop.Window(0.5f, 900, 600, 1f, out w2, out h2);
+        float whole = FlagCrop.WholeZoom(1f, 900, 600);
+        float w3, h3;
+        FlagCrop.Window(1f, 900, 600, whole, out w3, out h3);
+        bool fills = Math.Abs(w1 - 0.6667f) < 1e-3f && h1 == 1f && w2 == 1f && Math.Abs(h2 - 0.75f) < 1e-4f &&
+                     Math.Abs(whole - 0.6667f) < 1e-3f && Math.Abs(w3 - 1f) < 1e-4f && Math.Abs(h3 - 1.5f) < 1e-3f;
+
+        bool held = FlagCrop.ClampCentre(0.9f, 0.5f) == 0.75f && FlagCrop.ClampCentre(0.1f, 0.5f) == 0.25f && FlagCrop.ClampCentre(0.5f, 1f) == 0.5f &&
+                    FlagCrop.ClampCentre(0.9f, 1.5f) == 0.75f && FlagCrop.ClampCentre(0.1f, 1.5f) == 0.25f && FlagCrop.ClampCentre(float.NaN, 0.5f) == 0.5f;
+
+        CropMap country = FlagCrop.Map(0.6667f, false, 900, 600, 0, 1f, 0.5f, 0.5f);
+        CropMap whole2 = CropMap.Whole;
+        bool asCountry = Near(country.Ox, whole2.Ox) && Near(country.Oy, whole2.Oy) && Near(country.Ax, whole2.Ax) && Near(country.Ay, whole2.Ay) &&
+                         Near(country.Bx, whole2.Bx) && Near(country.By, whole2.By) && country.EdgeS == 0f && country.EdgeT == 0f;
+
+        // From its top: a 2:3 cloth hoisted along a 3 m crossbar, 2 m down: seen 2/3, as the picture.
+        CropMap top = FlagCrop.Map(FlagCrop.Seen(1500, FlagHoist.Top), true, 900, 600, 0, 1f, 0.5f, 0.5f);
+        bool upright = Near(top.Ox, 0f) && Near(top.Oy, 1f) && Near(top.Ax, 0f) && Near(top.Ay, -1f) && Near(top.Bx, 1f) && Near(top.By, 0f);
+
+        CropMap turned = FlagCrop.Map(0.6667f, false, 600, 900, 1, 1f, 0.5f, 0.5f);
+        bool quarter = Near(turned.Ox, 0f) && Near(turned.Oy, 0f) && Near(turned.Ax, 0f) && Near(turned.Ay, 1f) && Near(turned.Bx, 1f) && Near(turned.By, 0f);
+
+        bool undo = true;
+        for (int t = 0; t < 4; t++)
+        {
+            float fx, fy, tx, ty;
+            FlagCrop.Turn(t, 0.2f, 0.7f, out tx, out ty);
+            FlagCrop.Unturn(t, tx, ty, out fx, out fy);
+            undo &= Near(fx, 0.2f) && Near(fy, 0.7f);
+        }
+
+        float nx, ny;
+        FlagCrop.Pan(1f, 900, 600, 2f, 0.5f, 0.5f, 0.1f, 0f, out nx, out ny);
+        bool pans = Near(nx, 0.5f - 0.1f * 0.3333f) && Near(ny, 0.5f);
+
+        float zx, zy, px = 0.8f, py = 0.3f;
+        float ww0, wh0, ww1, wh1;
+        FlagCrop.Window(0.6667f, 900, 600, 1.5f, out ww0, out wh0);
+        FlagCrop.ZoomAt(0.6667f, 900, 600, 1.5f, 0.5f, 0.5f, 2f, px, py, out zx, out zy);
+        FlagCrop.Window(0.6667f, 900, 600, 2f, out ww1, out wh1);
+        bool keeps = Near(0.5f + (px - 0.5f) * ww0, zx + (px - 0.5f) * ww1) && Near(0.5f + (py - 0.5f) * wh0, zy + (py - 0.5f) * wh1);
+
+        CropMap small = FlagCrop.Map(0.6667f, false, 900, 600, 0, 0.5f, 0.5f, 0.5f);
+        CropMap tall = FlagCrop.Map(1f, false, 900, 600, 1, 0.8f, 0.5f, 0.5f);
+        // Turned a quarter, the texture's s runs along the window's height: a landscape picture
+        // turned upright on a square flag, zoomed out to 0.8, ends inside it across (t), not down (s).
+        bool edges = small.EdgeS == 1f && small.EdgeT == 1f && tall.EdgeS == 0f && tall.EdgeT == 1f;
+
+        return worst.ToString("E1", Inv) + "," + fills + "," + held + "," + asCountry + "," + upright + "," + quarter + "," + undo + "," + pans + "," +
+               keeps + "," + edges + "," + FlagCrop.ShapeOf(900, 600, 0) + "," + FlagCrop.ShapeOf(900, 600, 1) + "," + FlagCrop.ShapeOf(6000, 100, 0);
+    }
+
+    /// <summary>A PNG's chunks as the header reader walks them (no CRC is checked): IHDR of this colour type, then these chunk types.</summary>
+    static byte[] Png(int width, int height, int colourType, params string[] chunks)
+    {
+        var s = new System.IO.MemoryStream();
+        s.Write(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, 0, 8);
+        Chunk(s, "IHDR", new byte[] { (byte)(width >> 24), (byte)(width >> 16), (byte)(width >> 8), (byte)width,
+                                      (byte)(height >> 24), (byte)(height >> 16), (byte)(height >> 8), (byte)height, 8, (byte)colourType, 0, 0, 0 });
+        foreach (string c in chunks)
+            Chunk(s, c, new byte[] { 1, 2, 3 });
+        return s.ToArray();
+    }
+
+    static void Chunk(System.IO.Stream s, string type, byte[] data)
+    {
+        s.WriteByte((byte)(data.Length >> 24)); s.WriteByte((byte)(data.Length >> 16)); s.WriteByte((byte)(data.Length >> 8)); s.WriteByte((byte)data.Length);
+        foreach (char c in type) s.WriteByte((byte)c);
+        s.Write(data, 0, data.Length);
+        s.Write(new byte[4], 0, 4);
+    }
+
+    /// <summary>A JPEG's markers: SOI, an APP1 of this length (EXIF's place), then a start of frame of this kind.</summary>
+    static byte[] Jpeg(int width, int height, int app1, byte sof)
+    {
+        var s = new System.IO.MemoryStream();
+        s.WriteByte(0xFF); s.WriteByte(0xD8);
+        s.WriteByte(0xFF); s.WriteByte(0xE1); s.WriteByte((byte)(app1 >> 8)); s.WriteByte((byte)app1);
+        s.Write(new byte[app1 - 2], 0, app1 - 2);
+        s.WriteByte(0xFF); s.WriteByte(0xC4); s.WriteByte(0); s.WriteByte(4); s.WriteByte(0); s.WriteByte(0);
+        s.WriteByte(0xFF); s.WriteByte(sof); s.WriteByte(0); s.WriteByte(11); s.WriteByte(8);
+        s.WriteByte((byte)(height >> 8)); s.WriteByte((byte)height); s.WriteByte((byte)(width >> 8)); s.WriteByte((byte)width);
+        s.Write(new byte[4], 0, 4);
+        s.WriteByte(0xFF); s.WriteByte(0xD9);
+        return s.ToArray();
+    }
+
+    static string Header(byte[] data)
+    {
+        int w, h;
+        bool alpha;
+        return ImageHeader.TryRead(data, out w, out h, out alpha) ? w + "x" + h + (alpha ? "a" : "") : "no";
+    }
+
+    /// <summary>
+    /// The headers: PNG of each colour type (RGBA, grey and alpha: see-through; RGB with a tRNS
+    /// chunk before its data: see-through, after: not looked for), JPEG with a 60 KB EXIF block
+    /// before its frame, baseline and progressive; real files System.Drawing wrote; garbage.
+    /// </summary>
+    public static string Headers()
+    {
+        var parts = new List<string>();
+        parts.Add(Header(Png(1200, 800, 6, "IDAT")));
+        parts.Add(Header(Png(640, 480, 2, "IDAT")));
+        parts.Add(Header(Png(64, 32, 4, "IDAT")));
+        parts.Add(Header(Png(300, 200, 3, "PLTE", "tRNS", "IDAT")));
+        parts.Add(Header(Png(300, 200, 2, "IDAT", "tRNS")));
+        parts.Add(Header(Jpeg(4000, 3000, 60000, 0xC0)));
+        parts.Add(Header(Jpeg(2048, 1365, 20, 0xC2)));
+
+        foreach (System.Drawing.Imaging.ImageFormat format in new[] { System.Drawing.Imaging.ImageFormat.Png, System.Drawing.Imaging.ImageFormat.Jpeg })
+        {
+            using (var bmp = new System.Drawing.Bitmap(123, 45, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            using (var ms = new System.IO.MemoryStream())
+            {
+                bmp.Save(ms, format);
+                parts.Add(Header(ms.ToArray()));
+            }
+        }
+
+        parts.Add(Header(new byte[] { 1, 2, 3, 4, 5 }));
+        parts.Add(Header(new byte[] { 0x89, 0x50, 0x4E }));
+        parts.Add(Header(null));
+        return string.Join(" ", parts.ToArray());
+    }
+
+    /// <summary>
+    /// AlphaFill: the hidden half of a half-red picture turns red (its alpha still 0), the red
+    /// untouched; a hidden pixel among blue and green takes their colours, not black; nothing to
+    /// do in an opaque or an all-hidden picture.
+    /// </summary>
+    public static string Fill()
+    {
+        int w = 64, h = 48;
+        var px = new UnityEngine.Color32[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                px[y * w + x] = x < w / 2 ? new UnityEngine.Color32(255, 0, 0, 255) : new UnityEngine.Color32(0, 0, 0, 0);
+        bool filled = AlphaFill.Fill(px, w, h);
+        bool red = true;
+        for (int i = 0; i < px.Length; i++)
+            red &= px[i].r == 255 && px[i].g == 0 && px[i].b == 0 && px[i].a == (i % w < w / 2 ? 255 : 0);
+
+        var mix = new UnityEngine.Color32[9];
+        for (int i = 0; i < 9; i++)
+            mix[i] = i % 2 == 0 ? new UnityEngine.Color32(0, 0, 255, 255) : new UnityEngine.Color32(0, 255, 0, 255);
+        mix[4] = new UnityEngine.Color32(0, 0, 0, 0);
+        AlphaFill.Fill(mix, 3, 3);
+        bool coloured = mix[4].a == 0 && mix[4].g + mix[4].b > 100 && mix[4].r == 0;
+
+        var solid = new UnityEngine.Color32[16];
+        var clear = new UnityEngine.Color32[16];
+        for (int i = 0; i < 16; i++) { solid[i] = new UnityEngine.Color32(9, 9, 9, 255); clear[i] = new UnityEngine.Color32(0, 0, 0, 0); }
+        bool nothing = !AlphaFill.Fill(solid, 4, 4) && !AlphaFill.Fill(clear, 4, 4);
+
+        var sw = Stopwatch.StartNew();
+        var big = new UnityEngine.Color32[2048 * 2048];
+        for (int i = 0; i < big.Length; i++)
+            big[i] = (i % 2048) < 1024 ? new UnityEngine.Color32(10, 200, 30, 255) : new UnityEngine.Color32(0, 0, 0, 0);
+        sw.Restart();
+        AlphaFill.Fill(big, 2048, 2048);
+        return filled + "," + red + "," + coloured + "," + nothing + "," + sw.Elapsed.TotalMilliseconds.ToString("F0", Inv);
+    }
+
+    /// <summary>
+    /// The crop view (FlagCropView): a picture of four quarters (red, green / blue, yellow) fills
+    /// a 3:2 frame -- each quarter where it belongs, turned a quarter clockwise too; outside the
+    /// frame the dark, the frame's edge a line; zoomed out, the flag's own colour round the
+    /// picture; and its cost at the window's size and twice it.
+    /// </summary>
+    public static string CropView()
+    {
+        int pw = 60, ph = 40;
+        var pic = new UnityEngine.Color32[pw * ph];
+        var red = new UnityEngine.Color32(255, 0, 0, 255);
+        var green = new UnityEngine.Color32(0, 255, 0, 255);
+        var blue = new UnityEngine.Color32(0, 0, 255, 255);
+        var yellow = new UnityEngine.Color32(255, 255, 0, 255);
+        for (int row = 0; row < ph; row++)
+        {
+            int yTop = ph - 1 - row;
+            for (int x = 0; x < pw; x++)
+                pic[row * pw + x] = yTop < ph / 2 ? (x < pw / 2 ? red : green) : (x < pw / 2 ? blue : yellow);
+        }
+
+        var field = new UnityEngine.Color32(10, 20, 30, 255);
+        var back = new UnityEngine.Color32(1, 2, 3, 255);
+        var edge = new UnityEngine.Color32(250, 250, 250, 255);
+        int vw = 100, vh = 80;
+        var view = new UnityEngine.Color32[vw * vh];
+
+        // A 60 x 40 frame from (20, 20): the picture's shape, zoom 1.
+        float ww, wh;
+        FlagCrop.Window(40f / 60f, pw, ph, 1f, out ww, out wh);
+        FlagCropView.Render(pic, pw, ph, 0, ww, wh, 0.5f, 0.5f, false, view, vw, vh, 20f, 20f, 60f, 40f, field, back, edge, 0.35f);
+        string plain = Name(At(view, vw, vh, 30, 30)) + Name(At(view, vw, vh, 70, 30)) + Name(At(view, vw, vh, 30, 50)) + Name(At(view, vw, vh, 70, 50));
+        bool outside = Same(At(view, vw, vh, 5, 5), back) && Same(At(view, vw, vh, 50, 19), edge) && Same(At(view, vw, vh, 19, 40), edge);
+
+        // Turned a quarter clockwise: the file's bottom left (blue) at the top left.
+        int tw, th;
+        FlagCrop.TurnedSize(pw, ph, 1, out tw, out th);
+        FlagCrop.Window(40f / 60f, tw, th, 1f, out ww, out wh);
+        FlagCropView.Render(pic, pw, ph, 1, ww, wh, 0.5f, 0.5f, false, view, vw, vh, 20f, 20f, 60f, 40f, field, back, edge, 0.35f);
+        string turned = Name(At(view, vw, vh, 30, 22)) + Name(At(view, vw, vh, 70, 22)) + Name(At(view, vw, vh, 30, 58)) + Name(At(view, vw, vh, 70, 58));
+
+        // Zoomed out to a quarter: the flag's colour at the frame's corner, the picture in its middle.
+        FlagCrop.Window(40f / 60f, pw, ph, 0.25f, out ww, out wh);
+        FlagCropView.Render(pic, pw, ph, 0, ww, wh, 0.5f, 0.5f, false, view, vw, vh, 20f, 20f, 60f, 40f, field, back, edge, 0.35f);
+        bool round = Same(At(view, vw, vh, 22, 22), field) && Name(At(view, vw, vh, 48, 38)) == "r";
+
+        var sw = Stopwatch.StartNew();
+        int big = 512;
+        var bigPic = new UnityEngine.Color32[big * 341];
+        var small = new UnityEngine.Color32[296 * 176];
+        var large = new UnityEngine.Color32[592 * 352];
+        FlagCrop.Window(0.6667f, big, 341, 1.3f, out ww, out wh);
+        sw.Restart();
+        for (int i = 0; i < 20; i++)
+            FlagCropView.Render(bigPic, big, 341, 0, ww, wh, 0.5f, 0.5f, true, small, 296, 176, 18f, 18f, 210f, 140f, field, back, edge, 0.35f);
+        double oneX = sw.Elapsed.TotalMilliseconds / 20;
+        sw.Restart();
+        for (int i = 0; i < 20; i++)
+            FlagCropView.Render(bigPic, big, 341, 0, ww, wh, 0.5f, 0.5f, true, large, 592, 352, 36f, 36f, 420f, 280f, field, back, edge, 0.35f);
+        double twoX = sw.Elapsed.TotalMilliseconds / 20;
+        return plain + "," + outside + "," + turned + "," + round + "," + oneX.ToString("F2", Inv) + "," + twoX.ToString("F2", Inv);
+    }
+
+    /// <summary>A view's pixel by its place from the top left.</summary>
+    static UnityEngine.Color32 At(UnityEngine.Color32[] view, int vw, int vh, int x, int yTop)
+    {
+        return view[(vh - 1 - yTop) * vw + x];
+    }
+
+    static bool Same(UnityEngine.Color32 a, UnityEngine.Color32 b)
+    {
+        return a.r == b.r && a.g == b.g && a.b == b.b;
+    }
+
+    static string Name(UnityEngine.Color32 c)
+    {
+        if (c.r > 200 && c.g > 200 && c.b < 60) return "y";
+        if (c.r > 200 && c.g < 60 && c.b < 60) return "r";
+        if (c.g > 200 && c.r < 60 && c.b < 60) return "g";
+        if (c.b > 200 && c.r < 60 && c.g < 60) return "b";
+        return "?";
+    }
+
     /// <summary>
     /// The panel's sizes (FlagSize): a 3 m flag at 2:3 seen from its side and from its top; linked,
     /// a new width or height scales it whole (stopped where a side would pass 30 m); unlinked, it
@@ -1635,8 +2005,10 @@ $hp.CompilerOptions = "/optimize+"
 [void]$hp.ReferencedAssemblies.Add("System.dll")
 [void]$hp.ReferencedAssemblies.Add("System.Core.dll")
 [void]$hp.ReferencedAssemblies.Add((Resolve-Path $Dll).Path)
-# Unity's structs (Vector3) for the pick volumes' arithmetic: plain IL, no engine needed.
+# Unity's structs (Vector3, Color32) for the pick volumes' and the pictures' arithmetic: plain IL, no engine needed.
 [void]$hp.ReferencedAssemblies.Add((Join-Path $managed "UnityEngine.dll"))
+# Real PNG and JPEG files for the header reader.
+[void]$hp.ReferencedAssemblies.Add("System.Drawing.dll")
 Add-Type -TypeDefinition $harness -CompilerParameters $hp
 
 $failed = 0
@@ -1869,6 +2241,29 @@ $pl = [ClothTests]::CodecPoleLength() -split ","
 Check "a drawn pole keeps its own length in the save (Move It moves it with the flag)" ($pl[0] -eq "True" -and $pl[3] -eq "True") ("format " + $pl[4] + ": 37.5 m, from the top; another length is another pole")
 Check "a save of format 5 still reads: the pole's length found again, once" ($pl[1] -eq "True") "format 5, byte by byte: a spear-topped pole, no length yet"
 Check "a pole length out of range is pulled in" ($pl[2] -eq "True") "NaN, -4 m, 5 km"
+$ci = [ClothTests]::CodecImage() -split ","
+Check "a picture of the player's and where it lies survive the save; a long name in another script too" ($ci[0] -eq "True" -and $ci[1] -eq "True" -and $ci[5] -eq "True") ("format " + $ci[6] + ": castle.png, middle 0.3/0.62, 250%, three turns, the flag through it; 100 CJK characters (300 bytes)")
+Check "a save of format 6 still reads: no picture, laid as a new one is" ($ci[2] -eq "True") "format 6, byte by byte: a cross on a ball-topped pole, 12.5 m"
+Check "a country's flag goes before a picture; a paste's picture pulled into range, its name a file name" ($ci[3] -eq "True" -and $ci[4] -eq "True") "fr over castle.png; '..\x/evil?.png' -> evil.png, zoom NaN and 50, turn 7, see-through 9"
+$rl = [ClothTests]::Relinked()
+Check "a flag with a picture, made square while its sides were apart, linked again: it scales at the picture's 1:2 -- 30 x 15 at once, or 20 x 10" ($rl -eq "500,500,2000,30x15,20x10,True") $rl
+$in = [ClothTests]::ImageNames() -split ","
+Check "the pictures' names: one number a name whatever its case, none 0; cleaned to a file name" ($in[0] -eq "True" -and $in[1] -eq "flag1.png||c.jpg|128") ($in -join ", ")
+
+# ---- the player's pictures: where one lies, its file's header, its see-through pixels ------
+
+$cr = [ClothTests]::Crop() -split ","
+Check "a picture is never stretched: the window has the flag's shape in its own pixels (2000 shapes, sizes, zooms, turns)" ((N $cr[0]) -lt 1e-5) ("worst " + $cr[0] + " off the flag's shape")
+Check "zoom 1 fills the flag (one side whole), the whole picture at its own zoom; the middle held on the picture, or the picture on the flag" ($cr[1] -eq "True" -and $cr[2] -eq "True") ("fills " + $cr[1] + ", held " + $cr[2])
+Check "a picture of the flag's shape lies as a country's (u, 1 - v); from the top upright as seen (v, 1 - u); a quarter turn puts its bottom left at the top left" ($cr[3] -eq "True" -and $cr[4] -eq "True" -and $cr[5] -eq "True" -and $cr[6] -eq "True") ("country's " + $cr[3] + ", banner " + $cr[4] + ", turned " + $cr[5] + ", turns undone " + $cr[6])
+Check "a drag moves the picture with the pointer; the wheel keeps the point under it; a picture smaller than the flag marks its edges" ($cr[7] -eq "True" -and $cr[8] -eq "True" -and $cr[9] -eq "True") ("pans " + $cr[7] + ", zooms " + $cr[8] + ", edges " + $cr[9])
+Check "the flag takes a picture's shape as seen: 900 x 600 is 2:3, turned 3:2; a panorama held to 1:5" ($cr[10] -eq "667" -and $cr[11] -eq "1500" -and $cr[12] -eq "200") ($cr[10] + ", " + $cr[11] + ", " + $cr[12])
+$hd = [ClothTests]::Headers()
+Check "the headers: PNG sizes and see-through (by colour type, by a tRNS before the data), JPEG past a 60 KB EXIF block, baseline and progressive, real files, garbage" ($hd -eq "1200x800a 640x480 64x32a 300x200a 300x200 4000x3000 2048x1365 123x45a 123x45 no no no") $hd
+$fl = [ClothTests]::Fill() -split ","
+Check "see-through pixels take their visible neighbours' colours (Gortler et al.'s pull-push), their alpha kept; nothing to do without them" ($fl[0] -eq "True" -and $fl[1] -eq "True" -and $fl[2] -eq "True" -and $fl[3] -eq "True") ("half red: " + $fl[1] + "; among blue and green: " + $fl[2] + "; opaque or all hidden, untouched: " + $fl[3] + "; 2048 x 2048 half hidden in " + $fl[4] + " ms in .NET")
+$cv = [ClothTests]::CropView() -split ","
+Check "the crop view: the picture's quarters in their places, turned a quarter clockwise too; the dark and the frame's line round it; the flag's colour round a picture zoomed out" ($cv[0] -eq "rgby" -and $cv[1] -eq "True" -and $cv[2] -eq "bryg" -and $cv[3] -eq "True") ($cv[0] + " / " + $cv[2] + ", outside " + $cv[1] + ", zoomed out " + $cv[3] + "; drawn in " + $cv[4] + " ms at 296 x 176, " + $cv[5] + " ms at twice that, in .NET")
 $sizes = [ClothTests]::Sizes()
 $sizesWanted = "3x2 2x3|4.5x3@667 4.5x3@667 15x30@2000 4x6@667|3x2.5@833 4x20@5000 2.5x3@833|2x3@1500 3x1.5@2000 0.5x1.5@3000|1499 True False|3:2 2:1 3:1 1.22:1 1:1.36 1:2.55 2:3"
 Check "width and height as seen: linked, the whole flag; unlinked, a side (the other pushed past 1:5..5:1); a shape keeps the longer side; the shapes' names" ($sizes -eq $sizesWanted) $sizes

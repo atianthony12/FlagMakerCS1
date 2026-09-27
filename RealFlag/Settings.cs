@@ -86,6 +86,19 @@ namespace RealFlag
         /// </summary>
         public static IntSetting NewCountry { get; private set; }
 
+        /// <summary>
+        /// A picture of the player's (a file in RealFlag\Images): FlagImageNames' number for its
+        /// name (0: none). The file keeps its NAME: the number is this session's only.
+        /// </summary>
+        public static IntSetting NewImage { get; private set; }
+
+        /// <summary>Where the picture lies on the flag (FlagSpec.ImageX, ImageY, ImageZoom, ImageTurn), and what its see-through parts do (a FlagImageAlpha value). The Image window sets them.</summary>
+        public static FloatSetting NewImageX { get; private set; }
+        public static FloatSetting NewImageY { get; private set; }
+        public static FloatSetting NewImageZoom { get; private set; }
+        public static IntSetting NewImageTurn { get; private set; }
+        public static IntSetting NewImageAlpha { get; private set; }
+
         public static IntSetting NewPattern { get; private set; }
         public static IntSetting NewColour1 { get; private set; }
         public static IntSetting NewColour2 { get; private set; }
@@ -139,6 +152,12 @@ namespace RealFlag
         // ---- Existing flags: the selected flag (TRANSIENT) ----
 
         public static IntSetting SelCountry { get; private set; }
+        public static IntSetting SelImage { get; private set; }
+        public static FloatSetting SelImageX { get; private set; }
+        public static FloatSetting SelImageY { get; private set; }
+        public static FloatSetting SelImageZoom { get; private set; }
+        public static IntSetting SelImageTurn { get; private set; }
+        public static IntSetting SelImageAlpha { get; private set; }
         public static IntSetting SelPattern { get; private set; }
         public static IntSetting SelColour1 { get; private set; }
         public static IntSetting SelColour2 { get; private set; }
@@ -205,6 +224,14 @@ namespace RealFlag
             // ---- the new flag ----
             /// <summary>None: the pattern below.</summary>
             public const int Country = 0;
+
+            /// <summary>No picture; laid as a picture just picked is: filling the flag, its middle in the middle, upright, see-through parts cut out.</summary>
+            public const int Image = 0;
+            public const float ImageX = 0.5f;
+            public const float ImageY = 0.5f;
+            public const float ImageZoom = 1f;
+            public const int ImageTurn = 0;
+            public const int ImageAlpha = FlagImageAlpha.Cut;
             public const int Pattern = FlagPattern.Default;
             public const int Colour1 = (int)FlagColours.DefaultColour1;
             public const int Colour2 = (int)FlagColours.DefaultColour2;
@@ -279,6 +306,12 @@ namespace RealFlag
                 WindDirection = new FloatSetting("WindDirection", Defaults.WindDirection);
 
                 NewCountry = new IntSetting("NewCountry", Defaults.Country);
+                NewImage = new IntSetting("NewImage", Defaults.Image);
+                NewImageX = new FloatSetting("NewImageX", Defaults.ImageX);
+                NewImageY = new FloatSetting("NewImageY", Defaults.ImageY);
+                NewImageZoom = new FloatSetting("NewImageZoom", Defaults.ImageZoom);
+                NewImageTurn = new IntSetting("NewImageTurn", Defaults.ImageTurn);
+                NewImageAlpha = new IntSetting("NewImageAlpha", Defaults.ImageAlpha);
                 NewPattern = new IntSetting("NewPattern", Defaults.Pattern);
                 NewColour1 = new IntSetting("NewColour1", Defaults.Colour1);
                 NewColour2 = new IntSetting("NewColour2", Defaults.Colour2);
@@ -301,6 +334,12 @@ namespace RealFlag
                 NewLean = new FloatSetting("NewLean", Defaults.Lean);
 
                 SelCountry = new IntSetting("SelCountry", Defaults.Country, true);
+                SelImage = new IntSetting("SelImage", Defaults.Image, true);
+                SelImageX = new FloatSetting("SelImageX", Defaults.ImageX, true);
+                SelImageY = new FloatSetting("SelImageY", Defaults.ImageY, true);
+                SelImageZoom = new FloatSetting("SelImageZoom", Defaults.ImageZoom, true);
+                SelImageTurn = new IntSetting("SelImageTurn", Defaults.ImageTurn, true);
+                SelImageAlpha = new IntSetting("SelImageAlpha", Defaults.ImageAlpha, true);
                 SelPattern = new IntSetting("SelPattern", Defaults.Pattern, true);
                 SelColour1 = new IntSetting("SelColour1", Defaults.Colour1, true);
                 SelColour2 = new IntSetting("SelColour2", Defaults.Colour2, true);
@@ -350,6 +389,12 @@ namespace RealFlag
 
             FlagCountry country = FlagCountries.At(NewCountry.value);
             spec.Country = country != null ? country.Code : string.Empty;
+            spec.Image = FlagImageNames.At(NewImage.value);
+            spec.ImageX = NewImageX.value;
+            spec.ImageY = NewImageY.value;
+            spec.ImageZoom = NewImageZoom.value;
+            spec.ImageTurn = NewImageTurn.value;
+            spec.ImageAlpha = NewImageAlpha.value;
             spec.Pattern = NewPattern.value;
             spec.Colour1 = (uint)NewColour1.value;
             spec.Colour2 = (uint)NewColour2.value;

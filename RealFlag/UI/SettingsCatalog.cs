@@ -50,6 +50,13 @@ namespace RealFlag.UI
 
         /// <summary>A choice (an IntSetting over <see cref="Row.ChoiceValues"/>) as a row of buttons, the one chosen lit. The file writes it as a choice.</summary>
         Segmented,
+
+        /// <summary>
+        /// A picture of the player's (an IntSetting holding FlagImageNames' number, 0 for none): a
+        /// button with its name and a thumbnail that opens the Image window (<see cref="Row.Image"/>),
+        /// and a folder button that opens the images folder. The file writes its name.
+        /// </summary>
+        Image,
     }
 
     /// <summary>
@@ -148,6 +155,9 @@ namespace RealFlag.UI
 
         /// <summary>Segmented rows over the hoisted edge (FlagHoist): each button shows a small flag hoisted that way.</summary>
         public bool HoistIcons;
+
+        /// <summary>Image rows: the window's settings the Image window works on.</summary>
+        public ImageTarget Image;
 
         /// <summary>Greys the row out.</summary>
         public Func<bool> Enabled;
@@ -539,6 +549,12 @@ namespace RealFlag.UI
             return value.ToString("F0");
         }
 
+        /// <summary>A number as the settings file writes it (a row with no slider of its own).</summary>
+        private static string Plain(float value)
+        {
+            return SettingsXmlFormat.FormatNumber(value);
+        }
+
         private static string Metres(float value)
         {
             return Localization.Get("Unit.Metres", value.ToString("0.#", CultureInfo.InvariantCulture));
@@ -617,19 +633,37 @@ namespace RealFlag.UI
         /// <summary>
         /// A new width or height (FlagSize.Resize): with its sides linked -- the switch, or a
         /// country's flag, whose shape is its own -- the whole flag scales; otherwise that side
-        /// alone. A country's proportion is left as set, for a change back to a pattern.
+        /// alone. A country's proportion is left as set, for a change back to a pattern. With a
+        /// picture on it and its sides linked, the flag scales at the PICTURE's shape: a flag made
+        /// square while they were apart takes the picture's back at the first move (the author:
+        /// "It should have automatically rematched the height or width when changing either").
         /// </summary>
-        private static void ResizeTo(bool height, float value, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom)
+        private static void ResizeTo(bool height, float value, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom,
+                                     ImageTarget pictures)
         {
             bool isCountry = country != null && FlagCountries.At(country.value) != null;
             bool linked = isCountry || Settings.LinkSize == null || Settings.LinkSize.value;
+            int tied = !isCountry && linked && pictures != null && pictures.ShapeTied ? pictures.PictureProportion() : 0;
             float newLength;
             int newProportion;
-            FlagSize.Resize(length.value, FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
+            FlagSize.Resize(length.value, tied > 0 ? tied : FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
                             out newLength, out newProportion);
             length.value = newLength;
             if (!isCountry)
                 proportion.value = newProportion;
+        }
+
+        /// <summary>The windows' pictures (the New flag window's, the Flags tab's), for what goes for both: the width and height switch is one for both.</summary>
+        private static readonly List<ImageTarget> PictureTargets = new List<ImageTarget>();
+
+        /// <summary>The width and height together again: each window's flag with a picture takes its picture's shape back, and shows it.</summary>
+        private static void KeepPictureShapes()
+        {
+            foreach (ImageTarget pictures in PictureTargets)
+            {
+                if (pictures.KeepShape())
+                    pictures.Apply();
+            }
         }
 
         /// <summary>"2 m · 2:3": a height, and the shape it makes as seen (height to width).</summary>
@@ -689,7 +723,11 @@ namespace RealFlag.UI
         /// chosen, the pattern, its colours and its shape are the country's flag's and grey out
         /// (they are kept, for a change back); its size, the edge it is hoisted from, the waviness
         /// and the darkness stay the player's -- the darkness is for a country's colours above
-        /// all, which cannot be picked (the author: "some country flags are too bright").
+        /// all, which cannot be picked (the author: "some country flags are too bright"). Then a
+        /// picture of the player's own (the author: "a folder icon which opens where the user
+        /// should drag images. Then in-game there is a dropdown with the filenames"): a country
+        /// and a picture take each other's place; the pattern stays the player's under a picture
+        /// (it shows round one smaller than the flag, and through its see-through parts).
         /// </summary>
         /// <remarks>
         /// The size as the flag is seen (the author: "select the ratio for the flag in a more
@@ -699,12 +737,19 @@ namespace RealFlag.UI
         /// switch under them is off, and the edge it is hoisted from (the side, or the top: a
         /// banner), which turns what the width and height are of the cloth.
         /// </remarks>
-        private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting pattern,
-                                      IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom,
-                                      FloatSetting waviness, FloatSetting darkness, Action changed, Func<bool> enabled)
+        private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
+                                      ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
+                                      IntSetting proportion, IntSetting hoistedFrom, FloatSetting waviness, FloatSetting darkness, Action changed,
+                                      Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
+
+            // A shape of the player's choosing: not a country's, nor a picture's while the width
+            // and height go together (the flag keeps the picture's then, as a country's keeps its own).
+            Func<bool> shapeFree = () => patterned() && (pictures == null || !pictures.ShapeTied);
+            if (pictures != null)
+                PictureTargets.Add(pictures);
 
             Add(new Row
             {
@@ -712,6 +757,23 @@ namespace RealFlag.UI
                 Panel = page,
                 Int = country,
                 DefaultInt = Settings.Defaults.Country,
+                AfterChange = () =>
+                {
+                    // A country's flag takes the picture's place.
+                    if (country.value != 0 && image != null && image.value != 0)
+                        image.value = 0;
+                    resized();
+                },
+                Enabled = enabled,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Image,
+                Panel = page,
+                Int = image,
+                DefaultInt = Settings.Defaults.Image,
+                Image = pictures,
                 AfterChange = resized,
                 Enabled = enabled,
             });
@@ -775,7 +837,7 @@ namespace RealFlag.UI
                     proportion.value = newProportion;
                 },
                 AfterChange = resized,
-                Enabled = patterned,
+                Enabled = shapeFree,
             });
 
             Add(new Row
@@ -784,7 +846,7 @@ namespace RealFlag.UI
                 Panel = page,
                 Id = widthId,
                 Get = () => ShownSide(false, country, length, proportion, hoistedFrom),
-                Set = v => ResizeTo(false, v, country, length, proportion, hoistedFrom),
+                Set = v => ResizeTo(false, v, country, length, proportion, hoistedFrom, pictures),
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
                 Format = Metres,
                 AfterChange = resized,
@@ -797,7 +859,7 @@ namespace RealFlag.UI
                 Panel = page,
                 Id = heightId,
                 Get = () => ShownSide(true, country, length, proportion, hoistedFrom),
-                Set = v => ResizeTo(true, v, country, length, proportion, hoistedFrom),
+                Set = v => ResizeTo(true, v, country, length, proportion, hoistedFrom, pictures),
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
                 Format = HeightText(country, proportion, hoistedFrom),
                 AfterChange = resized,
@@ -805,16 +867,24 @@ namespace RealFlag.UI
             });
 
             // One switch for both windows; a country's flag keeps its own shape whatever it says.
+            // Switched back on, a flag with a picture takes the picture's shape again.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
                 Panel = page,
                 Bool = Settings.LinkSize,
                 DefaultBool = Settings.Defaults.LinkSize,
-                AfterChange = State("width and height together", OnOff(Settings.LinkSize)),
+                AfterChange = () =>
+                {
+                    State("width and height together", OnOff(Settings.LinkSize))();
+                    if (Settings.LinkSize.value)
+                        KeepPictureShapes();
+                },
                 Enabled = patterned,
             });
 
+            // Hoisted the other way, a picture stays upright as seen: a flag tied to its picture's
+            // shape turns its cloth to keep it.
             Add(new Row
             {
                 Kind = RowKind.Segmented,
@@ -824,7 +894,12 @@ namespace RealFlag.UI
                 ChoiceValues = FlagHoist.Values,
                 ChoiceKeys = FlagHoist.NameKeys,
                 HoistIcons = true,
-                AfterChange = resized,
+                AfterChange = () =>
+                {
+                    if (pictures != null)
+                        pictures.KeepShape();
+                    resized();
+                },
                 Enabled = enabled,
             });
 
@@ -983,9 +1058,25 @@ namespace RealFlag.UI
         /// </summary>
         private static void BuildNew()
         {
-            AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewPattern, Settings.NewColour1,
-                      Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion, Settings.NewHoistedFrom,
-                      Settings.NewWaviness, Settings.NewDarkness, null, null);
+            var pictures = new ImageTarget
+            {
+                Page = PanelPage.New,
+                Image = Settings.NewImage,
+                X = Settings.NewImageX,
+                Y = Settings.NewImageY,
+                Zoom = Settings.NewImageZoom,
+                Turn = Settings.NewImageTurn,
+                Alpha = Settings.NewImageAlpha,
+                Country = Settings.NewCountry,
+                Length = Settings.NewLength,
+                Proportion = Settings.NewProportion,
+                HoistedFrom = Settings.NewHoistedFrom,
+                Colour1 = Settings.NewColour1,
+            };
+
+            AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
+                      Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
+                      Settings.NewHoistedFrom, Settings.NewWaviness, Settings.NewDarkness, null, null);
 
             AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewRopes,
                           Settings.NewTilt, Settings.NewLean, null);
@@ -1038,6 +1129,52 @@ namespace RealFlag.UI
                 DefaultInt = Settings.Defaults.Proportion,
                 Min = FlagSize.MinProportion, Max = FlagSize.MaxProportion, Step = 1f,
             });
+
+            // Where the new flag's picture lies on it: the Image window sets them; kept in the file
+            // and put back by a reset, not shown as rows.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Float = Settings.NewImageX,
+                DefaultFloat = Settings.Defaults.ImageX,
+                Min = -8f, Max = 9f, Step = 0.001f,
+                Format = Plain,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Float = Settings.NewImageY,
+                DefaultFloat = Settings.Defaults.ImageY,
+                Min = -8f, Max = 9f, Step = 0.001f,
+                Format = Plain,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Float = Settings.NewImageZoom,
+                DefaultFloat = Settings.Defaults.ImageZoom,
+                Min = FlagCrop.MinZoom, Max = FlagCrop.MaxZoom, Step = 0.01f,
+                Format = Plain,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Int = Settings.NewImageTurn,
+                DefaultInt = Settings.Defaults.ImageTurn,
+                Min = 0f, Max = 3f, Step = 1f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Int = Settings.NewImageAlpha,
+                DefaultInt = Settings.Defaults.ImageAlpha,
+                ChoiceValues = FlagImageAlpha.Values,
+                ChoiceKeys = FlagImageAlpha.NameKeys,
+            });
         }
 
         /// <summary>
@@ -1087,9 +1224,27 @@ namespace RealFlag.UI
             });
 
             Func<bool> selected = () => FlagEditor.HasSelection;
-            AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelPattern, Settings.SelColour1,
-                      Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion, Settings.SelHoistedFrom,
-                      Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
+            var pictures = new ImageTarget
+            {
+                Page = PanelPage.Existing,
+                Image = Settings.SelImage,
+                X = Settings.SelImageX,
+                Y = Settings.SelImageY,
+                Zoom = Settings.SelImageZoom,
+                Turn = Settings.SelImageTurn,
+                Alpha = Settings.SelImageAlpha,
+                Country = Settings.SelCountry,
+                Length = Settings.SelLength,
+                Proportion = Settings.SelProportion,
+                HoistedFrom = Settings.SelHoistedFrom,
+                Colour1 = Settings.SelColour1,
+                Changed = FlagEditor.ApplyDesign,
+                Enabled = selected,
+            };
+
+            AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
+                      Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
+                      Settings.SelHoistedFrom, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
 
             AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelRopes,
                           Settings.SelTilt, Settings.SelLean, selected);
