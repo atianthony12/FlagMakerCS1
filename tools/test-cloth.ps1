@@ -1298,6 +1298,167 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// Format 8: whether the flag moves (FlagMotion) survives the save; a format 7 save reads as
+    /// waving; an unknown value is pulled to waving; a still flag's shape is the same through a
+    /// change of its pole's length or its colours, and another through its waviness, its motion or
+    /// its halyard.
+    /// </summary>
+    public static string CodecMotion()
+    {
+        FlagSpec a = FlagSpec.Default; a.Motion = FlagMotion.Still;
+        FlagSpec f = FlagSpec.Default; f.Motion = FlagMotion.Flat;
+        FlagSpec b, g;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && b.Motion == FlagMotion.Still &&
+                     FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(f), out g) && g.Motion == FlagMotion.Flat;
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)7);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)0);
+        w.Write((byte)FlagPoleStyle.Ball); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1f); w.Write(0f); w.Write(0f);
+        w.Write(0.1f);
+        w.Write((byte)FlagHoist.Side);
+        w.Write(12.5f);
+        w.Write((ushort)0); w.Write(0.5f); w.Write(0.5f); w.Write(1f); w.Write((byte)0); w.Write((byte)0);
+        w.Flush();
+        FlagSpec c;
+        bool v7 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Motion == FlagMotion.Waves && Math.Abs(c.PoleLength - 12.5f) < 1e-6f;
+
+        FlagSpec bad = FlagSpec.Default; bad.Motion = 9;
+        bool pulled = bad.Sanitised().Motion == FlagMotion.Waves;
+
+        FlagSpec p = a; p.Pole = FlagPoleStyle.Spear; p.Ropes = 2; p.PoleLength = 10f;
+        FlagSpec q = p; q.PoleLength = 30f; q.PoleThickness = 2f; q.Colour1 = 0x123456u;
+        FlagSpec wavier = p; wavier.Waviness = 1.5f;
+        FlagSpec flat = p; flat.Motion = FlagMotion.Flat;
+        FlagSpec sewn = p; sewn.Ropes = 0;
+        bool pose = p.SamePose(q) && !p.SamePose(wavier) && !p.SamePose(flat) && !p.SamePose(sewn) && p.OnHalyard && !sewn.OnHalyard;
+        return round + "," + v7 + "," + pulled + "," + pose + "," + FlagCodec.Version;
+    }
+
+    /// <summary>A still flag's cloth as the renderer makes one, at heading 0 (the flag's own frame).</summary>
+    static FlagCloth StillCloth(float length, int proportion, int hoisted, float tilt, bool halyard, float waviness, int motion,
+                                out float fx, out float fy, out float fz)
+    {
+        FlagSpec s = FlagSpec.Default; s.Length = length; s.Proportion = proportion; s.HoistedFrom = hoisted;
+        float hx, hy, hz;
+        FlagOrientation.Frame(0f, tilt, 0f, hoisted, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagCloth c = new FlagCloth(s.Length, s.Height, FlagFabric.Standard(waviness), fx, fz, FlagCloth.CellsAlong, hx, hy, hz);
+        StillPose.Lay(c, motion, halyard, fx, fy, fz);
+        return c;
+    }
+
+    /// <summary>
+    /// A still flag's shape: finite, its worst stretch, how many of its triangles cross, its reach
+    /// (x L) and droop, how much of it faces out, the moment kept (s), its run's length (s), its
+    /// breeze (m/s), and the milliseconds it took in .NET.
+    /// </summary>
+    public static string Still(float length, int proportion, int hoisted, float tilt, bool halyard, float waviness)
+    {
+        float fx, fy, fz;
+        FlagCloth c = StillCloth(length, proportion, hoisted, tilt, halyard, waviness, FlagMotion.Still, out fx, out fy, out fz);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        StillPoseRun run = StillPose.Make(c, FlagMotion.Still, halyard, fx, fy, fz, waviness, length);
+        double ms = sw.Elapsed.TotalMilliseconds;
+        float dx, dz, speed;
+        StillPose.Wind(fx, fy, fz, length, out dx, out dz, out speed);
+        string[] droop = Droop(c).Split(',');
+        return c.IsFinite() + "," + c.MaxStretch().ToString("F3", Inv) + "," + CrossingPairs(c, Triangles(c.Columns, c.Rows)) + "," + droop[1] + "," +
+               droop[0] + "," + StillPose.Shown(c, fx, fy, fz).ToString("F2", Inv) + "," + (run.BestStep * StillPose.StepSize).ToString("F3", Inv) + "," +
+               (run.Total * StillPose.StepSize).ToString("F2", Inv) + "," + speed.ToString("F1", Inv) + "," + ms.ToString("F0", Inv);
+    }
+
+    /// <summary>
+    /// The same shape however its steps are split into jobs (the renderer's few a frame against the
+    /// preview's all at once) and made twice: the largest difference of a particle's place, metres.
+    /// </summary>
+    public static string StillSplit()
+    {
+        float fx, fy, fz;
+        FlagCloth a = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(a, FlagMotion.Still, true, fx, fy, fz, 1f, 3f);
+
+        FlagCloth b = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        var run = new StillPoseRun(b, fx, fy, fz, 1f, 3f);
+        int jobs = 0;
+        while (!run.Finished)
+        {
+            ClothJob job = run.Next(3);
+            ClothWorker.Execute(ref job);
+            run.Took();
+            jobs++;
+        }
+        run.Finish();
+
+        FlagCloth d = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(d, FlagMotion.Still, true, fx, fy, fz, 1f, 3f);
+
+        double split = 0, twice = 0;
+        for (int k = 0; k < a.Count; k++)
+        {
+            split = Math.Max(split, Math.Abs(a.X[k] - b.X[k]) + Math.Abs(a.Y[k] - b.Y[k]) + Math.Abs(a.Z[k] - b.Z[k]));
+            twice = Math.Max(twice, Math.Abs(a.X[k] - d.X[k]) + Math.Abs(a.Y[k] - d.Y[k]) + Math.Abs(a.Z[k] - d.Z[k]));
+        }
+        return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs;
+    }
+
+    /// <summary>
+    /// A flat flag is exactly flat and square (its sheet in the flag's plane: z 0 at heading 0,
+    /// every link its rest length); a banner's hangs straight down. And a still shape taken by a
+    /// flag heading elsewhere (SetShape) or turned with it (Turn) is the same shape: the largest
+    /// change of a particle's distance from the anchor, and of the hoist off its line, metres.
+    /// </summary>
+    public static string StillFlatTurn()
+    {
+        float fx, fy, fz;
+        FlagCloth f = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Flat, out fx, out fy, out fz);
+        double off = 0;
+        for (int k = 0; k < f.Count; k++) off = Math.Max(off, Math.Abs(f.Z[k]));
+
+        FlagCloth t = StillCloth(3f, 1500, FlagHoist.Top, 0f, false, 1f, FlagMotion.Flat, out fx, out fy, out fz);
+        double side = 0;
+        for (int k = 0; k < t.Count; k++) side = Math.Max(side, Math.Abs(t.Z[k]));
+        double hangs = t.Y[t.Count - 1];
+
+        FlagCloth s = StillCloth(3f, 667, FlagHoist.Side, 20f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(s, FlagMotion.Still, true, fx, fy, fz, 1f, 3f);
+        float[] x = new float[s.Count], y = new float[s.Count], z = new float[s.Count];
+        s.CopyShape(x, y, z, 0f);
+
+        float heading = 1.1f;
+        float hx, hy, hz, gx, gy, gz;
+        FlagOrientation.Frame(heading, 20f, 0f, FlagHoist.Side, out hx, out hy, out hz, out gx, out gy, out gz);
+        FlagCloth there = new FlagCloth(3f, s.Height, FlagFabric.Standard(1f), gx, gz, FlagCloth.CellsAlong, hx, hy, hz);
+        StillPose.Lay(there, FlagMotion.Still, true, gx, gy, gz);
+        there.SetShape(x, y, z, heading);
+        there.Turn(-0.7f);
+
+        // Against the shape turned straight to the last heading; the halyard's two clips on the new line.
+        double moved = 0, hoist = 0;
+        double ca = Math.Cos(heading - 0.7f), sa = Math.Sin(heading - 0.7f);
+        FlagOrientation.Frame(heading - 0.7f, 20f, 0f, FlagHoist.Side, out hx, out hy, out hz, out gx, out gy, out gz);
+        for (int k = 0; k < s.Count; k++)
+        {
+            double ex = x[k] * ca - z[k] * sa, ez = x[k] * sa + z[k] * ca;
+            moved = Math.Max(moved, Math.Abs(there.X[k] - ex) + Math.Abs(there.Y[k] - y[k]) + Math.Abs(there.Z[k] - ez));
+        }
+        foreach (int j in new[] { 0, there.Rows - 1 })
+        {
+            int k = j * there.Columns;
+            double along = there.X[k] * hx + there.Y[k] * hy + there.Z[k] * hz;
+            double ox = there.X[k] - along * hx, oy = there.Y[k] - along * hy, oz = there.Z[k] - along * hz;
+            hoist = Math.Max(hoist, Math.Sqrt(ox * ox + oy * oy + oz * oz));
+        }
+        return off.ToString("G3", Inv) + "," + f.MaxStretch().ToString("F4", Inv) + "," + side.ToString("G3", Inv) + "," + hangs.ToString("F3", Inv) + "," +
+               moved.ToString("G3", Inv) + "," + hoist.ToString("G3", Inv) + "," + s.Height.ToString("F3", Inv);
+    }
+
+    /// <summary>
     /// The author's case from the log (2026-09-27 16:47): an 800 x 400 picture (turned 180 deg)
     /// on a flag made a 30 m square while its sides were apart, then linked again. Its shape is
     /// the picture's 1:2 (ShapeOf), not the square's; a linked width or height scales it at that
@@ -2245,6 +2406,34 @@ $ci = [ClothTests]::CodecImage() -split ","
 Check "a picture of the player's and where it lies survive the save; a long name in another script too" ($ci[0] -eq "True" -and $ci[1] -eq "True" -and $ci[5] -eq "True") ("format " + $ci[6] + ": castle.png, middle 0.3/0.62, 250%, three turns, the flag through it; 100 CJK characters (300 bytes)")
 Check "a save of format 6 still reads: no picture, laid as a new one is" ($ci[2] -eq "True") "format 6, byte by byte: a cross on a ball-topped pole, 12.5 m"
 Check "a country's flag goes before a picture; a paste's picture pulled into range, its name a file name" ($ci[3] -eq "True" -and $ci[4] -eq "True") "fr over castle.png; '..\x/evil?.png' -> evil.png, zoom NaN and 50, turn 7, see-through 9"
+$cm = [ClothTests]::CodecMotion() -split ","
+Check "a still or flat flag stays so through the save; a format 7 save reads as waving; an unknown motion waves" ($cm[0] -eq "True" -and $cm[1] -eq "True" -and $cm[2] -eq "True") ("format " + $cm[4])
+Check "a still flag's shape is its size, hoist, waviness, motion and halyard's: not its pole's length or thickness, nor its colours" ($cm[3] -eq "True") $cm[3]
+
+# ---- still and flat flags (FlagMotion, StillPose) ------------------------------------------
+
+$ss = [ClothTests]::StillSplit() -split ","
+Check "a still flag's shape is the same however its steps are split into jobs, and made twice" ($ss[0] -eq "0" -and $ss[1] -eq "0") ("split into " + $ss[2] + " jobs: " + $ss[0] + " m off; twice: " + $ss[1] + " m")
+$ft = [ClothTests]::StillFlatTurn() -split ","
+Check "a flat flag is exactly flat and square; a flat banner hangs straight down its length" ((N $ft[0]) -eq 0 -and $ft[1] -eq "1.0000" -and (N $ft[2]) -eq 0 -and [math]::Abs((N $ft[3]) + 3) -lt 1e-3) ("off its plane " + $ft[0] + " m, stretch " + $ft[1] + "; the banner " + $ft[2] + " m off, its fly corner at " + $ft[3] + " m")
+Check "a still shape taken at another heading and turned again is the same shape turned, its clips on its (tilted) hoist line" ((N $ft[4]) -lt 1e-4 -and (N $ft[5]) -lt 1e-4) ("off the shape turned at once " + $ft[4] + " m, clips off the line " + $ft[5] + " m")
+foreach ($case in @(
+        @{ L = 3; P = 667; H = 0; T = 0; R = $false; W = 1; Name = "3 m" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $false; W = 0; Name = "3 m at 0% wavy" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $false; W = 2; Name = "3 m at 200% wavy" },
+        @{ L = 1; P = 667; H = 0; T = 0; R = $false; W = 1; Name = "1 m" },
+        @{ L = 8; P = 527; H = 0; T = 0; R = $true; W = 1; Name = "8 m on a halyard" },
+        @{ L = 20; P = 527; H = 0; T = 0; R = $false; W = 1; Name = "20 m" },
+        @{ L = 30; P = 527; H = 0; T = 0; R = $false; W = 2; Name = "30 m at 200% wavy" },
+        @{ L = 3; P = 667; H = 0; T = 45; R = $true; W = 1; Name = "3 m on a 45 deg pole" })) {
+    $st = [ClothTests]::Still($case.L, $case.P, $case.H, $case.T, $case.R, $case.W) -split ","
+    $okShape = $st[0] -eq "True" -and (N $st[1]) -le 1.12 -and $st[2] -eq "0"
+    $okOut = ($case.T -ne 0) -or ((N $st[3]) -ge 0.7 -and (N $st[5]) -ge 0.5)
+    Check ("a still flag, " + $case.Name + ": whole, stretched at most 12%, not through itself, out in its breeze") ($okShape -and $okOut) ("stretch " + $st[1] + ", " + $st[2] + " crossing, reach " + $st[3] + " L at " + $st[4] + " deg down, " + $st[5] + " shown; the moment at " + $st[6] + " s of " + $st[7] + " in " + $st[8] + " m/s, " + $st[9] + " ms in .NET")
+}
+$tb = [ClothTests]::Still(3, 1500, 1, 0, $true, 1) -split ","
+Check "a still banner hoisted from its top hangs in calm air: whole, not through itself" ($tb[0] -eq "True" -and (N $tb[1]) -le 1.12 -and $tb[2] -eq "0" -and $tb[8] -eq "0.0") ("stretch " + $tb[1] + ", " + $tb[2] + " crossing, breeze " + $tb[8] + " m/s, " + $tb[5] + " shown")
+
 $rl = [ClothTests]::Relinked()
 Check "a flag with a picture, made square while its sides were apart, linked again: it scales at the picture's 1:2 -- 30 x 15 at once, or 20 x 10" ($rl -eq "500,500,2000,30x15,20x10,True") $rl
 $in = [ClothTests]::ImageNames() -split ","

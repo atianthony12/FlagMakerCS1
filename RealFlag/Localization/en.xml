@@ -126,10 +126,17 @@
   <String key="NewImageTurn.Label">The new flag's image: quarter turns clockwise, 0 to 3</String>
   <String key="NewImageAlpha.Label">The new flag's image: what its see-through parts do</String>
 
+  <String key="NewMotion.Label">Motion</String>
+  <String key="NewMotion.Tooltip">Waves: the cloth flies in the wind. Still: it keeps one shape, caught as it flew in a breeze along its rotation (a banner hangs); How wavy sets how rippled. Flat: held flat, as on a wall or in a banner's frame. Still and flat flags never move, and cost nothing once made.</String>
+  <String key="SelMotion.Label">Motion</String>
+  <String key="SelMotion.Tooltip">Waves: the cloth flies in the wind. Still: it keeps one shape, caught as it flew in a breeze along its rotation (a banner hangs). Flat: held flat, as on a wall. Still and flat flags never move.</String>
+  <String key="Motion.Waves">Waves</String>
+  <String key="Motion.Still">Still</String>
+  <String key="Motion.Flat">Flat</String>
   <String key="NewWaviness.Label">How wavy</String>
-  <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind. 0%: stiff and calm; 200%: light and restless.</String>
+  <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind (on a still flag, in the shape it keeps). 0%: stiff and calm; 200%: light and restless.</String>
   <String key="SelWaviness.Label">How wavy</String>
-  <String key="SelWaviness.Tooltip">How much the cloth ripples in the same wind.</String>
+  <String key="SelWaviness.Tooltip">How much the cloth ripples in the same wind (on a still flag, in the shape it keeps).</String>
   <String key="NewDarkness.Label">Darkness</String>
   <String key="NewDarkness.Tooltip">Darker cloth, for a flag whose white or yellow glares in bright sun: its colours as if dyed darker. 0%: as designed.</String>
   <String key="SelDarkness.Label">Darkness</String>

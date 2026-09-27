@@ -27,9 +27,17 @@ a hex code typed, pasted or copied); its **shape** as it hangs, from a tall bann
 flag, picked from little pictures of each; its **width** and **height** (0.5 to 30 m each,
 changing together unless you switch that off, from 1:5 to 5:1); the edge it is **hoisted
 from** -- its side, as flags fly, or its top, as a banner hangs from a crossbar (its design then
-turns as a flag hung upright does: the canton at the top on the left); how wavy the cloth is,
-how dark (for a flag whose white or yellow glares in a bright sun: its colours as if dyed
-darker, up to 80%), the way it points and its elevation over the ground.
+turns as a flag hung upright does: the canton at the top on the left); its **motion** -- it
+**waves** in the wind, keeps **still**, or is held **flat**; how wavy the cloth is, how dark
+(for a flag whose white or yellow glares in a bright sun: its colours as if dyed darker, up to
+80%), the way it points and its elevation over the ground.
+
+**Motion**: a **still** flag keeps one shape for good, caught as it flew in a steady breeze
+blowing the way it points (turn it to aim its fly; a banner hoisted from its top hangs), with
+How wavy setting how rippled; flags of the same design share the same shape. A **flat** flag
+is held flat, as on a wall or in a banner's frame. Neither moves with the wind or the weather,
+and once made they cost nothing to run -- for rows of flags, flags indoors or on walls, or a
+city whose flags should hold a pose. Switched back to waving, a flag flies on from where it was.
 
 **Your image** (in the new flag's window and in the Flags tab): a picture of your own on the
 flag. The folder button beside it opens the images folder, `RealFlag\Images` in the game's
@@ -144,6 +152,14 @@ it is missing.
   its image, cut out where the image is (Nepal's two pennants), or your picture where you laid
   it -- with a canvas heading, two grommets and hems. Dry, it is matte; in the rain it gets wet
   as the city's ground does (darker, with the water's glints on its folds), and dries with it.
+- **A still flag** is flown once, in the flag's own frame, a few steps a frame: laid out flat,
+  then a few seconds in a steady breeze -- Beaufort force 3's, "light flags extended", for a
+  flag up to 3 m, more for a bigger one by Froude's scaling (the same U²/gL: a big flag holds
+  out against its weight as a small one does). Over its last two seconds the shape is weighed
+  every eighth of a second and the smoothest kept that shows the most of the design (the
+  grid's squared second differences, a thin-plate bending energy, over the area facing out):
+  a moment taken blindly often froze the fly's corner mid-flick. The same design gives the same
+  shape every time, turned to where each flag points; it is never stepped again.
 - **Your pictures** are cropped, never stretched: the flag shows a window of the picture with
   the flag's own shape, as large as it goes at 100%. A picture's hidden colours under its
   see-through pixels are filled from its visible ones (the "pull-push" of Gortler et al.'s
@@ -207,6 +223,10 @@ Written from scratch after these, with thanks (no code from them is included):
   flag's flutter; G. Fiedler, *Fix Your Timestep!* (2004).
 - The United States Flag Code, 4 U.S.C. § 7(i) -- a flag hung upright shows its union at the
   top, to the flag's own right: the design of a flag hoisted from its top.
+- Still flags: the Met Office's Beaufort wind force scale (force 3, "light flags extended") --
+  the breeze a still flag is caught in; W. Froude's similarity (the Froude number, U²/gL) --
+  its breeze for a bigger flag; W. Welch and A. Witkin, *Variational Surface Modeling*
+  (SIGGRAPH 1992), the thin-plate energy -- the smoothest moment kept.
 - Your pictures: the images folders of *Procedural Objects* and *Image Overlay* (Cities:
   Skylines mods) -- a folder button and a list of the files, the idea only, no code;
   S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996) --

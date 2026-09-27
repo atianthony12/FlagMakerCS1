@@ -47,6 +47,8 @@ using Debug = UnityEngine.Debug;
 ///   RF_IMAGES "a.png,b.jpg"  pictures of the player's (from RF_IMAGEDIR) instead of RF_PATTERNS / RF_COUNTRIES,
 ///                       each once per RF_CROPS "x,y,zoom,turn|..." (FlagSpec.Image*; default "0.5,0.5,1,0"),
 ///                       laid on RF_PATTERNS' first pattern; RF_THROUGH "1": their see-through parts show it
+///   RF_MOTIONS "waves,still,flat"  one row per motion (FlagMotion): a still flag's column t is its shape
+///                       after t seconds of its breeze (StillPose), t &lt; 0 its own time; a flat one is laid flat
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
 /// Every frame logs "RF FRAME row=.. col=.. t=.. file=.. | ..." with the flag's droop, how much
 /// of the frame it covers, and its mean colour.
@@ -282,13 +284,22 @@ public static class FlagPreview
         _hoist = hoist;
         _fly = fly;
 
+        var motions = new List<int>();
+        foreach (string m in Env("RF_MOTIONS", "waves").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string name = m.Trim().ToLowerInvariant();
+            motions.Add(name == "still" ? FlagMotion.Still : name == "flat" ? FlagMotion.Flat : FlagMotion.Waves);
+        }
+
         foreach (int detail in details)
         foreach (int refine in refines)
-        foreach (float wind in winds)
+        foreach (int motion in motions)
+        foreach (float wind in motion == FlagMotion.Waves ? winds : new[] { StillPose.BreezeFor(spec.Length) })
         {
             foreach (FlagSpec design in designs)
             {
                 FlagSpec flag = design;
+                flag.Motion = motion;
                 int pattern = flag.Pattern;
 
                 // The flag's foot at rest RF_ELEVATION up: its hoist's (from its side), its fly's (a banner's).
@@ -308,7 +319,10 @@ public static class FlagPreview
                 {
                     float length = hy < -0.05f ? anchor.y / -hy : FlagPoleShape.Fallback(flag);
                     FlagPoleShape shape = FlagPoleShape.For(flag, length);
-                    shape.ApplyTo(cloth, fx, fy, fz);
+
+                    // A still flag's shape leaves the pole out, as the game makes it (StillPose).
+                    if (motion == FlagMotion.Waves)
+                        shape.ApplyTo(cloth, fx, fy, fz);
                     pole = new PoleDraw { Mesh = FlagPoleMesh.Build(shape, null), Matrix = FlagPoleMesh.Placement(anchor, shape, hoist, fly) };
                     Debug.Log("RF PREVIEW: pole " + FlagPoleStyle.LogName(flag.Pole) + ", " + flag.Ropes + " rope(s): foot " +
                               (200f * shape.RadiusFoot).ToString("F1", CultureInfo.InvariantCulture) + " cm, top " +
@@ -320,10 +334,34 @@ public static class FlagPreview
 
                 float t = 0f;
                 int col = 0;
+                int posed = 0;
+                if (motion != FlagMotion.Waves)
+                {
+                    cloth.GroundY = -1e6f;
+                    StillPose.Lay(cloth, motion, flag.OnHalyard, fx, fy, fz);
+                }
 
                 foreach (float moment in moments)
                 {
-                    while (t + Step <= moment + 1e-4f)
+                    if (motion == FlagMotion.Still && moment < 0f)
+                    {
+                        // The shape the game keeps: made whole, the smoothest of its last moments (shown at the step it was).
+                        StillPoseRun run = StillPose.Make(cloth, motion, flag.OnHalyard, fx, fy, fz, flag.Waviness, flag.Length);
+                        posed = run.BestStep;
+                    }
+                    else if (motion == FlagMotion.Still)
+                    {
+                        // Its shape after this long in its breeze, as the game runs it.
+                        int target = Mathf.RoundToInt(moment / StillPose.StepSize);
+                        if (target > posed)
+                        {
+                            ClothJob pose = StillPose.Job(cloth, fx, fy, fz, flag.Waviness, flag.Length, posed, target - posed);
+                            ClothWorker.Execute(ref pose);
+                            posed = target;
+                        }
+                    }
+
+                    while (motion == FlagMotion.Waves && t + Step <= moment + 1e-4f)
                     {
                         StepCloth(cloth, wind, gusts, anchor.y, flag, t, anchor);
                         t += Step;
@@ -334,9 +372,15 @@ public static class FlagPreview
                     Color[] pixels = RenderFlag(s, mesh, pole, flag, anchor, yaw, pitch, dist, out info);
                     string file = Path.Combine(outDir, "rf-" + row + "-" + col + ".png");
                     SavePng(pixels, width, height, s.Exposure, file);
-                    Debug.Log("RF FRAME row=" + row + " col=" + col + " t=" + moment.ToString("0.###", CultureInfo.InvariantCulture) +
+                    float shown = motion == FlagMotion.Still ? posed * StillPose.StepSize : motion == FlagMotion.Flat ? 0f : moment;
+                    Debug.Log("RF FRAME row=" + row + " col=" + col + " t=" + shown.ToString("0.###", CultureInfo.InvariantCulture) +
                               " wind=" + wind.ToString("0.#", CultureInfo.InvariantCulture) + " pattern=" + pattern +
-                              " file=" + file + " | " + Droop(cloth) + ", " + cloth.Columns + "x" + cloth.Rows +
+                              " file=" + file + " | " +
+                              (motion != FlagMotion.Waves
+                                   ? FlagMotion.LogName(motion) + " rough " + StillPose.Roughness(cloth).ToString("0.000", CultureInfo.InvariantCulture) +
+                                     " shown " + StillPose.Shown(cloth, fx, fy, fz).ToString("0.00", CultureInfo.InvariantCulture) + ", "
+                                   : "") + Droop(cloth) + ", " +
+                              cloth.Columns + "x" + cloth.Rows +
                               (mesh.Refine > 1 ? " x" + mesh.Refine : "") + (collide ? "" : " no collision") +
                               (flag.IsCountry ? ", " + flag.Country : "") +
                               (flag.HasImage ? ", image " + flag.Image + " at " + flag.ImageX.ToString("0.##", CultureInfo.InvariantCulture) + "/" +

@@ -27,6 +27,10 @@
 #   ... -Images "a.png,b.jpg" -ImageDir <folder>   pictures of the player's, laid on -Patterns' first pattern
 #   ... -Crops "0.5,0.5,1,0|0.3,0.5,2,1"           each picture once per crop: the middle x,y on it, zoom, quarter turns
 #   ... -Through                   their see-through parts show the pattern (else cut out)
+#   ... -Motion still              a flag that keeps one shape (StillPose; -Winds ignored): each -Times
+#                                  column the shape after that many seconds of its breeze, "-1" its own
+#                                  time (StillPose.StepsFor); "flat": laid flat
+#   ... -Motions "waves,still,flat"  one row per motion (times the rest)
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
 # -Elevation (m) -Colours "#hex,#hex,#hex"; the camera: -Yaw -Pitch -Dist (flag lengths away).
 
@@ -69,6 +73,8 @@ param(
     [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\RealFlag\Images"),
     [string]$Crops = "0.5,0.5,1,0",
     [switch]$Through,
+    [string]$Motion = "waves",
+    [string]$Motions = "",
     # Metres added to the point looked at (the flag's middle), "x,y,z": "-1.5,1,0" is a 3 x 2 m flag's anchor.
     [string]$Look = "0,0,0",
     # The way the wind blows, degrees from the flag's heading: 180 blows it back over its pole.
@@ -138,6 +144,7 @@ $env:RF_THROUGH = if ($Through) { "1" } else { "0" }
 $env:RF_LOOK = $Look
 $env:RF_WINDYAW = $WindYaw.ToString($inv)
 $env:RF_FABRIC = $Fabric
+$env:RF_MOTIONS = if ($Motions) { $Motions } else { $Motion }
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()

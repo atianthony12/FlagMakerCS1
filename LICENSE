@@ -102,6 +102,12 @@ techniques were written from scratch after them, and they are credited here with
   A flag hung upright:
     The United States Flag Code, 4 U.S.C. 7(i) -- "the union should be uppermost and to
       the flag's own right": the design of a flag hoisted from its top.
+  Still flags:
+    The Met Office, the Beaufort wind force scale -- force 3, "light flags extended": the
+      breeze a still flag is caught in.
+    W. Froude's similarity law (the Froude number, U^2 / gL) -- the breeze for a bigger flag.
+    W. Welch and A. Witkin, "Variational Surface Modeling", SIGGRAPH 1992 -- the thin-plate
+      energy (squared second derivatives): the smoothest moment of a still flag kept.
   The player's pictures:
     the images folders of Procedural Objects and Image Overlay (Cities: Skylines mods) -- a
       folder button and a list of the files: the idea only; none of their code.

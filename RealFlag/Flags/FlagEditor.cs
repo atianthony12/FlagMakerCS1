@@ -125,6 +125,7 @@ namespace RealFlag.Flags
                     Settings.SelLength.value = e.Spec.Length;
                     Settings.SelProportion.value = e.Spec.Proportion;
                     Settings.SelHoistedFrom.value = e.Spec.HoistedFrom;
+                    Settings.SelMotion.value = e.Spec.Motion;
                     Settings.SelWaviness.value = e.Spec.Waviness;
                     Settings.SelDarkness.value = e.Spec.Darkness;
                     Settings.SelPole.value = e.Spec.Pole;
@@ -177,6 +178,7 @@ namespace RealFlag.Flags
             spec.Length = Settings.SelLength.value;
             spec.Proportion = Settings.SelProportion.value;
             spec.HoistedFrom = Settings.SelHoistedFrom.value;
+            spec.Motion = Settings.SelMotion.value;
             spec.Waviness = Settings.SelWaviness.value;
             spec.Darkness = Settings.SelDarkness.value;
             spec.Pole = Settings.SelPole.value;
@@ -339,6 +341,7 @@ namespace RealFlag.Flags
             Settings.NewLength.value = e.Spec.Length;
             Settings.NewProportion.value = e.Spec.Proportion;
             Settings.NewHoistedFrom.value = e.Spec.HoistedFrom;
+            Settings.NewMotion.value = e.Spec.Motion;
             Settings.NewWaviness.value = e.Spec.Waviness;
             Settings.NewDarkness.value = e.Spec.Darkness;
             Settings.NewPole.value = e.Spec.Pole;

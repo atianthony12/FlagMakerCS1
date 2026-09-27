@@ -32,6 +32,331 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// The one shape a flag that does not move keeps (FlagMotion Still or Flat): made once, then
+    /// drawn as it is and never stepped again. PURE: FlagRenderer runs a still flag's steps a few
+    /// a frame as the cloth's jobs; the preview and the tests run them in one go -- the same steps
+    /// on a clock of 1/32 s steps (exact in a float however the steps are split into jobs), so
+    /// the same shape everywhere, every time the city loads.
+    /// </summary>
+    /// <remarks>
+    /// Still: the cloth laid out flat along its fly at rest, then flown in a steady breeze along
+    /// that fly's level part -- the flag's heading, which the player turns -- with no big gusts,
+    /// only the eddies of its own size (FlagWind, x its waviness), at 10 m where the breeze is
+    /// the speed at the flag, for <see cref="StepsFor"/>; a flag whose fly at rest points down
+    /// (hoisted from its top) hangs in calm air. It is made in the flag's own frame -- heading 0,
+    /// the anchor at the origin -- so it is the design's alone, and turned and carried to where the
+    /// flag stands (FlagCloth.SetShape; turned again with its prop: FlagCloth.Turn). The ground and
+    /// the pole's collider are left out (a flag's shape does not change with its height, or with
+    /// its pole's length).
+    /// Flat: laid out flat along its fly at rest, exactly, no steps.
+    /// </remarks>
+    public static class StillPose
+    {
+        /// <summary>
+        /// The breeze a still flag of up to <see cref="BreezeLength"/> is caught in, m/s at the flag:
+        /// Beaufort force 3, a gentle breeze, whose sign on land is "leaves and small twigs in
+        /// constant motion; light flags extended" (the Met Office's Beaufort scale) -- the flag
+        /// stands out from its hoist with a few waves down it.
+        /// </summary>
+        public const float Breeze = 5f;
+
+        /// <summary>A pose's step, seconds: 1/32, so every step's clock is exact in a float.</summary>
+        public const float StepSize = 1f / 32f;
+
+        /// <summary>A pose runs at least this long, seconds, and this many times the time the breeze takes to cross the flag more.</summary>
+        public const float MinTime = 3.5f;
+        public const float CrossTimes = 1.5f;
+
+        /// <summary>
+        /// Over its last <see cref="Window"/> seconds, the shape is weighed every
+        /// <see cref="CandidateEvery"/> steps (1/8 s) and the smoothest kept (<see cref="Roughness"/>):
+        /// a moment taken blindly often caught the fly's corner in the middle of a flick, a crumpled
+        /// tatter frozen for good, where a quarter of a second either side the same wave was clean.
+        /// </summary>
+        public const float Window = 2f;
+        public const int CandidateEvery = 4;
+
+        /// <summary>Its fly at rest nearer upright than this (its level part shorter): the flag hangs in calm air.</summary>
+        public const float MinLevel = 0.3f;
+
+        /// <summary>The air's height over the ground, metres: the breeze is the speed there (FlagWind.ReferenceHeight).</summary>
+        public const float Height = FlagWind.ReferenceHeight;
+
+        /// <summary>How many steps a still flag's shape is run for.</summary>
+        public static int StepsFor(float length, float speed)
+        {
+            float time = MinTime + CrossTimes * Math.Max(length, 0.5f) / Math.Max(speed, 1f);
+            return (int)Math.Ceiling(time / StepSize);
+        }
+
+        /// <summary>
+        /// The breeze for a flag this long, m/s: <see cref="Breeze"/> up to <see cref="BreezeLength"/>,
+        /// then growing as the square root of the length -- the same U^2 / (g L), the Froude number,
+        /// so a big flag holds out against its weight as a small one does. In one breeze a big flag
+        /// droops more (preview, the shape kept: 3 m 18 deg at 5 m/s; 8 m 32 deg at 5, 16-18 at 7-9;
+        /// 20 m 41 deg at 5, 8-16 at 9-12): 8 m gets 8.2 m/s, 20 m 12.9, 30 m 15.8.
+        /// </summary>
+        public static float BreezeFor(float length)
+        {
+            return Breeze * (float)Math.Sqrt(Math.Max(length, BreezeLength) / BreezeLength);
+        }
+
+        /// <summary>Flags up to this long, metres, are caught in <see cref="Breeze"/> itself.</summary>
+        public const float BreezeLength = 3f;
+
+        /// <summary>The breeze for a flag whose fly at rest is (flyX, flyY, flyZ): along its level part, or none.</summary>
+        public static void Wind(float flyX, float flyY, float flyZ, float length, out float dirX, out float dirZ, out float speed)
+        {
+            float level = (float)Math.Sqrt(flyX * flyX + flyZ * flyZ);
+            if (level < MinLevel)
+            {
+                dirX = 1f;
+                dirZ = 0f;
+                speed = 0f;
+                return;
+            }
+
+            dirX = flyX / level;
+            dirZ = flyZ / level;
+            speed = BreezeFor(length);
+        }
+
+        /// <summary>
+        /// A still or flat flag's cloth before its steps: a still one clipped to its halyard if it
+        /// has one (its heading bows between the clips), a flat one held along its whole hoist (a
+        /// halyard's slack would only shear its first column); laid out flat along its fly at rest
+        /// (a still one with a hair of noise, to be flown; a flat one exactly).
+        /// </summary>
+        public static void Lay(FlagCloth cloth, int motion, bool halyard, float flyX, float flyY, float flyZ)
+        {
+            cloth.SetHalyard(halyard && motion == FlagMotion.Still);
+            cloth.LayOut(flyX, flyY, flyZ, motion != FlagMotion.Flat);
+        }
+
+        /// <summary>The sub-steps of one of its steps (FlagCloth.SubStepsFor: ClothWorker.Execute splits them so).</summary>
+        public static int SubSteps(FlagCloth cloth, float flyX, float flyY, float flyZ)
+        {
+            float dirX, dirZ, speed;
+            Wind(flyX, flyY, flyZ, cloth.Length, out dirX, out dirZ, out speed);
+            return cloth.SubStepsFor(FlagWind.SpeedAt(speed, Height), StepSize);
+        }
+
+        /// <summary>A step after which the shape is weighed: one of every <see cref="CandidateEvery"/> in the last <see cref="Window"/> of <paramref name="total"/>.</summary>
+        public static bool IsCandidate(int step, int total)
+        {
+            return step > 0 && step <= total && step % CandidateEvery == 0 && step >= total - (int)(Window / StepSize);
+        }
+
+        /// <summary>
+        /// How crumpled the cloth is: the squared second differences of its particles' places along
+        /// its rows and down its columns, summed -- the thin-plate energy (Welch and Witkin,
+        /// Variational Surface Modeling, SIGGRAPH 1992) on the grid, up to a constant: a smooth wave
+        /// has little, a sharp fold much. Compared within one cloth only.
+        /// </summary>
+        public static float Roughness(FlagCloth cloth)
+        {
+            int cols = cloth.Columns, rows = cloth.Rows;
+            float[] x = cloth.X, y = cloth.Y, z = cloth.Z;
+            double sum = 0.0;
+            for (int j = 0; j < rows; j++)
+            {
+                for (int i = 0; i < cols; i++)
+                {
+                    int k = j * cols + i;
+                    if (i > 0 && i < cols - 1)
+                    {
+                        float dx = x[k - 1] - 2f * x[k] + x[k + 1], dy = y[k - 1] - 2f * y[k] + y[k + 1], dz = z[k - 1] - 2f * z[k] + z[k + 1];
+                        sum += dx * dx + dy * dy + dz * dz;
+                    }
+
+                    if (j > 0 && j < rows - 1)
+                    {
+                        float dx = x[k - cols] - 2f * x[k] + x[k + cols], dy = y[k - cols] - 2f * y[k] + y[k + cols],
+                              dz = z[k - cols] - 2f * z[k] + z[k + cols];
+                        sum += dx * dx + dy * dy + dz * dz;
+                    }
+                }
+            }
+
+            return (float)sum;
+        }
+
+        /// <summary>
+        /// How much of the design faces out, 0..1: the cloth's area projected on its plane at rest
+        /// (through its hoist and its fly at rest), signed -- a fold turned back counts against it --
+        /// over the flat flag's.
+        /// </summary>
+        public static float Shown(FlagCloth cloth, float flyX, float flyY, float flyZ)
+        {
+            // The plane's normal: hoist x fly at rest.
+            float hx = cloth.HoistX, hy = cloth.HoistY, hz = cloth.HoistZ;
+            float nx = hy * flyZ - hz * flyY, ny = hz * flyX - hx * flyZ, nz = hx * flyY - hy * flyX;
+            int cols = cloth.Columns, rows = cloth.Rows;
+            float[] x = cloth.X, y = cloth.Y, z = cloth.Z;
+            double sum = 0.0;
+            for (int j = 0; j < rows - 1; j++)
+            {
+                for (int i = 0; i < cols - 1; i++)
+                {
+                    int a = j * cols + i, b = a + 1, c = a + cols, d = c + 1;
+
+                    // The quad's area vector: half the cross product of its diagonals.
+                    float ux = x[d] - x[a], uy = y[d] - y[a], uz = z[d] - z[a];
+                    float vx = x[c] - x[b], vy = y[c] - y[b], vz = z[c] - z[b];
+                    float cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+                    sum += 0.5 * (cx * nx + cy * ny + cz * nz);
+                }
+            }
+
+            return (float)(Math.Abs(sum) / Math.Max(cloth.Length * cloth.Height, 1e-6f));
+        }
+
+        /// <summary>
+        /// A candidate shape's weight, the least kept: its <see cref="Roughness"/> over the square of
+        /// how much of it faces out (<see cref="Shown"/>, at least a fifth) -- smooth, but not a
+        /// smooth curl that hides the design.
+        /// </summary>
+        public static float Score(FlagCloth cloth, float flyX, float flyY, float flyZ)
+        {
+            float shown = Math.Max(Shown(cloth, flyX, flyY, flyZ), 0.2f);
+            return Roughness(cloth) / (shown * shown);
+        }
+
+        /// <summary>Its steps <paramref name="first"/> to <paramref name="first"/> + <paramref name="steps"/> - 1, as a job.</summary>
+        public static ClothJob Job(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length, int first, int steps)
+        {
+            float dirX, dirZ, speed;
+            Wind(flyX, flyY, flyZ, length, out dirX, out dirZ, out speed);
+            return new ClothJob
+            {
+                Cloth = cloth,
+                Steps = steps,
+                Size = StepSize,
+                Time = first * StepSize,
+                Alpha = 1f,
+                Speed = speed,
+                Gusts = 0f,
+                DirX = dirX,
+                DirZ = dirZ,
+                Height = Height,
+                Waviness = waviness,
+                Length = length,
+            };
+        }
+
+        /// <summary>The whole shape, here and now (the preview, the tests): laid (<see cref="Lay"/>) and, still, run and chosen as the game does it (the run returned; null for a flat one).</summary>
+        public static StillPoseRun Make(FlagCloth cloth, int motion, bool halyard, float flyX, float flyY, float flyZ, float waviness, float length)
+        {
+            Lay(cloth, motion, halyard, flyX, flyY, flyZ);
+            if (motion != FlagMotion.Still)
+                return null;
+
+            var run = new StillPoseRun(cloth, flyX, flyY, flyZ, waviness, length);
+            while (!run.Finished)
+            {
+                ClothJob job = run.Next(int.MaxValue);
+                ClothWorker.Execute(ref job);
+                run.Took();
+            }
+
+            run.Finish();
+            return run;
+        }
+    }
+
+    /// <summary>
+    /// The making of one still flag's shape (StillPose): its cloth, laid out, run a job at a time
+    /// -- each ending at the next step the shape is weighed at, so the same steps are weighed
+    /// however many a frame the renderer gives it -- the smoothest shape kept, and put back on the
+    /// cloth at the end. PURE. The renderer calls <see cref="Next"/> when it plans a frame and
+    /// <see cref="Took"/> once that batch is back; the cloth and the kept shape are the thread's
+    /// between the two.
+    /// </summary>
+    public sealed class StillPoseRun
+    {
+        public readonly FlagCloth Cloth;
+
+        /// <summary>The steps it runs for, the steps done, and those handed out and not yet taken back.</summary>
+        public readonly int Total;
+        public int Done;
+        public int Out;
+
+        private readonly float _flyX, _flyY, _flyZ, _waviness, _length;
+        private readonly float[] _bestX, _bestY, _bestZ;
+        private float _best = float.MaxValue;
+
+        /// <summary>The step whose shape is kept so far (-1: none weighed yet).</summary>
+        public int BestStep = -1;
+
+        /// <param name="cloth">Laid out already (StillPose.Lay).</param>
+        public StillPoseRun(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length)
+        {
+            Cloth = cloth;
+            _flyX = flyX; _flyY = flyY; _flyZ = flyZ;
+            _waviness = waviness;
+            _length = length;
+            float dirX, dirZ, speed;
+            StillPose.Wind(flyX, flyY, flyZ, length, out dirX, out dirZ, out speed);
+            Total = StillPose.StepsFor(length, speed);
+            _bestX = new float[cloth.Count];
+            _bestY = new float[cloth.Count];
+            _bestZ = new float[cloth.Count];
+        }
+
+        public bool Finished
+        {
+            get { return Done >= Total && Out == 0; }
+        }
+
+        /// <summary>The sub-steps each of its steps takes (the cost of a step, for the renderer's plan).</summary>
+        public int SubSteps
+        {
+            get { return StillPose.SubSteps(Cloth, _flyX, _flyY, _flyZ); }
+        }
+
+        /// <summary>The next job: at most <paramref name="maxSteps"/>, never past the next step to weigh.</summary>
+        public ClothJob Next(int maxSteps)
+        {
+            int end = Done + Math.Max(0, Math.Min(Total - Done, Math.Max(1, maxSteps)));
+            for (int s = Done + 1; s < end; s++)
+            {
+                if (StillPose.IsCandidate(s, Total))
+                {
+                    end = s;
+                    break;
+                }
+            }
+
+            Out = end - Done;
+            return StillPose.Job(Cloth, _flyX, _flyY, _flyZ, _waviness, _length, Done, Out);
+        }
+
+        /// <summary>The last job is done: its steps counted, and the shape weighed if this is a step to.</summary>
+        public void Took()
+        {
+            Done += Out;
+            Out = 0;
+            if (!StillPose.IsCandidate(Done, Total))
+                return;
+
+            float rough = StillPose.Score(Cloth, _flyX, _flyY, _flyZ);
+            if (rough < _best && !float.IsNaN(rough))
+            {
+                _best = rough;
+                BestStep = Done;
+                Cloth.CopyShape(_bestX, _bestY, _bestZ, 0f);
+            }
+        }
+
+        /// <summary>Done: the cloth takes the smoothest shape weighed, still.</summary>
+        public void Finish()
+        {
+            if (BestStep >= 0)
+                Cloth.SetShape(_bestX, _bestY, _bestZ, 0f);
+        }
+    }
+
+    /// <summary>
     /// How many steps a flag takes this frame, within the cloth thread's budget. PURE: the
     /// arithmetic of FlagRenderer's planning, tested by tools/test-cloth.ps1.
     /// </summary>

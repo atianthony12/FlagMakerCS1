@@ -36,6 +36,19 @@ namespace RealFlag.Flags
         public float Pending;
         public float StepSize = FlagRenderer.Step;
 
+        /// <summary>
+        /// A still flag's shape being made (FlagMotion Still: StillPose), on a cloth of its own in the
+        /// flag's own frame (heading 0): the flag shows the shape it had meanwhile (none, if it is
+        /// new), and takes this one, turned to its heading, when done.
+        /// </summary>
+        public StillPoseRun Pose;
+
+        /// <summary>A still or flat flag's shape is to be made (again): it is new, or what shapes it changed.</summary>
+        public bool PoseWanted;
+
+        /// <summary>What makes the shape being made (FlagRenderer's shapes kept, by it); null: not to be kept.</summary>
+        public string PoseKey;
+
         /// <summary>Shown once its first seconds have been run (SettleLeft of them are still to run, on SettleClock).</summary>
         public bool Settled;
         public float SettleLeft;
@@ -214,6 +227,29 @@ namespace RealFlag.Flags
         private const float SettleTime = 1.5f;
         private const int SettleSteps = 6;
         private const int MaxSettlesPerFrame = 2;
+
+        /// <summary>
+        /// A still flag's shape (StillPose, 2.5-7 s of its breeze) is made this many 1/32 s steps a
+        /// frame (fewer sub-steps' worth, more in a longer frame: ClothPlan.BudgetFor's one to
+        /// three), sharing <see cref="MaxSettlesPerFrame"/> with the new cloths: a 3 x 2 m flag's in
+        /// about 24 frames at 60 fps, 8 at 10 fps. Its steps cost ~7 ms of a thread a frame.
+        /// </summary>
+        private const int PoseStepsPerFrame = 12;
+
+        /// <summary>
+        /// Still flags' shapes made, by what makes them (StillKey), in the flag's own frame (heading
+        /// 0): another flag of the same design takes its shape at once -- a flag placed takes the
+        /// ghost's, a city's row of like flags is made once. Dropped whole when it holds
+        /// <see cref="MaxStillShapes"/> (each a few kilobytes) and when the city unloads.
+        /// </summary>
+        private readonly Dictionary<string, StillShape> _stillShapes = new Dictionary<string, StillShape>();
+        private const int MaxStillShapes = 64;
+
+        private sealed class StillShape
+        {
+            public int Columns, Rows;
+            public float[] X, Y, Z;
+        }
 
         /// <summary>How often a flag's pick volume is refreshed, seconds.</summary>
         private const float PickInterval = 0.1f;
@@ -432,6 +468,7 @@ namespace RealFlag.Flags
             if (_ghost != null)
                 Release(_ghost);
             _ghost = null;
+            _stillShapes.Clear();
 
             FlagPicking.Clear();
 
@@ -454,6 +491,7 @@ namespace RealFlag.Flags
                 f.Mesh.Destroy();
             f.Mesh = null;
             f.Cloth = null;
+            f.Pose = null;
             DropPole(f);
             if (f.Prop != 0)
                 FlagPicking.Publish(f.Prop, null);
@@ -586,7 +624,8 @@ namespace RealFlag.Flags
             for (int i = 0; i < count; i++)
             {
                 FlagInstance f = _batch[i];
-                if (jobs[i].Cloth != f.Cloth)
+                bool pose = f.Pose != null && jobs[i].Cloth == f.Pose.Cloth;
+                if (jobs[i].Cloth != f.Cloth && !pose)
                     continue;
 
                 if (jobs[i].Failure != null)
@@ -595,8 +634,25 @@ namespace RealFlag.Flags
                     if (_failures++ == 0)
                         Log.Error("flags: stepping flag #" + f.Prop + "'s cloth threw; laid out again (further ones are counted in the detailed log)",
                                   jobs[i].Failure);
+                    if (pose)
+                    {
+                        // A still flag whose shape could not be made: flat, rather than none (not kept for others).
+                        f.Pose = null;
+                        Adopt(f, StillCloth(f, FlagMotion.Flat));
+                        continue;
+                    }
+
                     f.Cloth.Reset(jobs[i].DirX, jobs[i].DirZ);
                     f.MeshDirty = true;
+                    continue;
+                }
+
+                if (pose)
+                {
+                    if (jobs[i].WentWrong)
+                        Log.Warn("flags: flag #" + f.Prop + "'s still shape went wrong (not a number); laid out again and run on");
+                    f.Pose.Took();
+                    _stepsThisReport += jobs[i].Steps;
                     continue;
                 }
 
@@ -854,7 +910,8 @@ namespace RealFlag.Flags
                 f.PoleApplied = false;
             }
 
-            if (f.Cloth != null && !f.PoleApplied)
+            // A still or flat flag's cloth is never stepped: its shape was made without the pole (StillPose), and keeps it.
+            if (f.Cloth != null && !f.PoleApplied && f.Spec.Motion == FlagMotion.Waves)
             {
                 f.PoleShape.ApplyTo(f.Cloth, f.Fly.x, f.Fly.y, f.Fly.z);
                 f.PoleApplied = true;
@@ -950,7 +1007,9 @@ namespace RealFlag.Flags
         /// </summary>
         private void ChooseDetail(FlagInstance f)
         {
-            if (!f.Visible || (f.Cloth != null && !f.Settled))
+            // A still flag keeps the Normal cloth its shape was made on: a finer grid would only
+            // spread the same shape over more particles (the drawn surface is refined anyway).
+            if (!f.Visible || (f.Cloth != null && !f.Settled) || f.Spec.Motion != FlagMotion.Waves)
                 return;
 
             float size = Mathf.Max(f.Spec.Length, f.Spec.Height);
@@ -1051,7 +1110,7 @@ namespace RealFlag.Flags
         private static bool Same(FlagSpec a, FlagSpec b)
         {
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
-                   a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Name == b.Name &&
+                   a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Motion == b.Motion && a.Name == b.Name &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
                    Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b);
         }
@@ -1060,6 +1119,19 @@ namespace RealFlag.Flags
         {
             bool reshape = !spec.SameShape(f.Spec);
             bool refabric = !Mathf.Approximately(spec.Waviness, f.Spec.Waviness);
+
+            // A still or flat flag whose shape changes has it made again -- showing its old one,
+            // resized if need be, meanwhile; one that waves again flies on from the shape it kept.
+            if (spec.Motion == FlagMotion.Waves)
+            {
+                f.Pose = null;
+                f.PoseWanted = false;
+            }
+            else if (spec.Motion != f.Spec.Motion || !spec.SamePose(f.Spec))
+            {
+                f.Pose = null;
+                f.PoseWanted = true;
+            }
 
             // Its pole's length let go (a new tilt, "Pole down to the ground"): found again.
             if (spec.PoleLength <= 0f && f.Spec.PoleLength > 0f)
@@ -1105,7 +1177,9 @@ namespace RealFlag.Flags
         /// </summary>
         private static void Place(FlagInstance f, Vector3 anchor, float angle)
         {
-            if (f.HasAnchor && f.Cloth != null)
+            // A still or flat flag goes with its prop as it is (its cloth is the anchor's, and never stepped).
+            bool still = f.Spec.Motion != FlagMotion.Waves;
+            if (f.HasAnchor && f.Cloth != null && !still)
             {
                 Vector3 d = anchor - f.Anchor;
                 if (d.sqrMagnitude > 1e-8f)
@@ -1118,6 +1192,14 @@ namespace RealFlag.Flags
 
             if (f.HasAnchor && Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, f.Angle * Mathf.Rad2Deg)) > 1e-3f)
             {
+                if (still && f.Cloth != null)
+                {
+                    // Turned whole with its prop (a shape being made is made in the flag's own frame, and turned when taken).
+                    f.Cloth.Turn(angle - f.Angle);
+                    f.MeshDirty = true;
+                    f.Hold.Clear();
+                }
+
                 Wake(f);
                 f.PoleApplied = false;
             }
@@ -1270,10 +1352,162 @@ namespace RealFlag.Flags
             return n;
         }
 
+        /// <summary>
+        /// A still or flat flag: its shape made when it is wanted -- flat at once; still, from the
+        /// shapes kept, or run a few steps a frame -- then taken, and never stepped again.
+        /// </summary>
+        private void PlanStill(FlagInstance f, bool ghost, ref double spent, ref int settles)
+        {
+            f.Pending = 0f;
+            f.WindDir = f.Fly;
+
+            // Its shape's last steps came back with this frame's batch: the smoothest moment kept,
+            // and shown -- turned from the flag's own frame to where it heads.
+            if (f.Pose != null && f.Pose.Finished)
+            {
+                StillPoseRun done = f.Pose;
+                f.Pose = null;
+                done.Finish();
+                StillShape shape = KeepStillShape(f, done.Cloth);
+                FlagCloth cloth = StillCloth(f, FlagMotion.Still);
+                if (shape.Columns == cloth.Columns && shape.Rows == cloth.Rows)
+                    cloth.SetShape(shape.X, shape.Y, shape.Z, f.Angle);
+                Adopt(f, cloth);
+                if (Log.Detailed)
+                    Log.Detail("flags: flag #" + f.Prop + "'s still shape made (" + done.Total + " steps of 1/32 s, the moment at " +
+                               (done.BestStep * StillPose.StepSize).ToString("F2") + " s kept)");
+            }
+
+            if (f.Cloth == null && f.Pose == null)
+                f.PoseWanted = true;
+
+            if (f.PoseWanted)
+            {
+                f.PoseWanted = false;
+                StartStill(f);
+            }
+
+            if (f.Pose == null)
+                return;
+
+            // The flag being placed always gets its steps (the player is watching for it).
+            if (settles >= MaxSettlesPerFrame && !ghost)
+                return;
+
+            settles++;
+            int sub = f.Pose.SubSteps;
+            int steps = (int)Math.Max(1.0, ClothPlan.BudgetFor(_frameTime, Step, MaxStepsPerFrame, PoseStepsPerFrame) / sub);
+            ClothJob job = f.Pose.Next(steps);
+            spent += job.Steps * sub * f.Pose.Cloth.Count * _unitCost;
+            Queue(f, ref job);
+        }
+
+        /// <summary>
+        /// A still or flat flag's shape begins: flat, taken at once; still, taken from the shapes
+        /// kept, or its run begun -- in the flag's own frame (heading 0), whatever way the flag
+        /// heads, so the shape is its design's alone (made at another heading, the float rounding of
+        /// the turned frame would grow, as a cloth's motion does, into another shape).
+        /// </summary>
+        private void StartStill(FlagInstance f)
+        {
+            int motion = f.Spec.Motion;
+            FlagCloth cloth = StillCloth(f, motion);
+            if (motion != FlagMotion.Still)
+            {
+                Adopt(f, cloth);
+                return;
+            }
+
+            string key = StillKey(f.Spec);
+            StillShape shape;
+            if (_stillShapes.TryGetValue(key, out shape) && shape.Columns == cloth.Columns && shape.Rows == cloth.Rows)
+            {
+                cloth.SetShape(shape.X, shape.Y, shape.Z, f.Angle);
+                Adopt(f, cloth);
+                return;
+            }
+
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(0f, f.Spec.Tilt, f.Spec.Lean, f.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            FlagCloth own = StillCloth(f.Spec, motion, hx, hy, hz, fx, fy, fz);
+            f.Pose = new StillPoseRun(own, fx, fy, fz, f.Spec.Waviness, f.Spec.Length);
+            f.PoseKey = key;
+        }
+
+        /// <summary>A Normal cloth for a still or flat flag where it heads, laid out along its fly at rest (StillPose.Lay).</summary>
+        private FlagCloth StillCloth(FlagInstance f, int motion)
+        {
+            return StillCloth(f.Spec, motion, f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Fly.x, f.Fly.y, f.Fly.z);
+        }
+
+        private FlagCloth StillCloth(FlagSpec spec, int motion, float hx, float hy, float hz, float fx, float fy, float fz)
+        {
+            var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, FlagCloth.CellsAlong, hx, hy, hz);
+            cloth.SelfCollision = _selfCollision;
+            StillPose.Lay(cloth, motion, spec.OnHalyard, fx, fy, fz);
+            return cloth;
+        }
+
+        /// <summary>What makes a still flag's shape (FlagSpec.SamePose, and the self-collision option): the key its shape is kept by.</summary>
+        private string StillKey(FlagSpec spec)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            return spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
+                   spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
+                   (_selfCollision ? 1 : 0);
+        }
+
+        /// <summary>A still shape made in the flag's own frame (heading 0): kept for the next flag like it.</summary>
+        private StillShape KeepStillShape(FlagInstance f, FlagCloth own)
+        {
+            var shape = new StillShape
+            {
+                Columns = own.Columns,
+                Rows = own.Rows,
+                X = new float[own.Count],
+                Y = new float[own.Count],
+                Z = new float[own.Count],
+            };
+            own.CopyShape(shape.X, shape.Y, shape.Z, 0f);
+            if (f.PoseKey != null)
+            {
+                if (_stillShapes.Count >= MaxStillShapes)
+                    _stillShapes.Clear();
+                _stillShapes[f.PoseKey] = shape;
+                f.PoseKey = null;
+            }
+
+            return shape;
+        }
+
+        /// <summary>The flag shows this cloth from now on (a still or flat flag's shape made), at Normal, in a new mesh.</summary>
+        private void Adopt(FlagInstance f, FlagCloth cloth)
+        {
+            if (f.Mesh != null)
+                f.Mesh.Destroy();
+            f.Cloth = cloth;
+            f.Detail = cloth.Detail;
+            f.Mesh = new FlagMesh(cloth, f.Refine);
+            f.Refine = f.Mesh.Refine;
+            f.Settled = true;
+            f.Pending = 0f;
+            f.Fresh = false;
+            f.ShownAlpha = 1f;
+            f.MeshDirty = true;
+            f.PoleApplied = false;
+            f.Hold.Clear();
+        }
+
         /// <summary>One flag into the batch: its cloth made if needed, then a moment of settling, or this frame's steps.</summary>
         private void PlanFlag(FlagInstance f, float dt, Wind wind, bool moving, bool ghost, ref double spent, ref int settles)
         {
             f.Waiting = false;
+
+            if (f.Spec.Motion != FlagMotion.Waves)
+            {
+                PlanStill(f, ghost, ref spent, ref settles);
+                return;
+            }
 
             if (f.Cloth == null)
             {
@@ -1661,7 +1895,15 @@ namespace RealFlag.Flags
                 int frames = Math.Max(1, _costFrames);
                 float seconds = now - _nextReport + 5f;
                 Wind w = Wind.Current();
-                Log.Detail("flags: " + _flags.Count + " in the city, " + VisibleCount + " in view, " + _moving + " moving, " + _waiting +
+                int still = 0;
+                foreach (FlagInstance f in _flags)
+                {
+                    if (f.Spec.Motion != FlagMotion.Waves)
+                        still++;
+                }
+
+                Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept), " +
+                           VisibleCount + " in view, " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
                            (_costMs / frames).ToString("F3") + " ms a frame (" + (_waitMs / frames).ToString("F3") +
                            " of it waiting for the cloth), cloth " + (_batchMs / frames).ToString("F3") + " ms a frame (room for " +

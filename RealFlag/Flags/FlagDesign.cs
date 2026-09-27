@@ -169,6 +169,40 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// Whether a flag moves: stored by VALUE in the save and the settings file, APPEND ONLY.
+    /// Waves: the cloth flies in the wind (the default). Still: it keeps one shape, caught once as
+    /// it flew in a breeze along its heading (a banner hoisted from its top hangs), and never moves
+    /// again. Flat: held flat, as a flag on a wall or a banner in its frame. A still or flat flag
+    /// is never stepped: it costs the cloth's threads nothing once made (StillPose).
+    /// </summary>
+    /// <remarks>
+    /// The author: "Some flags should be also static" -- asked whether How wavy at 0% should be
+    /// that or an option of its own, and left to Claude. Its own: How wavy at 0% already means a
+    /// stiff calm cloth that still flies (saves hold it), a still flag needs a shape to hold that
+    /// a slider cannot choose, and the slider stays meaningful for a still flag (how rippled the
+    /// shape it keeps).
+    /// </remarks>
+    public static class FlagMotion
+    {
+        public const int Waves = 0;
+        public const int Still = 1;
+        public const int Flat = 2;
+
+        public static readonly int[] Values = { Waves, Still, Flat };
+        public static readonly string[] NameKeys = { "Motion.Waves", "Motion.Still", "Motion.Flat" };
+
+        public static bool IsKnown(int value)
+        {
+            return value >= Waves && value <= Flat;
+        }
+
+        public static string LogName(int value)
+        {
+            return value == Still ? "still" : value == Flat ? "flat" : "waving";
+        }
+    }
+
+    /// <summary>
     /// A flag's size as it is SEEN hanging -- its width across and its height down -- against the
     /// cloth's own: its length from the hoist to the fly and its proportion (hoist / length x
     /// 1000). Hoisted from its side, the width is the length; from its top, the hoist runs across
@@ -537,6 +571,9 @@ namespace RealFlag.Flags
         /// <summary>How much the cloth ripples, 0..2 (100%: ordinary flag cloth).</summary>
         public float Waviness;
 
+        /// <summary>A <see cref="FlagMotion"/> value: the cloth waves in the wind, or keeps one shape (still, or flat).</summary>
+        public int Motion;
+
         /// <summary>The name the Existing flags list shows; empty for "Flag n".</summary>
         public string Name;
 
@@ -676,6 +713,7 @@ namespace RealFlag.Flags
                     Proportion = FlagProportion.Default,
                     HoistedFrom = FlagHoist.Side,
                     Waviness = 1f,
+                    Motion = FlagMotion.Waves,
                     Name = string.Empty,
                     Country = string.Empty,
                     Pole = FlagPoleStyle.None,
@@ -729,6 +767,8 @@ namespace RealFlag.Flags
             if (float.IsNaN(s.Waviness) || float.IsInfinity(s.Waviness))
                 s.Waviness = 1f;
             s.Waviness = Math.Max(0f, Math.Min(s.Waviness, 2f));
+            if (!FlagMotion.IsKnown(s.Motion))
+                s.Motion = FlagMotion.Waves;
             s.Name = s.Name ?? string.Empty;
             if (s.Name.Length > 64)
                 s.Name = s.Name.Substring(0, 64);
@@ -800,6 +840,23 @@ namespace RealFlag.Flags
             return HoistedFrom == other.HoistedFrom && Math.Abs(Tilt - other.Tilt) < 1e-3f && Math.Abs(Lean - other.Lean) < 1e-3f;
         }
 
+        /// <summary>
+        /// A still flag keeps the same shape (StillPose): the same size, hoist line, waviness, motion,
+        /// and hold on its hoist (sewn on, or clipped to a drawn pole's halyard). Nothing else
+        /// shapes it: not the pole's length or thickness (its collider is left out of the pose).
+        /// </summary>
+        public bool SamePose(FlagSpec other)
+        {
+            return SameShape(other) && SameHoist(other) && Math.Abs(Waviness - other.Waviness) < 1e-5f && Motion == other.Motion &&
+                   OnHalyard == other.OnHalyard;
+        }
+
+        /// <summary>Clipped to a drawn pole's halyard by its two grommets (FlagPoleShape.ApplyTo), not held along its whole hoist.</summary>
+        public bool OnHalyard
+        {
+            get { return HasPole && Ropes > 0; }
+        }
+
         /// <summary>The same pole (the same mesh and the same collider for the cloth).</summary>
         public bool SamePole(FlagSpec other)
         {
@@ -840,6 +897,8 @@ namespace RealFlag.Flags
                           (Waviness * 100f).ToString("F0", inv) + "%";
             if (HoistedFrom != FlagHoist.Side)
                 text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom);
+            if (Motion != FlagMotion.Waves)
+                text += ", " + FlagMotion.LogName(Motion);
             if (Darkness > 0f)
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (HasPole)
@@ -921,9 +980,10 @@ namespace RealFlag.Flags
         /// same, then the drawn pole's length (a float, metres; 0 not known yet). 7 (2026-09-27):
         /// the same, then the player's picture -- its file name (a ushort of length, UTF-8), where
         /// the flag's middle is on it and its zoom (three floats), its turn and what its see-through
-        /// parts do (two bytes). Every older one is still read.
+        /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
+        /// FlagMotion). Every older one is still read.
         /// </summary>
-        public const byte Version = 7;
+        public const byte Version = 8;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -956,6 +1016,7 @@ namespace RealFlag.Flags
             w.Write(s.ImageZoom);
             w.Write((byte)s.ImageTurn);
             w.Write((byte)s.ImageAlpha);
+            w.Write((byte)s.Motion);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1062,6 +1123,9 @@ namespace RealFlag.Flags
                 s.ImageTurn = d.ImageTurn;
                 s.ImageAlpha = d.ImageAlpha;
             }
+
+            // Before still flags: every flag waves.
+            s.Motion = version >= 8 ? r.ReadByte() : FlagMotion.Waves;
 
             return s.Sanitised();
         }

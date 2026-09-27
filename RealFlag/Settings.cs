@@ -120,6 +120,9 @@ namespace RealFlag
         /// </summary>
         public static BoolSetting LinkSize { get; private set; }
 
+        /// <summary>Whether the flag moves: a FlagMotion value (it waves, or keeps one shape: still, or flat).</summary>
+        public static IntSetting NewMotion { get; private set; }
+
         public static FloatSetting NewWaviness { get; private set; }
 
         /// <summary>How much darker the cloth is than its design, 0..0.8 (FlagSpec.Darkness; shown as a percentage).</summary>
@@ -165,6 +168,7 @@ namespace RealFlag
         public static FloatSetting SelLength { get; private set; }
         public static IntSetting SelProportion { get; private set; }
         public static IntSetting SelHoistedFrom { get; private set; }
+        public static IntSetting SelMotion { get; private set; }
         public static FloatSetting SelWaviness { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
         public static FloatSetting SelRotation { get; private set; }
@@ -246,6 +250,9 @@ namespace RealFlag
 
             /// <summary>Width and height together.</summary>
             public const bool LinkSize = true;
+
+            /// <summary>It waves in the wind (the mod's purpose).</summary>
+            public const int Motion = FlagMotion.Waves;
             public const float Waviness = 1f;
 
             /// <summary>The colours as designed.</summary>
@@ -320,6 +327,7 @@ namespace RealFlag
                 NewProportion = new IntSetting("NewProportion", Defaults.Proportion);
                 NewHoistedFrom = new IntSetting("NewHoistedFrom", Defaults.HoistedFrom);
                 LinkSize = new BoolSetting("LinkSize", Defaults.LinkSize);
+                NewMotion = new IntSetting("NewMotion", Defaults.Motion);
                 NewWaviness = new FloatSetting("NewWaviness", Defaults.Waviness);
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
                 NewRotation = new FloatSetting("NewRotation", Defaults.Rotation);
@@ -347,6 +355,7 @@ namespace RealFlag
                 SelLength = new FloatSetting("SelLength", Defaults.Length, true);
                 SelProportion = new IntSetting("SelProportion", Defaults.Proportion, true);
                 SelHoistedFrom = new IntSetting("SelHoistedFrom", Defaults.HoistedFrom, true);
+                SelMotion = new IntSetting("SelMotion", Defaults.Motion, true);
                 SelWaviness = new FloatSetting("SelWaviness", Defaults.Waviness, true);
                 SelDarkness = new FloatSetting("SelDarkness", Defaults.Darkness, true);
                 SelRotation = new FloatSetting("SelRotation", Defaults.Rotation, true);
@@ -402,6 +411,7 @@ namespace RealFlag
             spec.Length = NewLength.value;
             spec.Proportion = NewProportion.value;
             spec.HoistedFrom = NewHoistedFrom.value;
+            spec.Motion = NewMotion.value;
             spec.Waviness = NewWaviness.value;
             spec.Darkness = NewDarkness.value;
             spec.Pole = NewPole.value;

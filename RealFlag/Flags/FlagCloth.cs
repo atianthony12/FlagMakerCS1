@@ -569,11 +569,22 @@ namespace RealFlag.Flags
         /// </summary>
         public void Reset(float dirX, float dirZ)
         {
+            LayOut(dirX, 0f, dirZ, true);
+        }
+
+        /// <summary>
+        /// Lays the cloth out flat and still towards (dirX, dirY, dirZ) -- any way, not only level:
+        /// a banner hoisted from its top is laid hanging down -- as near that way as a sheet square
+        /// to its hoist can point; with <paramref name="wobble"/>, a hair of noise breaks its
+        /// symmetry (a cloth to be stepped), without it the sheet is exactly flat (a flat flag).
+        /// </summary>
+        public void LayOut(float dirX, float dirY, float dirZ, bool wobble)
+        {
             float hx = _hx, hy = _hy, hz = _hz;
 
             // The given direction, less its part along the hoist.
-            float along = dirX * hx + dirZ * hz;
-            float fx = dirX - along * hx, fy = -along * hy, fz = dirZ - along * hz;
+            float along = dirX * hx + dirY * hy + dirZ * hz;
+            float fx = dirX - along * hx, fy = dirY - along * hy, fz = dirZ - along * hz;
             float len = (float)Math.Sqrt(fx * fx + fy * fy + fz * fz);
             if (len < 1e-4f)
             {
@@ -599,10 +610,10 @@ namespace RealFlag.Flags
                     float u = i * CellU;
                     // The hoist on its line: on a halyard, drawn up between its clips.
                     float down = i == 0 ? HoistDown(j) : j * CellV;
-                    float wobble = i == 0 ? 0f : 0.002f * Length * FlagNoise.Value1(k * 0.37f, 5);
-                    X[k] = down * hx + u * fx + wobble * wx;
-                    Y[k] = down * hy + u * fy + wobble * wy;
-                    Z[k] = down * hz + u * fz + wobble * wz;
+                    float off = i == 0 || !wobble ? 0f : 0.002f * Length * FlagNoise.Value1(k * 0.37f, 5);
+                    X[k] = down * hx + u * fx + off * wx;
+                    Y[k] = down * hy + u * fy + off * wy;
+                    Z[k] = down * hz + u * fz + off * wz;
                     PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
                     Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
                 }
@@ -720,6 +731,76 @@ namespace RealFlag.Flags
                 PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
                 Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
             }
+        }
+
+        /// <summary>
+        /// The whole cloth turned <paramref name="radians"/> about the vertical through the anchor,
+        /// as it is -- its hoist's line and its pole with it: a flag that keeps one shape (FlagMotion
+        /// Still, Flat) turned with its prop. (x, z) goes to (x cos - z sin, x sin + z cos), which
+        /// takes the heading (cos a, 0, sin a) to a + <paramref name="radians"/> and FlagOrientation's
+        /// frame at a to its frame there.
+        /// </summary>
+        public void Turn(float radians)
+        {
+            float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
+            TurnLevel(X, Z, c, s);
+            TurnLevel(PrevX, PrevZ, c, s);
+            TurnLevel(Vx, Vz, c, s);
+
+            float hx = _hx * c - _hz * s, hz = _hx * s + _hz * c;
+            _hx = hx; _hz = hz;
+            float px = _poleX * c - _poleZ * s, pz = _poleX * s + _poleZ * c;
+            _poleX = px; _poleZ = pz;
+
+            PinHoist();
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+            _primed = false;
+            _listed = false;
+        }
+
+        private void TurnLevel(float[] vx, float[] vz, float c, float s)
+        {
+            for (int k = 0; k < Count; k++)
+            {
+                float x = vx[k], z = vz[k];
+                vx[k] = x * c - z * s;
+                vz[k] = x * s + z * c;
+            }
+        }
+
+        /// <summary>The particles' places turned <paramref name="radians"/> about the vertical (<see cref="Turn"/>), into the given arrays of <see cref="Count"/>.</summary>
+        public void CopyShape(float[] x, float[] y, float[] z, float radians)
+        {
+            float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
+            for (int k = 0; k < Count; k++)
+            {
+                x[k] = X[k] * c - Z[k] * s;
+                y[k] = Y[k];
+                z[k] = X[k] * s + Z[k] * c;
+            }
+        }
+
+        /// <summary>
+        /// The cloth takes the places a cloth of the same grid had (<see cref="CopyShape"/>) turned
+        /// <paramref name="radians"/> about the vertical, still; its held particles put exactly on
+        /// its own hoist's line.
+        /// </summary>
+        public void SetShape(float[] x, float[] y, float[] z, float radians)
+        {
+            float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
+            for (int k = 0; k < Count; k++)
+            {
+                X[k] = x[k] * c - z[k] * s;
+                Y[k] = y[k];
+                Z[k] = x[k] * s + z[k] * c;
+                PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
+                Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
+            }
+
+            PinHoist();
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+            _primed = false;
+            _listed = false;
         }
 
         /// <summary>v cos + (k x v) sin + k (k . v)(1 - cos), for every vector of the three arrays.</summary>

@@ -739,8 +739,8 @@ namespace RealFlag.UI
         /// </remarks>
         private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
                                       ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
-                                      IntSetting proportion, IntSetting hoistedFrom, FloatSetting waviness, FloatSetting darkness, Action changed,
-                                      Func<bool> enabled)
+                                      IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting darkness,
+                                      Action changed, Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
@@ -903,6 +903,27 @@ namespace RealFlag.UI
                 Enabled = enabled,
             });
 
+            // Whether it moves (the author: "Some flags should be also static"): an option of its
+            // own, not How wavy at 0% (which is a stiff cloth that still flies); How wavy shapes a
+            // still flag's ripples too, and has nothing to do on a flat one.
+            string who = page == PanelPage.New ? "the new flag" : "the selected flag";
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = page,
+                Int = motion,
+                DefaultInt = Settings.Defaults.Motion,
+                ChoiceValues = FlagMotion.Values,
+                ChoiceKeys = FlagMotion.NameKeys,
+                AfterChange = () =>
+                {
+                    Log.Msg("flags: " + who + " " + (motion.value == FlagMotion.Waves ? "waves in the wind" :
+                                                     motion.value == FlagMotion.Still ? "keeps still" : "is held flat"));
+                    (changed ?? Nothing)();
+                },
+                Enabled = enabled,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -911,7 +932,7 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.Waviness,
                 Min = 0f, Max = 200f, Step = 5f,
                 AfterChange = changed,
-                Enabled = enabled,
+                Enabled = () => (enabled == null || enabled()) && motion.value != FlagMotion.Flat,
             });
 
             Add(new Row
@@ -1076,7 +1097,7 @@ namespace RealFlag.UI
 
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
-                      Settings.NewHoistedFrom, Settings.NewWaviness, Settings.NewDarkness, null, null);
+                      Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewDarkness, null, null);
 
             AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewRopes,
                           Settings.NewTilt, Settings.NewLean, null);
@@ -1244,7 +1265,7 @@ namespace RealFlag.UI
 
             AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
-                      Settings.SelHoistedFrom, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
+                      Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
 
             AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelRopes,
                           Settings.SelTilt, Settings.SelLean, selected);
