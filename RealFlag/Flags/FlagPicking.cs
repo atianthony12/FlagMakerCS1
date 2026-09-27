@@ -1,45 +1,67 @@
+using System;
 using ColossalFramework.Math;
 using UnityEngine;
 
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// A flag as the pointer finds it, in world space: a coarse sheet of triangles over the drawn
-    /// cloth (every few particles), a slab round the cloth, and capsules round its hoist and its
-    /// drawn pole, with their box. Written on the main thread by the renderer, read by raycasts on
-    /// any thread (the game's tools cast on the simulation thread): each flag has two, and the
-    /// renderer fills the one not published, then publishes it with one reference store.
+    /// A flag as the pointer finds it, in world space: a slab round where its cloth has been
+    /// lately, and capsules round its hoist and its drawn pole, with their box. Written on the
+    /// main thread by the renderer, read by raycasts on any thread (the game's tools cast on the
+    /// simulation thread): each flag has two, and the renderer fills the one not published, then
+    /// publishes it with one reference store.
     /// </summary>
     /// <remarks>
-    /// The sheet alone was a thin target (the author: "Move it: the selector is too small"): a
-    /// flag seen edge on is a line, a fluttering one's coarse sheet lagged its cloth by up to a
-    /// tenth of a second and cut the corners of its folds. So a ray also picks the flag within
-    /// the SLAB -- the cloth's own box in its own axes (along its hoist, out along its fly, and
-    /// across), widened across by a margin -- and within a radius of its hoist edge and of the
-    /// pole the mod draws: the closest points of two segments (Ericson, Real-Time Collision
-    /// Detection, 2005, 5.1.9).
+    /// The first pick followed the cloth -- a coarse sheet of its triangles and a box round it,
+    /// both as it lay a tenth of a second ago -- so a pointer held still over a fluttering flag
+    /// found it one moment and lost it the next, and a flag seen edge on or far off was a sliver
+    /// ("it's still difficult to select the flag with MoveIt because of how small the area to
+    /// click is"). Then the slab became the cloth's box in steady axes (down its hoist, out along
+    /// the wind, across) held over its recent flutter (<see cref="PickHold"/>): it covers
+    /// everything the flag sweeps and stands still while it waves. Every volume is at least a
+    /// few pixels wide on the screen, however far off (FlagRenderer's pick aperture).
+    ///
+    /// Two sizes of the same volumes: TIGHT for the game's own tools (the bulldozer: they must
+    /// not catch a flag over what the player works on near it) and WIDER for Move It and the
+    /// mod's tool (<see cref="IntersectWide"/>). Move It draws a selected object in its hover
+    /// colour for as long as the pointer is on it, so a click shows only once the pointer leaves
+    /// it: a flag picked in the column of its whole reach (tried, 2026-09-27) was never left --
+    /// "the selector is now much bigger, but ... hovering my mouse on it, I can't select it ...
+    /// The selector is too big now". A ray picks the flag within the slab or a radius of its
+    /// hoist edge and of the pole the mod draws: the closest points of two segments (Ericson,
+    /// Real-Time Collision Detection, 2005, 5.1.9).
     /// </remarks>
     public sealed class PickShape
     {
-        public float[] Triangles = new float[0];
-        public int Count;
+        /// <summary>Round the wider volumes: the raycasts' first test, for either size.</summary>
         public Bounds Box;
         public Vector3 Anchor;
 
-        /// <summary>The slab: its centre, its three unit axes, and its half sizes along them.</summary>
+        /// <summary>The slab: its centre, its three unit axes, and its half sizes along them without any margin (the cloth's held extents).</summary>
         public Vector3 SlabCentre, SlabU, SlabV, SlabN;
-        public float HalfU, HalfV, HalfN;
+        public float CoreU, CoreV, CoreN;
         public bool HasSlab;
 
-        /// <summary>Capsules round the hoist edge and the drawn pole: segments and radii (a radius of 0: none).</summary>
+        /// <summary>Capsules round the hoist edge and the drawn pole: their segments (a pole radius of 0: none).</summary>
         public Vector3 HoistA, HoistB, PoleA, PoleB;
-        public float HoistRadius, PoleRadius;
 
-        /// <summary>
-        /// The segment a..b against the flag: where along it (0..1) it first meets the cloth, the
-        /// slab or a capsule.
-        /// </summary>
+        /// <summary>The margins and radii: tight (the game's tools) and wide (Move It, the mod's tool).</summary>
+        public float InPlane, Across, HoistRadius, PoleRadius;
+        public float WideInPlane, WideAcross, WideHoistRadius, WidePoleRadius;
+
+        /// <summary>The segment a..b against the flag, the tight volumes: where along it (0..1) it first meets the slab or a capsule.</summary>
         public bool Intersect(Segment3 ray, out float t)
+        {
+            return Intersect(ray, InPlane, Across, HoistRadius, PoleRadius, out t);
+        }
+
+        /// <summary>The same, the wider volumes: Move It's pick and the mod's own.</summary>
+        public bool IntersectWide(Segment3 ray, out float t)
+        {
+            return Intersect(ray, WideInPlane, WideAcross, WideHoistRadius, WidePoleRadius, out t);
+        }
+
+        private bool Intersect(Segment3 ray, float inPlane, float across, float hoistRadius, float poleRadius, out float t)
         {
             t = 2f;
             Vector3 origin = ray.a;
@@ -51,56 +73,20 @@ namespace RealFlag.Flags
                 return false;
 
             bool hit = false;
-            float[] v = Triangles;
-            for (int i = 0; i < Count; i++)
-            {
-                int o = i * 9;
-                float ax = v[o], ay = v[o + 1], az = v[o + 2];
-                float e1x = v[o + 3] - ax, e1y = v[o + 4] - ay, e1z = v[o + 5] - az;
-                float e2x = v[o + 6] - ax, e2y = v[o + 7] - ay, e2z = v[o + 8] - az;
-
-                float px = dir.y * e2z - dir.z * e2y;
-                float py = dir.z * e2x - dir.x * e2z;
-                float pz = dir.x * e2y - dir.y * e2x;
-                float det = e1x * px + e1y * py + e1z * pz;
-                if (det > -1e-9f && det < 1e-9f)
-                    continue;
-
-                float inv = 1f / det;
-                float sx = origin.x - ax, sy = origin.y - ay, sz = origin.z - az;
-                float u = (sx * px + sy * py + sz * pz) * inv;
-                if (u < 0f || u > 1f)
-                    continue;
-
-                float qx = sy * e1z - sz * e1y;
-                float qy = sz * e1x - sx * e1z;
-                float qz = sx * e1y - sy * e1x;
-                float w = (dir.x * qx + dir.y * qy + dir.z * qz) * inv;
-                if (w < 0f || u + w > 1f)
-                    continue;
-
-                float along = (e2x * qx + e2y * qy + e2z * qz) * inv;
-                if (along >= 0f && along <= 1f && along < t)
-                {
-                    t = along;
-                    hit = true;
-                }
-            }
-
             float s;
-            if (HasSlab && SlabEntry(origin, dir, SlabCentre, SlabU, SlabV, SlabN, HalfU, HalfV, HalfN, out s) && s < t)
+            if (HasSlab && SlabEntry(origin, dir, SlabCentre, SlabU, SlabV, SlabN, CoreU + inPlane, CoreV + inPlane, CoreN + across, out s) && s < t)
             {
                 t = s;
                 hit = true;
             }
 
-            if (HoistRadius > 0f && Capsule(origin, ray.b, HoistA, HoistB, HoistRadius, out s) && s < t)
+            if (hoistRadius > 0f && Capsule(origin, ray.b, HoistA, HoistB, hoistRadius, out s) && s < t)
             {
                 t = s;
                 hit = true;
             }
 
-            if (PoleRadius > 0f && Capsule(origin, ray.b, PoleA, PoleB, PoleRadius, out s) && s < t)
+            if (poleRadius > 0f && Capsule(origin, ray.b, PoleA, PoleB, poleRadius, out s) && s < t)
             {
                 t = s;
                 hit = true;
@@ -208,6 +194,136 @@ namespace RealFlag.Flags
         }
     }
 
+    /// <summary>
+    /// Where a flag's cloth has been lately, along three axes: each extent grows at once and gives
+    /// back slowly, exponentially -- the peak measurement of dynamic range control, an instant
+    /// attack and an exponential release (U. Zoelzer, Digital Audio Signal Processing, 2008) --
+    /// so the pick volume made from it covers the flag's whole flutter and stands still while the
+    /// flag waves, and shrinks back within seconds when the wind drops. PURE.
+    /// </summary>
+    public struct PickHold
+    {
+        public float MinU, MaxU, MinV, MaxV, MinN, MaxN;
+
+        /// <summary>False until the first extents are taken (and after <see cref="Clear"/>).</summary>
+        public bool Held;
+
+        /// <summary>
+        /// The cloth's extents now, <paramref name="dt"/> seconds after the last: a wider one is
+        /// taken at once, a narrower one given back to with the time constant
+        /// <paramref name="release"/>, seconds.
+        /// </summary>
+        public void Take(float minU, float maxU, float minV, float maxV, float minN, float maxN, float dt, float release)
+        {
+            if (!Held)
+            {
+                MinU = minU; MaxU = maxU;
+                MinV = minV; MaxV = maxV;
+                MinN = minN; MaxN = maxN;
+                Held = true;
+                return;
+            }
+
+            float k = release > 0f ? 1f - (float)Math.Exp(-Math.Max(dt, 0f) / release) : 1f;
+            MinU = Lower(MinU, minU, k); MaxU = Upper(MaxU, maxU, k);
+            MinV = Lower(MinV, minV, k); MaxV = Upper(MaxV, maxV, k);
+            MinN = Lower(MinN, minN, k); MaxN = Upper(MaxN, maxN, k);
+        }
+
+        public void Clear()
+        {
+            Held = false;
+        }
+
+        private static float Lower(float held, float now, float k)
+        {
+            return now < held ? now : held + (now - held) * k;
+        }
+
+        private static float Upper(float held, float now, float k)
+        {
+            return now > held ? now : held + (now - held) * k;
+        }
+    }
+
+    /// <summary>
+    /// The disc a flag's highlight is painted with -- Move It's and the bulldozer's (the game's
+    /// PropTool.RenderOverlay, patched: FlagOverlayPatch) and the mod's own hover -- over whatever
+    /// lies between its heights. From the flag's place, hoist and size alone, never its cloth: it
+    /// stands still while the flag waves (the author: "the selector goes all over the place, it's
+    /// reacting to the flag animation"). PURE (Unity's Vector3 only).
+    /// </summary>
+    /// <remarks>
+    /// It is round everything the cloth can reach, whatever the wind: each particle is held within
+    /// its flat distance of its row's hoist point (FlagCloth's long range attachments, the last
+    /// constraint of every pass), so the whole cloth lies within the flag's length of its hoist --
+    /// the disc spans the hoist's own reach across and that length round it, and the heights that
+    /// length below and above it: a limp flag's fly hangs down its length, and a banner whose
+    /// crossbar the wind blows along flaps up over it (2 m over a 3 m banner's, in test-cloth).
+    /// The pole the mod draws is added whole.
+    /// </remarks>
+    public struct FlagOutline
+    {
+        /// <summary>The disc's centre, and its radius, metres.</summary>
+        public float X, Z, Radius;
+
+        /// <summary>Painted on what lies between these heights.</summary>
+        public float MinY, MaxY;
+
+        /// <summary>Beyond the reach, metres.</summary>
+        public const float Margin = 0.5f;
+
+        /// <param name="anchor">The top of the hoist (the prop's position).</param>
+        /// <param name="hoist">The hoist's direction from the anchor (unit, FlagOrientation).</param>
+        /// <param name="hoistLength">The hoist's length (FlagSpec.Height).</param>
+        /// <param name="length">From the hoist to the fly (FlagSpec.Length).</param>
+        public static FlagOutline For(Vector3 anchor, Vector3 hoist, float hoistLength, float length)
+        {
+            Vector3 end = anchor + hoist * hoistLength;
+            float dx = end.x - anchor.x, dz = end.z - anchor.z;
+
+            // The length, and a fiftieth more: a halyard's free heading bows a little past it.
+            float reach = 1.02f * length + Margin;
+
+            var o = new FlagOutline
+            {
+                X = 0.5f * (anchor.x + end.x),
+                Z = 0.5f * (anchor.z + end.z),
+                Radius = 0.5f * Mathf.Sqrt(dx * dx + dz * dz) + reach,
+                MinY = Mathf.Min(anchor.y, end.y) - reach,
+                MaxY = Mathf.Max(anchor.y, end.y) + reach,
+            };
+            return o;
+        }
+
+        /// <summary>The same outline moved by <paramref name="d"/> (the flag drawn where Move It has just put it).</summary>
+        public void Shift(Vector3 d)
+        {
+            X += d.x;
+            Z += d.z;
+            MinY += d.y;
+            MaxY += d.y;
+        }
+
+        /// <summary>A point that is part of the flag (its pole's foot, its tip): within the disc and between its heights.</summary>
+        public void Include(Vector3 p)
+        {
+            float dx = p.x - X, dz = p.z - Z;
+            Radius = Mathf.Max(Radius, Mathf.Sqrt(dx * dx + dz * dz) + Margin);
+            MinY = Mathf.Min(MinY, p.y - Margin);
+            MaxY = Mathf.Max(MaxY, p.y + Margin);
+        }
+
+        /// <summary>
+        /// A colour's alpha as the game fades a big prop's circle (PropTool.CheckOverlayAlpha, its
+        /// IL): no more than 2 / sqrt(radius) past a radius of a metre.
+        /// </summary>
+        public float Alpha(float alpha)
+        {
+            return Mathf.Min(alpha, 2f / Mathf.Max(1f, Mathf.Sqrt(Radius)));
+        }
+    }
+
     /// <summary>The published pick shapes, by prop index (the vanilla game's 65536 props).</summary>
     public static class FlagPicking
     {
@@ -262,8 +378,8 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// What PropInstance.RayCast answers for a flag (FlagPatches): its cloth, the slab round
-        /// it, its hoist and pole -- not the game's thin cylinder above its anchor. False while the
+        /// What PropInstance.RayCast answers for a flag (FlagPatches): the slab round its cloth,
+        /// its hoist and pole -- not the game's thin cylinder above its anchor. False while the
         /// flag has not been drawn yet.
         /// </summary>
         public static bool RayCast(uint prop, Segment3 ray, out float t, out float targetSqr)
@@ -277,6 +393,19 @@ namespace RealFlag.Flags
             }
 
             return shape.Intersect(ray, out t);
+        }
+
+        /// <summary>The same with the wider volumes (PickShape.IntersectWide): what Move It's pointer finds it by (FlagMoveItPick).</summary>
+        public static bool RayCastWide(uint prop, Segment3 ray, out float t)
+        {
+            PickShape shape = Get(prop);
+            if (shape == null)
+            {
+                t = 2f;
+                return false;
+            }
+
+            return shape.IntersectWide(ray, out t);
         }
     }
 }

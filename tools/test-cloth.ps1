@@ -16,6 +16,10 @@
 # - its anchor moved a little drags it, a jump carries it;
 # - the save's bytes (FlagCodec) and Move It's round trip; colours (hex, HSV, sRGB to linear);
 #   a spec from a save or a paste is pulled into range.
+# - a flag hoisted from its top (a banner on a crossbar): its frame, hanging and blown; the
+#   width and height as seen (FlagSize), linked and not, and the shapes;
+# - Move It's pick holds a pointer put on a waving flag while it is clicked (PickHold), and the
+#   outline (FlagOutline, from the flag's place and size alone) holds its cloth whatever it does.
 # - the cloth's thread (ClothWorker) steps bit for bit as the main thread would, hands back a
 #   job that throws, goes on, stops; the plan (ClothPlan) steps every 1/60 s at any frame rate
 #   down to 20 fps, catches up at most three steps a frame, and keeps within its budget: the
@@ -1158,6 +1162,346 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// Format 5: a flag hoisted from its top, at a banner's 3:1, round trips; a format-4 save (byte
+    /// by byte) reads hoisted from its side, its darkness kept; an edge this version does not know
+    /// and a proportion past 5:1 are pulled in; the hoist of a tall flag is held to the longest
+    /// length (a 30 m flag at 5:1 is 6 m long).
+    /// </summary>
+    public static string CodecHoist()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.HoistedFrom = FlagHoist.Top; a.Proportion = 3000; a.Length = 4f;
+        FlagSpec b;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && b.HoistedFrom == FlagHoist.Top && b.Proportion == 3000 &&
+                     Math.Abs(b.Length - 4f) < 1e-6f;
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)4);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)0);
+        w.Write((byte)FlagPoleStyle.None); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1f); w.Write(0f); w.Write(0f);
+        w.Write(0.25f);
+        w.Flush();
+        FlagSpec c;
+        bool v4 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.HoistedFrom == FlagHoist.Side && Math.Abs(c.Darkness - 0.25f) < 1e-6f &&
+                  c.Pattern == FlagPattern.Cross;
+
+        FlagSpec d = FlagSpec.Default; d.HoistedFrom = 7; d.Proportion = 6000;
+        FlagSpec e = d.Sanitised();
+        FlagSpec tall = FlagSpec.Default; tall.Proportion = 5000; tall.Length = 30f;
+        FlagSpec t = tall.Sanitised();
+        bool pulled = e.HoistedFrom == FlagHoist.Side && e.Proportion == FlagProportion.Default && t.Proportion == 5000 && Math.Abs(t.Length - 6f) < 1e-4f;
+        return round + "," + v4 + "," + pulled + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
+    /// Format 6: the drawn pole's own length round trips (it moves with the flag: Move It raising
+    /// a flag raises its pole); a format-5 save (byte by byte) reads with none yet, to be found
+    /// down the pole's axis once; NaN and negative are pulled to none, past 1 km to 1 km.
+    /// </summary>
+    public static string CodecPoleLength()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.Pole = FlagPoleStyle.Ball; a.PoleLength = 37.5f; a.HoistedFrom = FlagHoist.Top;
+        FlagSpec b;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && Math.Abs(b.PoleLength - 37.5f) < 1e-6f &&
+                     b.HoistedFrom == FlagHoist.Top && b.Pole == FlagPoleStyle.Ball;
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)5);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)0);
+        w.Write((byte)FlagPoleStyle.Spear); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1f); w.Write(0f); w.Write(0f);
+        w.Write(0.1f);
+        w.Write((byte)FlagHoist.Side);
+        w.Flush();
+        FlagSpec c;
+        bool v5 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Pole == FlagPoleStyle.Spear && c.PoleLength == 0f && Math.Abs(c.Darkness - 0.1f) < 1e-6f;
+
+        FlagSpec nan = FlagSpec.Default; nan.PoleLength = float.NaN;
+        FlagSpec neg = FlagSpec.Default; neg.PoleLength = -4f;
+        FlagSpec far = FlagSpec.Default; far.PoleLength = 5000f;
+        bool pulled = nan.Sanitised().PoleLength == 0f && neg.Sanitised().PoleLength == 0f && far.Sanitised().PoleLength == FlagSpec.MaxPoleLength;
+
+        // The same pole to the renderer only at the same length (a new length remakes it).
+        FlagSpec d = a; d.PoleLength = 38f;
+        bool differs = !a.SamePole(d) && a.SamePole(a);
+        return round + "," + v5 + "," + pulled + "," + differs + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
+    /// The panel's sizes (FlagSize): a 3 m flag at 2:3 seen from its side and from its top; linked,
+    /// a new width or height scales it whole (stopped where a side would pass 30 m); unlinked, it
+    /// changes one side, the other pushed only past 1:5 to 5:1; a shape keeps the longer side (and
+    /// grows a side under half a metre); the shape as seen of a 2:3 cloth hung from its top is 3:2.
+    /// Each as "width x height @ proportion".
+    /// </summary>
+    public static string Sizes()
+    {
+        float w, h, l;
+        int p;
+        var sb = new System.Text.StringBuilder();
+        FlagSize.Shown(3f, 667, FlagHoist.Side, out w, out h); sb.Append(F(w) + "x" + F(h) + " ");
+        FlagSize.Shown(3f, 667, FlagHoist.Top, out w, out h); sb.Append(F(w) + "x" + F(h) + "|");
+        FlagSize.Resize(3f, 667, FlagHoist.Side, false, 4.5f, true, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Resize(3f, 667, FlagHoist.Side, true, 3f, true, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Resize(3f, 2000, FlagHoist.Side, false, 30f, true, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Resize(3f, 667, FlagHoist.Top, false, 4f, true, out l, out p); sb.Append(Size(l, p, FlagHoist.Top) + "|");
+        FlagSize.Resize(3f, 667, FlagHoist.Side, true, 2.5f, false, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Resize(3f, 667, FlagHoist.Side, true, 20f, false, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Resize(3f, 667, FlagHoist.Top, false, 2.5f, false, out l, out p); sb.Append(Size(l, p, FlagHoist.Top) + "|");
+        FlagSize.Reshape(3f, 667, FlagHoist.Side, 1500, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + " ");
+        FlagSize.Reshape(3f, 667, FlagHoist.Top, 500, out l, out p); sb.Append(Size(l, p, FlagHoist.Top) + " ");
+        FlagSize.Reshape(0.6f, 1000, FlagHoist.Side, 3000, out l, out p); sb.Append(Size(l, p, FlagHoist.Side) + "|");
+        sb.Append(FlagSize.ShownProportion(667, FlagHoist.Top) + " " + FlagSize.IsShape(667, FlagHoist.Top, 1500) + " " +
+                  FlagSize.IsShape(667, FlagHoist.Side, 1500) + "|");
+        foreach (int v in new[] { 1500, 2000, 3000, 1219, 733, 392, 667 })
+            sb.Append(FlagProportion.Name(v) + " ");
+        return sb.ToString().TrimEnd();
+    }
+
+    static string F(float v) { return v.ToString("0.##", Inv); }
+
+    static string Size(float length, int proportion, int hoist)
+    {
+        float w, h;
+        FlagSize.Shown(length, proportion, hoist, out w, out h);
+        return F(w) + "x" + F(h) + "@" + proportion;
+    }
+
+    /// <summary>
+    /// Hoisted from its top (FlagHoist.Top): the hoist and the fly trade places at every heading,
+    /// tilt and lean; untilted, the hoist runs along the heading and the fly hangs down; turned
+    /// 90 degrees, the hoist along +z.
+    /// </summary>
+    public static string TopFrames()
+    {
+        float hx, hy, hz, fx, fy, fz, sx, sy, sz, tx, ty, tz;
+        bool swapped = true;
+        float[][] cases = { new float[] { 0f, 0f, 0f }, new float[] { 0.7f, 45f, 30f }, new float[] { 2f, -60f, -80f }, new float[] { 4f, 90f, 10f } };
+        foreach (float[] c in cases)
+        {
+            FlagOrientation.Frame(c[0], c[1], c[2], FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+            FlagOrientation.Frame(c[0], c[1], c[2], FlagHoist.Side, out sx, out sy, out sz, out tx, out ty, out tz);
+            if (!(Near(hx, tx) && Near(hy, ty) && Near(hz, tz) && Near(fx, sx) && Near(fy, sy) && Near(fz, sz))) swapped = false;
+        }
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        bool banner = Near(hx, 1) && Near(hy, 0) && Near(hz, 0) && Near(fx, 0) && Near(fy, -1) && Near(fz, 0);
+        FlagOrientation.Frame(1.5707964f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        bool turned = Near(hx, 0) && Near(hy, 0) && Near(hz, 1) && Near(fy, -1);
+        return swapped + "," + banner + "," + turned;
+    }
+
+    /// <summary>
+    /// A banner hoisted from its top -- 2 m across, 3 m down: a 3 m cloth at 2:3 hung from its
+    /// 2 m hoist -- 10 m up, the wind at <paramref name="yawDegrees"/> off its heading (90: on its
+    /// face, 0: along its crossbar). Finite, its hoist exactly on its level line, the worst stretch
+    /// after 2 s, and how far below the crossbar its fly edge hangs on average (x L: 1 straight
+    /// down, 0 blown level).
+    /// </summary>
+    public static string TopBanner(float wind, float yawDegrees, float seconds)
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dx = (float)Math.Cos(yaw), dz = (float)Math.Sin(yaw);
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), dx, dz, FlagCloth.CellsAlong, hx, hy, hz);
+        float height = 12f;
+        c.GroundY = -height;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub, worst = 1f;
+        int steps = (int)(seconds / dt);
+        double fall = 0;
+        int falls = 0;
+        for (int s = 0; s < steps; s++)
+        {
+            FlagAir air = FlagWind.Air(wind, 1f, dx, dz, height, 1f, 3f, s * dt, 0f, 0f);
+            c.Step(dt, ref air);
+            if (s * dt > 2f)
+            {
+                float st = c.MaxStretch(); if (st > worst) worst = st;
+                if (s % (6 * sub) == 0)
+                {
+                    for (int j = 0; j < c.Rows; j++) fall += -c.Y[j * c.Columns + c.Columns - 1];
+                    falls += c.Rows;
+                }
+            }
+        }
+        fall /= Math.Max(1, falls) * c.Length;
+        return c.IsFinite() + "," + HoistOnLine(c) + "," + worst.ToString("F3", Inv) + "," + fall.ToString("F2", Inv);
+    }
+
+    /// <summary>
+    /// The outline (FlagOutline, from the flag's place, hoist and size alone) holds the cloth
+    /// whatever it does: every particle, every 0.1 s over 20 s, of a 3 x 2 m flag flying, hanging
+    /// limp, on a hoist tilted 45 degrees, hoisted from its top, on a halyard in a storm -- inside
+    /// the disc and between its heights. Returns the case that came nearest its edge and how near
+    /// (m; negative: outside), and the disc's radius over the flag's length.
+    /// </summary>
+    public static string OutlineCovers()
+    {
+        float[][] cases =
+        {
+            new float[] { 0f, 0f, 0f, 0f }, new float[] { 6f, 0f, 0f, 0f }, new float[] { 12f, 0f, 0f, 0f }, new float[] { 30f, 0f, 0f, 1f },
+            new float[] { 6f, 45f, 0f, 0f }, new float[] { 0f, 0f, 1f, 0f }, new float[] { 8f, 0f, 1f, 0f }, new float[] { 2f, 0f, 0f, 1f },
+        };
+        double least = double.MaxValue;
+        string nearest = "";
+        float share = 0f;
+        foreach (float[] k in cases)
+        {
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(0f, k[1], 0f, k[2] > 0.5f ? FlagHoist.Top : FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(k[0] > 20f ? 2f : 1f), 1f, 0f, FlagCloth.CellsAlong, hx, hy, hz);
+            if (k[3] > 0.5f) c.SetHalyard(true);
+            float height = 12f;
+            c.GroundY = -height;
+            FlagOutline o = FlagOutline.For(UnityEngine.Vector3.zero, new UnityEngine.Vector3(hx, hy, hz), c.Height, c.Length);
+            share = o.Radius / c.Length;
+            int sub = c.SubStepsFor(FlagWind.SpeedAt(k[0], height), 1f / 60f);
+            float dt = 1f / 60f / sub;
+            int steps = (int)(20f / dt);
+            for (int s = 0; s < steps; s++)
+            {
+                FlagAir air = FlagWind.Air(k[0], 1f, 1f, 0f, height, 1f, 3f, s * dt, 0f, 0f);
+                c.Step(dt, ref air);
+                if (s % (6 * sub) != 0) continue;
+                for (int q = 0; q < c.Count; q++)
+                {
+                    double dxz = Math.Sqrt((c.X[q] - o.X) * (c.X[q] - o.X) + (c.Z[q] - o.Z) * (c.Z[q] - o.Z));
+                    double margin = Math.Min(o.Radius - dxz, Math.Min(c.Y[q] - o.MinY, o.MaxY - c.Y[q]));
+                    if (margin < least)
+                    {
+                        least = margin;
+                        nearest = k[0] + " m/s" + (k[1] != 0f ? " tilted " + k[1] : "") + (k[2] > 0.5f ? " from the top" : "") + (k[3] > 0.5f ? " on a halyard" : "");
+                    }
+                }
+            }
+        }
+        return nearest + "," + least.ToString("F2", Inv) + "," + share.ToString("F2", Inv);
+    }
+
+    /// <summary>
+    /// The pick volume stands still while the flag waves: a 3 x 2 m flag in a wind, the volume
+    /// made every 0.1 s as the renderer makes it -- the first pick (the cloth's box as it was, in
+    /// the axes of its fly edge as it was) against the held one (PickHold, in the wind's axes),
+    /// each with the renderer's margins for a 3 m flag (0.15 m in its plane, 0.4 across). A
+    /// pointer put on the cloth -- on its fly end or its middle, at every tenth of a second after
+    /// 4 s -- and held still: the share of the next 2 s (the time to see the flag light up and
+    /// click) each volume held it, and of the whole 16 s from the first; and how much each
+    /// volume's size changed from one 0.1 s to the next (rms, m).
+    /// </summary>
+    public static string PickSteady(float wind)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        float height = 12f;
+        c.GroundY = -height;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        int every = 6 * sub, steps = (int)(20f / dt);
+        var hold = new PickHold();
+        const float inPlane = 0.15f, across = 0.4f;
+        UnityEngine.Vector3 h = new UnityEngine.Vector3(0f, -1f, 0f), wu = new UnityEngine.Vector3(1f, 0f, 0f);
+        UnityEngine.Vector3 wn = UnityEngine.Vector3.Cross(h, wu).normalized;
+        var oldAxes = new List<UnityEngine.Vector3[]>();
+        var oldBoxes = new List<float[]>();
+        var heldBoxes = new List<float[]>();
+        var pointers = new List<UnityEngine.Vector3[]>();
+        double lastOld = -1, lastNew = -1, changeOld = 0, changeNew = 0;
+        int changes = 0;
+        for (int s = 0; s < steps; s++)
+        {
+            FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, height, 1f, 3f, s * dt, 0f, 0f);
+            c.Step(dt, ref air);
+            if (s % every != 0) continue;
+            float t = s * dt;
+
+            // The first pick's axes: out along the fly edge's mean now.
+            UnityEngine.Vector3 m = UnityEngine.Vector3.zero;
+            for (int j = 0; j < c.Rows; j++) { int k = j * c.Columns + c.Columns - 1; m += new UnityEngine.Vector3(c.X[k], c.Y[k], c.Z[k]); }
+            m /= c.Rows;
+            UnityEngine.Vector3 ou = m - h * UnityEngine.Vector3.Dot(m, h);
+            ou = ou.sqrMagnitude > 1e-6f ? ou.normalized : wu;
+            UnityEngine.Vector3 on = UnityEngine.Vector3.Cross(h, ou).normalized;
+
+            float[] oldBox = Extents(c, ou, h, on), now = Extents(c, wu, h, wn);
+            hold.Take(now[0], now[1], now[2], now[3], now[4], now[5], 0.1f, 4f);
+            float[] held = { hold.MinU, hold.MaxU, hold.MinV, hold.MaxV, hold.MinN, hold.MaxN };
+            if (t < 4f) continue;
+
+            int fly = (c.Rows / 2) * c.Columns + c.Columns - 1, middle = (c.Rows / 2) * c.Columns + c.Columns / 2;
+            pointers.Add(new[] { new UnityEngine.Vector3(c.X[fly], c.Y[fly], c.Z[fly]), new UnityEngine.Vector3(c.X[middle], c.Y[middle], c.Z[middle]) });
+            oldAxes.Add(new[] { ou, on });
+            oldBoxes.Add(oldBox);
+            heldBoxes.Add(held);
+
+            double sizeOld = (oldBox[1] - oldBox[0]) + (oldBox[3] - oldBox[2]) + (oldBox[5] - oldBox[4]);
+            double sizeNew = (held[1] - held[0]) + (held[3] - held[2]) + (held[5] - held[4]);
+            if (lastOld >= 0) { changeOld += (sizeOld - lastOld) * (sizeOld - lastOld); changeNew += (sizeNew - lastNew) * (sizeNew - lastNew); changes++; }
+            lastOld = sizeOld; lastNew = sizeNew;
+        }
+
+        int pairs = 0, keptOld = 0, keptNew = 0, whole = 0, wholeOld = 0, wholeNew = 0;
+        for (int a = 0; a < pointers.Count; a++)
+            for (int b = a; b < pointers.Count; b++)
+                foreach (UnityEngine.Vector3 p in pointers[a])
+                {
+                    bool o = Inside(p, oldAxes[b][0], h, oldAxes[b][1], oldBoxes[b], inPlane, across);
+                    bool n = Inside(p, wu, h, wn, heldBoxes[b], inPlane, across);
+                    if (b - a <= 20) { pairs++; if (o) keptOld++; if (n) keptNew++; }
+                    if (a == 0) { whole++; if (o) wholeOld++; if (n) wholeNew++; }
+                }
+        int m2 = Math.Max(1, changes);
+        return ((double)keptOld / pairs).ToString("F3", Inv) + "," + ((double)keptNew / pairs).ToString("F3", Inv) + "," +
+               ((double)wholeOld / whole).ToString("F2", Inv) + "," + ((double)wholeNew / whole).ToString("F2", Inv) + "," +
+               Math.Sqrt(changeOld / m2).ToString("F3", Inv) + "," + Math.Sqrt(changeNew / m2).ToString("F3", Inv);
+    }
+
+    static float[] Extents(FlagCloth c, UnityEngine.Vector3 u, UnityEngine.Vector3 v, UnityEngine.Vector3 n)
+    {
+        float[] e = { float.MaxValue, float.MinValue, float.MaxValue, float.MinValue, float.MaxValue, float.MinValue };
+        for (int k = 0; k < c.Count; k++)
+        {
+            var p = new UnityEngine.Vector3(c.X[k], c.Y[k], c.Z[k]);
+            float a = UnityEngine.Vector3.Dot(p, u), b = UnityEngine.Vector3.Dot(p, v), d = UnityEngine.Vector3.Dot(p, n);
+            e[0] = Math.Min(e[0], a); e[1] = Math.Max(e[1], a);
+            e[2] = Math.Min(e[2], b); e[3] = Math.Max(e[3], b);
+            e[4] = Math.Min(e[4], d); e[5] = Math.Max(e[5], d);
+        }
+        return e;
+    }
+
+    static bool Inside(UnityEngine.Vector3 p, UnityEngine.Vector3 u, UnityEngine.Vector3 v, UnityEngine.Vector3 n, float[] e, float inPlane, float across)
+    {
+        float a = UnityEngine.Vector3.Dot(p, u), b = UnityEngine.Vector3.Dot(p, v), d = UnityEngine.Vector3.Dot(p, n);
+        return a >= e[0] - inPlane && a <= e[1] + inPlane && b >= e[2] - inPlane && b <= e[3] + inPlane && d >= e[4] - across && d <= e[5] + across;
+    }
+
+    /// <summary>The held extents: a wider one at once; a narrower one given back to over the release (e^-1 of the gap after one time constant).</summary>
+    public static string Hold()
+    {
+        var h = new PickHold();
+        h.Take(0f, 1f, 0f, 1f, 0f, 1f, 0.1f, 4f);
+        h.Take(-0.5f, 2f, 0f, 1f, 0f, 1f, 0.1f, 4f);
+        string grown = F(h.MinU) + " " + F(h.MaxU);
+        for (int i = 0; i < 40; i++) h.Take(0f, 1f, 0f, 1f, 0f, 1f, 0.1f, 4f);
+        string after = h.MaxU.ToString("F3", Inv);
+        h.Clear();
+        h.Take(0f, 1f, 0f, 1f, 0f, 1f, 0.1f, 4f);
+        return grown + "|" + after + "|" + F(h.MaxU);
+    }
+
+    /// <summary>
     /// The drawn surface (ClothSurface: what the shader evaluates): through every particle; the
     /// same on both sides of a cell's edge; its normal on the front, as the cloth's own
     /// (FlagCloth.ComputeNormals), everywhere on a flag flying at 12 m/s. Returns the worst
@@ -1366,11 +1710,27 @@ foreach ($case in @(@(8.1, 40, 2, -10, 10), @(8.1, 40, 2, 10, 10), @(3, 40, 0, -
 }
 $pm = [ClothTests]::PickMaths()
 Check "the pick volumes' arithmetic: segments' closest points, a turned box's entry" ($pm -eq "True,True,True,True,True") $pm
+$hold = [ClothTests]::Hold()
+Check "the pick's held extents: wider at once, given back over the release (e^-1 of the gap in 4 s), afresh after a clear" ($hold -eq "-0.5 2|1.368|1") $hold
+foreach ($speed in 2, 6, 12) {
+    $ps = [ClothTests]::PickSteady($speed) -split ","
+    Check ("$speed m/s: a pointer put on the flag and held still stays on it while it waves; the pick volume steadier") ((N $ps[1]) -ge 0.99 -and (N $ps[5]) -lt (N $ps[4])) ("held " + $ps[1] + " of the next 2 s (the first pick: " + $ps[0] + "), " + $ps[3] + " of 16 s (" + $ps[2] + "); its size changing " + $ps[5] + " m rms a tenth of a second (" + $ps[4] + ")")
+}
+$oc = [ClothTests]::OutlineCovers() -split ","
+Check "the outline holds the cloth whatever it does: flying, limp, tilted, from its top, on a halyard in a storm" ((N $oc[1]) -ge 0) ("nearest its edge: " + $oc[0] + ", " + $oc[1] + " m inside; the disc " + $oc[2] + " L round the hoist")
 
 # ---- tilted hoists and the pole ------------------------------------------------------------
 
 $fr = [ClothTests]::Frames() -split ","
 Check "the hoist's frame: unit, square; straight down untilted; level at 90 deg; leaning to the side" (($fr | Where-Object { $_ -ne "True" }).Count -eq 0) ($fr -join ",")
+$tf = [ClothTests]::TopFrames()
+Check "hoisted from the top: the hoist and the fly trade places at any heading, tilt and lean; the hoist along the heading, the fly down" ($tf -eq "True,True,True") $tf
+$hang = [ClothTests]::TopBanner(0, 90, 12) -split ","
+Check "a banner hoisted from its top, calm: it hangs straight down from its crossbar" ($hang[0] -eq "True" -and $hang[1] -eq "True" -and (N $hang[2]) -lt 1.15 -and (N $hang[3]) -gt 0.85) ("fly edge " + $hang[3] + " L below the crossbar, worst stretch " + $hang[2])
+foreach ($case in @(@(6, 90), @(12, 90), @(6, 0), @(6, 45))) {
+    $b = [ClothTests]::TopBanner($case[0], $case[1], 12) -split ","
+    Check ("a banner hoisted from its top, {0} m/s {1} deg off its crossbar: finite, crossbar held, stretched at most 15%" -f $case[0], $case[1]) ($b[0] -eq "True" -and $b[1] -eq "True" -and (N $b[2]) -lt 1.15 -and (N $b[3]) -lt (N $hang[3])) ("fly edge " + $b[3] + " L below the crossbar (calm: " + $hang[3] + "), worst stretch " + $b[2])
+}
 # Placing, a right click turns the new flag as PropTool.ToggleAngle turns a prop (its IL):
 # round(a / 45 - 1) x 45, Mathf.Round's banker's rounding at the halves.
 $orient = $asm.GetType("RealFlag.Flags.FlagOrientation", $true)
@@ -1501,6 +1861,17 @@ Check "the cloth's darkness survives the save" ($cd[0] -eq "True") ("format " + 
 Check "a save of format 3 still reads: the colours as designed" ($cd[1] -eq "True") "format 3, byte by byte: Japan on a ball-topped pole, tilted 30 deg"
 Check "a darkness out of range is pulled in" ($cd[2] -eq "True") "200%, NaN, -30%"
 Check "the darkness darkens evenly to the eye: 20% is sRGB 0.8, 50% mid grey" ($cd[3] -eq "0.218 0.612 1.000") ("brightness at 50%, 20%, none: " + $cd[3])
+$ch = [ClothTests]::CodecHoist() -split ","
+Check "a flag hoisted from its top survives the save, at a banner's 3:1" ($ch[0] -eq "True") ("format " + $ch[3])
+Check "a save of format 4 still reads: hoisted from its side" ($ch[1] -eq "True") "format 4, byte by byte: a cross, 25% darker"
+Check "an edge or a proportion out of range is pulled in; a tall flag's hoist held to 30 m" ($ch[2] -eq "True") "edge 7, 6:1; 30 m at 5:1 -> 6 m"
+$pl = [ClothTests]::CodecPoleLength() -split ","
+Check "a drawn pole keeps its own length in the save (Move It moves it with the flag)" ($pl[0] -eq "True" -and $pl[3] -eq "True") ("format " + $pl[4] + ": 37.5 m, from the top; another length is another pole")
+Check "a save of format 5 still reads: the pole's length found again, once" ($pl[1] -eq "True") "format 5, byte by byte: a spear-topped pole, no length yet"
+Check "a pole length out of range is pulled in" ($pl[2] -eq "True") "NaN, -4 m, 5 km"
+$sizes = [ClothTests]::Sizes()
+$sizesWanted = "3x2 2x3|4.5x3@667 4.5x3@667 15x30@2000 4x6@667|3x2.5@833 4x20@5000 2.5x3@833|2x3@1500 3x1.5@2000 0.5x1.5@3000|1499 True False|3:2 2:1 3:1 1.22:1 1:1.36 1:2.55 2:3"
+Check "width and height as seen: linked, the whole flag; unlinked, a side (the other pushed past 1:5..5:1); a shape keeps the longer side; the shapes' names" ($sizes -eq $sizesWanted) $sizes
 
 $ct = [ClothTests]::Countries() -split "\|"
 $ctf = $ct[0] -split ","
@@ -1515,6 +1886,26 @@ $colours = [ClothTests]::Colours() -split "\|"
 Check "hex colours read and written" ($colours[0] -eq "#1A2B3C #00FF00 refused refused") $colours[0]
 $reg = [ClothTests]::PickRegistry()
 Check "the flags Move It's pointer walks: published, taken away, once each; a snapshot is never changed" ($reg -eq "5 700|5 9|0") $reg
+
+# The game's Harmony (2.0.4, CitiesHarmony) writes a patch's __args back over the original's ref
+# arguments after the patch runs: FlagMoveItPick's postfix took it, and Move It's search lost every
+# prop it found, the flags too (see FlagMoveItPick's remarks). No method of the mod may take it.
+$types = @()
+try { $types = $asm.GetTypes() }
+catch {
+    $e = $_.Exception
+    while ($e -ne $null -and -not ($e -is [Reflection.ReflectionTypeLoadException])) { $e = $e.InnerException }
+    if ($e -ne $null) { $types = @($e.Types | Where-Object { $_ -ne $null }) }
+}
+$argsTakers = @()
+foreach ($t in $types) {
+    $methods = @()
+    try { $methods = $t.GetMethods([Reflection.BindingFlags]'Public,NonPublic,Static,Instance,DeclaredOnly') } catch { }
+    foreach ($m in $methods) {
+        try { if (@($m.GetParameters() | Where-Object { $_.Name -eq "__args" }).Count -gt 0) { $argsTakers += $t.Name + "." + $m.Name } } catch { }
+    }
+}
+Check "no Harmony patch takes __args (Harmony 2.0.4 writes it back over the ref arguments)" ($types.Count -gt 50 -and $argsTakers.Count -eq 0) ($(if ($argsTakers.Count -eq 0) { "none in " + $types.Count + " types" } else { $argsTakers -join ", " }))
 $pasted = [ClothTests]::Pasted()
 Check "a pasted colour code: alone, short, inside other text; the first of two; nothing that is not one" ($pasted -eq "#1A2B3C #1A2B3C #AABBCC #AABBCC #FF8800 #00FF00 #FF0000 refused refused refused refused refused") $pasted
 Check "every palette colour survives HSV and back" ($colours[1] -eq "0") ($colours[1] + " changed")

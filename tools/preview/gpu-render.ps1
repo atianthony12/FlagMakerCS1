@@ -23,6 +23,7 @@
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
+#   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
 # -Elevation (m) -Colours "#hex,#hex,#hex"; the camera: -Yaw -Pitch -Dist (flag lengths away).
 
@@ -60,6 +61,7 @@ param(
     [string]$PoleColours = "",
     [double]$Tilt = 0,
     [double]$Lean = 0,
+    [ValidateSet("side", "top")][string]$Hoist = "side",
     # Metres added to the point looked at (the flag's middle), "x,y,z": "-1.5,1,0" is a 3 x 2 m flag's anchor.
     [string]$Look = "0,0,0",
     # The way the wind blows, degrees from the flag's heading: 180 blows it back over its pole.
@@ -121,6 +123,7 @@ $env:RF_THICK = $Thick.ToString($inv)
 $env:RF_POLECOLOURS = $PoleColours
 $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
+$env:RF_HOIST = $Hoist
 $env:RF_LOOK = $Look
 $env:RF_WINDYAW = $WindYaw.ToString($inv)
 $env:RF_FABRIC = $Fabric

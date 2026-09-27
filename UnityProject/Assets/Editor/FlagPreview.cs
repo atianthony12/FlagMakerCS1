@@ -43,6 +43,7 @@ using Debug = UnityEngine.Debug;
 ///   RF_WET 0..1              the game's ground wetness (_WeatherParams.w): the cloth wet in the rain
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
+///   RF_HOIST "top"      hoisted from its top (a banner on a crossbar: FlagHoist), not its side
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
 /// Every frame logs "RF FRAME row=.. col=.. t=.. file=.. | ..." with the flag's droop, how much
 /// of the frame it covers, and its mean colour.
@@ -71,6 +72,9 @@ public static class FlagPreview
 
     /// <summary>RF_LOOK: metres added to the point the camera looks at.</summary>
     private static Vector3 _look;
+
+    /// <summary>The hoist's line and the fly at rest (FlagOrientation): the camera looks at the flag's middle along them.</summary>
+    private static Vector3 _hoist = Vector3.down, _fly = Vector3.right;
 
     /// <summary>RF_WINDYAW: the way the wind blows, degrees from +x (the flag's heading) towards +z; 180 blows it back over its pole.</summary>
     private static float _windYaw;
@@ -154,6 +158,7 @@ public static class FlagPreview
         spec.PoleThickness = ParseFloat(Env("RF_THICK", "1"));
         spec.Tilt = ParseFloat(Env("RF_TILT", "0"));
         spec.Lean = ParseFloat(Env("RF_LEAN", "0"));
+        spec.HoistedFrom = string.Equals(Env("RF_HOIST", "side"), "top", StringComparison.OrdinalIgnoreCase) ? FlagHoist.Top : FlagHoist.Side;
         string[] poleColours = Env("RF_POLECOLOURS", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         if (poleColours.Length > 0 && FlagColours.TryParseHex(poleColours[0], out c)) spec.PoleColour = c;
         if (poleColours.Length > 1 && FlagColours.TryParseHex(poleColours[1], out c)) spec.TopColour = c;
@@ -233,9 +238,11 @@ public static class FlagPreview
 
         // The hoist's line and the fly at rest, for a flag heading along +x.
         float hx, hy, hz, fx, fy, fz;
-        FlagOrientation.Frame(0f, spec.Tilt, spec.Lean, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagOrientation.Frame(0f, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
         var hoist = new Vector3(hx, hy, hz);
         var fly = new Vector3(fx, fy, fz);
+        _hoist = hoist;
+        _fly = fly;
 
         foreach (int detail in details)
         foreach (int refine in refines)
@@ -245,7 +252,10 @@ public static class FlagPreview
             {
                 FlagSpec flag = design;
                 int pattern = flag.Pattern;
-                Vector3 anchor = new Vector3(0f, elevation + flag.Height, 0f);
+
+                // The flag's foot at rest RF_ELEVATION up: its hoist's (from its side), its fly's (a banner's).
+                float drop = Mathf.Max(-(hy * flag.Height), 0f) + Mathf.Max(-(fy * flag.Length), 0f);
+                Vector3 anchor = new Vector3(0f, elevation + Mathf.Max(drop, flag.Height), 0f);
 
                 // The wind blows along +x (the flag's own direction, the panel's default mode).
                 FlagCloth cloth = new FlagCloth(flag.Length, flag.Height, Fabric(flag.Waviness, fabrics[row % fabrics.Length]), 1f, 0f, detail,
@@ -277,7 +287,7 @@ public static class FlagPreview
                 {
                     while (t + Step <= moment + 1e-4f)
                     {
-                        StepCloth(cloth, wind, gusts, elevation + flag.Height, flag, t, anchor);
+                        StepCloth(cloth, wind, gusts, anchor.y, flag, t, anchor);
                         t += Step;
                     }
 
@@ -472,9 +482,9 @@ public static class FlagPreview
     private static Color[] RenderFlag(Setup s, FlagMesh mesh, PoleDraw pole, FlagSpec flag, Vector3 anchor, float yawDeg, float pitchDeg, float dist,
                                       out string info)
     {
-        // Looking at the flag's middle (or RF_LOOK off it) from its side, slightly down on it.
+        // Looking at the flag's middle at rest (or RF_LOOK off it) from its side, slightly down on it.
         Bounds b = mesh.Bounds;
-        Vector3 centre = anchor + new Vector3(0.5f * flag.Length, -0.5f * flag.Height, 0f) + _look;
+        Vector3 centre = anchor + _hoist * (0.5f * flag.Height) + _fly * (0.5f * flag.Length) + _look;
         float range = dist * Mathf.Max(flag.Length, flag.Height);
         Quaternion look = Quaternion.Euler(pitchDeg, yawDeg, 0f);
         Vector3 fwd = look * Vector3.forward;

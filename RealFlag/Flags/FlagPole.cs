@@ -13,6 +13,11 @@ namespace RealFlag.Flags
     /// runs down it from the anchor; the fly at rest is square to it in the flag's own plane,
     /// (cos t, -sin t cos l, -sin t sin l). No tilt and no lean: the hoist straight down, the fly
     /// along the heading -- the cloth as it always was.
+    ///
+    /// A flag hoisted from its TOP (FlagHoist) has the two the other way round: the hoist runs
+    /// across along the heading from the anchor and the fly hangs down (untilted), in the same
+    /// plane, the same face to the same side. Its top corner on the hoist is the anchor still, and
+    /// the design, laid from the hoist, reads turned as a flag hung upright is (FlagHoist).
     /// </remarks>
     public static class FlagOrientation
     {
@@ -24,6 +29,19 @@ namespace RealFlag.Flags
         public static void Frame(float heading, float tilt, float lean, out float hx, out float hy, out float hz,
                                  out float fx, out float fy, out float fz)
         {
+            Frame(heading, tilt, lean, FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
+        }
+
+        /// <summary>The same for a flag hoisted from <paramref name="hoistedFrom"/> (FlagHoist): from its top, the hoist and the fly trade places.</summary>
+        public static void Frame(float heading, float tilt, float lean, int hoistedFrom, out float hx, out float hy, out float hz,
+                                 out float fx, out float fy, out float fz)
+        {
+            if (hoistedFrom == FlagHoist.Top)
+            {
+                Frame(heading, tilt, lean, FlagHoist.Side, out fx, out fy, out fz, out hx, out hy, out hz);
+                return;
+            }
+
             double ca = Math.Cos(heading), sa = Math.Sin(heading);
             double t = tilt * Math.PI / 180.0, l = lean * Math.PI / 180.0;
             double st = Math.Sin(t), ct = Math.Cos(t), sl = Math.Sin(l), cl = Math.Cos(l);
@@ -41,7 +59,7 @@ namespace RealFlag.Flags
             fz = (float)(lx * sa + lz * ca);
         }
 
-        /// <summary>A heading as the Create new rotation holds it: whole degrees, 0..359 (0 for NaN).</summary>
+        /// <summary>A heading as the new flag's rotation holds it: whole degrees, 0..359 (0 for NaN).</summary>
         public static float WholeDegrees(float degrees)
         {
             if (float.IsNaN(degrees) || float.IsInfinity(degrees))

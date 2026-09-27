@@ -33,7 +33,7 @@ namespace RealFlag.Flags
                 if (flags == null)
                 {
                     FlagRegistry.Clear();
-                    Log.Warn("flags: the city's saved flag designs could not be read (" + problem + "); flags keep the Create new design");
+                    Log.Warn("flags: the city's saved flag designs could not be read (" + problem + "); flags keep the new flag's design");
                     return;
                 }
 
@@ -44,7 +44,7 @@ namespace RealFlag.Flags
             catch (Exception e)
             {
                 FlagRegistry.Clear();
-                Log.Error("flags: loading the flag designs threw; flags keep the Create new design.", e);
+                Log.Error("flags: loading the flag designs threw; flags keep the new flag's design.", e);
             }
         }
 

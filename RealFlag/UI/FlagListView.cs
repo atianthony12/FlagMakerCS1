@@ -6,8 +6,8 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The Existing flags tab's list: every flag in the city, a row each -- its name, its
-    /// pattern and size, its three colours -- in a scrolling box. A click selects the flag
+    /// The Flags tab's list: every flag in the city, a row each -- its name, its pattern and its
+    /// width by height as seen, its three colours -- in a scrolling box. A click selects the flag
     /// (FlagEditor) and the controls below take it over.
     /// </summary>
     public class FlagListView : UIPanel
@@ -128,8 +128,10 @@ namespace RealFlag.UI
                 row.atlas = UIBuilder.Atlas;
                 row.size = new Vector2(width, RowHeight);
                 FlagCountry country = FlagCountries.Find(e.Spec.Country);
+                float shownWidth, shownHeight;
+                FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
                 row.text = FlagEditor.Title(e) + "  ·  " + (country != null ? country.Name : Localization.Get(PatternKey(e.Spec.Pattern))) + ", " +
-                           Localization.Get("Unit.Metres", e.Spec.Length.ToString("0.#"));
+                           Localization.Get("Unit.Size", shownWidth.ToString("0.#"), shownHeight.ToString("0.#"));
                 row.textScale = 0.72f;
                 row.textHorizontalAlignment = UIHorizontalAlignment.Left;
                 row.textPadding = new RectOffset(8, 64, 4, 0);

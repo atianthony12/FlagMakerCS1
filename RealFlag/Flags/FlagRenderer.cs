@@ -29,7 +29,10 @@ namespace RealFlag.Flags
         public float Distance;
         public Bounds World;
 
-        /// <summary>Time not yet stepped, seconds, and the length of this flag's steps (1/60 s, 1/30 s far out).</summary>
+        /// <summary>Its longer side on the screen, pixels, this frame (FlagRenderer.DrawPixels and the rest go by it).</summary>
+        public float Pixels;
+
+        /// <summary>Time not yet stepped, seconds, and the length of this flag's steps (1/60 s, 1/30 s when small on the screen).</summary>
         public float Pending;
         public float StepSize = FlagRenderer.Step;
 
@@ -60,7 +63,14 @@ namespace RealFlag.Flags
         public int PickNext;
         public float PickAge = 1e6f;
 
-        /// <summary>The hoist's line and the fly at rest (FlagOrientation), from the prop's angle and the spec's tilt and lean.</summary>
+        /// <summary>Where the cloth has been lately, for its pick volume (PickHold), in the axes it was taken in: down the hoist, out along <see cref="HeldU"/>, across.</summary>
+        public PickHold Hold;
+        public Vector3 HeldU;
+
+        /// <summary>The way the wind blows at the flag (as its last job had it): the pick volume's axis out along the fly.</summary>
+        public Vector3 WindDir = Vector3.right;
+
+        /// <summary>The hoist's line and the fly at rest (FlagOrientation), from the prop's angle and the spec's hoisted edge, tilt and lean.</summary>
         public Vector3 Hoist = Vector3.down;
         public Vector3 Fly = Vector3.right;
 
@@ -116,19 +126,20 @@ namespace RealFlag.Flags
     /// The props are the game's: Move It, the bulldozer, Find It and the mod's own tool make,
     /// move, turn and delete them, so the renderer re-reads every flag's prop every frame and
     /// follows. New flag props are found by a scan of the prop buffer spread over frames (a
-    /// sixteenth a frame); a prop with no design gets the Create new tab's.
+    /// sixteenth a frame); a prop with no design gets the new flag's (the New flag window's).
     ///
     /// The cloth steps at 60 Hz on each flag's own clock (FlagCloth.SubStepsFor splits the step
     /// in a strong wind), drawn between its last two steps (FlagMesh.Refresh); a flag steps only
-    /// while it is in view and near enough to see move, and at half the rate further out. The
-    /// clock runs in real time -- the wind does not blow four times harder at the game's
-    /// fastest speed -- and stops while the game is paused if the player wants a still.
+    /// while it is in view and big enough on the screen to see move, and at half the rate when
+    /// smaller -- by its size there, not its distance (<see cref="DrawPixels"/>). The clock runs
+    /// in real time -- the wind does not blow four times harder at the game's fastest speed --
+    /// and stops while the game is paused if the player wants a still.
     ///
     /// The stepping is done on threads of its own (ClothWorker) while the game draws the frame:
     /// each frame waits for the last batch, takes its meshes, then plans the next -- the flags
-    /// nearest first, within <see cref="BatchBudget"/> of each thread's time, measured as it goes
-    /// (the farthest wait, frozen, when there is not room for all). A new flag is first run for
-    /// <see cref="SettleTime"/>, a little each frame, so it appears hanging or flying.
+    /// biggest on the screen first, within <see cref="BatchBudget"/> of each thread's time,
+    /// measured as it goes (the smallest wait, frozen, when there is not room for all). A new flag
+    /// is first run for <see cref="SettleTime"/>, a little each frame, so it appears hanging or flying.
     ///
     /// Each flag's cloth is as fine as its size on the screen needs (a Normal cell over
     /// <see cref="PixelsPerCell"/> pixels asks for the next finer detail), up to the option's
@@ -146,16 +157,24 @@ namespace RealFlag.Flags
         /// <summary>One cloth step, seconds (FlagMesh draws between steps).</summary>
         public const float Step = 1f / 60f;
 
-        /// <summary>Beyond this, not drawn (a 3 m flag is under two pixels at 2 km).</summary>
-        public const float DrawDistance = 2500f;
+        /// <summary>
+        /// A flag is drawn while its longer side is at least this many pixels on the screen, it
+        /// moves while at least <see cref="MovePixels"/>, and at the full rate (1/60 s steps; 1/30 s
+        /// below, with a tenth's band either side before it changes) while at least
+        /// <see cref="FullRatePixels"/> -- by its size on the screen, not its distance (the camera's
+        /// pixels per radian: its screen's height and its field of view), so a zoomed camera keeps
+        /// a far flag it shows large. The first version cut at fixed distances: the author's
+        /// 21.7 m flag, 104 px long through a 10 degree view 2.4 km off, stood still from 1.5 km
+        /// and vanished at 2.5 km. With the game's camera (45 degrees, 2160 px high) a 3 m flag is
+        /// drawn to 3.9 km, moves to 1.3 km, at the full rate within 260 m (the first version's
+        /// 2.5 km, 1.5 km, 400 m); a 20 m flag to 26 km, 8.7 km, 1.7 km. The pole the mod draws
+        /// is drawn while its length is at least DrawPixels.
+        /// </summary>
+        public const float DrawPixels = 2f;
+        public const float MovePixels = 6f;
+        public const float FullRatePixels = 30f;
 
-        /// <summary>Beyond this, still drawn, not moved.</summary>
-        public const float SimDistance = 1500f;
-
-        /// <summary>Beyond this, moved at half the rate (1/30 s steps), with a tenth either side before a flag changes.</summary>
-        public const float HalfRateDistance = 400f;
-
-        /// <summary>At most this many flags move in one frame, the nearest first.</summary>
+        /// <summary>At most this many flags move in one frame, the biggest on the screen first.</summary>
         public const int MaxMoving = 48;
 
         /// <summary>
@@ -193,8 +212,27 @@ namespace RealFlag.Flags
         private const int SettleSteps = 6;
         private const int MaxSettlesPerFrame = 2;
 
-        /// <summary>How often a flag's pick sheet is refreshed, seconds.</summary>
+        /// <summary>How often a flag's pick volume is refreshed, seconds.</summary>
         private const float PickInterval = 0.1f;
+
+        /// <summary>
+        /// The pick volume gives back the cloth's extents with this time constant, seconds
+        /// (PickHold): long against a flutter's second or so, so it holds the whole sweep; short
+        /// enough that a flag the wind has dropped is picked where it now hangs within a few
+        /// seconds.
+        /// </summary>
+        private const float PickRelease = 4f;
+
+        /// <summary>
+        /// Every pick volume is at least this wide on the screen, pixels of a 1080-line view
+        /// (scaled to the screen's own): a far or small flag is found without pointing at its
+        /// few pixels exactly -- a picking region round the cursor, as OpenGL's gluPickMatrix
+        /// has one (the OpenGL Programming Guide, "Selection and Feedback"). The gizmo's handles
+        /// are picked within 11. Move It's (and the mod's tool's) wider pick: at least
+        /// <see cref="WidePickPixels"/>.
+        /// </summary>
+        private const float PickPixels = 10f;
+        private const float WidePickPixels = 16f;
 
         /// <summary>
         /// A flag is given the coarsest detail whose cells are at most this many pixels on the
@@ -230,6 +268,15 @@ namespace RealFlag.Flags
 
         /// <summary>A pole's foot is looked for this far down its axis; nothing within it: FlagPoleShape.Fallback.</summary>
         private const float PoleCastLength = 1000f;
+
+        /// <summary>
+        /// A pole lying nearer level than upright (a banner's crossbar, a flag on a horizontal
+        /// pole) is looked for only this many hoists along, and a couple of metres more: an arm
+        /// from a wall the flag hangs near, not a beam to the next hill. Nothing that near: the
+        /// arm is FlagPoleShape.Fallback long.
+        /// </summary>
+        private const float LevelPoleCastHoists = 2f;
+        private const float LevelPoleCastMore = 2f;
 
         /// <summary>Props scanned per frame: the whole buffer every sixteen frames.</summary>
         private const int ScanPerFrame = 4096;
@@ -641,10 +688,10 @@ namespace RealFlag.Flags
             if (!FlagRegistry.TryGet(prop, out spec))
             {
                 // Placed without the mod's tool (Find It, the prop tool, a Move It paste of a
-                // flag copied before the mod was there): the Create new design.
+                // flag copied before the mod was there): the new flag's design.
                 spec = Settings.NewSpec();
                 FlagRegistry.Set(prop, spec);
-                Log.Msg("flags: flag prop #" + prop + " had no design; given the Create new tab's (" + spec.Describe() + ")");
+                Log.Msg("flags: flag prop #" + prop + " had no design; given the new flag's (" + spec.Describe() + ")");
             }
 
             var f = new FlagInstance { Prop = prop, Spec = spec };
@@ -672,7 +719,7 @@ namespace RealFlag.Flags
                     continue;
                 }
 
-                // Placed by a tool that puts props on the ground: raise it to the Create new height,
+                // Placed by a tool that puts props on the ground: raise it to the new flag's height,
                 // once, or the flag hangs underground.
                 if (!fixedHeight && _heightFixed.Add(f.Prop))
                 {
@@ -734,10 +781,12 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The pole under a flag that has one: its foot found (cast down its axis on the
-        /// simulation thread when the axis moved), its mesh made again when its size changed, the
-        /// cloth told to keep off it; and whether it is in view (it can be when the flag is not).
-        /// A flag without one has its mesh and collider dropped.
+        /// The pole under a flag that has one: its length the flag's own (Spec.PoleLength: it goes
+        /// where the flag goes, Move It raising it raises the pole too) or, while it has none yet,
+        /// found down its axis on the simulation thread and then kept -- the flag being placed
+        /// looks again wherever it goes; its mesh made again when its size changed, the cloth told
+        /// to keep off it; and whether it is in view (it can be when the flag is not). A flag
+        /// without one has its mesh and collider dropped.
         /// </summary>
         private void UpdatePole(FlagInstance f, Plane[] planes)
         {
@@ -749,18 +798,48 @@ namespace RealFlag.Flags
                 return;
             }
 
-            // Where the axis crosses the anchor's level, from the last shape's offset (a
-            // centimetre or two either way until the first cast is back).
-            float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Ground, 1f)).Offset;
-            Vector3 from = f.Anchor - f.Fly * offset;
-            if (f.PoleCastAsked == 0 || (from - f.PoleCastFrom).sqrMagnitude > 1e-4f || (f.Hoist - f.PoleCastAlong).sqrMagnitude > 1e-6f)
-                CastPole(f, from);
+            if (f.Spec.PoleLength > 0f)
+            {
+                // Its own: never found again as the flag moves (the first version's pole reached
+                // down to the ground again after every move, so Move It raising a flag stretched
+                // its pole instead of lifting it).
+                f.PoleLength = f.Spec.PoleLength;
+            }
+            else
+            {
+                // Where the axis crosses the anchor's level, from the last shape's offset (a
+                // centimetre or two either way until the first cast is back).
+                float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Ground, 1f)).Offset;
+                Vector3 from = f.Anchor - f.Fly * offset;
+                if (f.PoleCastAsked == 0 || (from - f.PoleCastFrom).sqrMagnitude > 1e-4f || (f.Hoist - f.PoleCastAlong).sqrMagnitude > 1e-6f)
+                    CastPole(f, from);
 
-            int done = f.PoleCastDone;
-            if (done != 0 && done == f.PoleCastAsked)
-                f.PoleLength = f.PoleCastResult;
-            else if (f.PoleLength < 0f)
-                f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
+                int done = f.PoleCastDone;
+                if (done != 0 && done == f.PoleCastAsked)
+                {
+                    f.PoleLength = f.PoleCastResult;
+
+                    // Found: the flag's own from now on (the ghost keeps looking as it moves) --
+                    // unless its prop has moved or turned since this frame read it (the Elevation
+                    // slider's move, queued before the cast, has run with it): then it is looked
+                    // for again from where the flag stands now, never kept for where it stood.
+                    if (f.Prop != 0)
+                    {
+                        Vector3 now;
+                        float angleNow;
+                        bool fixedNow;
+                        if (FlagProps.TryRead(f.Prop, out now, out angleNow, out fixedNow) && (now - f.Anchor).sqrMagnitude < 1e-6f &&
+                            Mathf.Abs(Mathf.DeltaAngle(angleNow * Mathf.Rad2Deg, f.Angle * Mathf.Rad2Deg)) < 1e-3f)
+                            KeepPoleLength(f, f.PoleLength);
+                        else
+                            f.PoleCastAsked = 0;
+                    }
+                }
+                else if (f.PoleLength < 0f)
+                {
+                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
+                }
+            }
 
             FlagPoleShape shape = FlagPoleShape.For(f.Spec, f.PoleLength);
             if (f.PoleMesh == null || !shape.Same(f.PoleShape))
@@ -783,8 +862,34 @@ namespace RealFlag.Flags
             box.Encapsulate(foot);
             box.Encapsulate(tip);
             box.Expand(2f * shape.CollarRadius + 1f);
-            f.PoleVisible = Vector3.Distance(_camera.transform.position, box.ClosestPoint(_camera.transform.position)) < DrawDistance &&
-                            GeometryUtility.TestPlanesAABB(planes, box);
+
+            // Drawn while its length is DrawPixels on the screen (its tubes keep 0.6 px wide).
+            Vector3 eye = _camera.transform.position;
+            float pixels = shape.Tip / Mathf.Max(Vector3.Distance(eye, box.ClosestPoint(eye)), 1f) * _pixelsPerRadian;
+            f.PoleVisible = pixels >= DrawPixels && GeometryUtility.TestPlanesAABB(planes, box);
+        }
+
+        /// <summary>
+        /// A flag's pole has found its length: the flag's own from now on -- in its spec, so the
+        /// save and Move It's copies keep it, and it moves with the flag. The registry's spec is
+        /// written as it stands (a redesign on its way still comes through Refresh).
+        /// </summary>
+        private static void KeepPoleLength(FlagInstance f, float length)
+        {
+            float kept = Mathf.Clamp(length, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+            FlagSpec own = f.Spec;
+            own.PoleLength = kept;
+            f.Spec = own;
+
+            FlagSpec stored;
+            if (FlagRegistry.TryGet(f.Prop, out stored))
+            {
+                stored.PoleLength = kept;
+                FlagRegistry.Set(f.Prop, stored);
+            }
+
+            if (Log.Detailed)
+                Log.Detail("flags: flag #" + f.Prop + "'s pole reaches " + kept.ToString("F1") + " m down its axis; kept as the flag's own");
         }
 
         /// <summary>
@@ -803,6 +908,9 @@ namespace RealFlag.Flags
             Vector3 along = f.Hoist;
             FlagSpec spec = f.Spec;
 
+            // Upright, down to the ground however far; nearer level, an arm's length at most.
+            float reach = along.y < -0.5f ? PoleCastLength : LevelPoleCastHoists * spec.Height + LevelPoleCastMore;
+
             try
             {
                 Singleton<SimulationManager>.instance.AddAction(() =>
@@ -811,7 +919,7 @@ namespace RealFlag.Flags
                     bool hit;
                     try
                     {
-                        hit = FlagTool.CastAlong(from, along, PoleCastLength, out distance);
+                        hit = FlagTool.CastAlong(from, along, reach, out distance);
                     }
                     catch (Exception)
                     {
@@ -899,7 +1007,9 @@ namespace RealFlag.Flags
             }
 
             Log.Msg("flags: camera " + _camera.pixelHeight + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
-                    " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + ")");
+                    " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + "); it is drawn to " +
+                    (3f * _pixelsPerRadian / DrawPixels).ToString("F0") + " m, moves to " + (3f * _pixelsPerRadian / MovePixels).ToString("F0") +
+                    " m, at the full rate within " + (3f * _pixelsPerRadian / FullRatePixels).ToString("F0") + " m");
         }
 
         /// <summary>The coarsest detail whose cells are at most <see cref="PixelsPerCell"/> for a flag this many pixels long, within the option's finest.</summary>
@@ -945,10 +1055,16 @@ namespace RealFlag.Flags
         {
             bool reshape = !spec.SameShape(f.Spec);
             bool refabric = !Mathf.Approximately(spec.Waviness, f.Spec.Waviness);
+
+            // Its pole's length let go (a new tilt, "Pole down to the ground"): found again.
+            if (spec.PoleLength <= 0f && f.Spec.PoleLength > 0f)
+                f.PoleCastAsked = 0;
             f.Spec = spec;
             f.BlockReady = false;
             f.PoleBlockReady = false;
             f.PoleApplied = false;
+            if (reshape)
+                f.Hold.Clear();
             Wake(f);
 
             if (reshape && f.Cloth != null)
@@ -1009,7 +1125,7 @@ namespace RealFlag.Flags
             f.HasAnchor = true;
 
             float hx, hy, hz, fx, fy, fz;
-            FlagOrientation.Frame(angle, f.Spec.Tilt, f.Spec.Lean, out hx, out hy, out hz, out fx, out fy, out fz);
+            FlagOrientation.Frame(angle, f.Spec.Tilt, f.Spec.Lean, f.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
             f.Hoist = new Vector3(hx, hy, hz);
             f.Fly = new Vector3(fx, fy, fz);
 
@@ -1019,6 +1135,7 @@ namespace RealFlag.Flags
                 c.SetHoist(hx, hy, hz);
                 f.MeshDirty = true;
                 f.PoleApplied = false;
+                f.Hold.Clear();
                 Wake(f);
             }
         }
@@ -1036,22 +1153,26 @@ namespace RealFlag.Flags
             }
             else
             {
+                // Round the anchor, as far as the cloth reaches any way it hangs (from its top too).
                 float reach = f.Spec.Length + f.Spec.Height;
-                box = new Bounds(f.Anchor + new Vector3(0f, -0.5f * f.Spec.Height, 0f), new Vector3(2f * reach, reach, 2f * reach));
+                box = new Bounds(f.Anchor, new Vector3(2f * reach, 2f * reach, 2f * reach));
             }
 
+            // Its longer side on the screen: what it is drawn and moved by (DrawPixels).
+            f.Pixels = Mathf.Max(f.Spec.Length, f.Spec.Height) / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian;
+
             f.World = box;
-            f.Visible = f.Distance < DrawDistance && GeometryUtility.TestPlanesAABB(planes, box);
+            f.Visible = f.Pixels >= DrawPixels && GeometryUtility.TestPlanesAABB(planes, box);
         }
 
         /// <summary>
-        /// The next batch: the placement ghost first, then the flags in view -- the nearest
-        /// <see cref="MaxMoving"/> within <see cref="SimDistance"/> move -- as long as the planned
-        /// work fits the <see cref="Budget"/> (the first planned always moves). Those that had no
-        /// room last frame go before the rest, nearest first among each: with more cloth than the
-        /// threads have time for, the flags take turns, all of them slower, where nearest first
-        /// alone gave the same nearer flags every frame's room and left the farther ones standing
-        /// still for as long as it lasted.
+        /// The next batch: the placement ghost first, then the flags in view -- the
+        /// <see cref="MaxMoving"/> biggest on the screen, at least <see cref="MovePixels"/> there,
+        /// move -- as long as the planned work fits the <see cref="Budget"/> (the first planned
+        /// always moves). Those that had no room last frame go before the rest, biggest first
+        /// among each: with more cloth than the threads have time for, the flags take turns, all
+        /// of them slower, where biggest first alone gave the same flags every frame's room and
+        /// left the others standing still for as long as it lasted.
         /// </summary>
         private void Plan(float dt, bool frozen, float realDt, Wind wind)
         {
@@ -1083,7 +1204,7 @@ namespace RealFlag.Flags
                     if (f.WaitedLast != waited)
                         continue;
 
-                    bool moving = i < MaxMoving && f.Distance <= SimDistance;
+                    bool moving = i < MaxMoving && f.Pixels >= MovePixels;
 
                     // Paused, frozen: only the flags being handled step, for a moment, slowing to a still.
                     float flagDt = dt;
@@ -1099,10 +1220,11 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The flags in view into <see cref="_order"/>, nearest first; the others lose their
-        /// untaken time (a flag coming back into view does not catch up). An insertion sort, as
-        /// Volumetric Explosions sorts its volumes: no allocation (List.Sort with a comparison
-        /// allocates on Mono), and the order changes little from one frame to the next.
+        /// The flags in view into <see cref="_order"/>, the biggest on the screen first (of flags
+        /// of one size, the nearest); the others lose their untaken time (a flag coming back into
+        /// view does not catch up). An insertion sort, as Volumetric Explosions sorts its volumes:
+        /// no allocation (List.Sort with a comparison allocates on Mono), and the order changes
+        /// little from one frame to the next.
         /// </summary>
         private int InView()
         {
@@ -1128,7 +1250,7 @@ namespace RealFlag.Flags
             {
                 FlagInstance x = _order[i];
                 int j = i - 1;
-                while (j >= 0 && _order[j].Distance > x.Distance)
+                while (j >= 0 && _order[j].Pixels < x.Pixels)
                 {
                     _order[j + 1] = _order[j];
                     j--;
@@ -1166,6 +1288,7 @@ namespace RealFlag.Flags
                 f.Pending = 0f;
                 f.Fresh = false;
                 f.BlockReady = false;
+                f.Hold.Clear();
 
                 // Its pole, if it has one and it is known yet (else the next Refresh sees to it).
                 f.PoleApplied = false;
@@ -1179,6 +1302,7 @@ namespace RealFlag.Flags
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
 
             Vector3 dir = wind.DirectionFor(f.Angle);
+            f.WindDir = dir;
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
             float at10 = wind.SpeedFor(f.Anchor, f.Ground);
             float speed = FlagWind.SpeedAt(at10, height);
@@ -1234,12 +1358,12 @@ namespace RealFlag.Flags
 
             _moving++;
 
-            // Full rate near, half beyond HalfRateDistance, with a tenth's band either side (a
-            // half-rate step takes twice the sub-steps once the wind carries the air a cell in
-            // one: it saves in light winds only).
-            if (f.StepSize <= Step && f.Distance > HalfRateDistance * 1.1f)
+            // Full rate while FullRatePixels on the screen, half below, with a tenth's band either
+            // side (a half-rate step takes twice the sub-steps once the wind carries the air a
+            // cell in one: it saves in light winds only). The ghost is always in the player's hand.
+            if (f.StepSize <= Step && !ghost && f.Pixels < FullRatePixels / 1.1f)
                 f.StepSize = 2f * Step;
-            else if (f.StepSize > Step && f.Distance < HalfRateDistance * 0.9f)
+            else if (f.StepSize > Step && (ghost || f.Pixels > FullRatePixels * 1.1f))
                 f.StepSize = Step;
             float size = f.StepSize;
             int sub = f.Cloth.SubStepsFor(speed, size);
@@ -1316,8 +1440,9 @@ namespace RealFlag.Flags
             f.PickAge += Time.unscaledDeltaTime;
             if (f.Prop != 0 && f.PickAge >= PickInterval)
             {
+                float since = f.PickAge;
                 f.PickAge = 0f;
-                PublishPick(f);
+                PublishPick(f, since);
             }
         }
 
@@ -1348,65 +1473,51 @@ namespace RealFlag.Flags
                               f.PoleBlock, true, true);
         }
 
-        /// <summary>A coarse sheet over the drawn cloth (every third particle and the edges), published for raycasts.</summary>
-        private static void PublishPick(FlagInstance f)
+        /// <summary>
+        /// The flag's pick volume, published for raycasts (PickShape): where its cloth has been
+        /// lately, held (<see cref="PickRelease"/>), and its hoist and pole; <paramref name="since"/>
+        /// seconds after the last.
+        /// </summary>
+        private void PublishPick(FlagInstance f, float since)
         {
-            FlagCloth c = f.Cloth;
             PickShape shape = f.Picks[f.PickNext];
             f.PickNext ^= 1;
-
-            int cols = Samples(c.Columns), rows = Samples(c.Rows);
-            int triangles = (cols - 1) * (rows - 1) * 2;
-            if (shape.Triangles.Length < triangles * 9)
-                shape.Triangles = new float[triangles * 9];
-
-            float[] v = shape.Triangles;
-            int o = 0;
-            for (int b = 0; b < rows - 1; b++)
-            {
-                for (int a = 0; a < cols - 1; a++)
-                {
-                    int k00 = Index(c, a, b, cols, rows), k10 = Index(c, a + 1, b, cols, rows);
-                    int k01 = Index(c, a, b + 1, cols, rows), k11 = Index(c, a + 1, b + 1, cols, rows);
-                    o = Put(v, o, c, f.Anchor, k00);
-                    o = Put(v, o, c, f.Anchor, k10);
-                    o = Put(v, o, c, f.Anchor, k01);
-                    o = Put(v, o, c, f.Anchor, k10);
-                    o = Put(v, o, c, f.Anchor, k11);
-                    o = Put(v, o, c, f.Anchor, k01);
-                }
-            }
-
-            shape.Count = triangles;
             shape.Anchor = f.Anchor;
-            PickVolumes(f, shape);
+            PickVolumes(f, shape, since, PickAperture(f.Distance, PickPixels), PickAperture(f.Distance, WidePickPixels));
             FlagPicking.Publish(f.Prop, shape);
         }
 
+        /// <summary>The least radius of a pick volume this far off, metres: <paramref name="pixels"/> of a 1080-line view there.</summary>
+        private float PickAperture(float distance, float pixels)
+        {
+            float pixelHeight = _camera != null ? _camera.pixelHeight : 1080f;
+            return Mathf.Max(distance, 1f) * pixels * pixelHeight / (1080f * Mathf.Max(_pixelsPerRadian, 1f));
+        }
+
         /// <summary>
-        /// The easier targets round the cloth (PickShape): the slab -- the cloth's box in its own
-        /// axes, out along its fly, down its hoist and across, a margin wider across -- and
-        /// capsules round the hoist edge and the drawn pole; the box of it all for the raycast's
-        /// first test.
+        /// The targets round the cloth (PickShape): the slab -- the cloth's box in steady axes,
+        /// down its hoist, out along the wind (square to the hoist; the fly at rest while that is
+        /// not defined) and across, held over its recent flutter (PickHold) and widened by a
+        /// margin -- and capsules round the hoist edge and the drawn pole; the box of it all for
+        /// the raycast's first test. Two sizes: tight, every volume at least
+        /// <paramref name="aperture"/> wide; wider (Move It's), at least <paramref name="wideAperture"/>.
         /// </summary>
-        private static void PickVolumes(FlagInstance f, PickShape shape)
+        private static void PickVolumes(FlagInstance f, PickShape shape, float since, float aperture, float wideAperture)
         {
             FlagCloth c = f.Cloth;
             float size = Mathf.Max(f.Spec.Length, f.Spec.Height);
             Vector3 h = f.Hoist;
 
-            // Out along the fly as the cloth now lies: the fly edge's mean, square to the hoist.
-            Vector3 m = Vector3.zero;
-            for (int j = 0; j < c.Rows; j++)
-            {
-                int k = j * c.Columns + c.Columns - 1;
-                m += new Vector3(c.X[k], c.Y[k], c.Z[k]);
-            }
-
-            m /= c.Rows;
-            Vector3 u = m - h * Vector3.Dot(m, h);
-            u = u.sqrMagnitude > 1e-6f ? u.normalized : f.Fly;
+            // Steady axes: the wind's way does not follow the flutter (the cloth's own fly edge did).
+            Vector3 w = f.WindDir;
+            Vector3 u = w - h * Vector3.Dot(w, h);
+            u = u.sqrMagnitude > 0.09f ? u.normalized : f.Fly;
             Vector3 n = Vector3.Cross(h, u).normalized;
+
+            // Axes turned far since the extents were held (the wind set another way): held afresh.
+            if (f.Hold.Held && Vector3.Dot(u, f.HeldU) < 0.87f)
+                f.Hold.Clear();
+            f.HeldU = u;
 
             float uMin = float.MaxValue, uMax = float.MinValue, hMin = float.MaxValue, hMax = float.MinValue;
             float nMin = float.MaxValue, nMax = float.MinValue;
@@ -1422,30 +1533,44 @@ namespace RealFlag.Flags
                 if (d > nMax) nMax = d;
             }
 
-            float across = Mathf.Max(PickMarginAcross, PickMarginShare * size);
-            float inPlane = Mathf.Max(0.15f, 0.02f * size);
+            f.Hold.Take(uMin, uMax, hMin, hMax, nMin, nMax, since, PickRelease);
+            PickHold held = f.Hold;
+
             shape.SlabU = u;
             shape.SlabV = h;
             shape.SlabN = n;
-            shape.SlabCentre = f.Anchor + u * (0.5f * (uMin + uMax)) + h * (0.5f * (hMin + hMax)) + n * (0.5f * (nMin + nMax));
-            shape.HalfU = 0.5f * (uMax - uMin) + inPlane;
-            shape.HalfV = 0.5f * (hMax - hMin) + inPlane;
-            shape.HalfN = 0.5f * (nMax - nMin) + across;
+            shape.SlabCentre = f.Anchor + u * (0.5f * (held.MinU + held.MaxU)) + h * (0.5f * (held.MinV + held.MaxV)) +
+                               n * (0.5f * (held.MinN + held.MaxN));
+            shape.CoreU = 0.5f * (held.MaxU - held.MinU);
+            shape.CoreV = 0.5f * (held.MaxV - held.MinV);
+            shape.CoreN = 0.5f * (held.MaxN - held.MinN);
             shape.HasSlab = true;
+
+            // Tight, for the game's own tools; wider, for Move It and the mod's tool.
+            shape.Across = Mathf.Max(Mathf.Max(PickMarginAcross, PickMarginShare * size), aperture);
+            shape.InPlane = Mathf.Max(Mathf.Max(0.15f, 0.02f * size), aperture);
+            shape.HoistRadius = shape.Across;
+            shape.WideAcross = Mathf.Max(Mathf.Max(WideMarginMin, WideMarginAcross * size), wideAperture);
+            shape.WideInPlane = Mathf.Max(Mathf.Max(WideMarginMin * 0.66f, WideMarginInPlane * size), wideAperture);
+            shape.WideHoistRadius = Mathf.Max(Mathf.Max(WideMarginMin, WideMarginHoist * size), wideAperture);
 
             shape.HoistA = f.Anchor;
             shape.HoistB = f.Anchor + h * c.Height;
-            shape.HoistRadius = Mathf.Max(PickMarginAcross, PickMarginShare * size);
 
+            // The box of the wider volumes (the first test of either size).
+            float halfU = shape.CoreU + Mathf.Max(shape.InPlane, shape.WideInPlane);
+            float halfV = shape.CoreV + Mathf.Max(shape.InPlane, shape.WideInPlane);
+            float halfN = shape.CoreN + Mathf.Max(shape.Across, shape.WideAcross);
             var box = new Bounds(shape.SlabCentre, Vector3.zero);
             for (int corner = 0; corner < 8; corner++)
             {
-                box.Encapsulate(shape.SlabCentre + u * ((corner & 1) != 0 ? shape.HalfU : -shape.HalfU) +
-                                h * ((corner & 2) != 0 ? shape.HalfV : -shape.HalfV) + n * ((corner & 4) != 0 ? shape.HalfN : -shape.HalfN));
+                box.Encapsulate(shape.SlabCentre + u * ((corner & 1) != 0 ? halfU : -halfU) +
+                                h * ((corner & 2) != 0 ? halfV : -halfV) + n * ((corner & 4) != 0 ? halfN : -halfN));
             }
 
-            box.Encapsulate(new Bounds(shape.HoistA, Vector3.one * (2f * shape.HoistRadius)));
-            box.Encapsulate(new Bounds(shape.HoistB, Vector3.one * (2f * shape.HoistRadius)));
+            float hoistReach = Mathf.Max(shape.HoistRadius, shape.WideHoistRadius);
+            box.Encapsulate(new Bounds(shape.HoistA, Vector3.one * (2f * hoistReach)));
+            box.Encapsulate(new Bounds(shape.HoistB, Vector3.one * (2f * hoistReach)));
 
             // The pole the mod draws, from its foot to its tip.
             if (f.Spec.HasPole && f.PoleMesh != null)
@@ -1453,13 +1578,16 @@ namespace RealFlag.Flags
                 FlagPoleShape pole = f.PoleShape;
                 shape.PoleA = f.Anchor - f.Fly * pole.Offset + h * pole.Length;
                 shape.PoleB = shape.PoleA - h * pole.Tip;
-                shape.PoleRadius = Mathf.Max(PickMarginAcross, 3f * pole.RadiusFoot);
-                box.Encapsulate(new Bounds(shape.PoleA, Vector3.one * (2f * shape.PoleRadius)));
-                box.Encapsulate(new Bounds(shape.PoleB, Vector3.one * (2f * shape.PoleRadius)));
+                shape.PoleRadius = Mathf.Max(Mathf.Max(PickMarginAcross, 3f * pole.RadiusFoot), aperture);
+                shape.WidePoleRadius = Mathf.Max(Mathf.Max(WideMarginMin, 4f * pole.RadiusFoot), wideAperture);
+                float poleReach = Mathf.Max(shape.PoleRadius, shape.WidePoleRadius);
+                box.Encapsulate(new Bounds(shape.PoleA, Vector3.one * (2f * poleReach)));
+                box.Encapsulate(new Bounds(shape.PoleB, Vector3.one * (2f * poleReach)));
             }
             else
             {
                 shape.PoleRadius = 0f;
+                shape.WidePoleRadius = 0f;
             }
 
             shape.Box = box;
@@ -1472,25 +1600,17 @@ namespace RealFlag.Flags
         private const float PickMarginAcross = 0.4f;
         private const float PickMarginShare = 0.06f;
 
-        private static int Samples(int n)
-        {
-            return Math.Max(2, (n - 1) / 3 + 1 + ((n - 1) % 3 != 0 ? 1 : 0));
-        }
-
-        private static int Index(FlagCloth c, int a, int b, int cols, int rows)
-        {
-            int i = Math.Min(a * 3, c.Columns - 1);
-            int j = Math.Min(b * 3, c.Rows - 1);
-            return j * c.Columns + i;
-        }
-
-        private static int Put(float[] v, int o, FlagCloth c, Vector3 anchor, int k)
-        {
-            v[o] = anchor.x + c.X[k];
-            v[o + 1] = anchor.y + c.Y[k];
-            v[o + 2] = anchor.z + c.Z[k];
-            return o + 3;
-        }
+        /// <summary>
+        /// The wider pick's margins (Move It's, the mod's tool's), shares of the flag's longer side,
+        /// at least <see cref="WideMarginMin"/> metres and <see cref="WidePickPixels"/> on the screen:
+        /// across its face 15% (a 21.7 m flag: 3.3 m), in its plane 8%, round its hoist 12%; round
+        /// the pole four of its foot's radii. Wider than the tight pick, far less than the whole
+        /// reach the highlight paints (tried: the author found it "too big").
+        /// </summary>
+        private const float WideMarginAcross = 0.15f;
+        private const float WideMarginInPlane = 0.08f;
+        private const float WideMarginHoist = 0.12f;
+        private const float WideMarginMin = 0.6f;
 
         /// <summary>The sun (or the moon) for the light through the cloth: _RFSunDir and _RFSunColor, globally.</summary>
         private static void SetSun()
@@ -1614,6 +1734,7 @@ namespace RealFlag.Flags
 
             Place(_ghost, _ghostAnchor, _ghostAngle);
             _ghost.Distance = Vector3.Distance(eye, _ghostAnchor);
+            _ghost.Pixels = Mathf.Max(_ghostSpec.Length, _ghostSpec.Height) / Mathf.Max(_ghost.Distance, 1f) * _pixelsPerRadian;
             _ghost.Visible = true;
             _ghost.World = new Bounds(_ghostAnchor, Vector3.one * (_ghostSpec.Length * 2f));
             ChooseDetail(_ghost);
@@ -1675,7 +1796,7 @@ namespace RealFlag.Flags
             return false;
         }
 
-        /// <summary>The nearest flag the ray meets, 0 for none (the tool's picking, on the main thread).</summary>
+        /// <summary>The nearest flag the ray meets anywhere in its reach, 0 for none (the tool's picking, on the main thread; as Move It's).</summary>
         public uint PickAt(ColossalFramework.Math.Segment3 ray)
         {
             uint best = 0;
@@ -1684,7 +1805,7 @@ namespace RealFlag.Flags
             {
                 PickShape shape = FlagPicking.Get(f.Prop);
                 float t;
-                if (shape != null && shape.Intersect(ray, out t) && t < bestT)
+                if (shape != null && shape.IntersectWide(ray, out t) && t < bestT)
                 {
                     bestT = t;
                     best = f.Prop;
@@ -1694,57 +1815,79 @@ namespace RealFlag.Flags
             return best;
         }
 
-        /// <summary>The flag whose anchor is at <paramref name="position"/> (Move It's overlay passes a position, not a prop).</summary>
-        public bool TryFindAt(Vector3 position, out Bounds world)
+        /// <summary>
+        /// The flag whose prop is at <paramref name="position"/> (Move It's overlay passes a
+        /// position, not a prop), and its outline there: the nearest anchor within
+        /// <see cref="FindReach"/> -- a prop Move It drags fast has moved on since this frame read
+        /// it -- and the outline drawn where Move It has the prop, not where the renderer last saw it.
+        /// </summary>
+        public bool TryFindAt(Vector3 position, out FlagOutline outline)
         {
+            FlagInstance best = null;
+            float bestSqr = FindReach * FindReach;
             foreach (FlagInstance f in _flags)
             {
-                if (f.HasAnchor && (f.Anchor - position).sqrMagnitude < 0.25f)
+                float sqr = f.HasAnchor ? (f.Anchor - position).sqrMagnitude : float.MaxValue;
+                if (sqr < bestSqr)
                 {
-                    world = OutlineBox(f);
-                    return true;
+                    bestSqr = sqr;
+                    best = f;
                 }
             }
 
-            world = default(Bounds);
-            return false;
+            if (best == null)
+            {
+                outline = default(FlagOutline);
+                return false;
+            }
+
+            outline = OutlineOf(best);
+            outline.Shift(position - best.Anchor);
+            return true;
         }
+
+        /// <summary>How far from a flag's anchor Move It's overlay may be and still be that flag's, metres.</summary>
+        private const float FindReach = 3f;
 
         /// <summary>From FlagLoadingHook.EndOverlay: the tool's hovered flag outlined on the city (the selected one has the gizmo instead).</summary>
         public void RenderOverlay(RenderManager.CameraInfo cameraInfo)
         {
             FlagInstance f;
             if (FlagTool.Hovered != 0 && FlagTool.Hovered != FlagEditor.Selected && _byProp.TryGetValue(FlagTool.Hovered, out f) && f.Visible)
-                Outline(cameraInfo, OutlineBox(f), new Color(1f, 0.85f, 0.35f, 0.55f));
+                Outline(cameraInfo, OutlineOf(f), new Color(1f, 0.85f, 0.35f, 0.55f));
         }
 
-        /// <summary>What a flag's outline covers: its cloth as drawn, and its pole from foot to tip when the mod draws one.</summary>
-        private static Bounds OutlineBox(FlagInstance f)
+        /// <summary>
+        /// What a flag's outline covers (FlagOutline): everywhere its cloth can reach from its
+        /// hoist, and its pole from foot to tip when the mod draws one -- from its place and size,
+        /// not its cloth, so it stands still while the flag waves.
+        /// </summary>
+        private static FlagOutline OutlineOf(FlagInstance f)
         {
-            Bounds box = f.World;
+            FlagOutline outline = FlagOutline.For(f.Anchor, f.Hoist, f.Spec.Height, f.Spec.Length);
             if (f.Spec.HasPole && f.PoleMesh != null)
             {
                 FlagPoleShape pole = f.PoleShape;
                 Vector3 foot = f.Anchor - f.Fly * pole.Offset + f.Hoist * pole.Length;
-                box.Encapsulate(foot);
-                box.Encapsulate(foot - f.Hoist * pole.Tip);
+                outline.Include(foot);
+                outline.Include(foot - f.Hoist * pole.Tip);
             }
 
-            return box;
+            return outline;
         }
 
         /// <summary>
         /// The game's overlay over a flag (Move It's and the bulldozer's highlight, our tool's
-        /// hover): a disc over the whole of it, painted on whatever lies within its height --
-        /// the cloth, the pole, what the pole stands on. The disc spans the box's diagonal, so a
-        /// flag flying across the axes is covered to its corners (the author: "the selector is
-        /// too small"; the first disc spanned the box's wider side only).
+        /// hover): a disc round all of it, painted on whatever lies within its heights -- the
+        /// cloth, the pole, what the pole stands on -- as the game paints a prop's circle, and
+        /// faded as the game fades a big prop's (FlagOutline.Alpha). The first ones followed the
+        /// cloth's box every frame, and so swayed with it: "the selector goes all over the place".
         /// </summary>
-        public static void Outline(RenderManager.CameraInfo cameraInfo, Bounds world, Color colour)
+        public static void Outline(RenderManager.CameraInfo cameraInfo, FlagOutline outline, Color colour)
         {
-            Vector3 c = world.center;
-            float size = Mathf.Sqrt(world.size.x * world.size.x + world.size.z * world.size.z) + 1f;
-            Singleton<RenderManager>.instance.OverlayEffect.DrawCircle(cameraInfo, colour, c, size, world.min.y - 0.5f, world.max.y + 0.5f,
+            colour.a = outline.Alpha(colour.a);
+            var centre = new Vector3(outline.X, 0.5f * (outline.MinY + outline.MaxY), outline.Z);
+            Singleton<RenderManager>.instance.OverlayEffect.DrawCircle(cameraInfo, colour, centre, 2f * outline.Radius, outline.MinY, outline.MaxY,
                                                                       false, true);
             Singleton<ToolManager>.instance.m_drawCallData.m_overlayCalls++;
         }

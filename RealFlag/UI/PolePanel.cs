@@ -4,17 +4,18 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The Flagpole popup, beside the panel: the pole the mod draws under the flag (none by
-    /// default -- the author: "By default it's off, because the purpose of this mod is making the
-    /// flag cloth adaptable to any pole"), its top, its ropes, colours and thickness, and the
-    /// hoist's tilt and lean -- the pole's own angle, drawn or not. Opened from each tab's
-    /// Flagpole button: Create new's page edits the next flag, Existing flags' the selected one.
+    /// The Flagpole popup, beside the window it was opened from: the pole the mod draws under the
+    /// flag (none by default -- the author: "By default it's off, because the purpose of this mod
+    /// is making the flag cloth adaptable to any pole"), its top, its ropes, colours and
+    /// thickness, and the hoist's tilt and lean -- the pole's own angle, drawn or not. Opened from
+    /// a Flagpole button: the New flag window's page edits the next flag, the Flags tab's the
+    /// selected one.
     /// </summary>
     /// <remarks>
-    /// A popup rather than rows in the tabs: seven more rows would make the Existing flags tab
-    /// taller than a 1080-line screen. Its rows are the catalog's (PanelPage.PoleCreate and
-    /// PoleExisting), built and refreshed by a <see cref="RowSet"/> as the panel's are; its colour
-    /// swatches open the ColourPicker beside it.
+    /// A popup rather than rows in the windows: seven more rows would make the Flags tab taller
+    /// than a 1080-line screen. Its rows are the catalog's (PanelPage.PoleNew and PoleExisting),
+    /// built and refreshed by a <see cref="RowSet"/> as the panel's are; its colour swatches open
+    /// the ColourPicker beside it.
     /// </remarks>
     public class PolePanel : UIPanel
     {
@@ -28,11 +29,18 @@ namespace RealFlag.UI
         private UIPanel _create, _existing;
         private float _createHeight, _existingHeight;
         private UILabel _title;
-        private PanelPage _page = PanelPage.PoleCreate;
+        private PanelPage _page = PanelPage.PoleNew;
         private UIComponent _beside;
         private bool _built;
 
-        /// <summary>Opens the popup on a tab's page (PoleCreate or PoleExisting) beside the panel; the same page again closes it.</summary>
+        /// <summary>Closes the popup if it shows <paramref name="page"/> (the window that page belongs to went away).</summary>
+        public static void CloseIf(PanelPage page)
+        {
+            if (_instance != null && _instance.isVisible && _instance._page == page)
+                Close();
+        }
+
+        /// <summary>Opens the popup on a window's page (PoleNew or PoleExisting) beside that window; the same page again closes it.</summary>
         public static void Toggle(PanelPage page, UIComponent beside)
         {
             if (_instance != null && _instance.isVisible && _instance._page == page)
@@ -105,7 +113,7 @@ namespace RealFlag.UI
 
             _rows = new RowSet(this);
             _create = AddPage();
-            _createHeight = _rows.BuildRows(_create, PanelPage.PoleCreate, 0f);
+            _createHeight = _rows.BuildRows(_create, PanelPage.PoleNew, 0f);
             _existing = AddPage();
             _existingHeight = _rows.BuildRows(_existing, PanelPage.PoleExisting, 0f);
             _built = true;
@@ -142,7 +150,7 @@ namespace RealFlag.UI
             if (!_built)
                 return; // Start has not run yet: it shows the page when it does
 
-            bool create = _page == PanelPage.PoleCreate;
+            bool create = _page == PanelPage.PoleNew;
             _create.isVisible = create;
             _existing.isVisible = !create;
             float content = create ? _createHeight : _existingHeight;

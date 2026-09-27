@@ -7,9 +7,10 @@ namespace RealFlag.UI
 {
     /// <summary>
     /// A panel's rows, drawn from the catalog (SettingsCatalog), and kept up to date: the in-game
-    /// panel's two tabs and its wind, and the Flagpole popup's two pages, each hold one. A colour
-    /// row is a swatch that opens the ColourPicker, a country row a button that opens the
-    /// CountryPicker, both beside the owner; up to three colour rows share a line.
+    /// panel's two tabs, the New flag window, and the Flagpole popup's two pages each hold one. A
+    /// colour row is a swatch that opens the ColourPicker, a country row a button that opens the
+    /// CountryPicker, both beside the owner; up to three colour rows share a line; a shape row is
+    /// a little flag of each shape, a segmented row a button a choice, the one that holds lit.
     /// </summary>
     /// <remarks>
     /// What FlagsPanel did itself before the popup needed the same (Volumetric Explosions'
@@ -54,6 +55,13 @@ namespace RealFlag.UI
             public UIButton Country;
             public UITextureSprite CountryImage;
             public int CountryShown = -1;
+
+            /// <summary>A shape or segmented row: a button per preset or choice, the little flag drawn on each, and which is lit (1), not (0), or not yet shown (-1).</summary>
+            public readonly List<UIButton> Options = new List<UIButton>();
+            public readonly List<FlagIcon> Icons = new List<FlagIcon>();
+            public int IconsHoist = -1;
+            public readonly List<int> Lit = new List<int>();
+
             public readonly List<UIComponent> Parts = new List<UIComponent>();
             public readonly List<UIComponent> SecondParts = new List<UIComponent>();
             public bool Enabled = true;
@@ -108,6 +116,10 @@ namespace RealFlag.UI
                         break;
                     case RowKind.FlagList:
                         y += FlagListView.RowHeight * FlagListView.VisibleRows + 12f;
+                        break;
+                    case RowKind.Shape:
+                    case RowKind.Segmented:
+                        y += UIBuilder.RowHeight + 4f;
                         break;
                     default:
                         y += UIBuilder.RowHeight;
@@ -177,6 +189,9 @@ namespace RealFlag.UI
                         if (control.Button.text != text)
                             control.Button.text = text;
                     }
+
+                    if (control.Options.Count > 0)
+                        RefreshOptions(control);
                 }
             }
             finally
@@ -185,6 +200,37 @@ namespace RealFlag.UI
             }
 
             RefreshEnabled();
+        }
+
+        /// <summary>A shape or segmented row: the button of the shape the flag has (or the choice made) lit, the little flags hoisted as it is.</summary>
+        private static void RefreshOptions(Control control)
+        {
+            Row row = control.Source;
+
+            if (row.Kind == RowKind.Shape && row.PresetHoist != null)
+            {
+                int hoist = row.PresetHoist();
+                if (hoist != control.IconsHoist)
+                {
+                    control.IconsHoist = hoist;
+                    for (int i = 0; i < control.Icons.Count && i < row.Presets.Length; i++)
+                        control.Icons[i].Show(FlagSize.Ratio(row.Presets[i]), hoist);
+                }
+            }
+
+            for (int i = 0; i < control.Options.Count; i++)
+            {
+                bool lit = row.Kind == RowKind.Shape
+                    ? row.PresetActive != null && i < row.Presets.Length && row.PresetActive(row.Presets[i])
+                    : row.Int != null && row.ChoiceValues != null && i < row.ChoiceValues.Length && row.Int.value == row.ChoiceValues[i];
+
+                int state = lit ? 1 : 0;
+                if (control.Lit[i] == state)
+                    continue;
+
+                control.Lit[i] = state;
+                UIBuilder.SetLit(control.Options[i], lit);
+            }
         }
 
         private static string ReadoutText(Row row, float display)
@@ -347,6 +393,79 @@ namespace RealFlag.UI
                     break;
                 }
 
+                case RowKind.Shape:
+                {
+                    // "Shape   [▯] [▯] [▯] [□] [▭] [▭] [▭]": a little flag of each shape, hoisted as the flag is.
+                    AddRowLabel(page, row, y, control);
+                    int count = row.Presets != null ? row.Presets.Length : 0;
+                    const float gap = 4f, height = 28f;
+                    float width = count > 0 ? Mathf.Floor((page.width - 200f - gap * (count - 1)) / count) : 0f;
+                    Row captured = row;
+                    for (int i = 0; i < count; i++)
+                    {
+                        int preset = row.Presets[i];
+                        UIButton button = UIBuilder.AddButton(page, string.Empty, new Vector2(width, height), new Vector3(200f + i * (width + gap), y + 3f));
+                        button.tooltip = FlagProportion.Name(preset);
+                        button.eventClick += (component, e) =>
+                        {
+                            if (!captured.IsEnabled || captured.OnPreset == null)
+                                return;
+
+                            captured.OnPreset(preset);
+                            Changed(captured);
+                        };
+
+                        var icon = new FlagIcon(button, new Vector3(0.5f * (width - 22f), 5f), new Vector2(22f, 18f));
+                        icon.Show(FlagSize.Ratio(preset), row.PresetHoist != null ? row.PresetHoist() : FlagHoist.Side);
+                        control.Options.Add(button);
+                        control.Icons.Add(icon);
+                        control.Lit.Add(-1);
+                        control.Parts.Add(button);
+                    }
+
+                    break;
+                }
+
+                case RowKind.Segmented:
+                {
+                    // "Hoisted from   [|▭ Side] [▔▭ Top]": a button a choice, the chosen one lit.
+                    AddRowLabel(page, row, y, control);
+                    int count = row.ChoiceValues != null ? row.ChoiceValues.Length : 0;
+                    const float gap = 6f, height = 28f;
+                    float width = count > 0 ? Mathf.Floor((page.width - 200f - gap * (count - 1)) / count) : 0f;
+                    Row captured = row;
+                    for (int i = 0; i < count; i++)
+                    {
+                        int value = row.ChoiceValues[i];
+                        UIButton button = UIBuilder.AddButton(page, row.ChoiceName(i), new Vector2(width, height), new Vector3(200f + i * (width + gap), y + 3f));
+                        button.tooltip = row.Tooltip;
+                        button.eventClick += (component, e) =>
+                        {
+                            if (!captured.IsEnabled || captured.Int == null || captured.Int.value == value)
+                                return;
+
+                            captured.Int.value = value;
+                            Changed(captured);
+                        };
+
+                        if (row.HoistIcons)
+                        {
+                            // A little 2:3 flag hoisted the button's way, left of its word.
+                            button.textHorizontalAlignment = UIHorizontalAlignment.Left;
+                            button.textPadding = new RectOffset(38, 6, 6, 0);
+                            var icon = new FlagIcon(button, new Vector3(10f, 5f), new Vector2(20f, 18f));
+                            icon.Show(value == FlagHoist.Top ? 1.5f : 0.667f, value);
+                            control.Icons.Add(icon);
+                        }
+
+                        control.Options.Add(button);
+                        control.Lit.Add(-1);
+                        control.Parts.Add(button);
+                    }
+
+                    break;
+                }
+
                 case RowKind.Toggle:
                 {
                     Row captured = row;
@@ -430,6 +549,16 @@ namespace RealFlag.UI
                 float scale = Mathf.Min(42f / Mathf.Max(1, thumb.width), 26f / Mathf.Max(1, thumb.height));
                 control.CountryImage.size = new Vector2(Mathf.Round(thumb.width * scale), Mathf.Round(thumb.height * scale));
             }
+        }
+
+        /// <summary>A row's name on the left, as a slider row has it (greyed with the row).</summary>
+        private static void AddRowLabel(UIPanel page, Row row, float y, Control control)
+        {
+            UILabel label = UIBuilder.AddLabel(page, row.Label, new Vector3(0f, y + 8f), 0.8f);
+            label.autoSize = false;
+            label.size = new Vector2(196f, 20f);
+            label.tooltip = row.Tooltip;
+            control.Parts.Add(label);
         }
 
         /// <summary>After a control stored its value: rows with a live-apply hook run it.</summary>

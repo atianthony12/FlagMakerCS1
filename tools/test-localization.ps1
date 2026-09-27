@@ -65,8 +65,8 @@ foreach ($b in $blocks) {
     if ($b -match 'Id = "(\w+)"') { $name = $Matches[1] }
     if (-not $name) {
         # AddDesign's and AddPole's rows, and AddPoleButton's: read from their calls below.
-        if ($b -match '(?:Float|Int) = (country|pattern|c1|c2|c3|length|proportion|waviness|darkness|pole|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean)\b') { continue }
-        if ($b -match 'Id = id,') { continue }
+        if ($b -match '(?:Float|Int) = (country|pattern|c1|c2|c3|length|proportion|hoistedFrom|waviness|darkness|pole|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean)\b') { continue }
+        if ($b -match 'Id = (id|shapeId|widthId|heightId),') { continue }
         Write-Host "FAIL  a row with neither a setting nor an Id:`n$b"; $failed++; continue
     }
     $shown = ($b -match 'Panel = (PanelPage\.|page\b)') -or ($b -match 'Options = OptionsPage\.')
@@ -81,15 +81,21 @@ foreach ($b in $blocks) {
     if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
 }
 
-# The design rows, from each AddDesign(PanelPage.X, Settings.A, ...) call: every setting passed is a row.
+# The design rows, from each AddDesign(PanelPage.X, "Shape", "Width", "Height", Settings.A, ...) call: every
+# setting passed is a row -- but the length and proportion, which the width and height work through --
+# and so is every name (the rows over no setting of their own: the shapes, the width and the height).
 $designCalls = [regex]::Matches($catalog, 'AddDesign\(PanelPage\.\w+,([^;]*?)\);')
 foreach ($call in $designCalls) {
     foreach ($m in [regex]::Matches($call.Groups[1].Value, 'Settings\.(\w+)')) {
         $name = $nameOf[$m.Groups[1].Value]
+        if ($name -match '^(New|Sel)(Length|Proportion)$') { continue }
         if ($name) { [void]$needed.Add("$name.Label"); [void]$needed.Add("$name.Tooltip") }
     }
+    foreach ($m in [regex]::Matches($call.Groups[1].Value, '"(\w+)"')) {
+        [void]$needed.Add($m.Groups[1].Value + ".Label"); [void]$needed.Add($m.Groups[1].Value + ".Tooltip")
+    }
 }
-Check "the design rows are read from both tabs' AddDesign calls" $designCalls.Count 2
+Check "the design rows are read from the New flag window's and the Flags tab's AddDesign calls" $designCalls.Count 2
 
 # The Flagpole popup's rows, from each AddPole(PanelPage.X, Settings.A, ...) call; each tab's
 # Flagpole button, from its AddPoleButton(..., "Id", ...) call.
@@ -104,7 +110,7 @@ Check "the pole rows are read from both tabs' AddPole calls" $poleCalls.Count 2
 $buttonCalls = [regex]::Matches($catalog, 'AddPoleButton\(PanelPage\.\w+, PanelPage\.\w+, "(\w+)"')
 foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".Label"); [void]$needed.Add($call.Groups[1].Value + ".Tooltip") }
 Check "the Flagpole buttons are read from both tabs' AddPoleButton calls" $buttonCalls.Count 2
-Write-Host "      ($rows rows in the catalog, 9 of them made twice by AddDesign, 8 by AddPole, 1 by AddPoleButton)"
+Write-Host "      ($rows rows in the catalog, 12 of them made twice by AddDesign, 8 by AddPole, 1 by AddPoleButton)"
 
 foreach ($enum in @('PanelPage')) {
     if ($catalog -match "public enum $enum \{([^}]*)\}") {
@@ -114,7 +120,7 @@ foreach ($enum in @('PanelPage')) {
 
 # Key-shaped literals anywhere in the code ("Status.Flags", "Pattern.Disc"...), including the
 # ones picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|Country|Gizmo|PoleButton|Pole|Ropes'
+$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|Country|Gizmo|PoleButton|Pole|Ropes|Hoist'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)

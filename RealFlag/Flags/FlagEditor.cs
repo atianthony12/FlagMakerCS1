@@ -118,6 +118,7 @@ namespace RealFlag.Flags
                     Settings.SelColour3.value = (int)e.Spec.Colour3;
                     Settings.SelLength.value = e.Spec.Length;
                     Settings.SelProportion.value = e.Spec.Proportion;
+                    Settings.SelHoistedFrom.value = e.Spec.HoistedFrom;
                     Settings.SelWaviness.value = e.Spec.Waviness;
                     Settings.SelDarkness.value = e.Spec.Darkness;
                     Settings.SelPole.value = e.Spec.Pole;
@@ -147,7 +148,7 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>A design control changed (pattern, colours, size, proportions, waviness, darkness).</summary>
+        /// <summary>A design control changed (pattern, colours, size and shape, the edge hoisted, waviness, darkness, the pole).</summary>
         public static void ApplyDesign()
         {
             FlagEntry e;
@@ -163,6 +164,7 @@ namespace RealFlag.Flags
             spec.Colour3 = (uint)Settings.SelColour3.value;
             spec.Length = Settings.SelLength.value;
             spec.Proportion = Settings.SelProportion.value;
+            spec.HoistedFrom = Settings.SelHoistedFrom.value;
             spec.Waviness = Settings.SelWaviness.value;
             spec.Darkness = Settings.SelDarkness.value;
             spec.Pole = Settings.SelPole.value;
@@ -174,6 +176,11 @@ namespace RealFlag.Flags
             spec.Tilt = Settings.SelTilt.value;
             spec.Lean = Settings.SelLean.value;
             spec = spec.Sanitised();
+
+            // A new line for the pole (its tilt, its lean, the edge hoisted), or a pole put back
+            // (the flag may have moved since): its length found again down it.
+            if (!spec.SameHoist(e.Spec) || (spec.HasPole && !e.Spec.HasPole))
+                spec.PoleLength = 0f;
             FlagRegistry.Set(Selected, spec);
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
 
@@ -200,9 +207,11 @@ namespace RealFlag.Flags
 
             if (Mathf.Abs(tilt - e.Spec.Tilt) > 1e-3f || Mathf.Abs(lean - e.Spec.Lean) > 1e-3f)
             {
+                // Tilted: its pole found again down its new line (a move keeps the pole's length).
                 FlagSpec spec = e.Spec;
                 spec.Tilt = tilt;
                 spec.Lean = lean;
+                spec.PoleLength = 0f;
                 FlagRegistry.Set(Selected, spec);
             }
 
@@ -236,6 +245,11 @@ namespace RealFlag.Flags
             FlagProps.Rotate(Selected, Settings.SelRotation.value * Mathf.Deg2Rad);
         }
 
+        /// <summary>
+        /// The panel's Elevation: the flag's top this high over the ground, up or down its pole --
+        /// the pole reaching down to what stands under it again, its foot where it was. (Move It and
+        /// the gizmo's arrows move the whole flag, its pole with it.)
+        /// </summary>
         public static void ApplyHeight()
         {
             FlagEntry e;
@@ -244,6 +258,26 @@ namespace RealFlag.Flags
 
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
             FlagProps.Move(Selected, new Vector3(e.Anchor.x, e.Ground + Settings.SelHeight.value, e.Anchor.z));
+            if (e.Spec.HasPole && e.Spec.PoleLength > 0f)
+                LetPoleGo(e.Spec);
+        }
+
+        /// <summary>The Flagpole popup's "Pole down to the ground": the selected flag's pole finds what stands under it again (after Move It raised or lowered the whole flag, say).</summary>
+        public static void PoleToGround()
+        {
+            FlagEntry e;
+            if (!TryEntry(out e) || !e.Spec.HasPole)
+                return;
+
+            LetPoleGo(e.Spec);
+            Log.Msg("flags: flag #" + Selected + "'s pole sent down to the ground again");
+        }
+
+        /// <summary>The selected flag's pole length let go: the renderer finds it again down the pole's axis, and keeps it.</summary>
+        private static void LetPoleGo(FlagSpec spec)
+        {
+            spec.PoleLength = 0f;
+            FlagRegistry.Set(Selected, spec);
         }
 
         /// <summary>The camera to the selected flag.</summary>
@@ -259,8 +293,11 @@ namespace RealFlag.Flags
                 if (camera == null)
                     return;
 
-                camera.m_targetPosition = new Vector3(e.Anchor.x, e.Anchor.y - 0.5f * e.Spec.Height, e.Anchor.z);
-                camera.m_targetSize = Mathf.Clamp(e.Spec.Length * 8f, 30f, 600f);
+                // The middle of the flag at rest: half way down its hoist and out along its fly.
+                float hx, hy, hz, fx, fy, fz;
+                FlagOrientation.Frame(e.Angle, e.Spec.Tilt, e.Spec.Lean, e.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+                camera.m_targetPosition = e.Anchor + 0.5f * e.Spec.Height * new Vector3(hx, hy, hz) + 0.5f * e.Spec.Length * new Vector3(fx, fy, fz);
+                camera.m_targetSize = Mathf.Clamp(Mathf.Max(e.Spec.Length, e.Spec.Height) * 8f, 30f, 600f);
                 Log.Msg("flags: camera to flag #" + Selected);
             }
             catch (Exception ex)
@@ -269,7 +306,7 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>The Create new tab takes the selected flag's design, for another like it.</summary>
+        /// <summary>The New flag window takes the selected flag's design, for another like it (the panel then opens the window to place it).</summary>
         public static void CopyToNew()
         {
             FlagEntry e;
@@ -282,10 +319,8 @@ namespace RealFlag.Flags
             Settings.NewColour2.value = (int)e.Spec.Colour2;
             Settings.NewColour3.value = (int)e.Spec.Colour3;
             Settings.NewLength.value = e.Spec.Length;
-
-            // A country's own proportions stay its own: Create new's pattern keeps the list's.
-            if (Array.IndexOf(FlagProportion.Values, e.Spec.Proportion) >= 0)
-                Settings.NewProportion.value = e.Spec.Proportion;
+            Settings.NewProportion.value = e.Spec.Proportion;
+            Settings.NewHoistedFrom.value = e.Spec.HoistedFrom;
             Settings.NewWaviness.value = e.Spec.Waviness;
             Settings.NewDarkness.value = e.Spec.Darkness;
             Settings.NewPole.value = e.Spec.Pole;
@@ -296,7 +331,7 @@ namespace RealFlag.Flags
             Settings.NewPoleThickness.value = e.Spec.PoleThickness;
             Settings.NewTilt.value = e.Spec.Tilt;
             Settings.NewLean.value = e.Spec.Lean;
-            Log.Msg("flags: flag #" + Selected + "'s design copied to Create new");
+            Log.Msg("flags: flag #" + Selected + "'s design copied to the new flag");
         }
 
         /// <summary>Deletes the selected flag, once the player says yes.</summary>

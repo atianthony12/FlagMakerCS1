@@ -40,13 +40,24 @@ namespace RealFlag.UI
         /// with its name and image that opens the country picker. The file writes its code.
         /// </summary>
         Country,
+
+        /// <summary>
+        /// A flag's shape: a small picture of each of <see cref="Row.Presets"/> (FlagProportion.Shapes,
+        /// as the flag is seen), the one it has lit; a click gives it that shape. No setting of
+        /// its own. The in-game panel only.
+        /// </summary>
+        Shape,
+
+        /// <summary>A choice (an IntSetting over <see cref="Row.ChoiceValues"/>) as a row of buttons, the one chosen lit. The file writes it as a choice.</summary>
+        Segmented,
     }
 
     /// <summary>
-    /// Which part of the in-game panel a row is in: one of its three tabs, or a page of the
-    /// Flagpole popup (each design tab's own). None = not in it.
+    /// Which part of the in-game panel a row is in: one of its two tabs (Flags, Settings), the
+    /// New flag window, or a page of the Flagpole popup (the new flag's, the selected one's).
+    /// None = not in it.
     /// </summary>
-    public enum PanelPage { None, Create, Existing, Settings, PoleCreate, PoleExisting }
+    public enum PanelPage { None, New, Existing, Settings, PoleNew, PoleExisting }
 
     /// <summary>General = the game's mod options page. None = not on it.</summary>
     public enum OptionsPage { None, General }
@@ -120,6 +131,23 @@ namespace RealFlag.UI
 
         /// <summary>A button whose words change (the Flagpole button: what the pole is): read at every refresh instead of its label.</summary>
         public Func<string> ButtonText;
+
+        /// <summary>
+        /// A slider over no setting of its own (a flag's width and height, which are its length
+        /// and proportions, FlagSize): what it shows, and what a move of it does. The row is then
+        /// never saved or reset -- the settings it works through have rows of their own.
+        /// </summary>
+        public Func<float> Get;
+        public Action<float> Set;
+
+        /// <summary>Shape rows: the shapes offered (height over width x 1000, as seen), which is the flag's now, the edge it is hoisted from (drawn on each), and what a click on one does.</summary>
+        public int[] Presets;
+        public Func<int, bool> PresetActive;
+        public Func<int> PresetHoist;
+        public Action<int> OnPreset;
+
+        /// <summary>Segmented rows over the hoisted edge (FlagHoist): each button shows a small flag hoisted that way.</summary>
+        public bool HoistIcons;
 
         /// <summary>Greys the row out.</summary>
         public Func<bool> Enabled;
@@ -253,6 +281,9 @@ namespace RealFlag.UI
         {
             get
             {
+                if (Get != null)
+                    return Get();
+
                 if (Float == null)
                     return 0f;
 
@@ -262,10 +293,22 @@ namespace RealFlag.UI
 
         public void Store(float display)
         {
+            if (Set != null)
+            {
+                Set(display);
+                return;
+            }
+
             if (Float == null)
                 return;
 
             Float.value = Kind == RowKind.Percent ? display / 100f : display;
+        }
+
+        /// <summary>The row holds a setting of its own (saved, reset); a button, a status line, a width or a shape does not.</summary>
+        public bool HasSetting
+        {
+            get { return Float != null || Bool != null || Int != null || Key != null; }
         }
 
         public string FormatDisplay(float display)
@@ -316,8 +359,9 @@ namespace RealFlag.UI
     /// Weather's design).
     /// </summary>
     /// <remarks>
-    /// The split: the flags, the wind and the cloth are in the in-game panel (Row.Panel) -- three
-    /// tabs, Create new, Existing flags and Settings; the options page has the mod itself
+    /// The split: the flags, the wind and the cloth are in the in-game panel (Row.Panel) -- two
+    /// tabs, Flags (the city's, the selected one's controls) and Settings, and the New flag
+    /// window its "+ New flag" button opens; the options page has the mod itself
     /// (Row.Options == General), the cloth and the pause among it too. The words are in
     /// Localization/en.xml, in the same order.
     /// </remarks>
@@ -382,8 +426,9 @@ namespace RealFlag.UI
                     nowhere++;
             }
 
-            Log.Msg("settings catalog: " + Rows.Count + " rows | Create new=" + CountForPanel(PanelPage.Create) +
-                    " | Existing flags=" + CountForPanel(PanelPage.Existing) + " | Settings=" + CountForPanel(PanelPage.Settings) +
+            Log.Msg("settings catalog: " + Rows.Count + " rows | Flags=" + CountForPanel(PanelPage.Existing) +
+                    " | New flag=" + CountForPanel(PanelPage.New) + " | Settings=" + CountForPanel(PanelPage.Settings) +
+                    " | Flagpole=" + CountForPanel(PanelPage.PoleNew) + "+" + CountForPanel(PanelPage.PoleExisting) +
                     " | options page=" + CountForOptions(OptionsPage.General) + " | rows with no UI=" + nowhere);
 
             var missing = new List<string>();
@@ -417,7 +462,7 @@ namespace RealFlag.UI
 
             foreach (Row row in Rows)
             {
-                if (row.AfterChange != null && !row.IsTransient)
+                if (row.AfterChange != null && row.HasSetting && !row.IsTransient)
                     row.AfterChange();
             }
 
@@ -551,17 +596,47 @@ namespace RealFlag.UI
             return pattern == null || FlagPattern.ColoursUsed(pattern.value) >= colours;
         }
 
-        /// <summary>The list's proportion nearest to a value off it (a country's).</summary>
-        private static int NearestProportion(int value)
-        {
-            int best = FlagProportion.Default;
-            foreach (int v in FlagProportion.Values)
-            {
-                if (Math.Abs(v - value) < Math.Abs(best - value))
-                    best = v;
-            }
+        /// <summary>For a row that changes nothing else when it changes (the new flag's size): the UIs still follow at once.</summary>
+        private static readonly Action Nothing = () => { };
 
-            return best;
+        /// <summary>The proportion the flag flies at: its country's own, or the one set.</summary>
+        private static int FlownProportion(IntSetting country, IntSetting proportion)
+        {
+            FlagCountry flag = country != null ? FlagCountries.At(country.value) : null;
+            return flag != null ? flag.Proportion : proportion != null ? proportion.value : Settings.Defaults.Proportion;
+        }
+
+        /// <summary>The flag's width (or height) as it is seen, metres (FlagSize.Shown).</summary>
+        private static float ShownSide(bool height, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom)
+        {
+            float w, h;
+            FlagSize.Shown(length.value, FlownProportion(country, proportion), hoistedFrom.value, out w, out h);
+            return height ? h : w;
+        }
+
+        /// <summary>
+        /// A new width or height (FlagSize.Resize): with its sides linked -- the switch, or a
+        /// country's flag, whose shape is its own -- the whole flag scales; otherwise that side
+        /// alone. A country's proportion is left as set, for a change back to a pattern.
+        /// </summary>
+        private static void ResizeTo(bool height, float value, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom)
+        {
+            bool isCountry = country != null && FlagCountries.At(country.value) != null;
+            bool linked = isCountry || Settings.LinkSize == null || Settings.LinkSize.value;
+            float newLength;
+            int newProportion;
+            FlagSize.Resize(length.value, FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
+                            out newLength, out newProportion);
+            length.value = newLength;
+            if (!isCountry)
+                proportion.value = newProportion;
+        }
+
+        /// <summary>"2 m · 2:3": a height, and the shape it makes as seen (height to width).</summary>
+        private static Func<float, string> HeightText(IntSetting country, IntSetting proportion, IntSetting hoistedFrom)
+        {
+            return v => Localization.Get("Unit.MetresShape", v.ToString("0.#", CultureInfo.InvariantCulture),
+                                         FlagProportion.Name(FlagSize.ShownProportion(FlownProportion(country, proportion), hoistedFrom.value)));
         }
 
         /// <summary>The names of FlagCloth.Details, in its order.</summary>
@@ -596,7 +671,7 @@ namespace RealFlag.UI
 
             _rows = new List<Row>();
 
-            BuildCreate();
+            BuildNew();
             BuildExisting();
             BuildWind();
             BuildGeneralOptions();
@@ -609,18 +684,27 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// A flag's design, the same rows on both tabs: the next flag's (settings) or the selected
-        /// one's (transient). First the country: with one chosen, the pattern, its colours and the
-        /// proportions are the country's flag's and grey out (they are kept, for a change back);
-        /// the size, the waviness and the darkness stay the player's -- the darkness is for a
-        /// country's colours above all, which cannot be picked (the author: "some country flags
-        /// are too bright").
+        /// A flag's design, the same rows in the New flag window and the Flags tab: the next
+        /// flag's (settings) or the selected one's (transient). First the country: with one
+        /// chosen, the pattern, its colours and its shape are the country's flag's and grey out
+        /// (they are kept, for a change back); its size, the edge it is hoisted from, the waviness
+        /// and the darkness stay the player's -- the darkness is for a country's colours above
+        /// all, which cannot be picked (the author: "some country flags are too bright").
         /// </summary>
-        private static void AddDesign(PanelPage page, IntSetting country, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3,
-                                      FloatSetting length, IntSetting proportion, FloatSetting waviness, FloatSetting darkness,
-                                      Action changed, Func<bool> enabled)
+        /// <remarks>
+        /// The size as the flag is seen (the author: "select the ratio for the flag in a more
+        /// visual way ... control both width and height, but by default the aspect is locked"):
+        /// the shapes as small pictures, then the width and the height -- sliders over the
+        /// flag's length and proportion, which are what it keeps (FlagSize) -- linked unless the
+        /// switch under them is off, and the edge it is hoisted from (the side, or the top: a
+        /// banner), which turns what the width and height are of the cloth.
+        /// </remarks>
+        private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting pattern,
+                                      IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom,
+                                      FloatSetting waviness, FloatSetting darkness, Action changed, Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
+            Action resized = changed ?? Nothing;
 
             Add(new Row
             {
@@ -628,14 +712,7 @@ namespace RealFlag.UI
                 Panel = page,
                 Int = country,
                 DefaultInt = Settings.Defaults.Country,
-                AfterChange = () =>
-                {
-                    // Back to a pattern from a country flown at its own proportions: the nearest of the list's.
-                    if (country.value == 0 && proportion != null && Array.IndexOf(FlagProportion.Values, proportion.value) < 0)
-                        proportion.value = NearestProportion(proportion.value);
-                    if (changed != null)
-                        changed();
-                },
+                AfterChange = resized,
                 Enabled = enabled,
             });
 
@@ -683,31 +760,72 @@ namespace RealFlag.UI
 
             Add(new Row
             {
+                Kind = RowKind.Shape,
+                Panel = page,
+                Id = shapeId,
+                Presets = FlagProportion.Shapes,
+                PresetActive = shape => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, shape),
+                PresetHoist = () => hoistedFrom.value,
+                OnPreset = shape =>
+                {
+                    float newLength;
+                    int newProportion;
+                    FlagSize.Reshape(length.value, proportion.value, hoistedFrom.value, shape, out newLength, out newProportion);
+                    length.value = newLength;
+                    proportion.value = newProportion;
+                },
+                AfterChange = resized,
+                Enabled = patterned,
+            });
+
+            Add(new Row
+            {
                 Kind = RowKind.Value,
                 Panel = page,
-                Float = length,
-                DefaultFloat = Settings.Defaults.Length,
-                Min = FlagSpec.MinLength, Max = FlagSpec.MaxLength, Step = 0.1f,
+                Id = widthId,
+                Get = () => ShownSide(false, country, length, proportion, hoistedFrom),
+                Set = v => ResizeTo(false, v, country, length, proportion, hoistedFrom),
+                Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
                 Format = Metres,
-                AfterChange = changed,
+                AfterChange = resized,
                 Enabled = enabled,
             });
 
             Add(new Row
             {
-                Kind = RowKind.Choice,
+                Kind = RowKind.Value,
                 Panel = page,
-                Int = proportion,
-                DefaultInt = Settings.Defaults.Proportion,
-                ChoiceValues = FlagProportion.Values,
-                ChoiceText = FlagProportion.Name,
-                AfterChange = changed,
+                Id = heightId,
+                Get = () => ShownSide(true, country, length, proportion, hoistedFrom),
+                Set = v => ResizeTo(true, v, country, length, proportion, hoistedFrom),
+                Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
+                Format = HeightText(country, proportion, hoistedFrom),
+                AfterChange = resized,
+                Enabled = enabled,
+            });
+
+            // One switch for both windows; a country's flag keeps its own shape whatever it says.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = page,
+                Bool = Settings.LinkSize,
+                DefaultBool = Settings.Defaults.LinkSize,
+                AfterChange = State("width and height together", OnOff(Settings.LinkSize)),
                 Enabled = patterned,
-                ReadoutOverride = () =>
-                {
-                    FlagCountry flag = country != null ? FlagCountries.At(country.value) : null;
-                    return flag != null ? FlagProportion.Name(flag.Proportion) : null;
-                },
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = page,
+                Int = hoistedFrom,
+                DefaultInt = Settings.Defaults.HoistedFrom,
+                ChoiceValues = FlagHoist.Values,
+                ChoiceKeys = FlagHoist.NameKeys,
+                HoistIcons = true,
+                AfterChange = resized,
+                Enabled = enabled,
             });
 
             Add(new Row
@@ -834,9 +952,9 @@ namespace RealFlag.UI
             });
         }
 
-        /// <summary>A tab's Flagpole button: its words say what the pole is; a click opens the popup's page for that tab.</summary>
-        private static void AddPoleButton(PanelPage tab, PanelPage popup, string id, IntSetting pole, IntSetting ropes, FloatSetting tilt,
-                                          FloatSetting lean, Func<bool> enabled)
+        /// <summary>A window's Flagpole button: its words say what the pole is; a click opens the popup's page for it, beside the window (<paramref name="beside"/>, a UI component's name).</summary>
+        private static void AddPoleButton(PanelPage tab, PanelPage popup, string id, string beside, IntSetting pole, IntSetting ropes,
+                                          FloatSetting tilt, FloatSetting lean, Func<bool> enabled)
         {
             Add(new Row
             {
@@ -844,37 +962,40 @@ namespace RealFlag.UI
                 Panel = tab,
                 Id = id,
                 ButtonText = PoleSummary(pole, ropes, tilt, lean),
-                OnClick = () => PolePanel.Toggle(popup, FlagsPanelInstance()),
+                OnClick = () => PolePanel.Toggle(popup, Component(beside)),
                 Enabled = enabled,
             });
         }
 
-        /// <summary>The in-game panel, for the popup to open beside (null: the popup keeps its place).</summary>
-        private static ColossalFramework.UI.UIComponent FlagsPanelInstance()
+        /// <summary>A window of the mod's by its name, for a popup to open beside (null: the popup keeps its place).</summary>
+        private static ColossalFramework.UI.UIComponent Component(string name)
         {
             ColossalFramework.UI.UIView view = ColossalFramework.UI.UIView.GetAView();
-            return view != null ? view.FindUIComponent("RealFlagPanel") : null;
+            return view != null ? view.FindUIComponent(name) : null;
         }
 
         /// <summary>
-        /// Create new: the next flag -- its design, which way it points, how high its hoist's top
-        /// stands -- and the button that places it on the map (the author: "multiple options for
-        /// the flag: rotation, size, how wavy, etc.").
+        /// The New flag window: the next flag -- its design, which way it points, how high its
+        /// hoist's top stands. While it is open the flag follows the cursor and a click places it
+        /// (the author: "a plus button somewhere to add new flag. The options for the new flag
+        /// will be in a new window, and if the window is closed or the user presses Esc it goes
+        /// away").
         /// </summary>
-        private static void BuildCreate()
+        private static void BuildNew()
         {
-            AddDesign(PanelPage.Create, Settings.NewCountry, Settings.NewPattern, Settings.NewColour1, Settings.NewColour2, Settings.NewColour3,
-                      Settings.NewLength, Settings.NewProportion, Settings.NewWaviness, Settings.NewDarkness, null, null);
+            AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewPattern, Settings.NewColour1,
+                      Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion, Settings.NewHoistedFrom,
+                      Settings.NewWaviness, Settings.NewDarkness, null, null);
 
-            AddPoleButton(PanelPage.Create, PanelPage.PoleCreate, "NewPoleButton", Settings.NewPole, Settings.NewRopes, Settings.NewTilt,
-                          Settings.NewLean, null);
-            AddPole(PanelPage.PoleCreate, Settings.NewPole, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
+            AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewRopes,
+                          Settings.NewTilt, Settings.NewLean, null);
+            AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
                     Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, null, null);
 
             Add(new Row
             {
                 Kind = RowKind.Value,
-                Panel = PanelPage.Create,
+                Panel = PanelPage.New,
                 Float = Settings.NewRotation,
                 DefaultFloat = Settings.Defaults.Rotation,
                 Min = 0f, Max = 359f, Step = 1f,
@@ -884,7 +1005,7 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Value,
-                Panel = PanelPage.Create,
+                Panel = PanelPage.New,
                 Float = Settings.NewHeight,
                 DefaultFloat = Settings.Defaults.Height,
                 Min = 0f, Max = 200f, Step = 0.5f,
@@ -893,28 +1014,63 @@ namespace RealFlag.UI
 
             Add(new Row
             {
-                Kind = RowKind.Button,
-                Panel = PanelPage.Create,
-                Id = "PlaceFlags",
-                OnClick = () => FlagTool.Toggle(FlagTool.Mode.Place),
-                Enabled = () => FlagRenderer.Instance != null && FlagPrefab.Info != null,
+                Kind = RowKind.Status,
+                Panel = PanelPage.New,
+                Id = "NewStatus",
+                StatusText = FlagRenderer.Describe,
+            });
+
+            // What the width and height sliders work through: kept in the file, put back by a
+            // reset, but not shown as they are.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Float = Settings.NewLength,
+                DefaultFloat = Settings.Defaults.Length,
+                Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
+                Format = Metres,
             });
 
             Add(new Row
             {
-                Kind = RowKind.Status,
-                Panel = PanelPage.Create,
-                Id = "CreateStatus",
-                StatusText = FlagRenderer.Describe,
+                Kind = RowKind.Value,
+                Int = Settings.NewProportion,
+                DefaultInt = Settings.Defaults.Proportion,
+                Min = FlagSize.MinProportion, Max = FlagSize.MaxProportion, Step = 1f,
             });
         }
 
         /// <summary>
-        /// Existing flags: every flag in the city, a click selects one ("clicking each will allow
-        /// editing"), and the same controls as Create new over the selected flag, applied at once.
+        /// The Flags tab: the button that opens the New flag window, every flag in the city -- a
+        /// click selects one ("clicking each will allow editing") -- and the same controls as a
+        /// new flag's over the selected one, applied at once.
         /// </summary>
         private static void BuildExisting()
         {
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Existing,
+                Id = "NewFlag",
+                OnClick = NewFlagPanel.Toggle,
+                Enabled = () => FlagRenderer.Instance != null && FlagPrefab.Info != null,
+                Id2 = "PickFlag",
+                OnClick2 = () =>
+                {
+                    // With a flag selected: let it go and pick another (the tool stays out).
+                    if (FlagEditor.Selected != 0)
+                    {
+                        FlagEditor.Deselect();
+                        FlagTool.Open(FlagTool.Mode.Pick);
+                    }
+                    else
+                    {
+                        FlagTool.Toggle(FlagTool.Mode.Pick);
+                    }
+                },
+                Enabled2 = () => FlagRenderer.Instance != null,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.FlagList,
@@ -931,13 +1087,24 @@ namespace RealFlag.UI
             });
 
             Func<bool> selected = () => FlagEditor.HasSelection;
-            AddDesign(PanelPage.Existing, Settings.SelCountry, Settings.SelPattern, Settings.SelColour1, Settings.SelColour2, Settings.SelColour3,
-                      Settings.SelLength, Settings.SelProportion, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
+            AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelPattern, Settings.SelColour1,
+                      Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion, Settings.SelHoistedFrom,
+                      Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
 
-            AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", Settings.SelPole, Settings.SelRopes, Settings.SelTilt,
-                          Settings.SelLean, selected);
+            AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelRopes,
+                          Settings.SelTilt, Settings.SelLean, selected);
             AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
                     Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, FlagEditor.ApplyDesign, selected);
+
+            // The pole keeps its length when Move It raises the flag; this finds the ground again.
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.PoleExisting,
+                Id = "PoleToGround",
+                OnClick = FlagEditor.PoleToGround,
+                Enabled = () => selected() && Settings.SelPole != null && Settings.SelPole.value != FlagPoleStyle.None,
+            });
 
             Add(new Row
             {
@@ -968,33 +1135,23 @@ namespace RealFlag.UI
                 Id = "GoToFlag",
                 OnClick = FlagEditor.GoTo,
                 Enabled = selected,
-                Id2 = "PickFlag",
-                OnClick2 = () =>
-                {
-                    // With a flag selected: let it go and pick another (the tool stays out).
-                    if (FlagEditor.Selected != 0)
-                    {
-                        FlagEditor.Deselect();
-                        FlagTool.Open(FlagTool.Mode.Pick);
-                    }
-                    else
-                    {
-                        FlagTool.Toggle(FlagTool.Mode.Pick);
-                    }
-                },
-                Enabled2 = () => FlagRenderer.Instance != null,
+                Id2 = "DeleteFlag",
+                OnClick2 = FlagEditor.ConfirmDelete,
+                Enabled2 = selected,
             });
 
+            // Another like it: its design into the New flag window, which opens to place it.
             Add(new Row
             {
                 Kind = RowKind.Button,
                 Panel = PanelPage.Existing,
                 Id = "CopyToNew",
-                OnClick = FlagEditor.CopyToNew,
-                Enabled = selected,
-                Id2 = "DeleteFlag",
-                OnClick2 = FlagEditor.ConfirmDelete,
-                Enabled2 = selected,
+                OnClick = () =>
+                {
+                    FlagEditor.CopyToNew();
+                    NewFlagPanel.Open();
+                },
+                Enabled = () => selected() && FlagPrefab.Info != null,
             });
         }
 

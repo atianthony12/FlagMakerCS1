@@ -16,10 +16,10 @@ namespace RealFlag
     /// defaults" exist at all. A setting does NOT remember its default.
     ///
     /// The flags themselves are not settings: each is kept with its city (FlagSaveData). What
-    /// is here is the wind when it is not the game's, how the NEXT flag is made (the Create new
-    /// tab), and the mod itself.
-    /// The Existing flags tab's controls are TRANSIENT settings: panel controls over the selected
-    /// flag, never written to the file (Volumetric Explosions' launch platform editor).
+    /// is here is the wind when it is not the game's, how the NEXT flag is made (the New flag
+    /// window), and the mod itself.
+    /// The Flags tab's controls are TRANSIENT settings: panel controls over the selected flag,
+    /// never written to the file (Volumetric Explosions' launch platform editor).
     ///
     /// The first argument of each constructor is the setting's NAME in the file. When what a
     /// setting means changes, give it a new name.
@@ -78,7 +78,7 @@ namespace RealFlag
         /// <summary>With <see cref="WindModes.Fixed"/>: the way the wind blows (and every flag points), degrees, the flags' rotation's.</summary>
         public static FloatSetting WindDirection { get; private set; }
 
-        // ---- Create new: the next flag placed ----
+        // ---- the New flag window: the next flag placed ----
 
         /// <summary>
         /// A country's flag instead of the pattern: FlagCountries' number for it (0: none, the
@@ -91,11 +91,21 @@ namespace RealFlag
         public static IntSetting NewColour2 { get; private set; }
         public static IntSetting NewColour3 { get; private set; }
 
-        /// <summary>Hoist to fly, metres.</summary>
+        /// <summary>Hoist to fly, metres (the Width and Height rows set it: FlagSize).</summary>
         public static FloatSetting NewLength { get; private set; }
 
-        /// <summary>Height / length x 1000, one of <see cref="FlagProportion.Values"/>.</summary>
+        /// <summary>Height / length x 1000, FlagSize.MinProportion to MaxProportion (the Width, Height and Shape rows set it).</summary>
         public static IntSetting NewProportion { get; private set; }
+
+        /// <summary>The edge held on the pole: a FlagHoist value (the side, or the top: a banner).</summary>
+        public static IntSetting NewHoistedFrom { get; private set; }
+
+        /// <summary>
+        /// A flag's width and height change together, its shape kept (the author: "by default the
+        /// aspect is locked, so if they change Width the height changes too, it's linked"). One
+        /// switch for the new flag and the selected one.
+        /// </summary>
+        public static BoolSetting LinkSize { get; private set; }
 
         public static FloatSetting NewWaviness { get; private set; }
 
@@ -135,6 +145,7 @@ namespace RealFlag
         public static IntSetting SelColour3 { get; private set; }
         public static FloatSetting SelLength { get; private set; }
         public static IntSetting SelProportion { get; private set; }
+        public static IntSetting SelHoistedFrom { get; private set; }
         public static FloatSetting SelWaviness { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
         public static FloatSetting SelRotation { get; private set; }
@@ -191,7 +202,7 @@ namespace RealFlag
             public const int WindMode = WindModes.EachFlag;
             public const float WindDirection = 0f;
 
-            // ---- Create new ----
+            // ---- the new flag ----
             /// <summary>None: the pattern below.</summary>
             public const int Country = 0;
             public const int Pattern = FlagPattern.Default;
@@ -202,6 +213,12 @@ namespace RealFlag
             /// <summary>m: a 2 x 3 m flag, the size flown on a town's 8-12 m poles.</summary>
             public const float Length = 3f;
             public const int Proportion = FlagProportion.Default;
+
+            /// <summary>From its side, as flags fly.</summary>
+            public const int HoistedFrom = FlagHoist.Side;
+
+            /// <summary>Width and height together.</summary>
+            public const bool LinkSize = true;
             public const float Waviness = 1f;
 
             /// <summary>The colours as designed.</summary>
@@ -268,6 +285,8 @@ namespace RealFlag
                 NewColour3 = new IntSetting("NewColour3", Defaults.Colour3);
                 NewLength = new FloatSetting("NewLength", Defaults.Length);
                 NewProportion = new IntSetting("NewProportion", Defaults.Proportion);
+                NewHoistedFrom = new IntSetting("NewHoistedFrom", Defaults.HoistedFrom);
+                LinkSize = new BoolSetting("LinkSize", Defaults.LinkSize);
                 NewWaviness = new FloatSetting("NewWaviness", Defaults.Waviness);
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
                 NewRotation = new FloatSetting("NewRotation", Defaults.Rotation);
@@ -288,6 +307,7 @@ namespace RealFlag
                 SelColour3 = new IntSetting("SelColour3", Defaults.Colour3, true);
                 SelLength = new FloatSetting("SelLength", Defaults.Length, true);
                 SelProportion = new IntSetting("SelProportion", Defaults.Proportion, true);
+                SelHoistedFrom = new IntSetting("SelHoistedFrom", Defaults.HoistedFrom, true);
                 SelWaviness = new FloatSetting("SelWaviness", Defaults.Waviness, true);
                 SelDarkness = new FloatSetting("SelDarkness", Defaults.Darkness, true);
                 SelRotation = new FloatSetting("SelRotation", Defaults.Rotation, true);
@@ -319,7 +339,7 @@ namespace RealFlag
         }
 
         /// <summary>
-        /// The Create new tab's flag, as a spec: what the next placed flag will be, and what a
+        /// The New flag window's flag, as a spec: what the next placed flag will be, and what a
         /// flag prop with no spec of its own (placed by Find It, say) is given.
         /// </summary>
         public static FlagSpec NewSpec()
@@ -336,6 +356,7 @@ namespace RealFlag
             spec.Colour3 = (uint)NewColour3.value;
             spec.Length = NewLength.value;
             spec.Proportion = NewProportion.value;
+            spec.HoistedFrom = NewHoistedFrom.value;
             spec.Waviness = NewWaviness.value;
             spec.Darkness = NewDarkness.value;
             spec.Pole = NewPole.value;

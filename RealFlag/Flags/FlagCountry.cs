@@ -5,7 +5,7 @@ using System.Text;
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// One flag the Create new tab offers as it is, drawn from its image: a country's (or a
+    /// One flag the design rows offer as it is, drawn from its image: a country's (or a
     /// territory's, one of the United Kingdom's nations', the EU's, the UN's). Not customisable
     /// (the author: "just svg or texture of countries' flags, not customizable"): its design and
     /// its proportions are the image's.

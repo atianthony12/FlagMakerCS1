@@ -6,12 +6,12 @@ using UnityEngine;
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// The mod's tool on the map, in two modes. PLACE (the Create new tab's button): the Create
-    /// new flag follows the cursor -- the real cloth, blowing -- at the chosen height over the
-    /// ground or roof under it; left click places it, again and again; the right button turns it
-    /// as the game's props turn (a click a step, a drag freely); Esc puts the tool away. PICK
-    /// (the Existing flags tab's): the flag under the cursor lights up, a click selects it; the
-    /// selected flag carries the gizmo (FlagGizmo) -- drag its arrows to move it, its rings to
+    /// The mod's tool on the map, in two modes. PLACE (while the New flag window is open): the new
+    /// flag follows the cursor -- the real cloth, blowing -- at the chosen height over the ground
+    /// or roof under it; left click places it, again and again; the right button turns it as the
+    /// game's props turn (a click a step, a drag freely); Esc puts the tool away, and the window
+    /// with it. PICK (the Flags tab's): the flag under the cursor lights up, a click selects it;
+    /// the selected flag carries the gizmo (FlagGizmo) -- drag its arrows to move it, its rings to
     /// turn it -- and a click on nothing, a right click or Esc lets it go.
     /// </summary>
     /// <remarks>
@@ -28,8 +28,8 @@ namespace RealFlag.Flags
     /// Placing, the right button is PropTool's (its IL, mode Single): pressed over the city, a
     /// drag turns the flag by the pointer's sideways travel ("Mouse X" x 10 degrees,
     /// DeltaAngle), and let go without one it turns to the next 45 degrees down (ToggleAngle:
-    /// round(a / 45 - 1) x 45). The turn is the Create new rotation itself, so the panel shows
-    /// it. Unlike PropTool's prop, the flag holds where it stood while a drag turns it.
+    /// round(a / 45 - 1) x 45). The turn is the new flag's rotation itself, so the New flag
+    /// window shows it. Unlike PropTool's prop, the flag holds where it stood while a drag turns it.
     ///
     /// Esc (and, picking, the right button) steps back one thing at a time: a drag (the flag
     /// goes back where it was, or the new flag the way it pointed), then the selection, then the
@@ -300,7 +300,7 @@ namespace RealFlag.Flags
             return new Vector3(hit.x, hit.y + Mathf.Max(0f, height), hit.z);
         }
 
-        /// <summary>The Create new rotation, degrees: the way the next flag points.</summary>
+        /// <summary>The new flag's rotation, degrees: the way the next flag points.</summary>
         private static float NewDegrees()
         {
             return Settings.NewRotation != null ? Settings.NewRotation.value : Settings.Defaults.Rotation;
@@ -311,7 +311,7 @@ namespace RealFlag.Flags
             return NewDegrees() * Mathf.Deg2Rad;
         }
 
-        /// <summary>Turns the next flag: the Create new rotation in whole degrees, 0..359, as its slider has them.</summary>
+        /// <summary>Turns the next flag: its rotation in whole degrees, 0..359, as its slider has them.</summary>
         private static void SetNewDegrees(float degrees)
         {
             if (Settings.NewRotation != null)

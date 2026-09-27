@@ -30,7 +30,8 @@ namespace RealFlag.Flags
     /// <summary>
     /// A flag's outline where Move It (and the bulldozer) highlight a prop: the game's
     /// PropTool.RenderOverlay draws a disc the prefab's width round the prop's position, which for
-    /// a flag is a small ring at its top corner. This draws it round the whole cloth instead.
+    /// a flag is a small ring at its top corner. This draws it round everywhere the flag's cloth
+    /// can reach, and its pole, instead (FlagOutline: from its place and size, still while it waves).
     /// </summary>
     [HarmonyPatch(typeof(PropTool), "RenderOverlay",
                   new[] { typeof(RenderManager.CameraInfo), typeof(PropInfo), typeof(Vector3), typeof(float), typeof(float), typeof(Color) })]
@@ -42,11 +43,11 @@ namespace RealFlag.Flags
                 return true;
 
             FlagRenderer renderer = FlagRenderer.Instance;
-            Bounds world;
-            if (renderer == null || !renderer.TryFindAt(position, out world))
+            FlagOutline outline;
+            if (renderer == null || !renderer.TryFindAt(position, out outline))
                 return true;
 
-            FlagRenderer.Outline(cameraInfo, world, color);
+            FlagRenderer.Outline(cameraInfo, outline, color);
             return false;
         }
     }

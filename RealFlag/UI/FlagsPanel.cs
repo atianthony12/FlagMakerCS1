@@ -6,22 +6,27 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The in-game panel (F6): Create new (the next flag, and the button that places it), Existing
-    /// flags (every flag in the city; a click selects one to edit) and Settings (the wind -- the
-    /// game's unless the player sets their own -- and the cloth). The author: "A small in-game
-    /// menu, with two tabs: Create new and Existing Flags"; then "Wind should be by default based
-    /// on the game's wind, and can be overridden in a 3rd tab, Settings".
+    /// The in-game panel (F6), two tabs: Flags (every flag in the city -- a click selects one to
+    /// edit -- and the "+ New flag" button that opens the <see cref="NewFlagPanel"/> beside it) and
+    /// Settings (the wind -- the game's unless the player sets their own -- and the cloth). The
+    /// author first asked for "two tabs: Create new and Existing Flags", then "Wind should be by
+    /// default based on the game's wind, and can be overridden in a 3rd tab, Settings", then
+    /// "Let's remove the Create New tab. Rather, by default we'll show the existing flags, and a
+    /// plus button somewhere to add new flag".
     /// </summary>
     /// <remarks>
     /// Volumetric Explosions' panel, cut down and grown where flags need it: the rows are built
     /// and refreshed by a <see cref="RowSet"/> from <see cref="SettingsCatalog"/>; a colour row is
     /// a swatch that opens the <see cref="ColourPicker"/> (a design's three colours share one
-    /// line); the list is <see cref="FlagListView"/>; two buttons can share a line; each tab's
-    /// Flagpole button opens the <see cref="PolePanel"/> beside it. It opens at the LEFT of the
-    /// screen, clear of the middle where flags are placed.
+    /// line); the list is <see cref="FlagListView"/>; two buttons can share a line; the Flagpole
+    /// button opens the <see cref="PolePanel"/> beside it. It opens at the LEFT of the screen,
+    /// clear of the middle where flags are placed.
     /// </remarks>
     public class FlagsPanel : UIPanel
     {
+        /// <summary>Its name among the view's components (the popups open beside it).</summary>
+        public const string ComponentName = "RealFlagPanel";
+
         private const float PanelWidth = 480f;
         private const float MinPanelHeight = 180f;
         private const float TitleBarHeight = 40f;
@@ -29,7 +34,7 @@ namespace RealFlag.UI
         private const float Margin = 14f;
         public const float HeadingHeight = 24f;
 
-        private static readonly PanelPage[] Tabs = { PanelPage.Create, PanelPage.Existing, PanelPage.Settings };
+        private static readonly PanelPage[] Tabs = { PanelPage.Existing, PanelPage.Settings };
 
         /// <summary>Where to open, when replacing a panel that was already on screen. Null = the default spot.</summary>
         public Vector3? InitialPosition;
@@ -57,7 +62,7 @@ namespace RealFlag.UI
             get { return _instance != null && _instance.isVisible; }
         }
 
-        /// <summary>The pick tool chose a flag: show it in the Existing flags tab.</summary>
+        /// <summary>The pick tool chose a flag: show it in the Flags tab.</summary>
         public static void ShowExisting()
         {
             if (_instance == null)
@@ -65,8 +70,8 @@ namespace RealFlag.UI
 
             if (!_instance.isVisible)
                 _instance.Show();
-            if (_instance._page != 1)
-                _instance.SelectPage(1);
+            if (_instance._page != 0)
+                _instance.SelectPage(0);
             _instance.RefreshValues();
         }
 
@@ -98,7 +103,7 @@ namespace RealFlag.UI
             size = new Vector2(PanelWidth, MinPanelHeight);
             canFocus = true;
             isInteractive = true;
-            name = "RealFlagPanel";
+            name = ComponentName;
 
             BuildTitleBar();
 
@@ -121,8 +126,9 @@ namespace RealFlag.UI
                     return;
                 }
 
-                // Closed: the tool (and with it the selection) and the pickers go with it.
+                // Closed: the tool (and with it the selection), the New flag window and the pickers go with it.
                 FlagTool.PutAway();
+                NewFlagPanel.Close();
                 ColourPicker.Close();
                 CountryPicker.Close();
                 PolePanel.Close();
@@ -161,11 +167,12 @@ namespace RealFlag.UI
             RefreshValues();
         }
 
-        /// <summary>Re-reads every control from its setting; a write only where something changed.</summary>
+        /// <summary>Re-reads every control from its setting (the New flag window's and the Flagpole popup's too); a write only where something changed.</summary>
         public void RefreshValues()
         {
             if (_rows != null)
                 _rows.RefreshValues();
+            NewFlagPanel.RefreshOpen();
             PolePanel.RefreshOpen();
         }
 
@@ -232,19 +239,20 @@ namespace RealFlag.UI
             float top = TitleBarHeight + TabHeight + Margin * 0.5f;
             height = Mathf.Max(MinPanelHeight, top + content + Margin);
 
-            // The selection and its gizmo belong to Existing flags; placing to Create new.
-            if (index != 1)
+            // The selection and its gizmo belong to the Flags tab (the New flag window stands on its own).
+            if (index != 0)
             {
                 if (FlagTool.IsPicking)
                     FlagTool.PutAway();
                 FlagEditor.Deselect();
+                PolePanel.CloseIf(PanelPage.PoleExisting);
             }
 
-            if (index != 0 && FlagTool.IsPlacing)
-                FlagTool.PutAway();
-            ColourPicker.Close();
-            CountryPicker.Close();
-            PolePanel.Close();
+            if (!NewFlagPanel.IsOpen)
+            {
+                ColourPicker.Close();
+                CountryPicker.Close();
+            }
         }
 
         /// <summary>A little in from the left edge, a third of the way down: clear of the middle of the screen.</summary>
@@ -259,6 +267,7 @@ namespace RealFlag.UI
             ColourPicker.DestroyPicker();
             CountryPicker.DestroyPicker();
             PolePanel.DestroyPanel();
+            NewFlagPanel.DestroyPanel();
 
             if (_instance == this)
                 _instance = null;

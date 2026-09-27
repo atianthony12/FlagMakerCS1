@@ -247,6 +247,51 @@ namespace RealFlag.UI
             return new Color32((byte)((rgb >> 16) & 0xFF), (byte)((rgb >> 8) & 0xFF), (byte)(rgb & 0xFF), 255);
         }
 
+        /// <summary>A button of a row of choices lit (the choice made, the shape the flag has) or not, as the flag list lights its selected row.</summary>
+        public static void SetLit(UIButton button, bool lit)
+        {
+            button.normalBgSprite = lit ? "ButtonMenuFocused" : "ButtonMenu";
+            button.focusedBgSprite = button.normalBgSprite;
+            button.textColor = lit ? new Color32(255, 255, 255, 255) : new Color32(210, 225, 240, 255);
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<int, Texture2D> Solids =
+            new System.Collections.Generic.Dictionary<int, Texture2D>();
+
+        /// <summary>
+        /// A texture of one colour, a pixel stretched to any size: the panel's small drawings
+        /// (FlagIcon) at sizes the atlas's sliced sprites do not keep square at. Made once a
+        /// colour, kept through the cities (Resources.UnloadUnusedAssets passes HideAndDontSave).
+        /// </summary>
+        public static Texture2D Solid(Color32 colour)
+        {
+            int key = (colour.r << 24) | (colour.g << 16) | (colour.b << 8) | colour.a;
+            Texture2D texture;
+            if (Solids.TryGetValue(key, out texture) && texture != null)
+                return texture;
+
+            texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+            {
+                name = "RealFlag solid",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            texture.SetPixel(0, 0, colour);
+            texture.Apply(false, false);
+            Solids[key] = texture;
+            return texture;
+        }
+
+        /// <summary>A block of one colour on a component, not in the pointer's way.</summary>
+        public static UITextureSprite AddBlock(UIComponent parent, Color32 colour)
+        {
+            UITextureSprite block = parent.AddUIComponent<UITextureSprite>();
+            block.texture = Solid(colour);
+            block.isInteractive = false;
+            return block;
+        }
+
         public static UIButton AddTab(UIComponent parent, string text, Vector2 size, Vector3 position)
         {
             UIButton tab = parent.AddUIComponent<UIButton>();
@@ -331,6 +376,64 @@ namespace RealFlag.UI
             return code == KeyCode.LeftControl || code == KeyCode.RightControl
                 || code == KeyCode.LeftShift || code == KeyCode.RightShift
                 || code == KeyCode.LeftAlt || code == KeyCode.RightAlt;
+        }
+    }
+
+    /// <summary>
+    /// A little flag drawn in a box on a button: its cloth at a shape as seen (height over width)
+    /// and the edge it is hoisted from, a gilt bar along its side or its top -- the panel's shapes
+    /// and its Hoisted from choice (the author: "maybe add a small square/rectangle/etc icons
+    /// based on the ratio").
+    /// </summary>
+    public sealed class FlagIcon
+    {
+        /// <summary>The cloth, light as a flag on the dark button; the bar, the pole's gilt (FlagSpec.DefaultTopColour).</summary>
+        private static readonly Color32 ClothColour = new Color32(214, 226, 238, 255);
+        private static readonly Color32 BarColour = new Color32(212, 175, 55, 255);
+
+        private readonly UITextureSprite _cloth, _bar;
+        private readonly Vector3 _at;
+        private readonly Vector2 _box;
+
+        /// <param name="parent">The button it is drawn on.</param>
+        /// <param name="at">The box's top left corner on it.</param>
+        /// <param name="box">The most it may take.</param>
+        public FlagIcon(UIComponent parent, Vector3 at, Vector2 box)
+        {
+            _at = at;
+            _box = box;
+            _cloth = UIBuilder.AddBlock(parent, ClothColour);
+            _bar = UIBuilder.AddBlock(parent, BarColour);
+        }
+
+        /// <summary>The flag at <paramref name="ratio"/> (height over width, as seen), as large as the box takes, hoisted from <paramref name="hoist"/> (FlagHoist).</summary>
+        public void Show(float ratio, int hoist)
+        {
+            ratio = Mathf.Max(ratio, 0.01f);
+            float w = _box.x, h = _box.x * ratio;
+            if (h > _box.y)
+            {
+                h = _box.y;
+                w = _box.y / ratio;
+            }
+
+            w = Mathf.Max(3f, Mathf.Round(w));
+            h = Mathf.Max(3f, Mathf.Round(h));
+            Vector3 corner = _at + new Vector3(Mathf.Round(0.5f * (_box.x - w)), Mathf.Round(0.5f * (_box.y - h)));
+            _cloth.size = new Vector2(w, h);
+            _cloth.relativePosition = corner;
+
+            // The bar a pixel proud of the cloth, as the pole or the crossbar it hangs from.
+            if (hoist == Flags.FlagHoist.Top)
+            {
+                _bar.size = new Vector2(w + 4f, 2f);
+                _bar.relativePosition = corner + new Vector3(-2f, -1f);
+            }
+            else
+            {
+                _bar.size = new Vector2(2f, h + 4f);
+                _bar.relativePosition = corner + new Vector3(-1f, -2f);
+            }
         }
     }
 }

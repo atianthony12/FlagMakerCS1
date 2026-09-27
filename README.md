@@ -6,45 +6,54 @@ game's own lighting: the sun and its shadows, the street lights at night, the fo
 
 A flag comes **without a pole** unless you ask for one. Its reference point is the top corner of
 its hoist edge, where a pole's halyard would clip on, and the hoist edge hangs down from it --
-straight down, or along a tilted pole. Put it on a pole of your choosing, a mast, a roof or a
-facade; or let the mod draw a flagpole under it.
+straight down, or along a tilted pole; or, for a banner hoisted from its top, runs across from
+it. Put it on a pole of your choosing, a mast, a roof or a facade; or let the mod draw a
+flagpole under it.
 
 ## Using it
 
-Open the panel with **F6** (or its Unified UI button).
+Open the panel with **F6** (or its Unified UI button). It opens on the city's **Flags**.
 
-**Create new**: pick a country's flag -- every country and territory, England, Scotland,
-Wales, Northern Ireland, the EU and the UN, flown as it is at its own proportions (search by
-name or code) -- or a pattern (plain, bands, crosses, a saltire, a canton, stripes and
-canton, a disc, a hoist triangle, a diagonal band, a border) in up to three colours (a palette,
-hue, saturation and brightness, or a hex code typed, pasted or copied); then the size (hoist to
-fly, 0.5 to 30 m), the proportions
-(1:1 to 1:2, a pattern's), how wavy the cloth is, how dark (for a flag whose white or yellow
-glares in a bright sun: its colours as if dyed darker, up to 80%), the way it points and its
-height over the ground. Press
-**Place flags** and click where the pole would stand: the flag appears, blowing, at the chosen
-height over whatever is under the cursor (ground, roof, road). Click again for another. The
-right button turns it as the game's props turn: a right click turns it 45 degrees, a drag with
-the right button turns it freely (it holds its place meanwhile). Esc when done.
+**+ New flag** (at the top of the Flags tab) opens the new flag's window beside the panel, and
+the flag follows the pointer, blowing, at the chosen height over whatever is under it (ground,
+roof, road): click to place it, and again for more. The right button turns it as the game's
+props turn: a right click turns it 45 degrees, a drag with the right button turns it freely (it
+holds its place meanwhile). Close the window, or press Esc, when done. In the window: a
+country's flag -- every country and territory, England, Scotland, Wales, Northern Ireland, the
+EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
+(plain, bands, crosses, a saltire, a canton, stripes and canton, a disc, a hoist triangle, a
+diagonal band, a border) in up to three colours (a palette, hue, saturation and brightness, or
+a hex code typed, pasted or copied); its **shape** as it hangs, from a tall banner to a long
+flag, picked from little pictures of each; its **width** and **height** (0.5 to 30 m each,
+changing together unless you switch that off, from 1:5 to 5:1); the edge it is **hoisted
+from** -- its side, as flags fly, or its top, as a banner hangs from a crossbar (its design then
+turns as a flag hung upright does: the canton at the top on the left); how wavy the cloth is,
+how dark (for a flag whose white or yellow glares in a bright sun: its colours as if dyed
+darker, up to 80%), the way it points and its elevation over the ground.
 
-**Flagpole** (a button in each tab, which opens beside the panel): none by default -- the flag
+**Flagpole** (a button in the new flag's window and in the Flags tab, which opens beside them): none by default -- the flag
 is for a pole of your own -- or a pole the mod draws from whatever the flag stands over up to
 the flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
 a flash collar at its foot, a truck at its top and a gilt ball, a flat cap or a spear on it,
 one or two halyard lines, your colours for the pole, its top and its ropes, and a thickness to
 taste. With ropes, the flag hangs from its top and bottom clips only, as a hoisted flag does,
 and its edge bows out between them in the wind; without, it is held along its whole edge. The
-cloth keeps off the pole: a flag the wind turns back over its pole wraps round it. Here
+cloth keeps off the pole: a flag the wind turns back over its pole wraps round it. A banner
+hoisted from its top gets a crossbar instead, reaching to a wall it hangs near. The pole is
+part of the flag: raised or lowered with Move It, the flag takes its pole with it. The flag's
+own **Elevation** slides it up or down its pole, which still reaches the ground, and **Pole down
+to the ground** (a selected flag's Flagpole window) sends a moved pole down to whatever stands
+under it again. Here
 too the pole's **tilt** and **lean** (a wall-mounted pole leans 30 to 45 degrees, a horizontal
 one 90) -- the flag hangs from the tilted line whether a pole is drawn or not.
 
-**Existing flags**: every flag in the city. Click one in the list (or **Pick on the map**) to
-select it: its design, pole, rotation and height are in the tab, and it carries a **gizmo** --
-drag its red, green and blue arrows to move it along its own axes (the white knob slides it
-anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap, Shift to
-go finely. Click elsewhere on the map, right-click or press Esc to let it go (Esc during a drag
-puts the flag back). **Go to** flies the camera there, **Copy to Create new** takes its design
-for the next ones, **Delete** removes it.
+**Flags**: every flag in the city. Click one in the list (or **Pick on the map**) to
+select it: its design, size, pole, rotation and elevation are in the tab, and it carries a
+**gizmo** -- drag its red, green and blue arrows to move it along its own axes (the white knob
+slides it anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap,
+Shift to go finely. Click elsewhere on the map, right-click or press Esc to let it go (Esc during
+a drag puts the flag back). **Go to** flies the camera there, **Delete** removes it, **New flag
+like this** opens the new flag's window with its design, to place another.
 
 **Settings**: the **wind** is the game's own by default -- its direction, which turns slowly
 over time; a gentle breeze made stronger by rain and calmer by fog, as the game's weather has
@@ -61,10 +70,16 @@ redesign comes to life under your hand and settles back into a still a moment af
 ### With Move It
 
 Flags are the game's props, so **Move It** selects, moves, turns, raises, copies, mirrors and
-deletes them like any other, with undo. A copied flag keeps its design. A flag is picked
-anywhere on or near its cloth, along its hoist edge or on its pole -- a wide target even seen
-edge on, however high it flies -- and Move It's highlight covers the whole flag and its pole:
-these need the Harmony mod, which the game offers to subscribe to when it is missing.
+deletes them like any other, with undo. A copied flag keeps its design, and a flag raised or
+lowered keeps its pole's length: the whole flag moves, pole and all. Move It's highlight is a
+steady disc round everywhere the flag can reach, and its pole. Move It picks the flag by where
+its cloth has flown over the last few seconds and a margin round it, its hoist and its pole: a
+target that holds still while the cloth flutters and is never thinner than a fingertip on the
+screen, however far off, edge on or high it flies, without reaching far over what stands round
+it (the game's own tools, the bulldozer among them, keep to the cloth itself, its hoist and its
+pole). A pole asset right beside a flag's hoist can be behind that target: Move It's step-over
+or its filters pick it. This needs the Harmony mod, which the game offers to subscribe to when
+it is missing.
 
 ## How it works
 
@@ -110,8 +125,11 @@ these need the Harmony mod, which the game offers to subscribe to when it is mis
   grommets and hems. Dry, it is matte; in the rain it gets wet as the city's ground does
   (darker, with the water's glints on its folds), and dries with it.
 - The cloth is stepped on threads of its own (one per six of the machine's, up to four), 60
-  times a second, while the game draws the frame; the nearest flags first, within a time
-  budget that grows with the frame's length, and flags that had to wait go first next time.
+  times a second, while the game draws the frame; the flags biggest on the screen first, within
+  a time budget that grows with the frame's length, and flags that had to wait go first next
+  time. How far a flag is drawn and moves goes by its size on the screen, not a fixed distance:
+  a zoomed camera keeps a far flag it shows large (a 3 m flag with the game's usual camera is
+  drawn to about 4 km and waves to about 1.3 km; a 20 m flag several times as far).
 
 The designs are saved with the city. Without the mod, a city simply has no flags.
 
@@ -157,9 +175,14 @@ Written from scratch after these, with thanks (no code from them is included):
   1995) -- the drawn surface.
 - The gizmo follows the idea of the 3-axis gizmos of *Procedural Objects* (a Cities: Skylines
   mod) and of 3-D editors' transform handles -- the idea only, no code.
-- K. Perlin, *Improving Noise* (2002); C. Wellons' lowbias32 hash; T. Möller and B. Trumbore,
-  *Fast, Minimum Storage Ray/Triangle Intersection* (1997); C. Ericson, *Real-Time Collision
-  Detection* (2005) -- picking a flag; G. Fiedler, *Fix Your Timestep!* (2004).
+- K. Perlin, *Improving Noise* (2002); C. Wellons' lowbias32 hash; C. Ericson, *Real-Time
+  Collision Detection* (2005) -- picking a flag; the OpenGL Programming Guide's picking region a
+  few pixels round the cursor (gluPickMatrix) -- the least a flag's pick target is on the
+  screen; U. Zölzer, *Digital Audio Signal Processing* (2008), dynamic range control's peak
+  measurement (an instant attack, an exponential release) -- the pick target held over the
+  flag's flutter; G. Fiedler, *Fix Your Timestep!* (2004).
+- The United States Flag Code, 4 U.S.C. § 7(i) -- a flag hung upright shows its union at the
+  top, to the flag's own right: the design of a flag hoisted from its top.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
 

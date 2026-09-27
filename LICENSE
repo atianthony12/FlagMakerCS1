@@ -90,11 +90,20 @@ techniques were written from scratch after them, and they are credited here with
   The gizmo:
     the idea of Procedural Objects' 3-axis gizmos (a Cities: Skylines mod) and of 3-D
       editors' transform handles -- the idea only; none of their code.
+  Picking a flag:
+    C. Ericson, "Real-Time Collision Detection" (2005) -- the closest points of two
+      segments and the ray against a turned box: the flags' pick volumes.
+    M. Woo, J. Neider, T. Davis and D. Shreiner, "OpenGL Programming Guide", ch.
+      "Selection and Feedback" -- the picking region a few pixels round the cursor
+      (gluPickMatrix): the least a flag's pick target is on the screen.
+    U. Zoelzer, "Digital Audio Signal Processing", 2nd ed. (2008), "Dynamic Range
+      Control" -- the peak measurement's instant attack and exponential release: the
+      pick target held over the flag's flutter.
+  A flag hung upright:
+    The United States Flag Code, 4 U.S.C. 7(i) -- "the union should be uppermost and to
+      the flag's own right": the design of a flag hoisted from its top.
   And:
     K. Perlin, "Improving Noise", SIGGRAPH 2002 -- the quintic fade.
     C. Wellons, the lowbias32 integer hash.
-    T. Moeller and B. Trumbore, "Fast, Minimum Storage Ray/Triangle Intersection" (1997).
-    C. Ericson, "Real-Time Collision Detection" (2005) -- the closest points of two
-      segments and the ray against a turned box: the flags' pick volumes.
     G. Fiedler, "Fix Your Timestep!" (2004).
     J. Hable, the "Uncharted 2" filmic curve (2010) -- the preview's tone mapping only.

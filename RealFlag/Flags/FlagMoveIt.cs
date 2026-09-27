@@ -22,7 +22,7 @@ namespace RealFlag.Flags
     /// does for nodes, segments, buildings and trees; CloneActionBase.Do calls Paste on each
     /// clone with what Copy returned (Ctrl+C / Ctrl+V, duplicate, mirror); and
     /// BulldozeAction.UndoImplementation calls Paste on the prop it brings back. Without this, a
-    /// pasted flag would get the Create new tab's design instead of the original's.
+    /// pasted flag would get the new flag's design instead of the original's.
     /// </summary>
     /// <remarks>
     /// The record is the FlagSpec itself; Move It's exports (its XML) carry it as base 64 of the

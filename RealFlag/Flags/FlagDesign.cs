@@ -83,8 +83,10 @@ namespace RealFlag.Flags
 
     /// <summary>
     /// A flag's proportions, height : length (the hoist : the fly), stored by VALUE as height /
-    /// length x 1000. APPEND ONLY. The most flown: 2:3 (most of Europe, much of the world), 1:2
-    /// (the United Kingdom, Canada, Russia's 2:3 aside), 3:5, 10:19 (the United States), 1:1.
+    /// length x 1000, any value from <see cref="FlagSize.MinProportion"/> to
+    /// <see cref="FlagSize.MaxProportion"/> (the Width and Height sliders set any). The names of
+    /// the most flown: 2:3 (most of Europe, much of the world), 1:2 (the United Kingdom, Canada),
+    /// 3:5, 10:19 (the United States), 1:1.
     /// </summary>
     public static class FlagProportion
     {
@@ -92,9 +94,16 @@ namespace RealFlag.Flags
         public static readonly string[] Names = { "1:1", "3:4", "2:3", "5:8", "3:5", "4:7", "10:19", "1:2" };
         public const int Default = 667;
 
+        /// <summary>
+        /// The panel's shapes, as the flag is SEEN hanging (its height over its width x 1000), from
+        /// the tallest to the widest: a banner's 3:1, 2:1 and 3:2, the square, then the flags' 2:3,
+        /// 3:5 and 1:2.
+        /// </summary>
+        public static readonly int[] Shapes = { 3000, 2000, 1500, 1000, 667, 600, 500 };
+
         public static float Ratio(int value)
         {
-            return Math.Max(200, Math.Min(value, 2000)) / 1000f;
+            return FlagSize.Ratio(value);
         }
 
         public static string Name(int value)
@@ -105,9 +114,216 @@ namespace RealFlag.Flags
                     return Names[i];
             }
 
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+            // Taller than long (a flag hung upright): its small numbers where it has them -- 3:2,
+            // 2:1, 3:1 -- or "1.22:1" (Nepal's own).
+            if (value > 1000)
+            {
+                for (int b = 1; b <= 4; b++)
+                {
+                    int a = (int)Math.Round(value * b / 1000.0);
+                    if (Math.Abs(a * 1000.0 / b - value) <= 0.002 * value)
+                        return a + ":" + b;
+                }
+
+                return Ratio(value).ToString("0.##", inv) + ":1";
+            }
+
             // Off the list (a country's own, as its image has it): "1:2.55" for Qatar's 11:28 --
             // the image's rounded pixels do not give the official fraction back.
-            return "1:" + (1f / Ratio(value)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            return "1:" + (1f / Ratio(value)).ToString("0.##", inv);
+        }
+    }
+
+    /// <summary>
+    /// Which edge of a flag is hoisted -- held on the pole or the halyard: its SIDE, as flags fly,
+    /// or its TOP, as a banner hangs from a crossbar or an arm. Stored by VALUE in the save and
+    /// the settings file: APPEND ONLY.
+    /// </summary>
+    /// <remarks>
+    /// Hoisted from the top, the hoist runs across along the flag's heading and the fly hangs
+    /// down; the design keeps its hoist edge on the hoist, so it shows turned the way a flag hung
+    /// upright is shown -- its canton at the top on the left, to the flag's own right (the United
+    /// States Flag Code, 4 U.S.C. 7(i): "When displayed either horizontally or vertically against
+    /// a wall, the union should be uppermost and to the flag's own right, that is, to the
+    /// observer's left").
+    /// </remarks>
+    public static class FlagHoist
+    {
+        public const int Side = 0;
+        public const int Top = 1;
+
+        public static readonly int[] Values = { Side, Top };
+        public static readonly string[] NameKeys = { "Hoist.Side", "Hoist.Top" };
+
+        public static bool IsKnown(int value)
+        {
+            return value == Side || value == Top;
+        }
+
+        public static string LogName(int value)
+        {
+            return value == Top ? "top" : "side";
+        }
+    }
+
+    /// <summary>
+    /// A flag's size as it is SEEN hanging -- its width across and its height down -- against the
+    /// cloth's own: its length from the hoist to the fly and its proportion (hoist / length x
+    /// 1000). Hoisted from its side, the width is the length; from its top, the hoist runs across
+    /// and the length hangs down. PURE: the panel's Width, Height and Shape rows, and the tests.
+    /// </summary>
+    /// <remarks>
+    /// The author: "the user should now be able to control both width and height, but by default
+    /// the aspect is locked, so if they change Width the height changes too". Linked, a new width
+    /// or height scales the whole flag (its proportion exactly kept); unlinked, it changes that side
+    /// alone, and the other follows only as far as the proportions must stay within 1:5 to 5:1. A
+    /// shape keeps the flag's longer side.
+    /// </remarks>
+    public static class FlagSize
+    {
+        /// <summary>Each side's least and most, metres (a flag's length's: FlagSpec.MinLength, MaxLength).</summary>
+        public const float Min = 0.5f;
+        public const float Max = 30f;
+
+        /// <summary>The proportions a flag may have, height / length x 1000: 1:5 to 5:1.</summary>
+        public const int MinProportion = 200;
+        public const int MaxProportion = 5000;
+
+        /// <summary>The widest a flag may be for its height, and the tallest for its width.</summary>
+        private const float MostStretched = MaxProportion / 1000f;
+
+        /// <summary>Height / length, the proportion pulled into range.</summary>
+        public static float Ratio(int proportion)
+        {
+            return ClampProportion(proportion) / 1000f;
+        }
+
+        public static int ClampProportion(int proportion)
+        {
+            return Math.Max(MinProportion, Math.Min(proportion, MaxProportion));
+        }
+
+        /// <summary>How wide and how tall the flag is seen, metres.</summary>
+        public static void Shown(float length, int proportion, int hoisted, out float width, out float height)
+        {
+            float hoist = length * Ratio(proportion);
+            if (hoisted == FlagHoist.Top)
+            {
+                width = hoist;
+                height = length;
+            }
+            else
+            {
+                width = length;
+                height = hoist;
+            }
+        }
+
+        /// <summary>Its shape as seen: height over width x 1000 (what the panel's shapes are).</summary>
+        public static int ShownProportion(int proportion, int hoisted)
+        {
+            proportion = ClampProportion(proportion);
+            return hoisted == FlagHoist.Top ? (int)Math.Round(1000000.0 / proportion) : proportion;
+        }
+
+        /// <summary>The cloth's proportion for a shape as seen (height over width x 1000).</summary>
+        public static int ClothProportion(int shown, int hoisted)
+        {
+            shown = ClampProportion(shown);
+            return ClampProportion(hoisted == FlagHoist.Top ? (int)Math.Round(1000000.0 / shown) : shown);
+        }
+
+        /// <summary>The cloth for a flag seen this wide and this tall: its length and proportion, each side within <see cref="Min"/> to <see cref="Max"/>.</summary>
+        public static void FromShown(float width, float height, int hoisted, out float length, out int proportion)
+        {
+            bool top = hoisted == FlagHoist.Top;
+            float fly = Clamp(top ? height : width, Min, Max);
+            float along = Clamp(top ? width : height, Min, Max);
+            length = fly;
+            proportion = ClampProportion((int)Math.Round(1000.0 * along / fly));
+        }
+
+        /// <summary>
+        /// A new width (or, <paramref name="height"/> true, a new height) for the flag: linked, the
+        /// whole flag scaled to it, as far as both sides stay within <see cref="Min"/> to
+        /// <see cref="Max"/>; otherwise that side alone, the other pushed only as far as the
+        /// proportions must stay within 1:5 to 5:1. The cloth's length and proportion after it.
+        /// </summary>
+        public static void Resize(float length, int proportion, int hoisted, bool height, float value, bool linked,
+                                  out float newLength, out int newProportion)
+        {
+            float w, h;
+            Shown(length, proportion, hoisted, out w, out h);
+            value = Clamp(value, Min, Max);
+
+            if (linked)
+            {
+                float current = Math.Max(height ? h : w, 1e-4f);
+                float smaller = Math.Max(Math.Min(w, h), 1e-4f), larger = Math.Max(Math.Max(w, h), 1e-4f);
+                float scale = Clamp(value / current, Min / smaller, Max / larger);
+                newLength = length * scale;
+                newProportion = ClampProportion(proportion);
+                return;
+            }
+
+            float nw = height ? w : value, nh = height ? value : h;
+            if (height)
+                nw = Clamp(nw, Math.Max(Min, nh / MostStretched), Math.Min(Max, nh * MostStretched));
+            else
+                nh = Clamp(nh, Math.Max(Min, nw / MostStretched), Math.Min(Max, nw * MostStretched));
+
+            FromShown(nw, nh, hoisted, out newLength, out newProportion);
+        }
+
+        /// <summary>
+        /// A shape as seen (height over width x 1000) for the flag, its longer side kept (made
+        /// longer only if the shorter would be under <see cref="Min"/>). The cloth's length and
+        /// proportion after it.
+        /// </summary>
+        public static void Reshape(float length, int proportion, int hoisted, int shown, out float newLength, out int newProportion)
+        {
+            float w, h;
+            Shown(length, proportion, hoisted, out w, out h);
+            float r = Ratio(shown);
+            float longer = Clamp(Math.Max(w, h), Min, Max);
+            float nw, nh;
+            if (r >= 1f)
+            {
+                nh = longer;
+                nw = longer / r;
+            }
+            else
+            {
+                nw = longer;
+                nh = longer * r;
+            }
+
+            float shorter = Math.Min(nw, nh);
+            if (shorter < Min)
+            {
+                float s = Min / shorter;
+                nw *= s;
+                nh *= s;
+            }
+
+            newProportion = ClothProportion(shown, hoisted);
+            newLength = Clamp(hoisted == FlagHoist.Top ? nh : nw, Min, Max);
+        }
+
+        /// <summary>The shape as seen is this one (within half a percent: a proportion is kept in thousandths, and turned for a flag hoisted from its top).</summary>
+        public static bool IsShape(int proportion, int hoisted, int shape)
+        {
+            int shown = ShownProportion(proportion, hoisted);
+            return Math.Abs(shown - shape) <= 0.005 * shape;
+        }
+
+        private static float Clamp(float value, float min, float max)
+        {
+            if (float.IsNaN(value))
+                return min;
+            return value < min ? min : value > max ? max : value;
         }
     }
 
@@ -308,8 +524,15 @@ namespace RealFlag.Flags
         /// <summary>Hoist to fly, metres.</summary>
         public float Length;
 
-        /// <summary>A <see cref="FlagProportion"/> value: height / length x 1000.</summary>
+        /// <summary>Height (the hoist) / length x 1000, <see cref="FlagSize.MinProportion"/> to <see cref="FlagSize.MaxProportion"/> (<see cref="FlagProportion"/>).</summary>
         public int Proportion;
+
+        /// <summary>
+        /// A <see cref="FlagHoist"/> value: the edge held on the pole -- the side (the default, as
+        /// flags fly) or the top (a banner hanging from a crossbar). The hoist's line and the fly
+        /// at rest trade places (FlagOrientation); the cloth is the same.
+        /// </summary>
+        public int HoistedFrom;
 
         /// <summary>How much the cloth ripples, 0..2 (100%: ordinary flag cloth).</summary>
         public float Waviness;
@@ -342,6 +565,17 @@ namespace RealFlag.Flags
         public float PoleThickness;
 
         /// <summary>
+        /// The drawn pole's length along its axis, from the flag's top down to its foot, metres --
+        /// part of the flag, so Move It raising or lowering it raises or lowers the pole with it
+        /// (the author: "Elevating or lowering the flag pole with MoveIt! should NOT change its
+        /// height ... It should only elevate the whole thing up or down"). 0: not known yet (a
+        /// flag just placed, an older save, a new tilt): the renderer finds what stands under it
+        /// down the axis once, and keeps that. The panel's Elevation keeps the foot where it is
+        /// (the pole longer or shorter); "Pole down to the ground" finds the ground again.
+        /// </summary>
+        public float PoleLength;
+
+        /// <summary>
         /// The hoist's lean, degrees, -90..90 (FlagOrientation): <see cref="Tilt"/> turns the top of
         /// the pole towards the fly (+) or away from it, <see cref="Lean"/> to the side. Both 0: the
         /// hoist hangs straight down from the anchor, as it always did. A wall-mounted pole is a
@@ -361,6 +595,9 @@ namespace RealFlag.Flags
         public const float MinPoleThickness = 0.5f;
         public const float MaxPoleThickness = 2f;
         public const float MaxTilt = 90f;
+
+        /// <summary>The longest pole kept, metres (a flag 300 m up on its own pole; the Elevation slider's most).</summary>
+        public const float MaxPoleLength = 1000f;
 
         /// <summary>The darkest the panel offers: 80%, the design's white at a fifth of its sRGB value, a dark grey.</summary>
         public const float MaxDarkness = 0.8f;
@@ -404,6 +641,7 @@ namespace RealFlag.Flags
                     Colour3 = FlagColours.DefaultColour3,
                     Length = 3f,
                     Proportion = FlagProportion.Default,
+                    HoistedFrom = FlagHoist.Side,
                     Waviness = 1f,
                     Name = string.Empty,
                     Country = string.Empty,
@@ -413,6 +651,7 @@ namespace RealFlag.Flags
                     TopColour = DefaultTopColour,
                     RopeColour = DefaultRopeColour,
                     PoleThickness = 1f,
+                    PoleLength = 0f,
                     Tilt = 0f,
                     Lean = 0f,
                     Darkness = 0f,
@@ -444,8 +683,10 @@ namespace RealFlag.Flags
             if (float.IsNaN(s.Length) || float.IsInfinity(s.Length))
                 s.Length = 3f;
             s.Length = Math.Max(MinLength, Math.Min(s.Length, MaxLength));
-            if (s.Proportion < 200 || s.Proportion > 2000)
+            if (s.Proportion < FlagSize.MinProportion || s.Proportion > FlagSize.MaxProportion)
                 s.Proportion = FlagProportion.Default;
+            if (!FlagHoist.IsKnown(s.HoistedFrom))
+                s.HoistedFrom = FlagHoist.Side;
             if (float.IsNaN(s.Waviness) || float.IsInfinity(s.Waviness))
                 s.Waviness = 1f;
             s.Waviness = Math.Max(0f, Math.Min(s.Waviness, 2f));
@@ -459,6 +700,11 @@ namespace RealFlag.Flags
             if (country != null)
                 s.Proportion = country.Proportion;
 
+            // The hoist no longer than a flag may be long (a tall flag of the longest length).
+            float ratio = FlagSize.Ratio(s.Proportion);
+            if (s.Length * ratio > MaxLength)
+                s.Length = MaxLength / ratio;
+
             if (!FlagPoleStyle.IsKnown(s.Pole))
                 s.Pole = FlagPoleStyle.None;
             s.Ropes = Math.Max(0, Math.Min(s.Ropes, 2));
@@ -468,6 +714,9 @@ namespace RealFlag.Flags
             if (float.IsNaN(s.PoleThickness) || float.IsInfinity(s.PoleThickness))
                 s.PoleThickness = 1f;
             s.PoleThickness = Math.Max(MinPoleThickness, Math.Min(s.PoleThickness, MaxPoleThickness));
+            if (float.IsNaN(s.PoleLength) || float.IsInfinity(s.PoleLength) || s.PoleLength < 0f)
+                s.PoleLength = 0f;
+            s.PoleLength = Math.Min(s.PoleLength, MaxPoleLength);
             s.Tilt = Angle(s.Tilt);
             s.Lean = Angle(s.Lean);
             if (float.IsNaN(s.Darkness) || float.IsInfinity(s.Darkness))
@@ -489,16 +738,17 @@ namespace RealFlag.Flags
             return Math.Abs(Length - other.Length) < 1e-4f && Proportion == other.Proportion;
         }
 
-        /// <summary>The hoist's lean is the same (the cloth need not turn).</summary>
+        /// <summary>The hoist's line is the same -- the same edge hoisted, the same lean (the cloth need not turn).</summary>
         public bool SameHoist(FlagSpec other)
         {
-            return Math.Abs(Tilt - other.Tilt) < 1e-3f && Math.Abs(Lean - other.Lean) < 1e-3f;
+            return HoistedFrom == other.HoistedFrom && Math.Abs(Tilt - other.Tilt) < 1e-3f && Math.Abs(Lean - other.Lean) < 1e-3f;
         }
 
         /// <summary>The same pole (the same mesh and the same collider for the cloth).</summary>
         public bool SamePole(FlagSpec other)
         {
-            return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f;
+            return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f &&
+                   Math.Abs(PoleLength - other.PoleLength) < 1e-3f;
         }
 
         /// <summary>The same pole colours (only the property block changes).</summary>
@@ -517,11 +767,14 @@ namespace RealFlag.Flags
                   FlagColours.Hex(Colour1) + "/" + FlagColours.Hex(Colour2) + "/" + FlagColours.Hex(Colour3);
             string text = design + ", " + Length.ToString("0.##", inv) + " m at " + FlagProportion.Name(Proportion) + ", waviness " +
                           (Waviness * 100f).ToString("F0", inv) + "%";
+            if (HoistedFrom != FlagHoist.Side)
+                text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom);
             if (Darkness > 0f)
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
-                        (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "");
+                        (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
+                        (PoleLength > 0f ? ", " + PoleLength.ToString("0.#", inv) + " m long" : "");
             if (IsTilted)
                 text += ", tilted " + Tilt.ToString("0.#", inv) + " deg, leaning " + Lean.ToString("0.#", inv) + " deg";
             return text;
@@ -571,9 +824,12 @@ namespace RealFlag.Flags
         /// the country's code (a byte of length, ASCII). 3 (2026-09-26): the same, then the pole
         /// (its style and ropes as bytes, its three colours, its thickness) and the hoist's tilt
         /// and lean (floats, degrees). 4 (2026-09-26): the same, then the cloth's darkness (a
-        /// float, 0..0.8). Every older one is still read.
+        /// float, 0..0.8). 5 (2026-09-27): the same, then the edge hoisted (a byte, FlagHoist) --
+        /// and the proportion, the same short, may now be any from 1:5 to 5:1. 6 (2026-09-27): the
+        /// same, then the drawn pole's length (a float, metres; 0 not known yet). Every older one
+        /// is still read.
         /// </summary>
-        public const byte Version = 4;
+        public const byte Version = 6;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -598,6 +854,8 @@ namespace RealFlag.Flags
             w.Write(s.Tilt);
             w.Write(s.Lean);
             w.Write(s.Darkness);
+            w.Write((byte)s.HoistedFrom);
+            w.Write(s.PoleLength);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -657,6 +915,12 @@ namespace RealFlag.Flags
 
             // Before the darkness: the colours as designed.
             s.Darkness = version >= 4 ? r.ReadSingle() : 0f;
+
+            // Before the top was hoisted: every flag from its side.
+            s.HoistedFrom = version >= 5 ? r.ReadByte() : FlagHoist.Side;
+
+            // Before the pole kept its length: not known -- found down its axis once, then kept.
+            s.PoleLength = version >= 6 ? r.ReadSingle() : 0f;
 
             return s.Sanitised();
         }
