@@ -766,6 +766,9 @@ namespace RealFlag.Flags
                 int sub = cloth.SubStepsFor(FlagWind.SpeedAt(job.Speed, job.Height), job.Size);
                 float dt = job.Size / sub;
 
+                // The anchor's moves since the last steps: as much as the cloth follows in these, the rest carried.
+                cloth.PlanDrag(job.Steps * job.Size, job.Steps * sub);
+
                 for (int s = 0; s < job.Steps; s++)
                 {
                     for (int i = 0; i < sub; i++)
@@ -776,6 +779,7 @@ namespace RealFlag.Flags
                     }
                 }
 
+                cloth.EndDrag();
                 work = (long)job.Steps * sub * cloth.Count;
 
                 if (!cloth.IsFinite())

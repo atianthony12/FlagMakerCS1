@@ -18,9 +18,14 @@ Open the panel with **F6** (or its Unified UI button). It opens on the city's **
 the flag follows the pointer, blowing, at the chosen height over whatever is under it (ground,
 roof, road): click to place it, and again for more. The right button turns it as the game's
 props turn: a right click turns it 45 degrees, a drag with the right button turns it freely (it
-holds its place meanwhile). Close the window, or press Esc, when done. In the window: a
-country's flag -- every country and territory, England, Scotland, Wales, Northern Ireland, the
-EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
+holds its place meanwhile). **Page Up** and **Page Down** (the game's raise and lower keys)
+raise and lower the whole flag, pole and all, as Move It raises and lowers what it moves: a step
+of 12.5 cm a press, on their own once held a third of a second, Shift eight times faster, Alt
+eight times finer. The pole keeps the length it has at the elevation (its foot leaves the
+ground, or sinks into it), and the flags you place keep it; the window shows how far after the
+elevation ("24.5 m +3 m") until you close it. Close the window, or press Esc, when done. In the
+window: a country's flag -- every country and territory, England, Scotland, Wales, Northern
+Ireland, the EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
 (plain, bands, crosses, a saltire, a canton, stripes and canton, a disc, a hoist triangle, a
 diagonal band, a border) in up to three colours (a palette, hue, saturation and brightness, or
 a hex code typed, pasted or copied); its **shape** as it hangs, from a tall banner to a long
@@ -79,7 +84,8 @@ one 90) -- the flag hangs from the tilted line whether a pole is drawn or not.
 select it: its design, size, pole, rotation and elevation are in the tab, and it carries a
 **gizmo** -- drag its red, green and blue arrows to move it along its own axes (the white knob
 slides it anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap,
-Shift to go finely. Click elsewhere on the map, right-click or press Esc to let it go (Esc during
+Shift to go finely. **Page Up** and **Page Down** raise and lower it, pole and all, as they do
+while placing. Click elsewhere on the map, right-click or press Esc to let it go (Esc during
 a drag puts the flag back). **Go to** flies the camera there, **Delete** removes it, **New flag
 like this** opens the new flag's window with its design, to place another.
 
@@ -99,7 +105,10 @@ redesign comes to life under your hand and settles back into a still a moment af
 
 Flags are the game's props, so **Move It** selects, moves, turns, raises, copies, mirrors and
 deletes them like any other, with undo. A copied flag keeps its design, and a flag raised or
-lowered keeps its pole's length: the whole flag moves, pole and all. Move It's highlight is a
+lowered keeps its pole's length: the whole flag moves, pole and all. However fast it is moved --
+dragged, raised with Page Up, flung across the map -- its cloth goes with it, leaning a little
+into the move as a real one would, never through itself; lowered into the ground, it hangs into
+the ground from its hoist rather than being torn from it. Move It's highlight is a
 steady disc round everywhere the flag can reach, and its pole. Move It picks the flag by where
 its cloth has flown over the last few seconds and a margin round it, its hoist and its pole: a
 target that holds still while the cloth flutters and is never thinner than a fingertip on the
@@ -119,7 +128,12 @@ it is missing.
   that no other may enter (Macklin et al. 2014; Müller's *Ten Minute Physics*), found through a
   spatial hash (Teschner et al. 2003) and a neighbour list (Verlet 1967), and skipped while the
   cloth is too flat to fold onto itself (Volino and Magnenat-Thalmann 1994). A flag hanging in
-  calm air lays its folds on one another.
+  calm air lays its folds on one another. A new flag is let down into the air, damped as a
+  pendulum of its length is critically damped, rather than dropped flat to whip through itself --
+  the dynamic relaxation that brings a laid-out membrane to rest (Day 1965; Barnes 1988) -- and a
+  moved flag's cloth is dragged through the air no faster than it can follow, the rest of the move
+  carrying it. A cloth that ever knots all the same (its worst link 30% long for two seconds) is
+  laid out afresh.
 - **It keeps off the city**: the top of whatever stands round a flag -- the ground, the water,
   the roofs, from the buildings' own low-detail meshes (the triangles the game picks a building
   by) -- is laid on a fine grid round it, and the cloth stays above it, as the position-based
@@ -199,7 +213,10 @@ Written from scratch after these, with thanks (no code from them is included):
   and J. Ratcliff, *Position Based Dynamics* (2007); T.-Y. Kim, N. Chentanez and M. Müller,
   *Long Range Attachments* (SCA 2012); M. Macklin et al., *Small Steps in Physics Simulation*
   (SCA 2019) -- the cloth; the world velocity and inertia scales of NVIDIA PhysX's and Unity's
-  cloth -- the idea of a moved flag dragging its cloth only in part.
+  cloth -- the idea of a moved flag dragging its cloth only in part; A. S. Day, *An
+  introduction to dynamic relaxation* (The Engineer, 1965), and M. R. Barnes, *Form-finding and
+  analysis of prestressed nets and membranes* (Computers & Structures, 1988) -- a new flag let
+  down into the air, not dropped.
 - M. Macklin, M. Müller, N. Chentanez and T.-Y. Kim, *Unified Particle Physics for Real-Time
   Applications* (SIGGRAPH 2014); M. Müller, *Ten Minute Physics* 15, *Self-collisions* (2022);
   M. Teschner, B. Heidelberger, M. Müller, D. Pomeranets and M. Gross, *Optimized Spatial

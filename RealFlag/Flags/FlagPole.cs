@@ -82,6 +82,77 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// The raise and lower keys on the flag being placed or the one selected (the game's
+    /// elevation keys, Page Up and Page Down unless the player changed them -- Move It's own
+    /// defaults too), as Move It moves its selection with them (MoveItTool.ProcessMoveKeys and
+    /// OnToolGUI, their IL, Move It 2.10): the step is its magnitude 8 times its 0.015625 for
+    /// heights, 0.125 m -- Shift x8 (1 m), Alt /8 (1.5625 cm), both /64 (2 mm); a press steps once
+    /// at once, then, held, not again for <see cref="RepeatDelay"/> ms, then at every GUI event
+    /// after (Layout and Repaint each frame, and each of the keyboard's repeats: 15-22 m/s at 60
+    /// fps). Both keys at once cancel, and start the wait again. One per tool. PURE.
+    /// </summary>
+    public struct ElevationKeys
+    {
+        /// <summary>Metres a step without Shift or Alt.</summary>
+        public const float Step = 0.125f;
+
+        /// <summary>Held, the keys wait this long after the first step before they repeat, milliseconds.</summary>
+        public const long RepeatDelay = 333;
+
+        /// <summary>The Stopwatch time the keys were pressed (0: not held).</summary>
+        private long _pressed;
+
+        /// <summary>A step's metres with these modifiers held.</summary>
+        public static float StepFor(bool shift, bool alt)
+        {
+            float magnitude = 8f;
+            if (alt && shift)
+            {
+                magnitude /= 64f;
+            }
+            else
+            {
+                if (shift)
+                    magnitude *= 8f;
+                if (alt)
+                    magnitude /= 8f;
+            }
+
+            return magnitude * 0.015625f;
+        }
+
+        /// <summary>
+        /// One GUI event: how far the flag goes up (down: less than 0; 0: not now), given the keys
+        /// held, the modifiers, and the time (Stopwatch ticks and their frequency).
+        /// </summary>
+        public float Event(bool up, bool down, bool shift, bool alt, long now, long frequency)
+        {
+            float step = StepFor(shift, alt);
+            float dy = (up ? step : 0f) - (down ? step : 0f);
+            if (dy == 0f)
+            {
+                _pressed = 0;
+                return 0f;
+            }
+
+            if (_pressed == 0)
+            {
+                _pressed = now;
+                return dy;
+            }
+
+            long elapsed = Math.Abs(now - _pressed) / Math.Max(1L, frequency / 1000L);
+            return elapsed >= RepeatDelay ? dy : 0f;
+        }
+
+        /// <summary>The keys are held (a step, or waiting to repeat).</summary>
+        public bool Held
+        {
+            get { return _pressed != 0; }
+        }
+    }
+
+    /// <summary>
     /// The numbers of the pole the mod draws under a flag (FlagSpec.Pole): how thick, how
     /// tapered, where its truck and top sit, where the halyard runs. PURE: the pole's mesh
     /// (FlagPoleMesh) and the cloth's collider (FlagCloth.SetPole) are made from the same.

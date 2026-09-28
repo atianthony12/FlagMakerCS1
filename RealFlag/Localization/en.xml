@@ -11,8 +11,8 @@
   - \n is a real line break.
   - A key missing from a translation shows in English, so a partial translation works.
 
-  Tooltips: as few words as possible, never more than one short line. Say only what the label
-  leaves out. Everyday words.
+  Tooltips: five words at most (they overflow otherwise). Say only what the label leaves out.
+  Everyday words.
 -->
 <Language code="en" name="English">
 
@@ -51,18 +51,18 @@
   <String key="Colours.Label">Colours</String>
 
   <String key="NewCountry.Label">Country's flag</String>
-  <String key="NewCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
+  <String key="NewCountry.Tooltip">A real country's flag.</String>
   <String key="SelCountry.Label">Country's flag</String>
-  <String key="SelCountry.Tooltip">A country's own flag, as it is, at its own proportions. None: a pattern of your colours, below.</String>
+  <String key="SelCountry.Tooltip">A real country's flag.</String>
   <!-- A picture of the player's own, from the RealFlag\Images folder: the row's button opens the Image window, its folder button the folder. -->
   <String key="NewImage.Label">Your image</String>
-  <String key="NewImage.Tooltip">A picture of your own on the flag, never stretched. Click to pick one and place it; the folder button opens the folder to put pictures in.</String>
+  <String key="NewImage.Tooltip">Your own picture on it.</String>
   <String key="SelImage.Label">Your image</String>
-  <String key="SelImage.Tooltip">A picture of your own on the flag, never stretched. Click to pick one and place it; the folder button opens the folder to put pictures in.</String>
+  <String key="SelImage.Tooltip">Your own picture on it.</String>
   <String key="NewPattern.Label">Pattern</String>
-  <String key="NewPattern.Tooltip">The flag's design. Its colours are the three below: the first is the background.</String>
+  <String key="NewPattern.Tooltip">Design in the colours below.</String>
   <String key="SelPattern.Label">Pattern</String>
-  <String key="SelPattern.Tooltip">The flag's design. Its colours are the three below: the first is the background.</String>
+  <String key="SelPattern.Tooltip">Design in the colours below.</String>
 
   <String key="Pattern.Plain">Plain</String>
   <String key="Pattern.HorizontalBicolour">Two bands</String>
@@ -81,37 +81,37 @@
   <String key="Pattern.Border">Border</String>
 
   <String key="NewColour1.Label">Colour 1</String>
-  <String key="NewColour1.Tooltip">The background, and the top or first band.</String>
+  <String key="NewColour1.Tooltip">Background and first band.</String>
   <String key="NewColour2.Label">Colour 2</String>
-  <String key="NewColour2.Tooltip">The second band, the cross, the canton or the disc.</String>
+  <String key="NewColour2.Tooltip">Second band, cross or disc.</String>
   <String key="NewColour3.Label">Colour 3</String>
-  <String key="NewColour3.Tooltip">The third band, a cross's centre line, or a thin edge.</String>
+  <String key="NewColour3.Tooltip">Third band or thin edge.</String>
   <String key="SelColour1.Label">Colour 1</String>
-  <String key="SelColour1.Tooltip">The background, and the top or first band.</String>
+  <String key="SelColour1.Tooltip">Background and first band.</String>
   <String key="SelColour2.Label">Colour 2</String>
-  <String key="SelColour2.Tooltip">The second band, the cross, the canton or the disc.</String>
+  <String key="SelColour2.Tooltip">Second band, cross or disc.</String>
   <String key="SelColour3.Label">Colour 3</String>
-  <String key="SelColour3.Tooltip">The third band, a cross's centre line, or a thin edge.</String>
+  <String key="SelColour3.Tooltip">Third band or thin edge.</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
   <String key="NewShape.Label">Shape</String>
-  <String key="NewShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept. With your picture on it, turn off Width and height together first.</String>
+  <String key="NewShape.Tooltip">Height to width ratio.</String>
   <String key="SelShape.Label">Shape</String>
-  <String key="SelShape.Tooltip">As it hangs, from a tall banner to a long flag; its longer side is kept. With your picture on it, turn off Width and height together first.</String>
+  <String key="SelShape.Tooltip">Height to width ratio.</String>
   <String key="NewWidth.Label">Width</String>
-  <String key="NewWidth.Tooltip">Across, as it hangs. A town's flagpole flies about 3 m.</String>
+  <String key="NewWidth.Tooltip">Across, as it hangs.</String>
   <String key="SelWidth.Label">Width</String>
   <String key="SelWidth.Tooltip">Across, as it hangs.</String>
   <String key="NewTall.Label">Height</String>
-  <String key="NewTall.Tooltip">Top to bottom, as it hangs, and its shape: height to width.</String>
+  <String key="NewTall.Tooltip">Top to bottom.</String>
   <String key="SelTall.Label">Height</String>
-  <String key="SelTall.Tooltip">Top to bottom, as it hangs, and its shape: height to width.</String>
+  <String key="SelTall.Tooltip">Top to bottom.</String>
   <String key="LinkSize.Label">Width and height together</String>
-  <String key="LinkSize.Tooltip">The flag keeps its shape as either changes; with your picture on it, the picture's shape. Off: each on its own, from 1:5 to 5:1, the picture cropped to fit.</String>
+  <String key="LinkSize.Tooltip">Keeps the shape when resizing.</String>
   <String key="NewHoistedFrom.Label">Hoisted from</String>
-  <String key="NewHoistedFrom.Tooltip">The edge held on the pole: the side, as flags fly, or the top, as a banner hangs from a crossbar. From the top, the design turns as a flag hung upright does.</String>
+  <String key="NewHoistedFrom.Tooltip">Edge held by the pole.</String>
   <String key="SelHoistedFrom.Label">Hoisted from</String>
-  <String key="SelHoistedFrom.Tooltip">The edge held on the pole: the side, as flags fly, or the top, as a banner hangs from a crossbar. From the top, the design turns as a flag hung upright does.</String>
+  <String key="SelHoistedFrom.Tooltip">Edge held by the pole.</String>
   <String key="Hoist.Side">Side</String>
   <String key="Hoist.Top">Top</String>
 
@@ -127,26 +127,26 @@
   <String key="NewImageAlpha.Label">The new flag's image: what its see-through parts do</String>
 
   <String key="NewMotion.Label">Motion</String>
-  <String key="NewMotion.Tooltip">Waves: the cloth flies in the wind. Still: it keeps one shape, caught as it flew in a breeze along its rotation (a banner hangs); How wavy sets how rippled. Flat: held flat, as on a wall or in a banner's frame. Still and flat flags never move, and cost nothing once made.</String>
+  <String key="NewMotion.Tooltip">Waving, frozen, or flat.</String>
   <String key="SelMotion.Label">Motion</String>
-  <String key="SelMotion.Tooltip">Waves: the cloth flies in the wind. Still: it keeps one shape, caught as it flew in a breeze along its rotation (a banner hangs). Flat: held flat, as on a wall. Still and flat flags never move.</String>
+  <String key="SelMotion.Tooltip">Waving, frozen, or flat.</String>
   <String key="Motion.Waves">Waves</String>
   <String key="Motion.Still">Still</String>
   <String key="Motion.Flat">Flat</String>
   <String key="NewWaviness.Label">How wavy</String>
-  <String key="NewWaviness.Tooltip">How much the cloth ripples in the same wind (on a still flag, in the shape it keeps). 0%: stiff and calm; 200%: light and restless.</String>
+  <String key="NewWaviness.Tooltip">How much the cloth ripples.</String>
   <String key="SelWaviness.Label">How wavy</String>
-  <String key="SelWaviness.Tooltip">How much the cloth ripples in the same wind (on a still flag, in the shape it keeps).</String>
+  <String key="SelWaviness.Tooltip">How much the cloth ripples.</String>
   <String key="NewDarkness.Label">Darkness</String>
-  <String key="NewDarkness.Tooltip">Darker cloth, for a flag whose white or yellow glares in bright sun: its colours as if dyed darker. 0%: as designed.</String>
+  <String key="NewDarkness.Tooltip">Tones down glaring colours.</String>
   <String key="SelDarkness.Label">Darkness</String>
-  <String key="SelDarkness.Tooltip">Darker cloth, for a flag whose white or yellow glares in bright sun. 0%: as designed.</String>
+  <String key="SelDarkness.Tooltip">Tones down glaring colours.</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Flagpole</String>
-  <String key="NewPoleButton.Tooltip">A pole drawn under the flag, and its tilt. Opens beside this window.</String>
+  <String key="NewPoleButton.Tooltip">Pole, ropes and tilt.</String>
   <String key="SelPoleButton.Label">Flagpole</String>
-  <String key="SelPoleButton.Tooltip">The selected flag's pole, and its tilt. Opens beside the panel.</String>
+  <String key="SelPoleButton.Tooltip">Pole, ropes and tilt.</String>
   <String key="PoleButton.None">Flagpole: none (for a pole of your own)</String>
   <String key="PoleButton.Pole">Flagpole: {0}, ropes: {1}</String>
   <String key="PoleButton.Tilted">, tilted {0}° / {1}°</String>
@@ -154,77 +154,77 @@
   <String key="Tab.PoleExisting">Flagpole of the selected flag</String>
 
   <String key="NewPole.Label">Flagpole</String>
-  <String key="NewPole.Tooltip">A pole drawn from the ground up to the flag. None: the flag is for a pole of your own.</String>
+  <String key="NewPole.Tooltip">Pole style, or none.</String>
   <String key="SelPole.Label">Flagpole</String>
-  <String key="SelPole.Tooltip">A pole drawn from the ground up to the flag. None: the flag is for a pole of your own.</String>
+  <String key="SelPole.Tooltip">Pole style, or none.</String>
   <String key="Pole.None">None</String>
   <String key="Pole.Ball">Ball top</String>
   <String key="Pole.Flat">Flat top</String>
   <String key="Pole.Spear">Spear top</String>
 
   <String key="NewRopes.Label">Ropes</String>
-  <String key="NewRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line. On a halyard the flag hangs from its top and bottom clips only, and its edge bows out between them in the wind; with none it is held along its whole edge.</String>
+  <String key="NewRopes.Tooltip">Flag clipped to a rope.</String>
   <String key="SelRopes.Label">Ropes</String>
-  <String key="SelRopes.Tooltip">The halyard beside the pole: the line the flag is clipped to, and its return line. On a halyard the flag hangs from its top and bottom clips only, and its edge bows out between them in the wind; with none it is held along its whole edge.</String>
+  <String key="SelRopes.Tooltip">Flag clipped to a rope.</String>
   <String key="Ropes.None">None</String>
   <String key="Ropes.One">One</String>
   <String key="Ropes.Two">Two</String>
 
   <String key="NewPoleColour.Label">Pole colour</String>
-  <String key="NewPoleColour.Tooltip">The pole, its cap and its foot.</String>
+  <String key="NewPoleColour.Tooltip">Pole, cap and foot.</String>
   <String key="NewTopColour.Label">Top colour</String>
-  <String key="NewTopColour.Tooltip">The ball or the spear on top.</String>
+  <String key="NewTopColour.Tooltip">Ball or spear on top.</String>
   <String key="NewRopeColour.Label">Rope colour</String>
-  <String key="NewRopeColour.Tooltip">The halyard.</String>
+  <String key="NewRopeColour.Tooltip">The ropes.</String>
   <String key="SelPoleColour.Label">Pole colour</String>
-  <String key="SelPoleColour.Tooltip">The pole, its cap and its foot.</String>
+  <String key="SelPoleColour.Tooltip">Pole, cap and foot.</String>
   <String key="SelTopColour.Label">Top colour</String>
-  <String key="SelTopColour.Tooltip">The ball or the spear on top.</String>
+  <String key="SelTopColour.Tooltip">Ball or spear on top.</String>
   <String key="SelRopeColour.Label">Rope colour</String>
-  <String key="SelRopeColour.Tooltip">The halyard.</String>
+  <String key="SelRopeColour.Tooltip">The ropes.</String>
 
   <String key="NewPoleThickness.Label">Thickness</String>
-  <String key="NewPoleThickness.Tooltip">100%: as thick as a real flagpole for this flag and height.</String>
+  <String key="NewPoleThickness.Tooltip">100%: realistic for its size.</String>
   <String key="SelPoleThickness.Label">Thickness</String>
-  <String key="SelPoleThickness.Tooltip">100%: as thick as a real flagpole for this flag and height.</String>
+  <String key="SelPoleThickness.Tooltip">100%: realistic for its size.</String>
 
   <String key="NewTilt.Label">Tilt</String>
-  <String key="NewTilt.Tooltip">The pole's top towards the way the flag points: 30° to 45° for a pole on a wall, 90° level.</String>
+  <String key="NewTilt.Tooltip">Pole tips toward the flag.</String>
   <String key="SelTilt.Label">Tilt</String>
-  <String key="SelTilt.Tooltip">The pole's top towards the way the flag points. The gizmo's blue ring turns it too.</String>
+  <String key="SelTilt.Tooltip">Pole tips toward the flag.</String>
   <String key="NewLean.Label">Lean</String>
-  <String key="NewLean.Tooltip">The pole's top to the side.</String>
+  <String key="NewLean.Tooltip">Pole tips sideways.</String>
   <String key="SelLean.Label">Lean</String>
-  <String key="SelLean.Tooltip">The pole's top to the side. The gizmo's red ring turns it too.</String>
+  <String key="SelLean.Tooltip">Pole tips sideways.</String>
   <String key="PoleToGround.Label">Pole down to the ground</String>
-  <String key="PoleToGround.Tooltip">The pole reaches down to what stands under it again, after Move It raised or lowered the whole flag.</String>
+  <String key="PoleToGround.Tooltip">Extends pole to the ground.</String>
 
   <String key="NewRotation.Label">Rotation</String>
-  <String key="NewRotation.Tooltip">The way it points. In a wind along each flag, it flies this way; otherwise the wind turns it. While you place flags, the right button turns it: a click 45°, a drag freely.</String>
+  <String key="NewRotation.Tooltip">The way it points.</String>
   <String key="SelRotation.Label">Rotation</String>
-  <String key="SelRotation.Tooltip">The way it points. Move It and the gizmo's green ring turn it too.</String>
+  <String key="SelRotation.Tooltip">The way it points.</String>
 
   <String key="NewHeight.Label">Elevation</String>
-  <String key="NewHeight.Tooltip">The top of the flag, above the ground or roof you click: as tall as the pole you put it on.</String>
+  <String key="NewHeight.Tooltip">Flag's top above ground.</String>
   <String key="SelHeight.Label">Elevation</String>
-  <String key="SelHeight.Tooltip">The top of the flag above the ground; its pole reaches down to the ground again. Move It raises the whole flag, pole and all.</String>
+  <String key="SelHeight.Tooltip">Flag's top above ground.</String>
 
   <!-- The Flags tab. -->
   <String key="NewFlag.Label">+ New flag</String>
-  <String key="NewFlag.Tooltip">Opens the new flag's window. The flag follows the pointer: click to place it, again for more; right-click turns it. Esc or the window's X when done.</String>
+  <String key="NewFlag.Tooltip">Place a new flag.</String>
   <String key="Existing.Empty">No flags in this city yet. Click + New flag above, or pick one on the map.</String>
   <String key="Existing.NoneSelected">None selected: click a flag above, or pick one on the map.</String>
   <String key="Existing.Selected">{0}, at x {1}, z {2}, {3} m up.</String>
   <String key="Flag.Title">Flag {0}</String>
 
   <String key="GoToFlag.Label">Go to</String>
-  <String key="GoToFlag.Tooltip">Moves the camera to the selected flag.</String>
+  <String key="GoToFlag.Tooltip">Camera to this flag.</String>
   <String key="PickFlag.Label">Pick on the map</String>
-  <String key="PickFlag.Tooltip">Click a flag on the map to select it.</String>
+  <String key="PickFlag.Tooltip">Click a flag to select.</String>
   <String key="CopyToNew.Label">New flag like this</String>
-  <String key="CopyToNew.Tooltip">Opens the new flag's window with this flag's design, to place another like it.</String>
+  <String key="CopyToNew.Tooltip">New flag, same design.</String>
   <String key="DeleteFlag.Label">Delete</String>
-  <String key="DeleteFlag.Tooltip">Removes the selected flag from the city. Move It and the bulldozer delete flags too.</String>
+  <String key="DeleteFlag.Tooltip">Removes the selected flag.</String>
   <String key="DeleteFlag.Confirm">Delete this flag?</String>
 
   <!-- Status lines. -->
@@ -234,11 +234,13 @@
   <String key="Status.NoPrefab">The flag prop could not be made in this city: see the log.</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">Click to place a flag. Right-click turns it 45°, a right drag freely. Esc when done</String>
+  <String key="Tool.PlaceHint">Click to place a flag. Right-click turns it 45°, a right drag freely; {0} raise and lower it, pole and all (Shift faster, Alt finer). Esc when done</String>
+  <String key="Tool.Raised">Raised {0} m</String>
+  <String key="Tool.Lowered">Lowered {0} m</String>
   <String key="Tool.NoPrefab">Flags cannot be placed in this city: see the log</String>
   <String key="Tool.PickHint">Click to select this flag</String>
   <String key="Tool.PickNone">Point at a flag</String>
-  <String key="Tool.SelectedHint">Drag the arrows to move it, the rings to turn it (Ctrl snaps, Shift is fine). Click elsewhere, right-click or Esc to let go</String>
+  <String key="Tool.SelectedHint">Drag the arrows to move it, the rings to turn it (Ctrl snaps, Shift is fine); {0} raise and lower it, pole and all. Click elsewhere, right-click or Esc to let go</String>
 
   <!-- The gizmo on the selected flag: what a handle does, and what a drag has done. -->
   <String key="Gizmo.HintX">Drag: along the way it points</String>
@@ -258,11 +260,11 @@
   <String key="Picker.Saturation">Saturation</String>
   <String key="Picker.Brightness">Brightness</String>
   <String key="Picker.Done">Done</String>
-  <String key="Picker.HexTip">The colour's code. Type or paste one (#RRGGBB, or #RGB), then Enter; Ctrl+C copies it.</String>
+  <String key="Picker.HexTip">Type or paste #RRGGBB.</String>
   <String key="Picker.Copy">Copy</String>
-  <String key="Picker.CopyTip">Copies this colour's code, #RRGGBB, for another colour or another program.</String>
+  <String key="Picker.CopyTip">Copies the colour code.</String>
   <String key="Picker.Paste">Paste</String>
-  <String key="Picker.PasteTip">Takes the colour code on the clipboard: #RRGGBB, RRGGBB, #RGB, or one inside other text.</String>
+  <String key="Picker.PasteTip">Pastes a colour code.</String>
   <String key="Country.None">None: a pattern</String>
   <String key="Country.Search">Search</String>
 
@@ -270,7 +272,7 @@
   <String key="Image.TitleNew">Image of the new flag</String>
   <String key="Image.TitleExisting">Image of the selected flag</String>
   <String key="Image.Open">Open the images folder</String>
-  <String key="Image.OpenTip">Opens RealFlag's images folder. Put .png or .jpg pictures in it and they appear in the list.</String>
+  <String key="Image.OpenTip">Put .png or .jpg here.</String>
   <String key="Image.Hint">Your .png and .jpg pictures in RealFlag\Images, next to RealFlag.xml. New ones appear here by themselves.</String>
   <String key="Image.Empty">No pictures yet: open the folder above and put .png or .jpg files in it. They appear here by themselves.</String>
   <String key="Image.None">None</String>
@@ -278,82 +280,82 @@
   <String key="Image.Row">{0} ({1} × {2})</String>
   <String key="Image.Missing">{0} (missing)</String>
   <String key="Image.Drag">Drag the picture to move it on the flag; the wheel zooms.</String>
-  <String key="Image.DragTip">The flag as it hangs, its frame outlined; what lies outside is cut off.</String>
+  <String key="Image.DragTip">Drag to move, wheel zooms.</String>
   <String key="Image.Zoom">Zoom</String>
-  <String key="Image.ZoomTip">100%: the picture just fills the flag. Less shows all of it with the flag's pattern round it.</String>
+  <String key="Image.ZoomTip">100%: fills the flag.</String>
   <String key="Image.Fill">Fill</String>
-  <String key="Image.FillTip">The picture just fills the flag, centred; what does not fit is cut off.</String>
+  <String key="Image.FillTip">Fills the flag, cropped.</String>
   <String key="Image.Whole">Whole picture</String>
-  <String key="Image.WholeTip">All of the picture on the flag, centred, the flag's pattern round it.</String>
+  <String key="Image.WholeTip">Shows the whole picture.</String>
   <String key="Image.Turn">Turn 90°</String>
-  <String key="Image.TurnTip">Turns the picture a quarter clockwise.</String>
+  <String key="Image.TurnTip">A quarter turn clockwise.</String>
   <String key="Image.Shape">Flag takes its shape: {0}</String>
   <String key="Image.ShapeNone">Flag takes its shape</String>
-  <String key="Image.ShapeTip">The flag's width and height become the picture's shape, its longer side kept: all of it shows, unstretched.</String>
+  <String key="Image.ShapeTip">Flag matches the picture's shape.</String>
   <String key="Image.SeeThrough">See-through parts</String>
   <String key="Image.Cut">Cut out</String>
-  <String key="Image.CutTip">Holes in the flag: a pennant or swallowtail picture makes a shaped flag.</String>
+  <String key="Image.CutTip">See-through parts become holes.</String>
   <String key="Image.Through">Show the flag</String>
-  <String key="Image.ThroughTip">The flag's own pattern and colours show there: a logo on a coloured flag.</String>
+  <String key="Image.ThroughTip">Flag shows through see-through parts.</String>
 
   <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
   <String key="Group.Wind">Wind</String>
   <String key="WindFromGame.Label">Use the game's wind</String>
-  <String key="WindFromGame.Tooltip">The flags fly the way the game's wind blows, stronger in rain and calmer in fog, on hills more and in valleys and by forests less, as its wind turbines feel it. Off: your own wind below.</String>
+  <String key="WindFromGame.Tooltip">Off: your own wind below.</String>
   <String key="GameWindNow.Status">Now {0} at 10 m, towards {1}°</String>
   <String key="GameWindNow.Rain">, rain +{0}%</String>
   <String key="GameWindNow.Fog">, fog -{0}%</String>
   <String key="GameWindNow.Own">Your own wind, below</String>
   <String key="GameWindNow.NoCity">The game's wind, once a city is loaded</String>
   <String key="WindSpeed.Label">Wind speed</String>
-  <String key="WindSpeed.Tooltip">At 10 m up, where it is measured; higher flags get more. Bf is its Beaufort force: 3 extends a light flag.</String>
+  <String key="WindSpeed.Tooltip">Measured 10 m up.</String>
   <String key="WindGusts.Label">Gusts</String>
-  <String key="WindGusts.Tooltip">How much the wind rises, falls and swings. 100%: a town's usual.</String>
+  <String key="WindGusts.Tooltip">100%: a town's usual gusts.</String>
   <String key="WindMode.Label">Direction</String>
-  <String key="WindMode.Tooltip">Along each flag: every flag flies its own way. Fixed: all flags fly the angle below. The game's: the game's wind direction, at your speed.</String>
+  <String key="WindMode.Tooltip">Which way the flags fly.</String>
   <String key="WindMode.EachFlag">Along each flag</String>
   <String key="WindMode.Fixed">Fixed</String>
   <String key="WindMode.Game">The game's</String>
   <String key="WindDirection.Label">Angle</String>
-  <String key="WindDirection.Tooltip">With a fixed direction: the way every flag flies, as a flag's rotation.</String>
+  <String key="WindDirection.Tooltip">For a fixed direction.</String>
 
   <!-- ==================== The game's options page ==================== -->
 
   <String key="Group.Language">Language</String>
   <String key="Language.Label">Show this mod in</String>
-  <String key="Language.Tooltip">Language of this mod's panels.</String>
+  <String key="Language.Tooltip">Language of this mod.</String>
   <String key="Language.Game">Same as the game</String>
 
   <String key="Group.Panel">The in-game panel</String>
   <String key="ToggleKey.Label">Open the panel</String>
   <String key="ToggleKey.Tooltip">Click, then press a key.</String>
   <String key="ShowInUnifiedUI.Label">Show icon in Unified UI</String>
-  <String key="ShowInUnifiedUI.Tooltip">Puts the button in the Unified UI bar.</String>
+  <String key="ShowInUnifiedUI.Tooltip">Button in Unified UI bar.</String>
 
   <String key="Group.Flags">Flags</String>
   <String key="FreezeWhenPaused.Label">Flags stop when the game is paused</String>
-  <String key="FreezeWhenPaused.Tooltip">For screenshots. Off: they wave on while the city stands still.</String>
+  <String key="FreezeWhenPaused.Tooltip">Handy for screenshots.</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Cloth</String>
   <String key="ClothDetail.Label">Cloth detail</String>
-  <String key="ClothDetail.Tooltip">How finely flags fold, up to this; only flags big on the screen get it. A flag costs about twice Normal at High, four to eight times at Very high, seven to thirteen at Ultra.</String>
+  <String key="ClothDetail.Tooltip">Higher looks better, costs more.</String>
   <String key="ClothDetail.Normal">Normal</String>
   <String key="ClothDetail.High">High</String>
   <String key="ClothDetail.VeryHigh">Very high</String>
   <String key="ClothDetail.Ultra">Ultra</String>
   <String key="SelfCollision.Label">Cloth collides with itself</String>
-  <String key="SelfCollision.Tooltip">A flag's folds lie on one another instead of passing through. Costs about a third more while a flag hangs in folds, little while it flies.</String>
+  <String key="SelfCollision.Tooltip">Folds don't pass through.</String>
   <String key="CityCollision.Label">Cloth keeps off buildings, props and trees</String>
-  <String key="CityCollision.Tooltip">Flags lie on the roofs and ground under them, stop at walls, and wrap round props and trees near them instead of passing through. A flag high above everything costs nothing more.</String>
+  <String key="CityCollision.Tooltip">No passing through things.</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>
   <String key="DetailedLogging.Label">Detailed logging</String>
-  <String key="DetailedLogging.Tooltip">For bug reports. Leave off normally.</String>
+  <String key="DetailedLogging.Tooltip">For bug reports only.</String>
 
   <String key="Group.StartingOver">Starting over</String>
   <String key="ResetAll.Label">Reset all settings to defaults</String>
-  <String key="ResetAll.Tooltip">Every setting back to how the mod comes. Your flags are not touched.</String>
+  <String key="ResetAll.Tooltip">Your flags stay untouched.</String>
   <String key="ResetAll.Confirm">Put every setting back to how the mod comes? Your flags are not touched.</String>
 
   <!-- ==================== No row in either UI ==================== -->
@@ -366,6 +368,8 @@
   <String key="Unit.Percent">{0}%</String>
   <String key="Unit.Metres">{0} m</String>
   <String key="Unit.MetresShape">{0} m · {1}</String>
+  <!-- The new flag's elevation, then how far Page Up and Page Down raised (+) or lowered (-) it, pole and all: "24.5 m +3.125 m". -->
+  <String key="Unit.MetresLift">{0} m {1} m</String>
   <String key="Unit.Size">{0} × {1} m</String>
   <String key="Unit.Degrees">{0}°</String>
   <String key="Unit.Wind">{0} m/s · Bf {1}</String>

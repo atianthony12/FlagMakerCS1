@@ -13,7 +13,10 @@
 #   wind (flags' waves travel at a fraction of the wind speed: Taneda 1968);
 # - it holds: finite at 30 m/s, stretched no more than a tenth (the long range attachments and
 #   the sub-steps), its hoist exactly where the pole would be, the same run twice the same;
-# - its anchor moved a little drags it, a jump carries it;
+# - its anchor moved carries it, its steps drag it no faster than it follows, a jump carries it
+#   whole; moved as Move It and the placing pointer move one (Page Up/Down, drags, to and fro
+#   over kerbs, into the ground) it never goes through itself; settled calmly (a new flag in calm
+#   air) it never knots; a knot is found and undone, a healthy cloth never taken for one;
 # - the save's bytes (FlagCodec) and Move It's round trip; colours (hex, HSV, sRGB to linear);
 #   a spec from a save or a paste is pulled into range.
 # - a flag hoisted from its top (a banner on a crossbar): its frame, hanging and blown; the
@@ -452,26 +455,287 @@ public static class ClothTests
     }
 
     /// <summary>
-    /// A 5 cm move of the anchor leaves the fly behind (dragged whole); of a 0.5 m move only
-    /// half a cell drags it (FlagCloth.MaxDragCells), the rest carries it; a 50 m jump carries
-    /// it whole (same shape). Returns the fly's move relative to the anchor in each, and half a
-    /// cell.
+    /// The anchor's move (FlagCloth.MoveAnchor): nothing moves at once (the cloth is the anchor's);
+    /// the next job drags it by as much as it follows -- a 1 mm move whole, a 0.5 m move in a
+    /// 1/60 s step 0.05 of a cell (MaxDragCells) or DragSpeed x the step, whichever is less, a 50
+    /// m jump not at all -- and the rest is let go after the job (EndDrag). Returns the fly's
+    /// move at once (m), the drags planned (mm a sub-step) for 1 mm, 0.5 m and the jump, the cap
+    /// (mm), after EndDrag (mm), and the drag speed (m/s).
     /// </summary>
     public static string MoveAnchor()
     {
         FlagCloth c = Run(0f, 3f, 1f);
         int fly = c.Count - 1;
         float before = c.X[fly];
-        c.MoveAnchor(0.05f, 0f, 0f);
-        float small = c.X[fly] - before;
-        before = c.X[fly];
         c.MoveAnchor(0.5f, 0f, 0f);
-        float capped = c.X[fly] - before;
-        float kept = c.X[fly];
+        float atOnce = c.X[fly] - before;
+        c.PlanDrag(1f / 60f, 1);
+        float capped = c.PlannedDrag;
+        c.EndDrag();
+        float ended = c.PlannedDrag;
+        c.MoveAnchor(0.001f, 0f, 0f);
+        c.PlanDrag(1f / 60f, 1);
+        float small = c.PlannedDrag;
+        c.MoveAnchor(0.3f, 0f, 0f);
         c.MoveAnchor(50f, 0f, 0f);
-        float jumped = c.X[fly] - kept;
-        float half = FlagCloth.MaxDragCells * Math.Min(c.CellU, c.CellV);
-        return small.ToString("F3", Inv) + "," + capped.ToString("F3", Inv) + "," + jumped.ToString("F3", Inv) + "," + half.ToString("F3", Inv);
+        c.PlanDrag(1f / 60f, 1);
+        float jumped = c.PlannedDrag;
+        c.EndDrag();
+        float cap = Math.Min(c.DragSpeed / 60f, FlagCloth.MaxDragCells * Math.Min(c.CellU, c.CellV));
+        return atOnce.ToString("F3", Inv) + "," + (small * 1000f).ToString("F3", Inv) + "," + (capped * 1000f).ToString("F3", Inv) + "," +
+               (jumped * 1000f).ToString("F3", Inv) + "," + (cap * 1000f).ToString("F3", Inv) + "," + (ended * 1000f).ToString("F3", Inv) + "," +
+               c.DragSpeed.ToString("F2", Inv);
+    }
+
+    // ---- a flag moved: Move It, the placing pointer, Page Up/Down ------------------------------
+
+    /// <summary>Kerbs and steps of 0-1.5 m every 3.5 m and a ramp: the ground under a quick pointer.</summary>
+    static float Kerbs(float z)
+    {
+        float y = 0.08f * z;
+        int cell = (int)Math.Floor(z / 3.5f);
+        uint h = (uint)(cell * 2654435761u);
+        h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+        return y + (h % 1000u) / 1000f * 1.5f;
+    }
+
+    /// <summary>
+    /// The anchor's path from where it stood, t seconds into the move: "zigzag" along the wind a
+    /// second each way (Move It's drag to and fro); "kerbs" to and fro over kerbs (the placing
+    /// pointer, its ground under it); "pgdn" Move It's Page Down (0.125 m at once, then after
+    /// 333 ms a steady run); "sink" down a third of the time, held, back up.
+    /// </summary>
+    static void MovePath(string path, float t, float speed, float time, out float x, out float y, out float z)
+    {
+        float tt = Math.Max(0f, Math.Min(t, time));
+        float leg = tt % 2f < 1f ? tt % 2f : 2f - tt % 2f;
+        x = 0f; y = 0f; z = 0f;
+        if (path == "zigzag") x = leg * speed;
+        else if (path == "kerbs") { x = 0.3f * leg * speed; z = leg * speed; y = Kerbs(z); }
+        else if (path == "pgdn") y = tt < 0.333f ? -0.125f : -(0.125f + (tt - 0.333f) * speed);
+        else if (path == "sink") { float third = time / 3f; y = tt < third ? -tt * speed : tt < 2f * third ? -third * speed : -(time - tt) * speed; }
+    }
+
+    /// <summary>
+    /// A new flag as the renderer makes one: at Normal, calmed (FlagCloth.CalmTime), settled (1.5
+    /// s of 1/30 s steps), flown in 1/60 s steps until it is calm, then made finer, its shape and
+    /// motion kept (TakeShape), at <paramref name="detail"/>; on a halyard if asked. The clock
+    /// its air ran to.
+    /// </summary>
+    static FlagCloth Made(FlagSpec spec, int detail, bool halyard, float wind, float height, float ground, out float clock)
+    {
+        FlagCloth c = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), 1f, 0f);
+        c.Calm(FlagCloth.CalmTime);
+        FlagPoleShape pole = default(FlagPoleShape);
+        if (halyard)
+        {
+            spec.Pole = FlagPoleStyle.Flat; spec.Ropes = 2;
+            pole = FlagPoleShape.For(spec, height);
+            pole.ApplyTo(c, 1f, 0f, 0f);
+        }
+        c.GroundY = ground - height;
+        clock = 0f;
+        for (int s = 0; s < 45 || c.Calming; s++)
+        {
+            float size = s < 45 ? 2f / 60f : 1f / 60f;
+            int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), size);
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, height, spec.Waviness, spec.Length, clock + i * size / sub, 0f, 0f);
+                c.Step(size / sub, ref air);
+            }
+            clock += size;
+        }
+        if (detail == c.Detail) return c;
+        FlagCloth fine = new FlagCloth(c.Length, c.Height, c.Fabric, 1f, 0f, detail);
+        fine.TakeShape(c, true);
+        fine.GroundY = c.GroundY;
+        if (halyard) pole.ApplyTo(fine, 1f, 0f, 0f);
+        return fine;
+    }
+
+    /// <summary>
+    /// A flag moved as the renderer moves one, frame by frame at <paramref name="fps"/>: made as
+    /// the renderer makes one (Made), flown 4 s more, then its anchor moved along a path for
+    /// <paramref name="time"/> s (MoveAnchor every frame; the frame's 1/60 s steps through
+    /// PlanDrag, as ClothWorker runs a job), then 6 s. Every 0.1 s from the move: its drawn
+    /// triangles crossing (a tangle). Returns: samples crossing during the move, the most pairs,
+    /// the worst stretch then; samples crossing in the last 3 s after, the worst stretch then;
+    /// knots undone; the least spread of the free particles from their hoist during the move
+    /// over theirs before (1 flat; a crumpled cloth far less).
+    /// </summary>
+    public static string Moved(string path, float length, int proportion, float waviness, int detail, bool halyard, float wind, float fps,
+                               float speed, float time, float height)
+    {
+        FlagSpec spec = FlagSpec.Default;
+        spec.Length = length; spec.Proportion = proportion; spec.Waviness = waviness;
+        float clock;
+        FlagCloth c = Made(spec, detail, halyard, wind, height, path == "kerbs" ? Kerbs(0f) : 0f, out clock);
+        int[] tris = Triangles(c.Columns, c.Rows);
+        float frame = 1f / fps, step = 1f / 60f, pending = 0f, ay = height, ax = 0f, az = 0f;
+        int during = 0, duringMost = 0, after = 0;
+        float worstDuring = 1f, worstAfter = 1f, spread0 = 0f, leastSpread = 1e9f, lastSample = -1f;
+        int spreadSamples = 0, knots = c.Unknotted;
+        float settle = 4f, total = settle + time + 6f;
+
+        for (int f = 0; f * frame < total; f++)
+        {
+            float t = f * frame;
+            float px = 0f, py = 0f, pz = 0f;
+            if (t >= settle) MovePath(path, t - settle, speed, time, out px, out py, out pz);
+            float nx = px, ny = height + py, nz = pz;
+            if ((nx - ax) * (nx - ax) + (ny - ay) * (ny - ay) + (nz - az) * (nz - az) > 1e-8f) c.MoveAnchor(nx - ax, ny - ay, nz - az);
+            ax = nx; ay = ny; az = nz;
+            float ground = path == "kerbs" ? Kerbs(az) : 0f;
+            c.GroundY = ground - ay;
+            float up = Math.Max(ay - ground, 0.5f);
+
+            // The frame's steps (ClothPlan.Due with room for all), through PlanDrag as a job runs them.
+            pending += frame;
+            int due = Math.Min((int)((pending + 1e-5f) / step), 3);
+            if (due > 0) { pending = Math.Max(0f, pending - due * step); if (pending >= step - 1e-5f) pending = 0f; }
+            int subs = c.SubStepsFor(FlagWind.SpeedAt(wind, up), step);
+            float dt = step / subs;
+            if (due > 0) c.PlanDrag(due * step, due * subs);
+            for (int s = 0; s < due; s++)
+                for (int i = 0; i < subs; i++)
+                {
+                    FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, up, waviness, length, clock + s * step + i * dt, ax, az);
+                    c.Step(dt, ref air);
+                }
+            c.EndDrag();
+            clock += due * step;
+
+            if (t < settle - 1f || t - lastSample < 0.1f - 1e-4f) continue;
+            lastSample = t;
+            float spread = Spread(c);
+            if (t < settle) { spread0 += spread; spreadSamples++; continue; }
+            float st = c.MaxStretch();
+            if (t < settle + time)
+            {
+                int n = CrossingPairs(c, tris);
+                if (n > 0) during++;
+                if (n > duringMost) duringMost = n;
+                if (st > worstDuring) worstDuring = st;
+                if (spread < leastSpread) leastSpread = spread;
+            }
+            else if (t >= total - 3f)
+            {
+                if (CrossingPairs(c, tris) > 0) after++;
+                if (st > worstAfter) worstAfter = st;
+            }
+        }
+        return during + "," + duringMost + "," + worstDuring.ToString("F3", Inv) + "," + after + "," + worstAfter.ToString("F3", Inv) + "," +
+               (c.Unknotted - knots) + "," + (leastSpread / (spread0 / Math.Max(1, spreadSamples))).ToString("F2", Inv) + "," + c.Columns + "x" + c.Rows;
+    }
+
+    /// <summary>How far the free particles are from their row's hoist point, over how far they are laid flat: 1 flat, less crumpled.</summary>
+    static float Spread(FlagCloth c)
+    {
+        double sum = 0, rest = 0;
+        for (int j = 0; j < c.Rows; j++)
+        {
+            int h = j * c.Columns;
+            for (int i = 1; i < c.Columns; i++)
+            {
+                int k = h + i;
+                float dx = c.X[k] - c.X[h], dy = c.Y[k] - c.Y[h], dz = c.Z[k] - c.Z[h];
+                sum += Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                rest += i * c.CellU;
+            }
+        }
+        return (float)(sum / rest);
+    }
+
+    /// <summary>
+    /// A new flag in calm air made as the renderer makes one (Made: at Normal, calmed and
+    /// settled, made finer once calm) -- or, not <paramref name="calm"/>, laid out flat at its
+    /// detail and dropped as the first settle dropped it (1.5 s of 1/30 s steps) -- then 10 s of
+    /// 1/60 s steps: the samples crossing in its last 5 s (every 0.1 s), the pairs at the end, the
+    /// worst stretch then, the knots undone, and the droop 1.5 s in, when it is first shown
+    /// (degrees; calmed, the calm's own).
+    /// </summary>
+    public static string Settled(float length, int proportion, int detail, bool calm)
+    {
+        FlagSpec spec = FlagSpec.Default;
+        spec.Length = length; spec.Proportion = proportion;
+        float t = 0f, shownDroop = float.NaN;
+        FlagCloth c;
+        if (calm)
+        {
+            c = Made(spec, detail, false, 0f, 40f, 0f, out t);
+        }
+        else
+        {
+            c = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(1f), 1f, 0f, detail);
+            c.GroundY = -40f;
+            for (int s = 0; s < 45; s++)
+            {
+                FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 40f, 1f, length, t, 0f, 0f);
+                c.Step(2f / 60f, ref air);
+                t += 2f / 60f;
+            }
+        }
+        shownDroop = float.Parse(Droop(c).Split(',')[0], Inv);
+        int[] tris = Triangles(c.Columns, c.Rows);
+        int crossing = 0;
+        for (int s = 0; s < 600; s++)
+        {
+            FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 40f, 1f, length, t, 0f, 0f);
+            c.Step(1f / 60f, ref air);
+            t += 1f / 60f;
+            if (s >= 300 && s % 6 == 0 && CrossingPairs(c, tris) > 0) crossing++;
+        }
+        return crossing + "," + CrossingPairs(c, tris) + "," + c.MaxStretch().ToString("F3", Inv) + "," + c.Unknotted + "," +
+               shownDroop.ToString("F0", Inv) + "," + c.Columns + "x" + c.Rows;
+    }
+
+    /// <summary>
+    /// A 3 x 2 m flag's hoist sunk half into the ground (the ground 1 m below the anchor), calm,
+    /// 8 s: the worst stretch (held up by the ground, its cloth was torn from its hoist), and how
+    /// far below the ground its lowest particle hangs (m).
+    /// </summary>
+    public static string Buried()
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        c.GroundY = -1f;
+        float t = 0f;
+        for (int s = 0; s < 480; s++)
+        {
+            FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 5f, 1f, 3f, t, 0f, 0f);
+            c.Step(1f / 60f, ref air);
+            t += 1f / 60f;
+        }
+        float lowest = 0f;
+        for (int k = 0; k < c.Count; k++) lowest = Math.Min(lowest, c.Y[k]);
+        return c.MaxStretch().ToString("F3", Inv) + "," + (c.GroundY - lowest).ToString("F2", Inv);
+    }
+
+    /// <summary>
+    /// Page Up and Page Down while placing, as Move It steps its selection (ElevationKeys): the
+    /// steps with each modifier; then a key pressed at 1 s (ticks of a millisecond), held to 1.5
+    /// s, let go, pressed again, both keys at once: the metres each event gave.
+    /// </summary>
+    public static string Keys()
+    {
+        string steps = ElevationKeys.StepFor(false, false).ToString("R", Inv) + " " + ElevationKeys.StepFor(true, false).ToString("R", Inv) + " " +
+                       ElevationKeys.StepFor(false, true).ToString("R", Inv) + " " + ElevationKeys.StepFor(true, true).ToString("R", Inv);
+        ElevationKeys keys = new ElevationKeys();
+        float[] got = {
+            keys.Event(true, false, false, false, 1000, 1000),
+            keys.Event(true, false, false, false, 1100, 1000),
+            keys.Event(true, false, false, false, 1332, 1000),
+            keys.Event(true, false, false, false, 1333, 1000),
+            keys.Event(true, false, true, false, 1400, 1000),
+            keys.Event(false, false, false, false, 1500, 1000),
+            keys.Event(false, true, false, false, 1600, 1000),
+            keys.Event(false, true, false, false, 1700, 1000),
+            keys.Event(true, true, false, false, 2000, 1000),
+            keys.Event(false, true, false, true, 2100, 1000),
+        };
+        string events = "";
+        foreach (float g in got) events += (events.Length > 0 ? " " : "") + g.ToString("R", Inv);
+        return steps + "|" + events;
     }
 
     /// <summary>
@@ -497,11 +761,13 @@ public static class ClothTests
             }
             int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
             float dt = 1f / 60f / sub;
+            c.PlanDrag(1f / 60f, sub);
             for (int i = 0; i < sub; i++)
             {
                 FlagAir air = FlagWind.Air(wind, 1.35f, 1f, 0f, height, 1f, length, t + i * dt, 0f, 0f);
                 c.Step(dt, ref air);
             }
+            c.EndDrag();
             t += 1f / 60f;
         }
         return CrossingPairs(c, tri) + "," + c.MaxStretch().ToString("F3", Inv) + "," + c.Columns + "x" + c.Rows;
@@ -2548,7 +2814,7 @@ foreach ($size in @(@(4.5, 500), @(1.5, 667))) {
 }
 
 $move = [ClothTests]::MoveAnchor() -split ","
-Check "a small move drags the cloth; of a bigger one half a cell; a jump carries it" ([math]::Abs((N $move[0]) + 0.05) -lt 1e-3 -and [math]::Abs((N $move[1]) + (N $move[3])) -lt 1e-3 -and [math]::Abs((N $move[2])) -lt 1e-3) ("fly moved " + $move[0] + " m against a 5 cm move, " + $move[1] + " m against 0.5 m (half a cell: " + $move[3] + " m), " + $move[2] + " m relative on a 50 m jump")
+Check "the anchor's move carries the cloth; its steps drag it by what it follows (a mm whole, 0.5 m capped), a jump not at all, the rest let go" ((N $move[0]) -eq 0 -and [math]::Abs((N $move[1]) - 1) -lt 1e-3 -and [math]::Abs((N $move[2]) - (N $move[4])) -lt 1e-3 -and (N $move[3]) -eq 0 -and (N $move[5]) -eq 0) ("the fly moved " + $move[0] + " m at once; planned a sub-step: " + $move[1] + " mm of a 1 mm move, " + $move[2] + " mm of 0.5 m (the cap: " + $move[4] + " mm, " + $move[6] + " m/s at most), " + $move[3] + " mm after a 50 m jump, " + $move[5] + " mm after the job")
 foreach ($case in @(@(8.1, 40, 2, -10, 10), @(8.1, 40, 2, 10, 10), @(3, 40, 0, -10, 20), @(3, 18, 0, 10, 5))) {
     $ho = [ClothTests]::Hoisted($case[0], $case[1], $case[2], $case[3], $case[4]) -split ","
     Check ("the height changed {3} m in {4} frames: a {0} m flag at {1} cells does not tangle" -f $case[0], $case[1], $case[2], $case[3], $case[4]) ((N $ho[0]) -eq 0 -and (N $ho[1]) -lt 1.2) ($ho[2] + ": " + $ho[0] + " pairs crossing 6 s after (the first version left 42-70), stretch " + $ho[1])
@@ -2848,6 +3114,46 @@ foreach ($speed in 0, 6) {
 }
 $un = [ClothTests]::Untouched()
 Check "a roof over the hoist: the surface left out, the cloth as without it; nothing in reach: bit for bit the cloth without the city" ($un -eq "True,True,False,0,True") $un
+
+# ---- a flag moved, lowered, settled; the knots ----------------------------------------------
+# Every check above flew, hung, wrapped and slapped a healthy cloth: none may have been found
+# knotted (FlagCloth.KnotStretch: its worst link 30% long for 2 s straight).
+$healthyKnots = [RealFlag.Flags.FlagCloth]::UnknottedAll
+Check "no healthy cloth above was taken for knotted (storms, poles, halyards, banners, walls, roofs, posts, still flags)" ($healthyKnots -eq 0) ("" + $healthyKnots + " laid out afresh")
+
+# Moved as Move It and the placing pointer move one (the renderer's frame, the cloth's job):
+# the first rule dragged the cloth up to half a cell a frame for as long as a move lasted, and
+# these left it tangled for good (the scratchpad's move harness, 2026-09-28).
+foreach ($case in @(
+        @{ P = "zigzag"; L = 3; R = 667; W = 1; D = 18; H = $false; V = 0; F = 60; S = 10; T = 4; Up = 12; Name = "a 3 m flag dragged to and fro at 10 m/s in calm air" },
+        @{ P = "zigzag"; L = 3; R = 667; W = 1; D = 40; H = $false; V = 0; F = 144; S = 10; T = 4; Up = 12; Name = "the same at Ultra, 144 fps" },
+        @{ P = "zigzag"; L = 3; R = 667; W = 1; D = 40; H = $false; V = 0; F = 20; S = 10; T = 4; Up = 12; Name = "the same at Ultra, 20 fps" },
+        @{ P = "kerbs"; L = 8.9; R = 667; W = 1.45; D = 24; H = $true; V = 0; F = 36; S = 30; T = 6; Up = 24.5; Name = "the author's 8.9 m flag on a halyard, placed: to and fro over kerbs at 30 m/s, calm, 36 fps" },
+        @{ P = "kerbs"; L = 8.9; R = 667; W = 1.45; D = 24; H = $true; V = 6.5; F = 50; S = 30; T = 6; Up = 24.5; Name = "the same in the game's 6.5 m/s" },
+        @{ P = "pgdn"; L = 8.9; R = 667; W = 1.45; D = 24; H = $true; V = 0; F = 50; S = 18; T = 0.8; Up = 24.5; Name = "the 8.9 m flag lowered by Move It's Page Down (18 m/s), calm" },
+        @{ P = "pgdn"; L = 3; R = 667; W = 1; D = 40; H = $false; V = 0; F = 60; S = 18; T = 0.8; Up = 12; Name = "a 3 m flag at Ultra, the same" })) {
+    $mv = [ClothTests]::Moved($case.P, $case.L, $case.R, $case.W, $case.D, $case.H, $case.V, $case.F, $case.S, $case.T, $case.Up) -split ","
+    Check ("moved: " + $case.Name + ": never through itself, never knotted") ((N $mv[0]) -eq 0 -and (N $mv[3]) -eq 0 -and (N $mv[5]) -eq 0 -and (N $mv[2]) -lt 1.35 -and (N $mv[4]) -lt 1.3 -and (N $mv[6]) -gt 0.8) ($mv[7] + ": crossing in " + $mv[0] + " samples of the move, worst stretch " + $mv[2] + ", spread " + $mv[6] + " of its own; after: " + $mv[3] + " crossing, stretch " + $mv[4] + "; knots undone " + $mv[5])
+}
+# Lowered until its hoist sank into the cloth heaped on the ground under it, and raised again: the
+# heap crushed between the two crosses itself (a knot the first rules left for good).
+$sk = [ClothTests]::Moved("sink", 8.9, 667, 1.45, 24, $true, 0, 50, 15, 4.5, 24.5) -split ","
+Check "the 8.9 m flag lowered until its hoist sank into the cloth heaped on the ground, then raised: whole again after" ((N $sk[3]) -eq 0 -and (N $sk[4]) -lt 1.25) ($sk[7] + ": crossing in " + $sk[0] + " samples of the move (" + $sk[1] + " pairs at most), knots undone " + $sk[5] + "; after: " + $sk[3] + " crossing, stretch " + $sk[4])
+
+# A new flag laid out flat and settled in calm air (1.5 s of 1/30 s steps, as the renderer does):
+# its fly fell and whipped through it, and these four stayed tangled for good.
+foreach ($case in @(@(2, 500, 40), @(2, 667, 24), @(3, 500, 40), @(5, 667, 40), @(1, 667, 18), @(3, 667, 18), @(8.9, 667, 24))) {
+    $st = [ClothTests]::Settled($case[0], $case[1], $case[2], $true) -split ","
+    Check ("settled calmly: a {0} m flag at {1}, {2} cells, calm air: never through itself after, never knotted" -f $case[0], $case[1], $case[2]) ((N $st[0]) -eq 0 -and (N $st[1]) -eq 0 -and (N $st[2]) -lt 1.2 -and (N $st[3]) -eq 0) ($st[5] + ": crossing in " + $st[0] + " of the last 5 s, " + $st[1] + " pairs at the end, stretch " + $st[2] + "; " + $st[4] + " deg of droop when first shown")
+}
+$raw = [ClothTests]::Settled(3, 500, 40, $false) -split ","
+Check "dropped undamped (the first settle), a 3 m 1:2 flag at Ultra knots: found knotted, laid out afresh, whole again" ((N $raw[0]) -eq 0 -and (N $raw[1]) -eq 0 -and (N $raw[2]) -lt 1.25) ($raw[5] + ": knots undone " + $raw[3] + ", crossing in " + $raw[0] + " of the last 5 s, " + $raw[1] + " at the end, stretch " + $raw[2])
+
+$bu = [ClothTests]::Buried() -split ","
+Check "a flag's hoist half into the ground: its cloth hangs into the ground from it, not held up and torn" ((N $bu[0]) -lt 1.2 -and (N $bu[1]) -gt 0.3) ("worst stretch " + $bu[0] + ", its lowest particle " + $bu[1] + " m under the ground")
+
+$keys = [ClothTests]::Keys()
+Check "Page Up/Down while placing step as Move It's: 0.125 m, Shift 1 m, Alt 1.6 cm, both 2 mm; once, then after 333 ms every event; both keys nothing" ($keys -eq "0.125 1 0.015625 0.001953125|0.125 0 0 0.125 1 0 -0.125 0 0 -0.015625") $keys
 
 # ---- cost ---------------------------------------------------------------------------------
 

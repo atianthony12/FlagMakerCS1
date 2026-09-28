@@ -560,6 +560,17 @@ namespace RealFlag.UI
             return Localization.Get("Unit.Metres", value.ToString("0.#", CultureInfo.InvariantCulture));
         }
 
+        /// <summary>The new flag's elevation, and how far Page Up and Page Down have raised or lowered it whole while it is placed (FlagTool.NewLift): "24.5 m +3.125 m".</summary>
+        private static string NewElevation(float value)
+        {
+            float lift = FlagTool.NewLift;
+            if (Math.Abs(lift) < 0.0005f)
+                return Metres(value);
+
+            return Localization.Get("Unit.MetresLift", value.ToString("0.#", CultureInfo.InvariantCulture),
+                                    (lift > 0f ? "+" : "-") + Math.Abs(lift).ToString("0.###", CultureInfo.InvariantCulture));
+        }
+
         private static string Degrees(float value)
         {
             return Localization.Get("Unit.Degrees", value.ToString("F0"));
@@ -1120,8 +1131,8 @@ namespace RealFlag.UI
                 Panel = PanelPage.New,
                 Float = Settings.NewHeight,
                 DefaultFloat = Settings.Defaults.Height,
-                Min = 0f, Max = 200f, Step = 0.5f,
-                Format = Metres,
+                Min = 0f, Max = Settings.Defaults.MaxNewHeight, Step = 0.5f,
+                Format = NewElevation,
             });
 
             Add(new Row

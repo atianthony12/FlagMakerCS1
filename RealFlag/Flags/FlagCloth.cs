@@ -687,6 +687,11 @@ namespace RealFlag.Flags
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _primed = false;
             _listed = false;
+
+            // Laid out afresh where its anchor is: it owes nothing to the anchor's moves, and is not knotted.
+            _dragX = 0f; _dragY = 0f; _dragZ = 0f;
+            _dragStepX = 0f; _dragStepY = 0f; _dragStepZ = 0f;
+            _knotted = 0f;
         }
 
         /// <summary>
@@ -1130,49 +1135,201 @@ namespace RealFlag.Flags
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _primed = false;
             _listed = false;
+
+            // Still being let down into the air (a flag made finer as it settles): so is this one.
+            _calm = old._calm;
         }
 
         /// <summary>
-        /// The most of one move of the anchor that drags the cloth, in cells: the rest carries it
-        /// along as it is. Measured (an 8.1 m flag at 41x28 hanging, its height changed 10 m in
-        /// ten frames; a 3 m flag at Ultra, 10 m in twenty): dragged whole, the hoist went 1 m a
-        /// frame through its own hanging cloth and self-collision locked the layers on the wrong
-        /// sides -- 42-70 pairs of triangles still crossing 10 s later, 55-77% stretch, "the only
-        /// way to untie it is to move it around"; half a cell dragged, none crossing at any time.
-        /// The attachment's motion only partly given to the cloth, as PhysX's and Unity's cloth
-        /// scale it (their world velocity and inertia scales).
+        /// How fast, at most, the anchor's move drags the cloth through the air -- leaves its free
+        /// particles behind in the world for the held hoist to pull after it -- as a share of
+        /// sqrt(g L), the speed a flag swings at as a pendulum of its length, so a flag of any size
+        /// sways alike when it is moved: 1.1 m/s for a 3 m flag, 1.9 m/s for 8.9 m, 3.4 m/s for
+        /// 30 m. The rest of the move carries it as it is: the attachment's motion only partly given
+        /// to the cloth, as PhysX's and Unity's cloth scale it (their world velocity and inertia
+        /// scales).
+        /// The first rule dragged it up to half a cell a FRAME however long a move went on (a
+        /// height changed 10 m in ten frames, the case it was measured on, stays 5 cells): Move
+        /// It's Page Up/Down (0.125 m every GUI event once held 333 ms: 15-22 m/s) and its drags
+        /// pushed the hoist through its own cloth at 5-10 m/s for as long as they lasted. A 3 m flag
+        /// dragged to and fro at 10 m/s in calm air, and the author's 8.9 m flag on a halyard moved
+        /// to and fro over kerbs as the placing pointer does, were still tangled 6 s after -- 9-73
+        /// pairs of triangles crossing, 46-47% stretch -- and every fast move crumpled the cloth to
+        /// a third of its spread (the scratchpad's move harness, 2026-09-28). Capped at this speed
+        /// and by <see cref="MaxDragCells"/>, none crossed itself at any time in 58 of 59 such
+        /// moves -- Page Up and Down, drags straight, to and fro and round, the pointer over kerbs
+        /// and up walls, at 20, 60 and 144 fps, in calm air and the game's wind, 1-30 m flags at
+        /// Normal to Ultra -- the worst link 1.30; the 59th, a flag lowered until its hoist sank
+        /// into its own cloth heaped on the ground, was untied by <see cref="KnotStretch"/>.
         /// </summary>
-        public const float MaxDragCells = 0.5f;
+        public const float DragFroude = 0.2f;
 
         /// <summary>
-        /// The anchor moved by (dx, dy, dz) in the world since the last step. A small move drags
-        /// the cloth (its free particles stay where they were in the world, and the pinned hoist
-        /// pulls them after it); of a bigger one only <see cref="MaxDragCells"/> drags it, the
-        /// rest carries it; a jump -- a paste, a teleport -- carries it along whole.
+        /// And at most this share of a cell in one sub-step: a cloth's fine cells cross one another
+        /// at a speed its coarse ones take. A 3 m flag at Ultra (8 cm cells) dragged to and fro in
+        /// calm air crossed itself for moments at 0.15 and 0.1 of a cell a 1/60 s step (0.7 and
+        /// 0.47 m/s), never at 0.05 (0.24 m/s), at 20, 60 or 144 fps. The drag this leaves: 0.5 m/s
+        /// for a 3 m flag at Normal, 1.1 m/s for the author's 8.9 m one at High, the Froude limit
+        /// for big flags at Normal.
+        /// </summary>
+        public const float MaxDragCells = 0.05f;
+
+        /// <summary>
+        /// A move of the anchor longer than this in one go, metres, is a jump -- a paste, an undo,
+        /// the placing pointer crossing a roof's edge: it carries the cloth whole.
+        /// </summary>
+        public const float JumpDistance = 2f;
+
+        /// <summary>The anchor's moves since the cloth was last stepped, as the drag they would give its free particles (against the move, relative to the anchor).</summary>
+        private float _dragX, _dragY, _dragZ;
+
+        /// <summary>The share of it each sub-step of the job under way takes (<see cref="PlanDrag"/>).</summary>
+        private float _dragStepX, _dragStepY, _dragStepZ;
+
+        /// <summary>The most the anchor's move drags the cloth, m/s (<see cref="DragFroude"/>).</summary>
+        public float DragSpeed
+        {
+            get { return DragFroude * (float)Math.Sqrt(Gravity * Length); }
+        }
+
+        /// <summary>
+        /// The anchor moved by (dx, dy, dz) in the world. Nothing moves yet: the next steps drag
+        /// the cloth by as much of it as the cloth can follow (<see cref="PlanDrag"/>), and the
+        /// rest carries it -- a jump (<see cref="JumpDistance"/>) whole. Between steps (the main
+        /// thread, like every change from outside).
         /// </summary>
         public void MoveAnchor(float dx, float dy, float dz)
         {
-            float d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 > 4f)
+            if (dx * dx + dy * dy + dz * dz > JumpDistance * JumpDistance)
+            {
+                _dragX = 0f; _dragY = 0f; _dragZ = 0f;
+                return;
+            }
+
+            _dragX -= dx; _dragY -= dy; _dragZ -= dz;
+        }
+
+        /// <summary>
+        /// Before a job's steps (ClothWorker.Execute): of the anchor's moves since the last steps,
+        /// the drag the cloth takes in the job's <paramref name="seconds"/> -- at most
+        /// <see cref="DragSpeed"/>, and <see cref="MaxDragCells"/> a sub-step -- spread evenly
+        /// over its <paramref name="subSteps"/>. The rest has carried it, and is let go: a cloth
+        /// not stepped while its flag moved (out of view, waiting its turn) is carried, never
+        /// dragged all at once when it steps again.
+        /// </summary>
+        public void PlanDrag(float seconds, int subSteps)
+        {
+            float x = _dragX, y = _dragY, z = _dragZ;
+            _dragX = 0f; _dragY = 0f; _dragZ = 0f;
+            _dragStepX = 0f; _dragStepY = 0f; _dragStepZ = 0f;
+
+            float d = (float)Math.Sqrt(x * x + y * y + z * z);
+            if (subSteps <= 0 || seconds <= 0f || d < 1e-7f)
                 return;
 
-            // Only this much leaves the free particles behind in the world.
-            float limit = MaxDragCells * Math.Min(CellU, CellV);
-            if (d2 > limit * limit)
-            {
-                float s = limit / (float)Math.Sqrt(d2);
-                dx *= s; dy *= s; dz *= s;
-            }
-
-            for (int k = 0; k < Count; k++)
-            {
-                if (_invMass[k] == 0f)
-                    continue;
-
-                X[k] -= dx; Y[k] -= dy; Z[k] -= dz;
-                PrevX[k] -= dx; PrevY[k] -= dy; PrevZ[k] -= dz;
-            }
+            float allowed = Math.Min(DragSpeed * seconds, MaxDragCells * Math.Min(CellU, CellV) * subSteps);
+            float s = (d > allowed ? allowed / d : 1f) / subSteps;
+            _dragStepX = x * s; _dragStepY = y * s; _dragStepZ = z * s;
         }
+
+        /// <summary>After a job's steps: the drag planned for them is done.</summary>
+        public void EndDrag()
+        {
+            _dragStepX = 0f; _dragStepY = 0f; _dragStepZ = 0f;
+        }
+
+        /// <summary>
+        /// A cloth laid out flat and let go into the air (a new flag, one laid out afresh) is
+        /// damped this much more, times sqrt(g / L) per second, for its first moments
+        /// (<see cref="Calm"/>): critically, as a pendulum of its length, so it sinks into the
+        /// way it hangs or flies instead of falling and whipping -- dynamic relaxation, the damped
+        /// run that brings a laid-out net or membrane to rest (Day 1965; Barnes 1988, "Form-finding
+        /// and analysis of prestressed nets and membranes"). Dropped flat into calm air undamped,
+        /// the fly fell and whipped through the rest of the cloth, and self-collision locked what
+        /// crossed: of 12 flags of 1-30 m settled as the renderer settles them (1/30 s steps), 4
+        /// stayed tangled for good, 14-24 pairs of triangles crossing, 28-81% stretch (2-5 m flags
+        /// at the finer details; a 1 m flag too, in 1/60 s steps); damped so for the settle's
+        /// 1.5 s, none (the scratchpad's settle2 harness, 2026-09-28). It is gravity's fall in still
+        /// air that whips: the damping fades out with the wind at the flag (none from
+        /// <see cref="CalmWind"/>), which carries a cloth out instead of dropping it -- a flag in wind
+        /// flies out and flutters as it always did.
+        /// </summary>
+        public const float CalmDamping = 2f;
+
+        /// <summary>The wind at the flag from which a cloth is not calmed at all, m/s (<see cref="CalmDamping"/>).</summary>
+        public const float CalmWind = 3f;
+
+        /// <summary>
+        /// How long a new cloth is calmed, seconds: the renderer's hidden settle (1.5 s) and as long
+        /// again once it shows, while its fly is still falling -- and not made finer meanwhile
+        /// (<see cref="Calming"/>). Flags of 2-4 m settled at Normal and made finer (to Ultra's 7-8
+        /// cm cells) 0-1.5 s after they showed, as the renderer makes near flags finer, knotted in 8
+        /// cases of 21 calmed for 1.5 s; calmed for 3 s and made finer only after, in none of 7
+        /// (the scratchpad's knot2 harness, calm air). The same for a cloth laid out afresh while
+        /// it flies (<see cref="Relaid"/>, <see cref="Unknotted"/>).
+        /// </summary>
+        public const float CalmTime = 3f;
+
+        /// <summary>The cloth is still being let down into the air (<see cref="Calm"/>): the renderer does not make it finer yet.</summary>
+        public bool Calming
+        {
+            get { return _calm > 0f; }
+        }
+
+        /// <summary>
+        /// A cloth whose worst link has stayed this much over its length (1.3: 30%) for
+        /// <see cref="KnotTime"/> seconds straight is knotted -- layers of it locked through one
+        /// another, which self-collision holds on the wrong sides for good -- and is laid out
+        /// afresh where it is free, calmed (<see cref="Unknotted"/>): a flag is never left knotted,
+        /// whatever knotted it. A healthy cloth passes 30% only for moments (a fly's corner
+        /// whipping, a flag slapping a wall: 0-2% of the time, test-cloth's city checks); every
+        /// knot measured held 34-81% for as long as it was watched (the move harness: a flag
+        /// lowered until its hoist met the cloth heaped on the ground under it, the settle and
+        /// drag cases before their fixes).
+        /// </summary>
+        public const float KnotStretch = 1.3f;
+        public const float KnotTime = 2f;
+
+        /// <summary>The worst link is looked at every this many seconds of the cloth's steps.</summary>
+        private const float KnotCheck = 0.1f;
+
+        /// <summary>Cloth time since the worst link was last looked at, and how long it has been over <see cref="KnotStretch"/>.</summary>
+        private float _knotClock, _knotted;
+
+        /// <summary>Times the cloth was found knotted and laid out afresh (<see cref="KnotStretch"/>).</summary>
+        public int Unknotted { get; private set; }
+
+        private static int _unknottedAll;
+
+        /// <summary>Every cloth's knots undone in this process: the tests hold a healthy flag's to none, whatever it is doing.</summary>
+        public static int UnknottedAll
+        {
+            get { return _unknottedAll; }
+        }
+
+        /// <summary>The share of the anchor's move each sub-step of the job under way drags the cloth by, metres (for the tests).</summary>
+        public float PlannedDrag
+        {
+            get { return (float)Math.Sqrt(_dragStepX * _dragStepX + _dragStepY * _dragStepY + _dragStepZ * _dragStepZ); }
+        }
+
+        /// <summary>Seconds of <see cref="CalmDamping"/> left.</summary>
+        private float _calm;
+
+        /// <summary>The cloth is let down into the air, not dropped: <see cref="CalmDamping"/> for its next <paramref name="seconds"/> of steps. Between steps.</summary>
+        public void Calm(float seconds)
+        {
+            _calm = Math.Max(_calm, seconds);
+        }
+
+        /// <summary>
+        /// The flat ground this step (<see cref="GroundY"/>, and 2 cm), but never over the held
+        /// hoist: a flag lowered into the ground hangs from its buried hoist into it, as the
+        /// surface is left out over a hoist under it (<see cref="HoistUnder"/>). Held up by the
+        /// ground, its cloth was torn from its hoist -- a hoist sunk 3 m under stretched its links
+        /// ten times over (the move harness's sinkrise).
+        /// </summary>
+        private float _ground;
 
         /// <summary>One step of <paramref name="dt"/> seconds in the given air.</summary>
         public void Step(float dt, ref FlagAir air)
@@ -1180,8 +1337,9 @@ namespace RealFlag.Flags
             if (dt <= 0f)
                 return;
 
-            // Mostly buried last step (its flag carried into a building): laid out afresh where it is free.
-            if (_heaped > BuriedShare * Count)
+            // Mostly buried last step (its flag carried into a building), or knotted for seconds: laid out afresh where it is free.
+            bool buried = _heaped > BuriedShare * Count, knotted = _knotted >= KnotTime;
+            if (buried || knotted)
             {
                 float wx = air.MeanX, wz = air.MeanZ;
                 if (wx * wx + wz * wz < 1e-6f)
@@ -1191,12 +1349,34 @@ namespace RealFlag.Flags
                 }
 
                 LayOutClear(wx, wz);
-                Relaid++;
+                Calm(CalmTime);
+                _knotted = 0f;
+                if (buried)
+                {
+                    Relaid++;
+                }
+                else
+                {
+                    Unknotted++;
+                    System.Threading.Interlocked.Increment(ref _unknottedAll);
+                }
             }
 
             _heaped = 0;
             int n = Count;
             float sigma = Math.Max(_fabric.Density, 0.01f);
+
+            // This sub-step's share of the anchor's move (PlanDrag): the free particles left behind in the world by it.
+            if (_dragStepX != 0f || _dragStepY != 0f || _dragStepZ != 0f)
+            {
+                for (int k = 0; k < n; k++)
+                {
+                    if (_invMass[k] == 0f)
+                        continue;
+
+                    X[k] += _dragStepX; Y[k] += _dragStepY; Z[k] += _dragStepZ;
+                }
+            }
 
             // The air carried sideways with each square metre of cloth, and the inertia a normal
             // force has to move: the cloth's own and that air's.
@@ -1207,7 +1387,16 @@ namespace RealFlag.Flags
 
             float drag = _fabric.Drag * AirDensity / (2f * inertia) * dt;
             float friction = _fabric.Friction * AirDensity / (2f * sigma) * dt;
-            float keep = Math.Max(0f, 1f - _fabric.Damping * dt);
+            float damping = _fabric.Damping;
+            if (_calm > 0f)
+            {
+                // Let down, not dropped: critically damped as a pendulum of its length, less as the wind carries it.
+                float wind = (float)Math.Sqrt(air.MeanX * air.MeanX + air.MeanY * air.MeanY + air.MeanZ * air.MeanZ);
+                damping += CalmDamping * (float)Math.Sqrt(Gravity / Length) * Math.Max(0f, 1f - wind / CalmWind);
+                _calm -= dt;
+            }
+
+            float keep = Math.Max(0f, 1f - damping * dt);
             float gravity = Gravity * dt;
             float invDt = 1f / dt;
             float invCell = 1f / CellU;
@@ -1325,6 +1514,17 @@ namespace RealFlag.Flags
 
             Array.Copy(_un, _unPrev, n);
 
+            // ---- the flat ground, lowered under a buried hoist ----
+            float ground = GroundY + 0.02f;
+            for (int j = 0; j < Rows; j++)
+            {
+                int k = j * Columns;
+                if (_invMass[k] == 0f && Y[k] - 0.02f < ground)
+                    ground = Y[k] - 0.02f;
+            }
+
+            _ground = ground;
+
             // ---- the city in reach this step: the surface under the cloth, the capsules near it ----
             PrepareColliders();
 
@@ -1397,6 +1597,14 @@ namespace RealFlag.Flags
             }
 
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+
+            // Knotted? Its worst link, every KnotCheck: laid out afresh after KnotTime over KnotStretch.
+            _knotClock += dt;
+            if (_knotClock >= KnotCheck)
+            {
+                _knotted = MaxStretch() > KnotStretch ? _knotted + _knotClock : 0f;
+                _knotClock = 0f;
+            }
         }
 
         /// <summary>
@@ -1467,7 +1675,7 @@ namespace RealFlag.Flags
             float[] px = _px, py = _py, pz = _pz;
 
             // Under a surface in reach, that is the ground (KeepAboveSurface); else the flat ground under the anchor.
-            float ground = _surfaceOn ? float.MinValue : GroundY + 0.02f;
+            float ground = _surfaceOn ? float.MinValue : _ground;
             int cols = Columns;
             int bottom = (Rows - 1) * cols;
             float tx0 = px[0], ty0 = py[0], tz0 = pz[0];
@@ -1776,7 +1984,7 @@ namespace RealFlag.Flags
             float inv = 1f / grid.Spacing;
             // The grid's first node, relative to the anchor.
             float ox = _surfaceX + grid.MinX, oy = _surfaceY, oz = _surfaceZ + grid.MinZ;
-            float gap = _surfaceMargin, depth = _depthLimit, ground = GroundY + 0.02f;
+            float gap = _surfaceMargin, depth = _depthLimit, ground = _ground;
             float lastX = columns - 1, lastZ = rows - 1;
             float[] px = _px, py = _py, pz = _pz;
 

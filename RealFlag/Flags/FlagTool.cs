@@ -31,6 +31,16 @@ namespace RealFlag.Flags
     /// round(a / 45 - 1) x 45). The turn is the new flag's rotation itself, so the New flag
     /// window shows it. Unlike PropTool's prop, the flag holds where it stood while a drag turns it.
     ///
+    /// The game's raise and lower keys (Page Up, Page Down) move a flag up and down WHOLE, its pole
+    /// with it, as Move It moves its selection (ElevationKeys: 0.125 m a step, Shift x8, Alt /8,
+    /// repeating after a third of a second held). Placing, they raise the new flag over its
+    /// elevation (<see cref="NewLift"/>, shown after the elevation in the New flag window, let go
+    /// with the window): its pole keeps the length it has at the elevation, its foot off the
+    /// ground (or in it), and the flag placed keeps that pole -- the first version changed the
+    /// elevation itself, and a pole always reaches down to what is under it: "PgUp / down just
+    /// increases the height of the flagpole". Picking, they move the selected flag as the gizmo's
+    /// arrows do (FlagEditor.ApplyTransform: its pole's length kept).
+    ///
     /// Esc (and, picking, the right button) steps back one thing at a time: a drag (the flag
     /// goes back where it was, or the new flag the way it pointed), then the selection, then the
     /// tool. The selection lives while the tool is out: the tool put away by any means lets it
@@ -69,6 +79,41 @@ namespace RealFlag.Flags
         /// <summary>Degrees a drag turns the flag per unit of the "Mouse X" axis: PropTool.OnToolUpdate's DeltaAngle(axis x 10).</summary>
         private const float TurnPerMouseX = 10f;
 
+        // The raise and lower keys (the game's, as its road and building tools read them:
+        // NetTool.Awake's IL) and Move It's stepping; whether they are moving a flag, how far since
+        // they went down (logged when they are let go) and when they last stepped (real time), for
+        // the tooltip.
+        private SavedInputKey _raiseKey, _lowerKey;
+        private ElevationKeys _elevation;
+        private bool _raising;
+        private float _raisedBy;
+        private float _raisedAt = -1f;
+
+        /// <summary>Placing: the new flag raised (or, less than 0, lowered) whole over its elevation, metres.</summary>
+        private float _lift;
+
+        // Picking: the selected flag the keys move, and where they have sent it -- its own while
+        // the keys work and a moment after: the prop moves on the simulation thread, a frame or
+        // two behind, and the keys step on every GUI event, several a frame.
+        private uint _raisedFlag;
+        private Vector3 _raiseAnchor;
+        private float _raiseAngle, _raiseTilt, _raiseLean, _raiseOwnUntil;
+
+        /// <summary>The flag's move stays in the tooltip this long after the keys last moved it, seconds.</summary>
+        private const float RaiseShown = 1f;
+
+        /// <summary>The selected flag's place the keys sent it to is trusted over its prop's this long after their last step, seconds (FlagEditor's own quiet time).</summary>
+        private const float RaiseOwnTime = 0.6f;
+
+        /// <summary>The new flag is raised or lowered at most this far over its elevation, metres.</summary>
+        private const float MaxLift = 1000f;
+
+        /// <summary>Placing: the new flag raised (or, less than 0, lowered) whole over its elevation by Page Up and Page Down, metres; 0 when not placing.</summary>
+        public static float NewLift
+        {
+            get { return Instance != null && Instance.enabled && Instance.CurrentMode == Mode.Place ? Instance._lift : 0f; }
+        }
+
         private static readonly Color PlaceColour = new Color(0.95f, 0.85f, 0.4f, 0.6f);
 
         /// <summary>Shows the tool in <paramref name="mode"/>; the same mode again puts it away.</summary>
@@ -103,6 +148,8 @@ namespace RealFlag.Flags
                 {
                     tool._gizmo.Cancel();
                     tool._rightDown = false;
+                    tool.EndRaise();
+                    tool._lift = 0f;
                 }
                 tool.CurrentMode = mode;
                 controller.CurrentTool = tool;
@@ -199,6 +246,18 @@ namespace RealFlag.Flags
         {
             base.Awake();
             Instance = this;
+
+            try
+            {
+                _raiseKey = new SavedInputKey(global::Settings.buildElevationUp, global::Settings.gameSettingsFile, DefaultSettings.buildElevationUp, true);
+                _lowerKey = new SavedInputKey(global::Settings.buildElevationDown, global::Settings.gameSettingsFile, DefaultSettings.buildElevationDown, true);
+            }
+            catch (Exception e)
+            {
+                _raiseKey = null;
+                _lowerKey = null;
+                Log.Warn("flags: the game's raise and lower keys could not be read; flags are not raised or lowered by them: " + e.Message);
+            }
         }
 
         protected override void OnDisable()
@@ -208,6 +267,8 @@ namespace RealFlag.Flags
             _hitValid = false;
             _rightDown = false;
             Hovered = 0;
+            EndRaise();
+            _lift = 0f;
 
             // Put away by any means: a drag stays where it got to, the selection goes.
             _gizmo.End();
@@ -293,11 +354,14 @@ namespace RealFlag.Flags
             return _hitValid && _mouseRayValid;
         }
 
-        /// <summary>Where the flag would stand: its anchor (the top of the hoist) the chosen height over the surface under the cursor.</summary>
-        private static Vector3 AnchorOver(Vector3 hit)
+        /// <summary>
+        /// Where the flag would stand: its anchor (the top of the hoist) the chosen height over the
+        /// surface under the cursor, and raised or lowered whole by the keys (<see cref="NewLift"/>).
+        /// </summary>
+        private Vector3 AnchorOver(Vector3 hit)
         {
             float height = Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
-            return new Vector3(hit.x, hit.y + Mathf.Max(0f, height), hit.z);
+            return new Vector3(hit.x, hit.y + Mathf.Max(0f, height) + _lift, hit.z);
         }
 
         /// <summary>The new flag's rotation, degrees: the way the next flag points.</summary>
@@ -372,6 +436,131 @@ namespace RealFlag.Flags
             return _turned;
         }
 
+        /// <summary>
+        /// Every GUI event (Move It's OnToolGUI reads its keys on every one): the raise and lower
+        /// keys move a flag up and down whole (ElevationKeys) -- placing, the new one over its
+        /// elevation; picking, the selected one. Not while a text field has the keyboard, as Move
+        /// It does not.
+        /// </summary>
+        private void UpdateRaise(Event e)
+        {
+            if (_raiseKey == null || _lowerKey == null ||
+                ColossalFramework.UI.UIView.HasModalInput() || ColossalFramework.UI.UIView.HasInputFocus())
+                return;
+
+            bool up = Held(_raiseKey, e), down = Held(_lowerKey, e);
+            float step = _elevation.Event(up, down, e.shift, e.alt, System.Diagnostics.Stopwatch.GetTimestamp(),
+                                          System.Diagnostics.Stopwatch.Frequency);
+            if (step != 0f)
+            {
+                if (CurrentMode == Mode.Place)
+                    RaiseNew(step);
+                else
+                    RaiseSelected(step);
+            }
+            else if (!up && !down)
+            {
+                EndRaise();
+            }
+        }
+
+        /// <summary>Placing: the new flag, pole and all, a step higher or lower over its elevation.</summary>
+        private void RaiseNew(float step)
+        {
+            _lift = Mathf.Clamp(_lift + step, -MaxLift, MaxLift);
+            Stepped(step, 0);
+        }
+
+        /// <summary>
+        /// Picking: the selected flag, pole and all, a step higher or lower -- as the gizmo's arrows
+        /// move it (its pole's length kept), from where the keys have sent it while they work.
+        /// </summary>
+        private void RaiseSelected(float step)
+        {
+            if (_gizmo.IsDragging || FlagEditor.Selected == 0)
+                return;
+
+            float now = Time.realtimeSinceStartup;
+            if (_raisedFlag != FlagEditor.Selected || now > _raiseOwnUntil)
+            {
+                FlagEntry entry;
+                if (!FlagEditor.TryGetSelected(out entry))
+                    return;
+
+                _raiseAnchor = entry.Anchor;
+                _raiseAngle = entry.Angle;
+                _raiseTilt = entry.Spec.Tilt;
+                _raiseLean = entry.Spec.Lean;
+            }
+
+            _raiseAnchor.y += step;
+            FlagEditor.ApplyTransform(_raiseAnchor, _raiseAngle, _raiseTilt, _raiseLean);
+            _raiseOwnUntil = now + RaiseOwnTime;
+            Stepped(step, FlagEditor.Selected);
+        }
+
+        /// <summary>A step taken: counted for the tooltip and the log line when the keys are let go.</summary>
+        private void Stepped(float step, uint flag)
+        {
+            if (!_raising || _raisedFlag != flag)
+            {
+                EndRaise();
+                _raising = true;
+                _raisedBy = 0f;
+                _raisedFlag = flag;
+            }
+
+            _raisedBy += step;
+            _raisedAt = Time.realtimeSinceStartup;
+        }
+
+        /// <summary>The keys let go (or the tool put away, or turned to the other mode): how far they took the flag, for the log.</summary>
+        private void EndRaise()
+        {
+            if (!_raising)
+                return;
+
+            _raising = false;
+            string keys = (_raiseKey != null ? _raiseKey.ToString() : "?") + " / " + (_lowerKey != null ? _lowerKey.ToString() : "?");
+            string moved = (_raisedBy >= 0f ? "raised " : "lowered ") + Mathf.Abs(_raisedBy).ToString("0.###") + " m, pole and all";
+            if (_raisedFlag != 0)
+                Log.Msg("flags: flag #" + _raisedFlag + " " + moved + " (" + keys + ")");
+            else
+                Log.Msg("flags: the new flag " + moved + ": " + _lift.ToString("0.###") + " m over its elevation now (" + keys + ")");
+        }
+
+        /// <summary>The keys moved a flag a moment ago (or are held): its move goes in the tooltip.</summary>
+        private bool ShowingRaise
+        {
+            get { return _raising || (_raisedAt >= 0f && Time.realtimeSinceStartup - _raisedAt < RaiseShown); }
+        }
+
+        /// <summary>"Raised 3.125 m" or "Lowered 2 m".</summary>
+        private static string RaiseText(float metres)
+        {
+            string abs = Mathf.Abs(metres).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            return Localization.Get(metres >= 0f ? "Tool.Raised" : "Tool.Lowered", abs);
+        }
+
+        /// <summary>
+        /// A raise or lower key held as Move It reads its own (MoveItTool.IsKeyDown, its IL): its key
+        /// down, and Ctrl as its binding has it -- Shift and Alt only scale the step.
+        /// </summary>
+        private static bool Held(SavedInputKey key, Event e)
+        {
+            KeyCode code = key.Key;
+            return code != KeyCode.None && Input.GetKey(code) && key.Control == e.control;
+        }
+
+        /// <summary>The raise and lower keys' names, as the game's key mapping shows them.</summary>
+        private string RaiseKeys()
+        {
+            if (_raiseKey == null || _lowerKey == null)
+                return "Page Up / Page Down";
+
+            return _raiseKey.ToLocalizedString("KEYNAME") + " / " + _lowerKey.ToLocalizedString("KEYNAME");
+        }
+
         protected override void OnToolUpdate()
         {
             base.OnToolUpdate();
@@ -397,11 +586,12 @@ namespace RealFlag.Flags
                 bool turning = UpdateTurn();
                 valid = TryGhostHit(out hit);
                 if (valid && FlagRenderer.Instance != null)
-                    FlagRenderer.Instance.SetGhost(AnchorOver(hit), NewAngle(), Settings.NewSpec());
+                    FlagRenderer.Instance.SetGhost(AnchorOver(hit), NewAngle(), Settings.NewSpec(), _lift);
 
                 string text = FlagPrefab.Info == null ? Localization.Get("Tool.NoPrefab")
                             : turning ? Localization.Get("Gizmo.Heading", NewDegrees().ToString("0", System.Globalization.CultureInfo.InvariantCulture))
-                            : Localization.Get("Tool.PlaceHint");
+                            : ShowingRaise && _raisedFlag == 0 ? RaiseText(_lift)
+                            : Localization.Get("Tool.PlaceHint", RaiseKeys());
                 ShowToolInfo(valid, valid ? text : null, hit);
                 return;
             }
@@ -418,11 +608,17 @@ namespace RealFlag.Flags
             FlagEntry selected = default(FlagEntry);
             bool haveSelected = camera != null && FlagEditor.TryGetSelected(out selected);
 
+            // Raised or lowered by the keys a moment ago: where they sent it, which its prop reaches a frame or two later.
+            if (haveSelected && _raisedFlag == selected.Prop && Time.realtimeSinceStartup <= _raiseOwnUntil)
+                selected.Anchor = _raiseAnchor;
+
             if (haveSelected)
                 _gizmo.Place(selected.Anchor, selected.Angle, selected.Spec.Tilt, selected.Spec.Lean, camera.transform.position);
 
             if (_gizmo.IsDragging)
             {
+                // The gizmo moves it now: where the keys sent it is past.
+                _raiseOwnUntil = 0f;
                 Hovered = 0;
                 if (!haveSelected || !Input.GetMouseButton(0))
                 {
@@ -460,14 +656,19 @@ namespace RealFlag.Flags
                 Hovered = FlagRenderer.Instance.PickAt(segment);
             }
 
-            string text = Hovered != 0 && Hovered != FlagEditor.Selected ? Localization.Get("Tool.PickHint")
-                        : haveSelected ? Localization.Get("Tool.SelectedHint")
+            bool raised = haveSelected && ShowingRaise && _raisedFlag == selected.Prop;
+            string text = raised ? RaiseText(_raisedBy)
+                        : Hovered != 0 && Hovered != FlagEditor.Selected ? Localization.Get("Tool.PickHint")
+                        : haveSelected ? Localization.Get("Tool.SelectedHint", RaiseKeys())
                         : Localization.Get("Tool.PickNone");
-            ShowToolInfo(valid || Hovered != 0, text, Hovered != 0 || !haveSelected ? hit : selected.Anchor);
+            ShowToolInfo(valid || Hovered != 0 || raised, text, !raised && (Hovered != 0 || !haveSelected) ? hit : selected.Anchor);
         }
 
         protected override void OnToolGUI(Event e)
         {
+            // Every event, as Move It reads its keys: held, they repeat at the GUI's pace.
+            UpdateRaise(e);
+
             if (e.type == EventType.MouseUp && e.button == 0 && _gizmo.IsDragging)
             {
                 _gizmo.End();
@@ -520,13 +721,23 @@ namespace RealFlag.Flags
             Vector3 anchor = AnchorOver(hit);
             float angle = NewAngle();
             FlagSpec spec = Settings.NewSpec();
+
+            // Raised or lowered whole by the keys: its pole as long as the flag being placed shows it
+            // (as it stands at the elevation), kept -- not found down to the ground again from where
+            // the flag now is.
+            float lift = _lift, pole;
+            if (spec.HasPole && Mathf.Abs(lift) > 1e-4f && FlagRenderer.Instance != null && FlagRenderer.Instance.TryGhostPole(out pole))
+                spec.PoleLength = Mathf.Clamp(pole, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+
             FlagProps.Create(anchor, angle, spec, prop =>
             {
                 if (prop == 0)
                     Log.Warn("flags: the flag was not placed (the city has as many props as it can hold)");
                 else
                     Log.Msg("flags: flag #" + prop + " placed at (" + anchor.x.ToString("F0") + ", " + anchor.z.ToString("F0") + "), top of the hoist " +
-                            anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over what is under it), " +
+                            anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over what is under it" +
+                            (Mathf.Abs(lift) > 1e-4f ? ", " + (lift > 0f ? "raised " : "lowered ") + Mathf.Abs(lift).ToString("0.###") + " m whole" +
+                             (spec.PoleLength > 0f ? ", its pole " + spec.PoleLength.ToString("F1") + " m" : "") : "") + "), " +
                             (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
             });
         }

@@ -114,6 +114,13 @@ namespace RealFlag.Flags
         /// that point or the axis moves. Negative until known.
         /// </summary>
         public float PoleLength = -1f;
+
+        /// <summary>
+        /// The flag being placed only: raised (or lowered) whole over its elevation by the keys
+        /// (FlagTool.NewLift), metres -- its pole is found down from where it would stand without,
+        /// and carried up with it.
+        /// </summary>
+        public float Lift;
         public Vector3 PoleCastFrom;
         public Vector3 PoleCastAlong;
         public int PoleCastAsked;
@@ -142,8 +149,9 @@ namespace RealFlag.Flags
         /// <summary>Said once: its hoist stands under the surface (a roof over it, inside a building), which its cloth leaves out.</summary>
         public bool LoggedBlocked;
 
-        /// <summary>Its cloth's FlagCloth.Relaid when last looked at (a change is logged).</summary>
+        /// <summary>Its cloth's FlagCloth.Relaid and FlagCloth.Unknotted when last looked at (a change is logged).</summary>
         public int Relaid;
+        public int Unknotted;
 
         /// <summary>Its new cloth has been laid out clear of the city (FlagCloth.LayOutClear), before it first settles.</summary>
         public bool LaidOut;
@@ -378,6 +386,7 @@ namespace RealFlag.Flags
         private Vector3 _ghostAnchor;
         private float _ghostAngle;
         private FlagSpec _ghostSpec;
+        private float _ghostLift;
 
         private Material _material;
         private Material _poleMaterial;
@@ -419,6 +428,9 @@ namespace RealFlag.Flags
 
         /// <summary>The flags planned this frame whose last step touched the city, and whose hoist stands under its surface.</summary>
         private int _touching, _blocked;
+
+        /// <summary>Cloths found knotted and laid out afresh in this city (FlagCloth.Unknotted).</summary>
+        private int _unknots;
         private int _finest = FlagCloth.CellsAlong;
         private float _pixelsPerRadian = 1000f;
         private int _detailChanges;
@@ -713,6 +725,7 @@ namespace RealFlag.Flags
                     }
 
                     f.Cloth.Reset(jobs[i].DirX, jobs[i].DirZ);
+                    f.Cloth.Calm(FlagCloth.CalmTime);
                     f.MeshDirty = true;
                     continue;
                 }
@@ -939,9 +952,10 @@ namespace RealFlag.Flags
             else
             {
                 // Where the axis crosses the anchor's level, from the last shape's offset (a
-                // centimetre or two either way until the first cast is back).
-                float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Ground, 1f)).Offset;
-                Vector3 from = f.Anchor - f.Fly * offset;
+                // centimetre or two either way until the first cast is back) -- the flag being placed,
+                // as it would stand before the keys raised or lowered it: its pole goes with it.
+                float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Lift - f.Ground, 1f)).Offset;
+                Vector3 from = f.Anchor - Vector3.up * f.Lift - f.Fly * offset;
                 if (f.PoleCastAsked == 0 || (from - f.PoleCastFrom).sqrMagnitude > 1e-4f || (f.Hoist - f.PoleCastAlong).sqrMagnitude > 1e-6f)
                     CastPole(f, from);
 
@@ -968,7 +982,7 @@ namespace RealFlag.Flags
                 }
                 else if (f.PoleLength < 0f)
                 {
-                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
+                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Lift - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
                 }
             }
 
@@ -1078,8 +1092,10 @@ namespace RealFlag.Flags
         private void ChooseDetail(FlagInstance f)
         {
             // A still flag keeps the Normal cloth its shape was made on: a finer grid would only
-            // spread the same shape over more particles (the drawn surface is refined anyway).
-            if (!f.Visible || (f.Cloth != null && !f.Settled) || f.Spec.Motion != FlagMotion.Waves)
+            // spread the same shape over more particles (the drawn surface is refined anyway). A
+            // cloth still being let down into the air falls at the detail it was made at: made finer
+            // mid-fall, its fine cells whipped through one another (FlagCloth.CalmTime).
+            if (!f.Visible || (f.Cloth != null && (!f.Settled || f.Cloth.Calming)) || f.Spec.Motion != FlagMotion.Waves)
                 return;
 
             float size = Mathf.Max(f.Spec.Length, f.Spec.Height);
@@ -1242,12 +1258,13 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// The flag's prop moved or turned, or its hoist leans another way: the cloth follows
-        /// (dragged if near, carried if a jump; turned whole onto a new hoist), and a paused game
-        /// steps it for a moment.
+        /// (carried, and dragged by as much as it can follow as it steps: FlagCloth.MoveAnchor;
+        /// turned whole onto a new hoist), and a paused game steps it for a moment.
         /// </summary>
         private static void Place(FlagInstance f, Vector3 anchor, float angle)
         {
             // A still or flat flag goes with its prop as it is (its cloth is the anchor's, and never stepped).
+            // A waving one is carried too until it steps (its particles are the anchor's): its mesh holds.
             bool still = f.Spec.Motion != FlagMotion.Waves;
             if (f.HasAnchor && f.Cloth != null && !still)
             {
@@ -1255,7 +1272,6 @@ namespace RealFlag.Flags
                 if (d.sqrMagnitude > 1e-8f)
                 {
                     f.Cloth.MoveAnchor(d.x, d.y, d.z);
-                    f.MeshDirty = true;
                     Wake(f);
                 }
             }
@@ -1589,6 +1605,9 @@ namespace RealFlag.Flags
                 f.Cloth = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), start.x, start.z, f.Detail,
                                         f.Hoist.x, f.Hoist.y, f.Hoist.z);
                 f.Cloth.SelfCollision = _selfCollision;
+
+                // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
+                f.Cloth.Calm(FlagCloth.CalmTime);
                 f.Mesh = new FlagMesh(f.Cloth, f.Refine);
                 f.Refine = f.Mesh.Refine;
                 f.Settled = false;
@@ -1622,6 +1641,18 @@ namespace RealFlag.Flags
             if (f.Cloth.Relaid > f.Relaid && Log.Detailed)
                 Log.Detail("flags: " + (f.Prop != 0 ? "flag #" + f.Prop : "the new flag") + "'s cloth was buried in a building (moved into it): laid out afresh where it is free");
             f.Relaid = f.Cloth.Relaid;
+
+            // Knotted (FlagCloth.KnotStretch): said while there are few, counted in the report after.
+            if (f.Cloth.Unknotted > f.Unknotted)
+            {
+                _unknots++;
+                if (_unknots <= 20)
+                    Log.Msg("flags: " + (f.Prop != 0 ? "flag #" + f.Prop : "the new flag") + "'s cloth was knotted (a link " +
+                            ((FlagCloth.KnotStretch - 1f) * 100f).ToString("F0") + "% long or more for " + FlagCloth.KnotTime.ToString("F0") +
+                            " s): laid out afresh where it is free" + (_unknots == 20 ? " (further ones are counted in the detailed log)" : ""));
+            }
+
+            f.Unknotted = f.Cloth.Unknotted;
 
             Vector3 dir = wind.DirectionFor(f.Angle);
             f.WindDir = dir;
@@ -2153,7 +2184,8 @@ namespace RealFlag.Flags
                            Budget.ToString("F0") + ") on " +
                            (_worker.Threaded ? _worker.Threads + " thread(s) (" + (_batchWallMs / frames).ToString("F3") + " ms out)" : "the main thread") +
                            ", " + (1000.0 * _unitCost).ToString("F2") + " us a particle step | " + _stepsThisReport + " cloth steps in " +
-                           seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") + " | in view by detail " +
+                           seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") +
+                           (_unknots > 0 ? ", " + _unknots + " knotted and laid out afresh in this city" : "") + " | in view by detail " +
                            DetailsInView() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
                            w.Describe() + " | the city: " +
                            (_cityCollision
@@ -2201,16 +2233,25 @@ namespace RealFlag.Flags
         // ---- the placement ghost --------------------------------------------------------------
 
         /// <summary>
-        /// The flag the tool is about to place, at the cursor: call every frame while wanted
-        /// (the tool does, from its Update). Only noted here; applied in LateUpdate, when no
-        /// cloth is being stepped.
+        /// The flag the tool is about to place, at the cursor, raised (or lowered) whole by
+        /// <paramref name="lift"/> over its elevation: call every frame while wanted (the tool
+        /// does, from its Update). Only noted here; applied in LateUpdate, when no cloth is being
+        /// stepped.
         /// </summary>
-        public void SetGhost(Vector3 anchor, float angle, FlagSpec spec)
+        public void SetGhost(Vector3 anchor, float angle, FlagSpec spec, float lift)
         {
             _ghostAnchor = anchor;
             _ghostAngle = angle;
             _ghostSpec = spec;
+            _ghostLift = lift;
             _ghostWanted = true;
+        }
+
+        /// <summary>The pole under the flag being placed, as long as it is drawn (as it stands at the elevation, before the keys raised it): false while there is none, or its length is not known yet.</summary>
+        public bool TryGhostPole(out float length)
+        {
+            length = _ghost != null && _ghost.Spec.HasPole && _ghost.PoleMesh != null ? _ghost.PoleLength : -1f;
+            return length > 0f;
         }
 
         private void ApplyGhost(Vector3 eye, Plane[] planes)
@@ -2230,6 +2271,7 @@ namespace RealFlag.Flags
             if (!Same(_ghostSpec, _ghost.Spec))
                 SetSpec(_ghost, _ghostSpec);
 
+            _ghost.Lift = _ghostLift;
             Place(_ghost, _ghostAnchor, _ghostAngle);
             _ghost.Distance = Vector3.Distance(eye, _ghostAnchor);
             _ghost.Pixels = Mathf.Max(_ghostSpec.Length, _ghostSpec.Height) / Mathf.Max(_ghost.Distance, 1f) * _pixelsPerRadian;

@@ -44,6 +44,9 @@ techniques were written from scratch after them, and they are credited here with
       "Small Steps in Physics Simulation", SCA 2019.
     The world velocity and inertia scales of NVIDIA PhysX's and Unity's cloth -- the idea
       that a moved attachment drags its cloth only in part; none of their code.
+    A. S. Day, "An introduction to dynamic relaxation", The Engineer 219 (1965); M. R.
+      Barnes, "Form-finding and analysis of prestressed nets and membranes", Computers &
+      Structures 30(3) (1988) -- a new cloth damped into its rest, not dropped.
   The cloth against itself:
     M. Macklin, M. Mueller, N. Chentanez and T.-Y. Kim, "Unified Particle Physics for
       Real-Time Applications", ACM Transactions on Graphics 33(4) (SIGGRAPH 2014).

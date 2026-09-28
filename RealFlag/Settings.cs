@@ -266,6 +266,9 @@ namespace RealFlag
             /// <summary>m: the top of an ordinary flagpole.</summary>
             public const float Height = 10f;
 
+            /// <summary>m: the new flag's elevation reaches this high (its slider, and Page Up while placing).</summary>
+            public const float MaxNewHeight = 200f;
+
             /// <summary>No pole drawn: the flag is for the city's own poles, the mod's purpose.</summary>
             public const int Pole = FlagPoleStyle.None;
             public const int Ropes = FlagSpec.DefaultRopes;
