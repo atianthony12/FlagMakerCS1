@@ -140,6 +140,13 @@ namespace RealFlag.Flags
     ///
     /// A pole the mod draws (<see cref="SetPole"/>) is a cylinder the particles keep off, as they
     /// keep off each other: a flag the wind turns back over its pole wraps round it.
+    ///
+    /// And the city round it (FlagSurroundings, gathered from the game): the top of what stands
+    /// under the flag -- ground, water, roofs, a wall as a slope one node of the grid wide --
+    /// which the cloth stays above (<see cref="SetSurface"/>), and the props and trees as the game
+    /// itself picks them, upright capsules (<see cref="SetCapsules"/>). The same projection as the
+    /// pole's, each pass, with a little friction; only what the cloth's box reaches this step is
+    /// looked at.
     /// </remarks>
     public sealed class FlagCloth
     {
@@ -204,6 +211,44 @@ namespace RealFlag.Flags
         /// (the friction of cloth on cloth): folds that meet settle instead of skating.
         /// </summary>
         private const float CollisionFriction = 0.1f;
+
+        /// <summary>
+        /// The same for a particle against the city (a roof, a wall, a prop or a tree): cloth laid
+        /// on a roof settles there instead of skating off it. Measured (3 m flags and banners blown
+        /// at a wall straight and 45 degrees off, 2-12 m/s, 20 s, reaching it from free air): the
+        /// worst link 1.07-1.23, typically 1.03-1.06, at 0.1 and at 0.03 alike. Coulomb's friction
+        /// as position-based dynamics takes it (Macklin et al. 2014, 6.1: still below mu_s times
+        /// the depth put out) was tried: as good at the walls, but a flag the wind pressed round a
+        /// post stuck where it touched, and its links stretched to 2.4 times.
+        /// </summary>
+        private const float ContactFriction = 0.1f;
+
+        /// <summary>
+        /// The cloth keeps this far above a surface (SetSurface): 2 cm, and a quarter of a cell more
+        /// (a link between two particles either side of a roof's edge cuts the corner by less
+        /// than that). A 3 m flag at Normal lies 6 cm over a roof, a 30 m one 44 cm.
+        /// </summary>
+        private const float SurfaceGap = 0.02f;
+        private const float SurfaceGapCells = 0.25f;
+
+        /// <summary>
+        /// A particle found deeper in a surface or a capsule than this many of its longer cells --
+        /// half a metre at least -- did not get there by moving (the air crosses at most
+        /// <see cref="MaxCourant"/> of a cell a sub-step): the flag was laid out through a wall,
+        /// carried into a building by Move It. Put out along the surface's normal it would be
+        /// thrown up the wall or across the building; it is CARRIED back instead, its step's start
+        /// with it (no speed from the jump) -- towards its row's hoist point, level, to the first
+        /// place free at its height; or, under a surface lower than the hoist's top (a roof under
+        /// the flag), up onto it.
+        /// </summary>
+        private const float DepthCells = 2f;
+        private const float MinDepth = 0.5f;
+
+        /// <summary>
+        /// The held hoist may lie this far under the surface before the surface is left out
+        /// (<see cref="SurfaceBlocked"/>): a flag hoisted along a roof's edge is not under it.
+        /// </summary>
+        private const float HoistUnder = 0.05f;
 
         /// <summary>
         /// Self-collision is skipped while every normal is within 70 deg of the cloth's mean one:
@@ -305,6 +350,26 @@ namespace RealFlag.Flags
         /// <summary>The pole the cloth keeps off (SetPole): its axis through a point, along the hoist; its radius there and its growth per metre down; its extent down the axis; the margin kept off it.</summary>
         private bool _poleOn;
         private float _poleX, _poleY, _poleZ, _poleRadius, _poleGrowth, _poleTop, _poleBottom, _poleMargin;
+
+        /// <summary>
+        /// The city round the flag (SetSurface, SetCapsules): the top of what stands under it and
+        /// the props' and trees' capsules, each relative to its own point of the world, which lies
+        /// at (x, y, z) from the anchor.
+        /// </summary>
+        private SurfaceGrid _surface;
+        private float _surfaceX, _surfaceY, _surfaceZ;
+        private CapsuleSet _capsules;
+        private float _capsulesX, _capsulesY, _capsulesZ;
+
+        /// <summary>
+        /// This step's: the surface in reach of the cloth, and not over its own hoist; the capsules in
+        /// reach (their axis relative to the anchor, their radius and margin as this cloth keeps off
+        /// them); the margins, and how deep a particle may be found and still be put out.
+        /// </summary>
+        private bool _surfaceOn, _surfaceBlocked;
+        private float _surfaceMargin, _depthLimit, _hoistTop;
+        private float[] _capX = new float[8], _capZ = new float[8], _capBottom = new float[8], _capTop = new float[8], _capReach = new float[8];
+        private int _capCount;
 
         private readonly float[] _px, _py, _pz;
         private readonly float[] _invMass;
@@ -625,7 +690,89 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The hoist leans another way (the pole was tilted: the panel, the gizmo, a paste): the
+        /// Lays the cloth out as <see cref="LayOut"/> does (still, wobbled) along the first way that
+        /// leaves it out of the surface round it (<see cref="SetSurface"/>): towards (dirX, dirZ),
+        /// then turned from it 45, 90 and 135 degrees either side, then the other way; if none, the
+        /// way with the fewest particles in it. Laid into a wall, its particles would be carried
+        /// back out towards the hoist in a heap, in no order, and the cloth against itself would
+        /// lock the heap's layers as they fell (3 m flags laid through a wall: links 30-60% long
+        /// for seconds; reaching the wall from free air, 8-29% at worst). Returns the particles
+        /// left in it (0: clear).
+        /// </summary>
+        public int LayOutClear(float dirX, float dirZ)
+        {
+            int best = 0, fewest = int.MaxValue;
+            for (int i = 0; i < 8; i++)
+            {
+                float x, z;
+                Turned(i, dirX, dirZ, out x, out z);
+                LayOut(x, 0f, z, true);
+                int inside = InSurface();
+                if (inside == 0)
+                    return 0;
+
+                if (inside < fewest)
+                {
+                    fewest = inside;
+                    best = i;
+                }
+            }
+
+            float bx, bz;
+            Turned(best, dirX, dirZ, out bx, out bz);
+            LayOut(bx, 0f, bz, true);
+            return fewest;
+        }
+
+        /// <summary>The <paramref name="i"/>th way to try: 0, +45, -45, +90, -90, +135, -135, 180 degrees from (x, z).</summary>
+        private static void Turned(int i, float x, float z, out float tx, out float tz)
+        {
+            double a = (i + 1) / 2 * (Math.PI / 4) * (i % 2 == 1 ? 1 : -1);
+            float c = (float)Math.Cos(a), s = (float)Math.Sin(a);
+            tx = x * c - z * s;
+            tz = x * s + z * c;
+        }
+
+        /// <summary>The free particles under the surface, where they are; none while it is not in use (none, or its hoist under it).</summary>
+        private int InSurface()
+        {
+            SurfaceGrid grid = _surface;
+            if (grid == null)
+                return 0;
+
+            float ox = _surfaceX, oy = _surfaceY, oz = _surfaceZ;
+            float h, sx, sz;
+            for (int j = 0; j < Rows; j++)
+            {
+                int k = j * Columns;
+                if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
+                    return 0;
+            }
+
+            int inside = 0;
+            for (int k = 0; k < Count; k++)
+            {
+                if (_invMass[k] != 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy)
+                    inside++;
+            }
+
+            return inside;
+        }
+
+        /// <summary>
+        /// Times the cloth was found mostly buried in the surface -- its flag moved into a building
+        /// faster than the cloth could follow, carried along with it (MoveAnchor) -- and laid out
+        /// afresh where it is free (<see cref="LayOutClear"/>): carried back out a particle at a
+        /// time it would fall into a heap the cloth against itself locks.
+        /// </summary>
+        public int Relaid { get; private set; }
+
+        /// <summary>A quarter of the particles carried back out of the surface in a step (<see cref="Retreat"/>): the cloth is laid out afresh.</summary>
+        private const float BuriedShare = 0.25f;
+
+        /// <summary>The particles carried back out of the surface this step (<see cref="Retreat"/>).</summary>
+        private int _heaped;
+
         /// whole cloth turns about the anchor with it, as it is, moving as it moved -- the smallest
         /// turn that takes the old hoist onto the new one (Rodrigues' rotation) -- and the hoist
         /// is pinned exactly on the new line. The air and gravity do the rest.
@@ -857,6 +1004,55 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// A surface to stay above (FlagSurroundings: the ground, the water and the roofs round the
+        /// flag), its point of the world at (<paramref name="x"/>, <paramref name="y"/>,
+        /// <paramref name="z"/>) from the anchor; null: none (the flat ground, <see cref="GroundY"/>,
+        /// as before). Set between steps -- every frame, as the anchor moves.
+        /// </summary>
+        public void SetSurface(SurfaceGrid grid, float x, float y, float z)
+        {
+            _surface = grid;
+            _surfaceX = x; _surfaceY = y; _surfaceZ = z;
+            if (grid == null)
+            {
+                _surfaceOn = false;
+                _surfaceBlocked = false;
+                _heaped = 0;
+            }
+        }
+
+        /// <summary>Upright capsules to keep off (the props' and trees' round the flag), their point of the world at (x, y, z) from the anchor; null: none.</summary>
+        public void SetCapsules(CapsuleSet set, float x, float y, float z)
+        {
+            _capsules = set;
+            _capsulesX = x; _capsulesY = y; _capsulesZ = z;
+            if (set == null)
+                _capCount = 0;
+        }
+
+        /// <summary>
+        /// The last step found the surface over the cloth's own hoist (the flag under a roof, inside
+        /// a building, or its hoist in a wall's slope): it left the surface out -- the flat ground
+        /// alone, as before -- rather than pull the cloth against its hoist.
+        /// </summary>
+        public bool SurfaceBlocked
+        {
+            get { return _surfaceBlocked; }
+        }
+
+        /// <summary>The last step kept the cloth above the surface (it was in reach).</summary>
+        public bool SurfaceInUse
+        {
+            get { return _surfaceOn; }
+        }
+
+        /// <summary>The capsules the last step kept the cloth off (those in reach).</summary>
+        public int CapsulesInUse
+        {
+            get { return _capCount; }
+        }
+
+        /// <summary>
         /// Takes the shape of <paramref name="old"/>, a cloth of another size, proportion or
         /// detail (the flag resized in the panel, or seen nearer or further off): each particle
         /// goes where the same point of the old cloth was (bilinear between its particles),
@@ -984,6 +1180,21 @@ namespace RealFlag.Flags
             if (dt <= 0f)
                 return;
 
+            // Mostly buried last step (its flag carried into a building): laid out afresh where it is free.
+            if (_heaped > BuriedShare * Count)
+            {
+                float wx = air.MeanX, wz = air.MeanZ;
+                if (wx * wx + wz * wz < 1e-6f)
+                {
+                    wx = X[Count - 1] - X[0];
+                    wz = Z[Count - 1] - Z[0];
+                }
+
+                LayOutClear(wx, wz);
+                Relaid++;
+            }
+
+            _heaped = 0;
             int n = Count;
             float sigma = Math.Max(_fabric.Density, 0.01f);
 
@@ -1114,6 +1325,9 @@ namespace RealFlag.Flags
 
             Array.Copy(_un, _unPrev, n);
 
+            // ---- the city in reach this step: the surface under the cloth, the capsules near it ----
+            PrepareColliders();
+
             // ---- the pairs of particles near enough to collide this step (none while it is flat) ----
             float thick = 0f;
             if (SelfCollision && !Flat())
@@ -1159,7 +1373,14 @@ namespace RealFlag.Flags
                 if (_poleOn)
                     KeepOffPole();
 
+                if (_capCount > 0)
+                    KeepOffCapsules();
+
                 Attach();
+
+                // Last: a roof or a wall is never gone through, whatever pulled the cloth there.
+                if (_surfaceOn)
+                    KeepAboveSurface();
             }
 
             // ---- velocities are what the projection left ----
@@ -1244,7 +1465,9 @@ namespace RealFlag.Flags
         private void Attach()
         {
             float[] px = _px, py = _py, pz = _pz;
-            float ground = GroundY + 0.02f;
+
+            // Under a surface in reach, that is the ground (KeepAboveSurface); else the flat ground under the anchor.
+            float ground = _surfaceOn ? float.MinValue : GroundY + 0.02f;
             int cols = Columns;
             int bottom = (Rows - 1) * cols;
             float tx0 = px[0], ty0 = py[0], tz0 = pz[0];
@@ -1349,6 +1572,306 @@ namespace RealFlag.Flags
                 py[k] = cy + s * hy + ry * scale;
                 pz[k] = cz + s * hz + rz * scale;
             }
+        }
+
+        /// <summary>
+        /// Once a step, before the passes: which of the city the cloth can touch this step. The
+        /// cloth's box (where it was and where it is going, a cell round) against the surface's
+        /// highest node under it and each capsule's box -- a flag high on its pole touches nothing,
+        /// and costs nothing more.
+        /// The surface is left out while any held particle of the hoist lies under it (the flag under
+        /// a roof, inside a building, its hoist in a wall's slope: the grid holds all of that as
+        /// solid down to the ground, and the cloth would be pulled against its own hoist). A capsule
+        /// round the hoist is narrowed to leave the hoist outside, and its margin -- half a cell, so
+        /// no link between particles either side of a post cuts it -- kept within the room left, as
+        /// the pole's is (SetPole).
+        /// </summary>
+        private void PrepareColliders()
+        {
+            _surfaceOn = false;
+            _capCount = 0;
+            if (_surface == null && _capsules == null)
+                return;
+
+            float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
+            float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
+            float[] px = _px, py = _py, pz = _pz;
+            for (int k = 0; k < Count; k++)
+            {
+                float x = X[k], y = Y[k], z = Z[k];
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z;
+                if (z > maxZ) maxZ = z;
+                x = px[k]; y = py[k]; z = pz[k];
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z;
+                if (z > maxZ) maxZ = z;
+            }
+
+            float cell = Math.Max(CellU, CellV), small = Math.Min(CellU, CellV);
+            _surfaceMargin = SurfaceGap + SurfaceGapCells * small;
+            _depthLimit = Math.Max(MinDepth, DepthCells * cell);
+            float pad = cell + _surfaceMargin;
+
+            _hoistTop = float.MinValue;
+            for (int j = 0; j < Rows; j++)
+            {
+                int k = j * Columns;
+                if (_invMass[k] == 0f && Y[k] > _hoistTop)
+                    _hoistTop = Y[k];
+            }
+
+            SurfaceGrid grid = _surface;
+            if (grid != null)
+            {
+                float ox = _surfaceX, oy = _surfaceY, oz = _surfaceZ;
+                bool blocked = false;
+                for (int j = 0; j < Rows && !blocked; j++)
+                {
+                    int k = j * Columns;
+                    float h, sx, sz;
+                    if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
+                        blocked = true;
+                }
+
+                _surfaceBlocked = blocked;
+                if (!blocked)
+                {
+                    float top = grid.TopWithin(minX - pad - ox, minZ - pad - oz, maxX + pad - ox, maxZ + pad - oz);
+                    _surfaceOn = top > float.MinValue && top + oy + pad > minY;
+                }
+            }
+
+            CapsuleSet set = _capsules;
+            if (set == null)
+                return;
+
+            float half = 0.5f * small;
+            float bx = _capsulesX, by = _capsulesY, bz = _capsulesZ;
+            for (int c = 0; c < set.Count; c++)
+            {
+                float r = set.Radius[c];
+                float cx = set.X[c] + bx, cz = set.Z[c] + bz, bottom = set.Bottom[c] + by, top = set.Top[c] + by;
+                float reach = r + half + pad;
+                if (cx + reach < minX || cx - reach > maxX || cz + reach < minZ || cz - reach > maxZ || top + reach < minY || bottom - reach > maxY)
+                    continue;
+
+                // The held particles' nearest approach to its axis: the hoist stays outside it, a
+                // little more than its margin away.
+                float nearest = float.MaxValue;
+                for (int j = 0; j < Rows; j++)
+                {
+                    int k = j * Columns;
+                    if (_invMass[k] != 0f)
+                        continue;
+
+                    float y = Y[k] < bottom ? bottom : Y[k] > top ? top : Y[k];
+                    float dx = X[k] - cx, dy = Y[k] - y, dz = Z[k] - cz;
+                    float d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d < nearest)
+                        nearest = d;
+                }
+
+                float radius = Math.Min(r, nearest - 0.02f);
+                if (radius < 0.01f)
+                    continue;
+
+                float margin = Math.Max(0f, Math.Min(half, nearest - radius - 0.002f));
+                if (_capCount == _capX.Length)
+                {
+                    int m = _capCount * 2;
+                    Array.Resize(ref _capX, m);
+                    Array.Resize(ref _capZ, m);
+                    Array.Resize(ref _capBottom, m);
+                    Array.Resize(ref _capTop, m);
+                    Array.Resize(ref _capReach, m);
+                }
+
+                _capX[_capCount] = cx;
+                _capZ[_capCount] = cz;
+                _capBottom[_capCount] = bottom;
+                _capTop[_capCount] = top;
+                _capReach[_capCount] = radius + margin;
+                _capCount++;
+            }
+        }
+
+        /// <summary>
+        /// The props' and trees' capsules in reach (PrepareColliders): a free particle inside one
+        /// -- its radius and margin round its axis -- goes out square to the axis (or off its end),
+        /// to its surface, and loses a little of its sliding along it. Inside every pass, after the
+        /// pole, before the attachments.
+        /// </summary>
+        private void KeepOffCapsules()
+        {
+            float[] px = _px, py = _py, pz = _pz;
+            float depth = _depthLimit;
+            for (int c = 0; c < _capCount; c++)
+            {
+                float cx = _capX[c], cz = _capZ[c], bottom = _capBottom[c], top = _capTop[c], reach = _capReach[c];
+                float reach2 = reach * reach;
+                for (int k = 0; k < Count; k++)
+                {
+                    if (_invMass[k] == 0f)
+                        continue;
+
+                    float dx = px[k] - cx, dz = pz[k] - cz;
+                    if (dx > reach || dx < -reach || dz > reach || dz < -reach)
+                        continue;
+
+                    float y = py[k];
+                    float ay = y < bottom ? bottom : y > top ? top : y;
+                    float dy = y - ay;
+                    float d2 = dx * dx + dy * dy + dz * dz;
+                    if (d2 >= reach2)
+                        continue;
+
+                    float d = (float)Math.Sqrt(d2);
+                    if (reach - d > depth)
+                    {
+                        // Deep in it (carried there): carried out, level, on the side of its row's hoist point.
+                        int h = k / Columns * Columns;
+                        float hx = px[h] - cx, hz = pz[h] - cz;
+                        float hl = (float)Math.Sqrt(hx * hx + hz * hz);
+                        if (hl > 1e-4f)
+                            Carry(k, cx + hx / hl * reach - px[k], 0f, cz + hz / hl * reach - pz[k]);
+                        continue;
+                    }
+
+                    if (d < 1e-6f)
+                    {
+                        // On the axis: out the way it came.
+                        dx = X[k] - cx; dy = 0f; dz = Z[k] - cz;
+                        d = (float)Math.Sqrt(dx * dx + dz * dz);
+                        if (d < 1e-6f)
+                            continue;
+                    }
+
+                    float nx = dx / d, ny = dy / d, nz = dz / d;
+                    float x1 = cx + nx * reach, y1 = ay + ny * reach, z1 = cz + nz * reach;
+                    Slide(k, x1, y1, z1, nx, ny, nz);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The surface in reach (PrepareColliders): a free particle nearer the surface than the gap
+        /// -- the distance to the surface's tangent plane under it, so a roof pushes up and a wall
+        /// (a steep slope a node wide) sideways -- goes out along the plane's normal to the gap,
+        /// and loses a little of its sliding along it; one found deep in it is carried out
+        /// (<see cref="DepthCells"/>). Beyond the grid, the flat ground under the anchor, as
+        /// before. Inside every pass, last.
+        /// </summary>
+        private void KeepAboveSurface()
+        {
+            SurfaceGrid grid = _surface;
+            float[] heights = grid.Heights;
+            int columns = grid.Columns, rows = grid.Rows;
+            float inv = 1f / grid.Spacing;
+            // The grid's first node, relative to the anchor.
+            float ox = _surfaceX + grid.MinX, oy = _surfaceY, oz = _surfaceZ + grid.MinZ;
+            float gap = _surfaceMargin, depth = _depthLimit, ground = GroundY + 0.02f;
+            float lastX = columns - 1, lastZ = rows - 1;
+            float[] px = _px, py = _py, pz = _pz;
+
+            for (int k = 0; k < Count; k++)
+            {
+                if (_invMass[k] == 0f)
+                    continue;
+
+                float fx = (px[k] - ox) * inv, fz = (pz[k] - oz) * inv;
+                if (fx < 0f || fz < 0f || fx > lastX || fz > lastZ)
+                {
+                    if (py[k] < ground)
+                        py[k] = ground;
+                    continue;
+                }
+
+                // Bilinear between the four nodes round it, and its slopes (written out: Mono inlines nothing).
+                int c = (int)fx, r = (int)fz;
+                if (c > columns - 2) c = columns - 2;
+                if (r > rows - 2) r = rows - 2;
+                float tx = fx - c, tz = fz - r;
+                int n = r * columns + c;
+                float h00 = heights[n], h10 = heights[n + 1], h01 = heights[n + columns], h11 = heights[n + columns + 1];
+                float h = (h00 + (h10 - h00) * tx) * (1f - tz) + (h01 + (h11 - h01) * tx) * tz + oy;
+                if (py[k] - h >= gap)
+                    continue;
+
+                float sx = ((h10 - h00) * (1f - tz) + (h11 - h01) * tz) * inv;
+                float sz = ((h01 - h00) * (1f - tx) + (h11 - h10) * tx) * inv;
+                float len = 1f / (float)Math.Sqrt(sx * sx + 1f + sz * sz);
+                float nx = -sx * len, ny = len, nz = -sz * len;
+
+                // The distance to the tangent plane through the surface under it.
+                float d = (py[k] - h) * ny;
+                float push = gap - d;
+                if (push <= 0f)
+                    continue;
+
+                if (push <= depth + gap)
+                    Slide(k, px[k] + nx * push, py[k] + ny * push, pz[k] + nz * push, nx, ny, nz);
+                else if (h <= _hoistTop)
+                    Carry(k, nx * push, ny * push, nz * push);
+                else
+                    Retreat(k, grid, _surfaceX, oy, _surfaceZ);
+            }
+        }
+
+        /// <summary>
+        /// A particle found deep in the surface where it stands higher than the hoist's top (in a
+        /// wall's block): carried back, level, towards its row's hoist point, to the first place
+        /// the surface lets it be at its height. If none (the hoist's own place is under it too),
+        /// it stays.
+        /// </summary>
+        private void Retreat(int k, SurfaceGrid grid, float ox, float oy, float oz)
+        {
+            _heaped++;
+            int h = k / Columns * Columns;
+            float x = _px[k], y = _py[k], z = _pz[k];
+            float dx = _px[h] - x, dz = _pz[h] - z;
+            float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+            if (dist < 1e-4f)
+                return;
+
+            int steps = Math.Min(64, (int)Math.Ceiling(dist / (0.5f * grid.Spacing)));
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float qx = x + dx * t, qz = z + dz * t;
+                float s, sx, sz;
+                if (!grid.Sample(qx - ox, qz - oz, out s, out sx, out sz) || s + oy + _surfaceMargin <= y)
+                {
+                    Carry(k, qx - x, 0f, qz - z);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>A particle moved as a whole, where its step began too: out of where it cannot be, with no speed from the move.</summary>
+        private void Carry(int k, float dx, float dy, float dz)
+        {
+            _px[k] += dx; _py[k] += dy; _pz[k] += dz;
+            X[k] += dx; Y[k] += dy; Z[k] += dz;
+        }
+
+        /// <summary>
+        /// A particle put out of the city at (x, y, z) against a surface of normal n: there, less
+        /// <see cref="ContactFriction"/> of its sliding along the surface since the step began.
+        /// </summary>
+        private void Slide(int k, float x, float y, float z, float nx, float ny, float nz)
+        {
+            float mx = x - X[k], my = y - Y[k], mz = z - Z[k];
+            float along = mx * nx + my * ny + mz * nz;
+            _px[k] = x - (mx - nx * along) * ContactFriction;
+            _py[k] = y - (my - ny * along) * ContactFriction;
+            _pz[k] = z - (mz - nz * along) * ContactFriction;
         }
 
         /// <summary>

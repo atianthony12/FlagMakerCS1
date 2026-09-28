@@ -122,6 +122,31 @@ namespace RealFlag.Flags
 
         /// <summary>The cloth keeps off the current pole (it has been told: FlagPoleShape.ApplyTo).</summary>
         public bool PoleApplied;
+
+        /// <summary>
+        /// The city round it that its cloth keeps off (FlagSurroundings): the surface under it and
+        /// the props' and trees' capsules, each gathered round a point of the world (the anchor
+        /// then) over a square (its middle x, z and half its side); when (real time); the surface
+        /// marked stale by a building changed near it. Plain data, shared with the thread.
+        /// </summary>
+        public SurfaceGrid Surface;
+        public Vector3 SurfaceOrigin;
+        public Vector3 SurfaceSquare;
+        public float SurfaceAt;
+        public bool SurfaceStale;
+        public CapsuleSet Capsules;
+        public Vector3 CapsulesOrigin;
+        public Vector3 CapsulesSquare;
+        public float CapsulesAt;
+
+        /// <summary>Said once: its hoist stands under the surface (a roof over it, inside a building), which its cloth leaves out.</summary>
+        public bool LoggedBlocked;
+
+        /// <summary>Its cloth's FlagCloth.Relaid when last looked at (a change is logged).</summary>
+        public int Relaid;
+
+        /// <summary>Its new cloth has been laid out clear of the city (FlagCloth.LayOutClear), before it first settles.</summary>
+        public bool LaidOut;
     }
 
     /// <summary>A flag as the panel lists it.</summary>
@@ -320,6 +345,28 @@ namespace RealFlag.Flags
         /// <summary>Props scanned per frame: the whole buffer every sixteen frames.</summary>
         private const int ScanPerFrame = 4096;
 
+        /// <summary>
+        /// The city a flag keeps off (FlagSurroundings) is gathered for at most this many flags a
+        /// frame -- a surface is a few milliseconds of the main thread (the terrain every metre, a
+        /// building's LOD triangles), capsules a few tenths -- the flag being placed first; a flag
+        /// about to settle takes its own at once (it must not settle through a roof). Gathered
+        /// again when the flag leaves the square it was gathered over, a building changes near it,
+        /// or it is this old (seconds): a terrain edit, a building moved away from beside it, a
+        /// tree planted.
+        /// </summary>
+        private const int SurfacesPerFrame = 1;
+        private const int CapsulesPerFrame = 4;
+        private const float SurfaceMaxAge = 30f;
+        private const float CapsulesMaxAge = 3f;
+
+        /// <summary>
+        /// The flag being placed, sliding with the pointer, gathers a new surface at most this often,
+        /// seconds: a detailed building's LOD triangles in an 81 x 81 grid are a few milliseconds
+        /// (2000 small triangles: 2 ms in .NET, ~10 in Unity's Mono). Meanwhile the old one holds
+        /// where it reaches (it is the world's), the flat ground beyond it.
+        /// </summary>
+        private const float GhostSurfaceInterval = 0.2f;
+
         private readonly Dictionary<uint, FlagInstance> _byProp = new Dictionary<uint, FlagInstance>();
         private readonly List<FlagInstance> _flags = new List<FlagInstance>();
         private readonly List<uint> _gone = new List<uint>();
@@ -361,6 +408,17 @@ namespace RealFlag.Flags
         /// <summary>The options changed (FlagRenderer.ClothOptionsChanged): applied after the next Collect.</summary>
         private bool _optionsChanged;
         private bool _selfCollision = true;
+        private bool _cityCollision = true;
+
+        /// <summary>This frame's gatherings of the city (<see cref="SurfacesPerFrame"/>), the buildings changed, and the report's count.</summary>
+        private int _surfacesThisFrame, _capsulesThisFrame;
+        private readonly List<Vector3> _changes = new List<Vector3>();
+        private int _surfaceGathers, _capsuleGathers;
+        private double _gatherMs;
+        private bool _loggedGatherFailure;
+
+        /// <summary>The flags planned this frame whose last step touched the city, and whose hoist stands under its surface.</summary>
+        private int _touching, _blocked;
         private int _finest = FlagCloth.CellsAlong;
         private float _pixelsPerRadian = 1000f;
         private int _detailChanges;
@@ -416,10 +474,13 @@ namespace RealFlag.Flags
                   " (" + SystemInfo.processorCount + " processors here)" + (problem != null ? " -- " + (threads - _worker.Threads) + " did not start: " + problem : "")
                 : "cloth stepped on the main thread (its own threads did not start: " + problem + ")";
 
+            FlagSurroundings.Listen();
+
             Log.Msg("flags: renderer ready -- shader '" + shader.name + "' (" + _material.passCount + " passes), layer " + _layer +
                     " (" + LayerMask.LayerToName(_layer) + "), " + FlagRegistry.Count + " saved designs, prefab " +
                     (FlagPrefab.Info != null ? "index " + FlagPrefab.Info.m_prefabDataIndex : "MISSING") + ", " + stepping +
-                    "; cloth detail up to " + UI.SettingsCatalog.DetailLogName(_finest) + ", self-collision " + (_selfCollision ? "on" : "off"));
+                    "; cloth detail up to " + UI.SettingsCatalog.DetailLogName(_finest) + ", self-collision " + (_selfCollision ? "on" : "off") +
+                    ", keeps off the city (ground, water, roofs, walls, props, trees) " + (_cityCollision ? "on" : "off"));
         }
 
         /// <summary>The cloth's options changed (the panel, the options page, a reset): the flags follow from the next frame.</summary>
@@ -434,6 +495,7 @@ namespace RealFlag.Flags
         {
             _finest = FlagCloth.ClampDetail(Settings.ClothDetail != null ? Settings.ClothDetail.value : Settings.Defaults.ClothDetail);
             _selfCollision = Settings.SelfCollision == null || Settings.SelfCollision.value;
+            _cityCollision = Settings.CityCollision == null || Settings.CityCollision.value;
         }
 
         /// <summary>After a change of options, between batches: every cloth takes the new self-collision (the details follow in Refresh).</summary>
@@ -470,6 +532,7 @@ namespace RealFlag.Flags
             _ghost = null;
             _stillShapes.Clear();
 
+            FlagSurroundings.Stop();
             FlagPicking.Clear();
 
             if (Log.Detailed)
@@ -492,6 +555,8 @@ namespace RealFlag.Flags
             f.Mesh = null;
             f.Cloth = null;
             f.Pose = null;
+            f.Surface = null;
+            f.Capsules = null;
             DropPole(f);
             if (f.Prop != 0)
                 FlagPicking.Publish(f.Prop, null);
@@ -585,6 +650,11 @@ namespace RealFlag.Flags
                 if (_ghost != null)
                     Draw(_ghost);
 
+                _surfacesThisFrame = 0;
+                _capsulesThisFrame = 0;
+                _touching = 0;
+                _blocked = 0;
+                MarkChanges();
                 Plan(dt, frozen, realDt, wind);
             }
             catch (Exception e)
@@ -1509,12 +1579,12 @@ namespace RealFlag.Flags
                 return;
             }
 
+            Vector3 start = wind.DirectionFor(f.Angle);
             if (f.Cloth == null)
             {
                 // Made and settled at Normal (six 1/30 s steps a frame at Ultra would be 35 ms of
                 // one thread), then made finer as its size on the screen asks (ChooseDetail),
                 // hanging from its hoist's line (FlagOrientation, set by Place).
-                Vector3 start = wind.DirectionFor(f.Angle);
                 f.Detail = FlagCloth.CellsAlong;
                 f.Cloth = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), start.x, start.z, f.Detail,
                                         f.Hoist.x, f.Hoist.y, f.Hoist.z);
@@ -1527,6 +1597,7 @@ namespace RealFlag.Flags
                 f.Pending = 0f;
                 f.Fresh = false;
                 f.BlockReady = false;
+                f.LaidOut = false;
                 f.Hold.Clear();
 
                 // Its pole, if it has one and it is known yet (else the next Refresh sees to it).
@@ -1539,6 +1610,18 @@ namespace RealFlag.Flags
             }
 
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
+
+            // The city round it: at once for a flag about to settle (it must not settle through a
+            // roof); a new cloth laid out the first way free of it, not into a wall.
+            KeepOffCity(f, ghost, !f.Settled && (settles < MaxSettlesPerFrame || ghost));
+            if (!f.Settled && !f.LaidOut && f.Surface != null && _cityCollision)
+            {
+                f.Cloth.LayOutClear(start.x, start.z);
+                f.LaidOut = true;
+            }
+            if (f.Cloth.Relaid > f.Relaid && Log.Detailed)
+                Log.Detail("flags: " + (f.Prop != 0 ? "flag #" + f.Prop : "the new flag") + "'s cloth was buried in a building (moved into it): laid out afresh where it is free");
+            f.Relaid = f.Cloth.Relaid;
 
             Vector3 dir = wind.DirectionFor(f.Angle);
             f.WindDir = dir;
@@ -1631,6 +1714,166 @@ namespace RealFlag.Flags
         {
             _worker.Add(ref job);
             _batch.Add(f);
+        }
+
+        /// <summary>
+        /// The city round a waving flag, for its cloth to keep off (FlagSurroundings): the surface
+        /// under it and the capsules of the props and trees near it, gathered when it has none over
+        /// where it can reach now, a building changed near it, or they are old -- a few flags a
+        /// frame (<see cref="SurfacesPerFrame"/>), the flag being placed first; <paramref name="now"/>
+        /// (a flag about to settle) whatever the frame's count. A flag placed where the ghost stood
+        /// takes the ghost's. Set on its cloth relative to the anchor, every frame (the anchor moves;
+        /// the city does not).
+        /// </summary>
+        private void KeepOffCity(FlagInstance f, bool ghost, bool now)
+        {
+            FlagCloth cloth = f.Cloth;
+            if (!_cityCollision)
+            {
+                cloth.SetSurface(null, 0f, 0f, 0f);
+                cloth.SetCapsules(null, 0f, 0f, 0f);
+                return;
+            }
+
+            FlagOutline reach = FlagOutline.For(f.Anchor, f.Hoist, f.Spec.Height, f.Spec.Length);
+            float time = Time.realtimeSinceStartup;
+            string who = f.Prop != 0 ? "flag #" + f.Prop : "the new flag";
+
+            // Never gathered, stale, left behind or old (none after a failure: tried again when old).
+            bool surface = f.SurfaceAt == 0f || f.SurfaceStale || (f.Surface != null && !Holds(f.SurfaceSquare, reach)) || time - f.SurfaceAt > SurfaceMaxAge;
+            if (surface && ghost && f.Surface != null && !f.SurfaceStale && time - f.SurfaceAt < GhostSurfaceInterval)
+                surface = false;
+            if (surface && !ghost && _ghost != null && _ghost.Surface != null && !_ghost.SurfaceStale && Holds(_ghost.SurfaceSquare, reach))
+            {
+                // Placed where the ghost stood: its city is this one's.
+                f.Surface = _ghost.Surface;
+                f.SurfaceOrigin = _ghost.SurfaceOrigin;
+                f.SurfaceSquare = _ghost.SurfaceSquare;
+                f.SurfaceAt = _ghost.SurfaceAt;
+                f.SurfaceStale = false;
+                surface = false;
+            }
+
+            if (surface && (now || _surfacesThisFrame < SurfacesPerFrame))
+            {
+                _surfacesThisFrame++;
+                float half = reach.Radius * FlagSurroundings.Slack;
+                var found = new FlagSurroundings.Gathered();
+                try
+                {
+                    f.Surface = FlagSurroundings.Surface(f.Anchor, reach.X, reach.Z, half, ref found);
+                }
+                catch (Exception e)
+                {
+                    f.Surface = null;
+                    if (!_loggedGatherFailure)
+                    {
+                        _loggedGatherFailure = true;
+                        Log.Error("flags: could not read the city round " + who + " (its cloth keeps off the flat ground alone)", e);
+                    }
+                }
+
+                f.SurfaceOrigin = f.Anchor;
+                f.SurfaceSquare = new Vector3(reach.X, reach.Z, half);
+                f.SurfaceAt = time;
+                f.SurfaceStale = false;
+                _surfaceGathers++;
+                _gatherMs += found.Milliseconds;
+                if (Log.Detailed && f.Surface != null && !ghost)
+                    Log.Detail("flags: the surface round " + who + ": " + f.Surface.Columns + "x" + f.Surface.Rows + " every " +
+                               f.Surface.Spacing.ToString("F2") + " m, " + found.Buildings + " building(s) (" + found.Triangles +
+                               " triangles), its top " + (f.Surface.Top + f.Anchor.y - f.Ground).ToString("F1") + " m over the ground here, in " +
+                               found.Milliseconds.ToString("F2") + " ms");
+            }
+
+            bool capsules = f.CapsulesAt == 0f || (f.Capsules != null && !Holds(f.CapsulesSquare, reach)) || time - f.CapsulesAt > CapsulesMaxAge;
+            if (capsules && (now || _capsulesThisFrame < CapsulesPerFrame))
+            {
+                _capsulesThisFrame++;
+                float half = reach.Radius * FlagSurroundings.Slack;
+                var found = new FlagSurroundings.Gathered();
+                int before = f.Capsules != null ? f.Capsules.Count : -1;
+                try
+                {
+                    f.Capsules = FlagSurroundings.Capsules(f.Anchor, reach.X, reach.Z, half, ref found);
+                }
+                catch (Exception e)
+                {
+                    f.Capsules = null;
+                    if (!_loggedGatherFailure)
+                    {
+                        _loggedGatherFailure = true;
+                        Log.Error("flags: could not read the props and trees round " + who, e);
+                    }
+                }
+
+                f.CapsulesOrigin = f.Anchor;
+                f.CapsulesSquare = new Vector3(reach.X, reach.Z, half);
+                f.CapsulesAt = time;
+                _capsuleGathers++;
+                _gatherMs += found.Milliseconds;
+                if (Log.Detailed && f.Capsules != null && f.Capsules.Count != before && !ghost)
+                    Log.Detail("flags: " + who + " keeps off " + found.Props + " prop(s) and " + found.Trees + " tree(s) round it (" +
+                               found.Milliseconds.ToString("F2") + " ms)");
+            }
+
+            Vector3 s = f.SurfaceOrigin - f.Anchor, c = f.CapsulesOrigin - f.Anchor;
+            cloth.SetSurface(f.Surface, s.x, s.y, s.z);
+            cloth.SetCapsules(f.Capsules, c.x, c.y, c.z);
+
+            // What the last step found (the report's): touching the city, or standing under the surface it was given.
+            if (cloth.SurfaceInUse || cloth.CapsulesInUse > 0)
+                _touching++;
+            if (cloth.SurfaceBlocked)
+                _blocked++;
+            if (cloth.SurfaceBlocked && !f.LoggedBlocked && !ghost)
+            {
+                f.LoggedBlocked = true;
+                Log.Msg("flags: " + who + "'s hoist stands under a roof, inside a building or against a wall: its cloth leaves the " +
+                        "surface there out (the flat ground, props and trees still count)");
+            }
+        }
+
+        /// <summary>A square (middle x, z, half its side) holds all a flag can reach.</summary>
+        private static bool Holds(Vector3 square, FlagOutline reach)
+        {
+            return Mathf.Abs(reach.X - square.x) + reach.Radius <= square.z && Mathf.Abs(reach.Z - square.y) + reach.Radius <= square.z;
+        }
+
+        /// <summary>The buildings changed since the last frame (FlagSurroundings' queue): the surfaces they reach are stale.</summary>
+        private void MarkChanges()
+        {
+            _changes.Clear();
+            bool all = FlagSurroundings.TakeChanges(_changes);
+            if (_changes.Count == 0 && !all)
+                return;
+
+            foreach (FlagInstance f in _flags)
+                MarkChanged(f, all);
+            if (_ghost != null)
+                MarkChanged(_ghost, all);
+        }
+
+        private void MarkChanged(FlagInstance f, bool all)
+        {
+            if (f.Surface == null || f.SurfaceStale)
+                return;
+
+            if (all)
+            {
+                f.SurfaceStale = true;
+                return;
+            }
+
+            Vector3 square = f.SurfaceSquare;
+            foreach (Vector3 change in _changes)
+            {
+                if (Mathf.Abs(change.x - square.x) <= square.z + change.z && Mathf.Abs(change.y - square.y) <= square.z + change.z)
+                {
+                    f.SurfaceStale = true;
+                    return;
+                }
+            }
         }
 
         private void Draw(FlagInstance f)
@@ -1912,9 +2155,16 @@ namespace RealFlag.Flags
                            ", " + (1000.0 * _unitCost).ToString("F2") + " us a particle step | " + _stepsThisReport + " cloth steps in " +
                            seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") + " | in view by detail " +
                            DetailsInView() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
-                           w.Describe());
+                           w.Describe() + " | the city: " +
+                           (_cityCollision
+                                ? _touching + " touching it, " + _blocked + " under a roof; " + _surfaceGathers + " surface(s) and " +
+                                  _capsuleGathers + " capsule set(s) read in " + _gatherMs.ToString("F1") + " ms"
+                                : "off"));
             }
 
+            _surfaceGathers = 0;
+            _capsuleGathers = 0;
+            _gatherMs = 0.0;
             _costMs = 0.0;
             _waitMs = 0.0;
             _batchMs = 0.0;

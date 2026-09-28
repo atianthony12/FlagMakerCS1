@@ -89,8 +89,8 @@ it; more wind on hills and less in valleys and by forests, as on the game's wind
 the higher a flag flies. Or switch it off and set your own: the speed at 10 m (the panel shows
 its Beaufort force), how gusty it is, and where it blows -- along each flag (every flag flies
 the way it was placed), one fixed direction for all, or the game's direction at your speed.
-Here too the **cloth detail** and whether the cloth **collides with itself**, and whether flags
-stop while the game is paused.
+Here too the **cloth detail**, whether the cloth **collides with itself** and whether it **keeps
+off buildings, props and trees**, and whether flags stop while the game is paused.
 
 **While the game is paused** the flags stand still (an option), but a flag you move, turn or
 redesign comes to life under your hand and settles back into a still a moment after.
@@ -120,6 +120,18 @@ it is missing.
   spatial hash (Teschner et al. 2003) and a neighbour list (Verlet 1967), and skipped while the
   cloth is too flat to fold onto itself (Volino and Magnenat-Thalmann 1994). A flag hanging in
   calm air lays its folds on one another.
+- **It keeps off the city**: the top of whatever stands round a flag -- the ground, the water,
+  the roofs, from the buildings' own low-detail meshes (the triangles the game picks a building
+  by) -- is laid on a fine grid round it, and the cloth stays above it, as the position-based
+  collision constraints of Müller et al. 2007 keep it: a flag hangs onto a roof, a banner lies
+  along the facade it hangs by, a flag blown at a wall stops at it. A wall is where the grid
+  climbs to its roof: the cloth stops a few centimetres short of it rather than into it. Props
+  and trees are the upright capsules the game itself picks them by, which the cloth keeps off as
+  it keeps off its pole; one round the hoist (a pole of the city's own under a flag) is narrowed
+  to leave the hoist outside. A new flag is laid out the first way clear of the walls round it.
+  A flag high above everything costs nothing more. Not yet: roads and bridges; anything over a
+  flag (an arcade, a canopy -- a flag whose hoist stands under a roof leaves that roof out);
+  still and flat flags, which keep the shape they were made with.
 - **Cloth detail** (the options page, or the foot of the panel): Normal, High, Very high or
   Ultra -- 18 to 40 cells along a flag. Only flags big on the screen get the finest; the others
   as fine as their size there needs.

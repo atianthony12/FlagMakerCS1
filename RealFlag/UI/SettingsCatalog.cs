@@ -1514,6 +1514,20 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Bool = Settings.CityCollision,
+                DefaultBool = Settings.Defaults.CityCollision,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: the cloth keeps off the city = " + OnOff(Settings.CityCollision)());
+                    FlagRenderer.ClothOptionsChanged();
+                },
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
                 Options = OptionsPage.General,
                 Group = "Diagnostics",
                 Bool = Settings.DetailedLogging,

@@ -2158,6 +2158,318 @@ public static class ClothTests
         }
         return hex + "|" + bad + "|" + FlagColours.ToLinear(0.5f).ToString("F4", Inv) + "|" + FlagColours.ToLinear(1f).ToString("F4", Inv);
     }
+
+    // ---- the city (SurfaceGrid, CapsuleSet; FlagCloth.SetSurface, SetCapsules) ----
+
+    /// <summary>A grid round (x, z), as FlagSurroundings lays one out, flat at <paramref name="ground"/>.</summary>
+    static SurfaceGrid Grid(float x, float z, float half, float ground)
+    {
+        float spacing; int nodes;
+        SurfaceGrid.Layout(half, out spacing, out nodes);
+        float span = (nodes - 1) * spacing;
+        return new SurfaceGrid(x - 0.5f * span, z - 0.5f * span, spacing, nodes, nodes, ground);
+    }
+
+    /// <summary>A box's twelve triangles into a grid, as a building's LOD mesh would raise it: walls, bottom and top.</summary>
+    static void RaiseBox(SurfaceGrid g, float x0, float z0, float x1, float z1, float y0, float y1)
+    {
+        float[] v = {
+            x0, y1, z0, x1, y1, z0, x1, y1, z1,  x0, y1, z0, x1, y1, z1, x0, y1, z1,
+            x0, y0, z0, x1, y0, z1, x1, y0, z0,  x0, y0, z0, x0, y0, z1, x1, y0, z1,
+            x0, y0, z0, x0, y1, z0, x0, y1, z1,  x0, y0, z0, x0, y1, z1, x0, y0, z1,
+            x1, y0, z0, x1, y1, z1, x1, y1, z0,  x1, y0, z0, x1, y0, z1, x1, y1, z1,
+            x0, y0, z0, x1, y1, z0, x0, y1, z0,  x0, y0, z0, x1, y0, z0, x1, y1, z0,
+            x0, y0, z1, x0, y1, z1, x1, y1, z1,  x0, y0, z1, x1, y1, z1, x1, y0, z1 };
+        for (int i = 0; i < v.Length; i += 9)
+            g.Raise(v[i], v[i + 1], v[i + 2], v[i + 3], v[i + 4], v[i + 5], v[i + 6], v[i + 7], v[i + 8]);
+    }
+
+    /// <summary>
+    /// The grid itself: a box raised into it (its nodes inside at its top, on its edge too, outside
+    /// the ground), bilinear between (a wall a slope one node wide), the coarse maxima, a slanted
+    /// triangle, the layouts a 3 m, a 0.5 m and a 30 m flag get.
+    /// </summary>
+    public static string SurfaceRaster()
+    {
+        var g = new SurfaceGrid(-5f, -5f, 0.5f, 21, 21, -10f);
+        RaiseBox(g, -2f, -1f, 2f, 3f, -10f, 3f);
+        g.Finish();
+        float h, sx, sz;
+        var r = new List<string>();
+        r.Add((g.Heights[10 * 21 + 10] == 3f && g.Heights[8 * 21 + 6] == 3f && g.Heights[16 * 21 + 14] == 3f).ToString());
+        r.Add((g.Heights[10 * 21 + 5] == -10f && g.Heights[19 * 21 + 19] == -10f && g.Heights[7 * 21 + 10] == -10f).ToString());
+        r.Add((g.Sample(0f, 1f, out h, out sx, out sz) && h == 3f && sx == 0f && sz == 0f).ToString());
+        r.Add((g.Sample(-2.25f, 1f, out h, out sx, out sz) && Math.Abs(h + 3.5f) < 1e-4f && Math.Abs(sx - 26f) < 1e-3f).ToString());
+        r.Add((!g.Sample(5.1f, 0f, out h, out sx, out sz)).ToString());
+        r.Add((g.TopWithin(3.5f, 3.5f, 4.5f, 4.5f) == -10f && g.TopWithin(-1f, -1f, 1f, 1f) == 3f && g.TopWithin(20f, 20f, 30f, 30f) == float.MinValue && g.Top == 3f).ToString());
+        var slant = new SurfaceGrid(0f, 0f, 1f, 5, 5, -1f);
+        slant.Raise(0f, 0f, 0f, 4f, 4f, 0f, 0f, 0f, 4f);
+        // Grown half a spacing: a roof between nodes (x 1.3-2.7) raises the nodes 0.3 m off its
+        // edges, not those 1.3 m off; a lone wall along x = 0.8 (up to 5) the nodes 0.2 m off it.
+        var grown = new SurfaceGrid(0f, 0f, 1f, 5, 5, -1f);
+        RaiseBox(grown, 1.3f, 1.3f, 2.7f, 2.7f, -1f, 4f);
+        grown.Raise(0.8f, 0f, 0f, 0.8f, 5f, 0f, 0.8f, 0f, 4f);
+        r.Add((slant.Heights[0 * 5 + 2] == 2f && slant.Heights[2 * 5 + 1] == 1f && slant.Heights[4 * 5 + 4] == -1f &&
+               grown.Heights[2 * 5 + 1] == 5f && grown.Heights[2 * 5 + 3] == 4f && grown.Heights[1 * 5 + 2] == 4f && grown.Heights[2 * 5 + 0] == -1f &&
+               grown.Heights[4 * 5 + 1] == 5f && grown.Heights[4 * 5 + 2] == -1f && grown.Heights[0 * 5 + 3] == -1f).ToString());
+        float s1, s2, s3; int n1, n2, n3;
+        SurfaceGrid.Layout(4.45f, out s1, out n1);
+        SurfaceGrid.Layout(0.5f, out s2, out n2);
+        SurfaceGrid.Layout(38f, out s3, out n3);
+        r.Add(s1.ToString("F3", Inv) + "/" + n1 + " " + s2.ToString("F3", Inv) + "/" + n2 + " " + s3.ToString("F2", Inv) + "/" + n3);
+        return string.Join(",", r.ToArray());
+    }
+
+    /// <summary>
+    /// Steps a cloth in a wind (m/s at 10 m, blowing <paramref name="yawDegrees"/> from +x towards
+    /// +z) as the mod does; after <paramref name="after"/> seconds, the worst stretch and the
+    /// lowest and highest of <paramref name="probe"/> over the cloth each step.
+    /// </summary>
+    static void Fly(FlagCloth c, float wind, float yawDegrees, float seconds, float after, Func<FlagCloth, float> probe,
+                    out float worst, out float low, out float high)
+    {
+        float mean, over;
+        Fly(c, wind, yawDegrees, seconds, after, probe, out worst, out low, out high, out mean, out over);
+    }
+
+    /// <summary>The same, with the worst link's mean over the steps and the share of the steps it was over 30% long.</summary>
+    static void Fly(FlagCloth c, float wind, float yawDegrees, float seconds, float after, Func<FlagCloth, float> probe,
+                    out float worst, out float low, out float high, out float mean, out float over)
+    {
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw), height = 12f;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        worst = 1f; low = float.MaxValue; high = float.MinValue;
+        double sum = 0; int n = 0, overs = 0;
+        int steps = (int)(seconds / dt);
+        for (int s = 0; s < steps; s++)
+        {
+            FlagAir air = FlagWind.Air(wind, 1f, dirX, dirZ, height, 1f, c.Length, s * dt, 0f, 0f);
+            c.Step(dt, ref air);
+            if (s * dt < after) continue;
+            float st = c.MaxStretch(); if (st > worst) worst = st;
+            sum += st; n++; if (st > 1.3f) overs++;
+            float p = probe(c); if (p < low) low = p; if (p > high) high = p;
+        }
+        mean = n > 0 ? (float)(sum / n) : 1f;
+        over = n > 0 ? overs / (float)n : 0f;
+    }
+
+    /// <summary>The lowest free particle's height over <paramref name="level"/> (the hoist's column is held).</summary>
+    static float Above(FlagCloth c, float level)
+    {
+        float m = float.MaxValue;
+        for (int k = 0; k < c.Count; k++)
+            if (k % c.Columns != 0 && c.Y[k] - level < m) m = c.Y[k] - level;
+        return m;
+    }
+
+    /// <summary>
+    /// A 3 x 2 m flag (or a banner hoisted from its top) whose hoist's foot stands 0.5 m over a
+    /// roof, in a wind; 12 s: finite, how far the lowest particle stayed above the roof after 3 s
+    /// (with and without the roof), the worst stretch, the surface used and not blocked.
+    /// </summary>
+    public static string Roof(float wind, bool top)
+    {
+        float hx = 0f, hy = -1f, hz = 0f, fx = 1f, fy = 0f, fz = 0f;
+        if (top) FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        float roof = top ? -1f : -2.5f;
+        var results = new List<string>();
+        foreach (bool city in new[] { true, false })
+        {
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, FlagCloth.CellsAlong, hx, hy, hz);
+            if (top) c.LayOut(fx, fy, fz, true);
+            c.GroundY = -12f;
+            if (city)
+            {
+                SurfaceGrid g = Grid(0f, 0f, 4.45f, -12f);
+                RaiseBox(g, -10f, -10f, 10f, 10f, -12f, roof);
+                g.Finish();
+                c.SetSurface(g, 0f, 0f, 0f);
+            }
+            float worst, low, high;
+            float level = roof;
+            Fly(c, wind, 0f, 12f, 3f, delegate(FlagCloth x) { return Above(x, level); }, out worst, out low, out high);
+            if (city) results.Add(c.IsFinite() + "," + low.ToString("F3", Inv) + "," + worst.ToString("F3", Inv) + "," + c.SurfaceInUse + "," + c.SurfaceBlocked);
+            else results.Add(low.ToString("F2", Inv));
+        }
+        return string.Join(",", results.ToArray());
+    }
+
+    /// <summary>
+    /// A 3 x 2 m flag hoisted 1.2 m from a wall taller than it (a box x 1.2..8, z -6..6, up to 6 m
+    /// over the anchor), the wind blowing at it: 12 s from new -- laid out the first way clear of
+    /// the wall, as the game lays out a new flag (FlagCloth.LayOutClear), or, with
+    /// <paramref name="through"/>, straight through it (a flag carried into it): finite; how far
+    /// past the wall's face the cloth went after 1 s, against one grid spacing (the wall's slope);
+    /// the worst stretch after 1 s; blocked; the same without the wall; the times it was laid out
+    /// afresh (buried).
+    /// </summary>
+    public static string Wall(float wind, float yawDegrees, bool top, bool through = false, float length = 3f)
+    {
+        float hx = 0f, hy = -1f, hz = 0f, fx = 1f, fy = 0f, fz = 0f;
+        if (top) FlagOrientation.Frame((float)(Math.PI / 2), 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        float face = 0.4f * length, size = 2f * length;
+        var results = new List<string>();
+        float spacing = 0f;
+        foreach (bool city in new[] { true, false })
+        {
+            double yaw = yawDegrees * Math.PI / 180.0;
+            FlagCloth c = new FlagCloth(length, length * 2f / 3f, FlagFabric.Standard(1f), (float)Math.Cos(yaw), (float)Math.Sin(yaw), FlagCloth.CellsAlong, hx, hy, hz);
+            c.GroundY = -12f;
+            if (city)
+            {
+                // As FlagSurroundings lays it out: a quarter wider than the flag's reach (FlagOutline).
+                SurfaceGrid g = Grid(0f, 0f, 1.25f * (1.02f * length + 0.5f), -12f);
+                RaiseBox(g, face, -size, face + size, size, -12f, 6f);
+                g.Finish();
+                spacing = g.Spacing;
+                c.SetSurface(g, 0f, 0f, 0f);
+                if (!through)
+                    c.LayOutClear((float)Math.Cos(yaw), (float)Math.Sin(yaw));
+            }
+            float worst, low, high, mean, over;
+            Fly(c, wind, yawDegrees, 20f, 1f, delegate(FlagCloth x)
+            {
+                float m = float.MinValue;
+                for (int k = 0; k < x.Count; k++) if (x.X[k] - face > m) m = x.X[k] - face;
+                return m;
+            }, out worst, out low, out high, out mean, out over);
+            if (city) results.Add(c.IsFinite() + "," + high.ToString("F3", Inv) + "," + spacing.ToString("F3", Inv) + "," + worst.ToString("F3", Inv) + "," + c.SurfaceBlocked + "," + c.Relaid + "," +
+                                  mean.ToString("F3", Inv) + "," + (100f * over).ToString("F1", Inv));
+            else results.Add(high.ToString("F2", Inv) + "," + mean.ToString("F3", Inv));
+        }
+        return string.Join(",", results.ToArray());
+    }
+
+    /// <summary>
+    /// A post (a prop's capsule: 0.15 m round, from the ground to 1 m over the anchor) 0.5 m behind
+    /// the hoist, the wind from behind blowing the flag back round it: 12 s: finite; the nearest
+    /// particle to the post's axis after 3 s, less its radius (m); without the post; the worst stretch.
+    /// </summary>
+    public static string Post(float wind)
+    {
+        var results = new List<string>();
+        foreach (bool city in new[] { true, false })
+        {
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), -1f, 0f);
+            c.GroundY = -12f;
+            if (city)
+            {
+                var set = new CapsuleSet();
+                set.AddObject(-0.5f, -12f, 0f, 0.6f, 0.6f, 13f);
+                c.SetCapsules(set, 0f, 0f, 0f);
+            }
+            float worst, low, high;
+            Fly(c, wind, 180f, 12f, 3f, delegate(FlagCloth x)
+            {
+                float m = float.MaxValue;
+                for (int k = 0; k < x.Count; k++)
+                {
+                    if (x.Y[k] > 0.85f) continue;
+                    float d = (float)Math.Sqrt((x.X[k] + 0.5f) * (x.X[k] + 0.5f) + x.Z[k] * x.Z[k]) - 0.15f;
+                    if (d < m) m = d;
+                }
+                return m;
+            }, out worst, out low, out high);
+            if (city) results.Add(c.IsFinite() + "," + low.ToString("F3", Inv) + "," + worst.ToString("F3", Inv) + "," + c.CapsulesInUse);
+            else results.Add(low.ToString("F2", Inv));
+        }
+        return string.Join(",", results.ToArray());
+    }
+
+    /// <summary>
+    /// A pole of the city's own round the hoist (a prop's capsule 0.2 m round, its axis 5 cm off the
+    /// hoist line): narrowed to leave the hoist outside, so the cloth is not pulled against it.
+    /// 12 s at the given wind: finite, the worst stretch after 3 s, capsules in use; the worst
+    /// stretch of the same flag without it.
+    /// </summary>
+    public static string PoleAsset(float wind)
+    {
+        var results = new List<string>();
+        foreach (bool city in new[] { true, false })
+        {
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+            c.GroundY = -12f;
+            if (city)
+            {
+                var set = new CapsuleSet();
+                set.AddObject(-0.05f, -12f, 0f, 0.8f, 0.8f, 12.5f);
+                c.SetCapsules(set, 0f, 0f, 0f);
+            }
+            float worst, low, high;
+            Fly(c, wind, 0f, 12f, 3f, delegate(FlagCloth x) { return 0f; }, out worst, out low, out high);
+            if (city) results.Add(c.IsFinite() + "," + worst.ToString("F3", Inv) + "," + c.CapsulesInUse);
+            else results.Add(worst.ToString("F3", Inv));
+        }
+        return string.Join(",", results.ToArray());
+    }
+
+    /// <summary>
+    /// A canopy over the flag (a box 0.5-1 m over the anchor): its hoist stands under the surface,
+    /// which the cloth leaves out -- blocked, and bit for bit the cloth without it. And a surface far
+    /// below with a capsule far off: nothing in reach, bit for bit the cloth without them.
+    /// </summary>
+    public static string Untouched()
+    {
+        FlagCloth plain = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        FlagCloth under = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        FlagCloth far = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        plain.GroundY = under.GroundY = far.GroundY = -12f;
+        SurfaceGrid canopy = Grid(0f, 0f, 4.45f, -12f);
+        RaiseBox(canopy, -3f, -4f, 6f, 4f, 0.5f, 1f);
+        canopy.Finish();
+        under.SetSurface(canopy, 0f, 0f, 0f);
+        SurfaceGrid low = Grid(0f, 0f, 4.45f, -100f);
+        low.Finish();
+        far.SetSurface(low, 0f, 0f, 0f);
+        var set = new CapsuleSet();
+        set.AddObject(50f, -12f, 0f, 1f, 1f, 20f);
+        far.SetCapsules(set, 0f, 0f, 0f);
+        float dt = 1f / 60f;
+        for (int s = 0; s < 360; s++)
+        {
+            FlagAir air = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, 3f, s * dt, 0f, 0f);
+            plain.Step(dt, ref air);
+            under.Step(dt, ref air);
+            far.Step(dt, ref air);
+        }
+        bool same = true, sameFar = true;
+        for (int k = 0; k < plain.Count; k++)
+        {
+            if (plain.X[k] != under.X[k] || plain.Y[k] != under.Y[k] || plain.Z[k] != under.Z[k]) same = false;
+            if (plain.X[k] != far.X[k] || plain.Y[k] != far.Y[k] || plain.Z[k] != far.Z[k]) sameFar = false;
+        }
+        return under.SurfaceBlocked + "," + same + "," + far.SurfaceInUse + "," + far.CapsulesInUse + "," + sameFar;
+    }
+
+    /// <summary>A step's cost (us, .NET) of a 3 x 2 m flag hanging in calm air onto a roof under it, and of the same flag with nothing under it.</summary>
+    public static string CityCost()
+    {
+        var r = new List<string>();
+        foreach (bool city in new[] { true, false })
+        {
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+            c.GroundY = -12f;
+            if (city)
+            {
+                SurfaceGrid g = Grid(0f, 0f, 4.45f, -12f);
+                RaiseBox(g, -10f, -10f, 10f, 10f, -12f, -2.5f);
+                g.Finish();
+                c.SetSurface(g, 0f, 0f, 0f);
+                var set = new CapsuleSet();
+                set.AddObject(-0.5f, -12f, 0f, 0.6f, 0.6f, 13f);
+                c.SetCapsules(set, 0f, 0f, 0f);
+            }
+            float dt = 1f / 60f;
+            for (int s = 0; s < 480; s++) { FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 12f, 1f, 3f, s * dt, 0f, 0f); c.Step(dt, ref air); }
+            Stopwatch sw = Stopwatch.StartNew();
+            for (int s = 0; s < 1200; s++) { FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 12f, 1f, 3f, s * dt, 0f, 0f); c.Step(dt, ref air); }
+            r.Add((sw.Elapsed.TotalMilliseconds * 1000.0 / 1200).ToString("F1", Inv));
+        }
+        return string.Join(",", r.ToArray());
+    }
 }
 '@
 $hp = New-Object System.CodeDom.Compiler.CompilerParameters
@@ -2498,6 +2810,45 @@ Check "sRGB 0.5 is linear 0.2140, 1 is 1" ($colours[2] -eq "0.2140" -and $colour
 $p = $asm.GetType("RealFlag.Flags.FlagProportion", $true)
 Check "2:3 is 0.667 of the length" ([math]::Abs($p::Ratio(667) - 0.667) -lt 1e-6 -and $p::Name(667) -eq "2:3") ($p::Name(667))
 
+# ---- the city: the surface under a flag, the props and trees near it ----------------------
+# FlagSurroundings reads them from the game (the buildings' LOD triangles, the terrain and the
+# water, the props' and trees' own pick capsules); here, boxes and posts put in by hand.
+
+$sr = [ClothTests]::SurfaceRaster() -split ","
+Check "the surface grid: a box raised into it (its edges too), bilinear between, the coarse maxima, a slanted triangle" (($sr[0..6] | Where-Object { $_ -ne "True" }).Count -eq 0) ($sr[0..6] -join ",")
+Check "its layout: a 3 m flag's grid 81 nodes at 11 cm, a 0.5 m flag's 11 at 10 cm, a 30 m flag's 81 at 95 cm" ($sr[7] -eq "0.111/81 0.100/11 0.95/81") $sr[7]
+foreach ($case in @(@(0, $false), @(2, $false), @(0, $true))) {
+    $rf = [ClothTests]::Roof($case[0], $case[1]) -split ","
+    Check ("a {0} over a roof, {1} m/s: it lies on the roof, never through it" -f $(if ($case[1]) { "banner hoisted from its top 1 m" } else { "flag's hoist 0.5 m" }), $case[0]) ($rf[0] -eq "True" -and (N $rf[1]) -ge -0.01 -and (N $rf[2]) -lt 1.15 -and $rf[3] -eq "True" -and $rf[4] -eq "False" -and (N $rf[5]) -lt -0.3) ("lowest particle " + $rf[1] + " m over the roof (without the roof: " + $rf[5] + " m), worst stretch " + $rf[2])
+}
+# A wall is the grid's slope one spacing wide, grown half a spacing out (SurfaceGrid.Raise): the
+# cloth stops short of the face. Slapping the wall it stretches for moments (the worst link: at
+# 12 m/s up to 1.5 for 0.1% of the time, a 20 m/s banner 1.6 for 2%); the rest of the time as in
+# free air -- a fold locked against the wall would stay long. So: the mean against free air's, and
+# the share of the time over 30%.
+foreach ($case in @(@(6, 0, $false, 3), @(12, 0, $false, 3), @(6, 45, $false, 3), @(12, 45, $false, 3), @(6, 0, $true, 3), @(12, 0, $true, 3), @(8, 0, $false, 8), @(8, 45, $true, 8))) {
+    $wl = [ClothTests]::Wall($case[0], $case[1], $case[2], $false, $case[3]) -split ","
+    Check ("{0} m/s {1} deg at a wall 0.4 of its length from a {3} m {2}: laid out clear of it, blown against it, never through it" -f $case[0], $case[1], $(if ($case[2]) { "banner's crossbar" } else { "flag's hoist" }), $case[3]) ($wl[0] -eq "True" -and (N $wl[1]) -le 0.01 -and (N $wl[6]) -le (N $wl[9]) + 0.03 -and (N $wl[7]) -le 1 -and $wl[4] -eq "False" -and (N $wl[8]) -gt 0.5) ("at most " + $wl[1] + " m past its face (the grid's spacing " + $wl[2] + "; without the wall " + $wl[8] + " m); stretch " + $wl[6] + " on average (" + $wl[9] + " in free air), over 30% for " + $wl[7] + "% of 19 s, " + $wl[3] + " at worst")
+}
+# Carried into the wall (Move It, faster than the cloth follows), laid through it: carried back out a
+# particle at a time it would fall in a heap the cloth against itself locks (30-60% for seconds).
+foreach ($case in @(@(6, 0, $false), @(6, 0, $true))) {
+    $wl = [ClothTests]::Wall($case[0], $case[1], $case[2], $true) -split ","
+    Check ("laid straight through a wall ({0}, {1} m/s): found buried, laid out afresh where it is free, then as the rest" -f $(if ($case[2]) { "a banner" } else { "a flag" }), $case[0]) ($wl[0] -eq "True" -and (N $wl[1]) -le 0.01 -and (N $wl[6]) -le (N $wl[9]) + 0.03 -and (N $wl[7]) -le 1 -and (N $wl[5]) -ge 1) ("laid out afresh " + $wl[5] + " time(s); at most " + $wl[1] + " m past its face after 1 s; stretch " + $wl[6] + " on average, over 30% for " + $wl[7] + "% of the time, " + $wl[3] + " at worst")
+}
+foreach ($speed in 2, 6) {
+    $po = [ClothTests]::Post($speed) -split ","
+    Check ("$speed m/s from behind: the flag blown back round a post (a prop's capsule) behind its hoist, never through it") ($po[0] -eq "True" -and (N $po[1]) -ge -0.01 -and (N $po[2]) -lt 1.25 -and (N $po[3]) -ge 1 -and (N $po[4]) -lt -0.05) ("nearest particle " + $po[1] + " m off the post (without it: " + $po[4] + " m), worst stretch " + $po[2])
+}
+foreach ($speed in 0, 6) {
+    $pa = [ClothTests]::PoleAsset($speed) -split ","
+    # Narrowed, it is a pole beside the hoist: the cloth hanging on it stretches as on the mod's own
+    # pole (1.15 in calm air, those checks allow 20%), not as a cloth pulled against its hoist.
+    Check ("$speed m/s: a pole of the city's round the hoist is narrowed to leave it out: the cloth is not pulled against its hoist") ($pa[0] -eq "True" -and (N $pa[1]) -lt 1.2 -and (N $pa[2]) -ge 1) ("worst stretch " + $pa[1] + " (without it " + $pa[3] + "), " + $pa[2] + " capsule(s) in use")
+}
+$un = [ClothTests]::Untouched()
+Check "a roof over the hoist: the surface left out, the cloth as without it; nothing in reach: bit for bit the cloth without the city" ($un -eq "True,True,False,0,True") $un
+
 # ---- cost ---------------------------------------------------------------------------------
 
 foreach ($speed in 0, 6, 12, 20, 30) {
@@ -2509,6 +2860,8 @@ foreach ($d in 24, 32, 40) {
     $line = @(0, 6, 12) | ForEach-Object { "{0:F0} us at {1} m/s" -f [ClothTests]::MicrosecondsPerStepAt($_, $d), $_ }
     Write-Host ("      cost at {0} cells: {1}" -f $d, ($line -join ", "))
 }
+$cc = [ClothTests]::CityCost() -split ","
+Write-Host ("      cost of the city: {0} us a step hanging onto a roof by a post, {1} us with nothing near (calm, .NET)" -f $cc[0], $cc[1])
 
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

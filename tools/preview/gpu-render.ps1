@@ -31,6 +31,10 @@
 #                                  column the shape after that many seconds of its breeze, "-1" its own
 #                                  time (StillPose.StepsFor); "flat": laid flat
 #   ... -Motions "waves,still,flat"  one row per motion (times the rest)
+#   ... -Boxes "2.4,0,4,12,14"     buildings: boxes on the ground, middle x,z from the pole's foot, width
+#                                  (x), depth (z), height; several with "|" -- the flag's SurfaceGrid
+#   ... -Posts "-0.5,0,0.15,13"    props or trees: capsules at x,z, their radius and height (CapsuleSet)
+#   ... -NoCity                    the cloth passes through them (as before the city was kept off)
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
 # -Elevation (m) -Colours "#hex,#hex,#hex"; the camera: -Yaw -Pitch -Dist (flag lengths away).
 
@@ -82,6 +86,10 @@ param(
     [int]$Columns = 0,
     # Fabric overrides per row, cycling: "A=0.5|A=0.8" (FlagPreview.Fabric lists the keys).
     [string]$Fabric = "",
+    # The city round the flag: boxes "x,z,w,d,h|...", posts "x,z,r,h|...", and whether it is kept off.
+    [string]$Boxes = "",
+    [string]$Posts = "",
+    [switch]$NoCity,
     [string]$Name = "gpu",
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
@@ -144,6 +152,9 @@ $env:RF_THROUGH = if ($Through) { "1" } else { "0" }
 $env:RF_LOOK = $Look
 $env:RF_WINDYAW = $WindYaw.ToString($inv)
 $env:RF_FABRIC = $Fabric
+$env:RF_BOXES = $Boxes
+$env:RF_POSTS = $Posts
+$env:RF_CITY = if ($NoCity) { "0" } else { "1" }
 $env:RF_MOTIONS = if ($Motions) { $Motions } else { $Motion }
 
 if (Test-Path $log) { Remove-Item $log -Force }

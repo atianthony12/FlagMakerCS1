@@ -58,6 +58,9 @@ namespace RealFlag
         /// <summary>The cloth keeps out of itself (FlagCloth.CollisionThickness): its folds lie on one another instead of through.</summary>
         public static BoolSetting SelfCollision { get; private set; }
 
+        /// <summary>The cloth keeps off the city (FlagSurroundings): the ground, water and roofs under it, walls, props and trees.</summary>
+        public static BoolSetting CityCollision { get; private set; }
+
         // ---- the wind (the panel's Settings tab) ----
 
         /// <summary>
@@ -214,6 +217,7 @@ namespace RealFlag
             /// <summary>Normal: 18 cells along, the cloth as it was first made.</summary>
             public const int ClothDetail = FlagCloth.CellsAlong;
             public const bool SelfCollision = true;
+            public const bool CityCollision = true;
 
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
@@ -305,6 +309,7 @@ namespace RealFlag
                 FreezeWhenPaused = new BoolSetting("FreezeWhenPaused", Defaults.FreezeWhenPaused);
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
+                CityCollision = new BoolSetting("CityCollision", Defaults.CityCollision);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);

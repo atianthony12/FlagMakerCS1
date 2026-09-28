@@ -344,6 +344,8 @@
   <String key="ClothDetail.Ultra">Ultra</String>
   <String key="SelfCollision.Label">Cloth collides with itself</String>
   <String key="SelfCollision.Tooltip">A flag's folds lie on one another instead of passing through. Costs about a third more while a flag hangs in folds, little while it flies.</String>
+  <String key="CityCollision.Label">Cloth keeps off buildings, props and trees</String>
+  <String key="CityCollision.Tooltip">Flags lie on the roofs and ground under them, stop at walls, and wrap round props and trees near them instead of passing through. A flag high above everything costs nothing more.</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>
   <String key="DetailedLogging.Label">Detailed logging</String>

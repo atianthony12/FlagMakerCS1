@@ -49,6 +49,11 @@ using Debug = UnityEngine.Debug;
 ///                       laid on RF_PATTERNS' first pattern; RF_THROUGH "1": their see-through parts show it
 ///   RF_MOTIONS "waves,still,flat"  one row per motion (FlagMotion): a still flag's column t is its shape
 ///                       after t seconds of its breeze (StillPose), t &lt; 0 its own time; a flat one is laid flat
+///   RF_BOXES "x,z,w,d,h|..."  buildings: boxes standing on the ground, their middle (x, z) from the pole's
+///                       foot, w along x, d along z, h tall -- raised into the flag's SurfaceGrid as a
+///                       building's LOD triangles are (FlagSurroundings), drawn grey
+///   RF_POSTS "x,z,r,h|..."    props or trees: upright capsules r round and h tall (CapsuleSet), drawn as cylinders
+///   RF_CITY "0"         the cloth does not keep off them (drawn all the same: the flag as before)
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
 /// Every frame logs "RF FRAME row=.. col=.. t=.. file=.. | ..." with the flag's droop, how much
 /// of the frame it covers, and its mean colour.
@@ -90,6 +95,11 @@ public static class FlagPreview
         public Mesh Mesh;
         public Matrix4x4 Matrix;
     }
+
+    /// <summary>RF_BOXES and RF_POSTS: the city round the flag (x, z, w, d, h and x, z, r, h, metres); RF_CITY: kept off.</summary>
+    private static readonly List<float[]> Boxes = new List<float[]>(), Posts = new List<float[]>();
+    private static bool _city = true;
+    private static readonly List<GameObject> CityObjects = new List<GameObject>();
 
     public static void Render()
     {
@@ -188,6 +198,24 @@ public static class FlagPreview
                 Bench(spec, winds, gusts, elevation, bench, detail, collide, refines[0]);
             return;
         }
+
+        Boxes.Clear();
+        Posts.Clear();
+        foreach (string b in Env("RF_BOXES", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            float[] v = ParseFloats(b);
+            if (v.Length >= 5)
+                Boxes.Add(v);
+        }
+
+        foreach (string p in Env("RF_POSTS", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            float[] v = ParseFloats(p);
+            if (v.Length >= 4)
+                Posts.Add(v);
+        }
+
+        _city = Env("RF_CITY", "1") != "0";
 
         Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
         if (shader == null)
@@ -332,6 +360,11 @@ public static class FlagPreview
                               pole.Mesh.vertexCount + " vertices");
                 }
 
+                // The city round it (RF_BOXES, RF_POSTS), as the game gathers it; a new cloth laid out clear of it.
+                string city = "";
+                if (motion == FlagMotion.Waves && (Boxes.Count > 0 || Posts.Count > 0))
+                    city = KeepOffCity(cloth, flag, anchor, hoist);
+
                 float t = 0f;
                 int col = 0;
                 int posed = 0;
@@ -388,6 +421,7 @@ public static class FlagPreview
                                                flag.ImageZoom.ToString("0.##", CultureInfo.InvariantCulture) + " turn " + flag.ImageTurn +
                                                (flag.ImageAlpha == FlagImageAlpha.Through ? " through" : "") : "") +
                               (flag.Darkness > 0f ? ", darkness " + (flag.Darkness * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
+                              (city.Length > 0 ? " | " + city + ", " + CityProbe(cloth, anchor) : "") +
                               " | " + info);
                     col++;
                 }
@@ -402,6 +436,81 @@ public static class FlagPreview
         s.Camera.targetTexture = null;
         UnityEngine.Object.DestroyImmediate(s.Camera.gameObject);
         UnityEngine.Object.DestroyImmediate(s.Target);
+    }
+
+    /// <summary>
+    /// The boxes and posts round the flag into its cloth, as FlagSurroundings gathers a city: a
+    /// SurfaceGrid a quarter wider than the flag can reach (FlagOutline), flat ground at y = 0,
+    /// raised to each box's twelve triangles; a CapsuleSet of the posts. Then laid out clear of
+    /// them, as FlagRenderer lays out a new cloth. For the log.
+    /// </summary>
+    private static string KeepOffCity(FlagCloth cloth, FlagSpec flag, Vector3 anchor, Vector3 hoist)
+    {
+        Vector3 end = anchor + hoist * flag.Height;
+        float cx = 0.5f * (anchor.x + end.x), cz = 0.5f * (anchor.z + end.z);
+        float reach = 0.5f * new Vector2(end.x - anchor.x, end.z - anchor.z).magnitude + 1.02f * flag.Length + 0.5f;
+        float spacing;
+        int nodes;
+        SurfaceGrid.Layout(1.25f * reach, out spacing, out nodes);
+        float span = (nodes - 1) * spacing;
+        var grid = new SurfaceGrid(cx - 0.5f * span - anchor.x, cz - 0.5f * span - anchor.z, spacing, nodes, nodes, -anchor.y);
+        foreach (float[] b in Boxes)
+        {
+            float x0 = b[0] - 0.5f * b[2] - anchor.x, x1 = b[0] + 0.5f * b[2] - anchor.x;
+            float z0 = b[1] - 0.5f * b[3] - anchor.z, z1 = b[1] + 0.5f * b[3] - anchor.z;
+            float y0 = -anchor.y, y1 = b[4] - anchor.y;
+            float[] v = {
+                x0, y1, z0, x1, y1, z0, x1, y1, z1,  x0, y1, z0, x1, y1, z1, x0, y1, z1,
+                x0, y0, z0, x1, y0, z1, x1, y0, z0,  x0, y0, z0, x0, y0, z1, x1, y0, z1,
+                x0, y0, z0, x0, y1, z0, x0, y1, z1,  x0, y0, z0, x0, y1, z1, x0, y0, z1,
+                x1, y0, z0, x1, y1, z1, x1, y1, z0,  x1, y0, z0, x1, y0, z1, x1, y1, z1,
+                x0, y0, z0, x1, y1, z0, x0, y1, z0,  x0, y0, z0, x1, y0, z0, x1, y1, z0,
+                x0, y0, z1, x0, y1, z1, x1, y1, z1,  x0, y0, z1, x1, y1, z1, x1, y0, z1 };
+            for (int i = 0; i < v.Length; i += 9)
+                grid.Raise(v[i], v[i + 1], v[i + 2], v[i + 3], v[i + 4], v[i + 5], v[i + 6], v[i + 7], v[i + 8]);
+        }
+
+        grid.Finish();
+        var set = new CapsuleSet();
+        foreach (float[] p in Posts)
+            set.AddObject(p[0] - anchor.x, -anchor.y, p[1] - anchor.z, 4f * p[2], 4f * p[2], p[3]);
+
+        if (!_city)
+            return "city off: " + Boxes.Count + " box(es), " + Posts.Count + " post(s)";
+
+        cloth.SetSurface(grid, 0f, 0f, 0f);
+        cloth.SetCapsules(set, 0f, 0f, 0f);
+        int buried = cloth.LayOutClear(Mathf.Cos(_windYaw * Mathf.Deg2Rad), Mathf.Sin(_windYaw * Mathf.Deg2Rad));
+        return "city: " + Boxes.Count + " box(es), " + Posts.Count + " post(s), surface " + nodes + "x" + nodes + " every " +
+               spacing.ToString("F2", CultureInfo.InvariantCulture) + " m, laid out " + (buried == 0 ? "clear" : buried + " in it") +
+               (cloth.SurfaceBlocked ? ", BLOCKED" : "");
+    }
+
+    /// <summary>For the log: the deepest any particle is inside a box, and the nearest to a post's surface (negative: inside), metres.</summary>
+    private static string CityProbe(FlagCloth cloth, Vector3 anchor)
+    {
+        float deepest = 0f, nearest = float.MaxValue;
+        for (int k = 0; k < cloth.Count; k++)
+        {
+            Vector3 p = anchor + new Vector3(cloth.X[k], cloth.Y[k], cloth.Z[k]);
+            foreach (float[] b in Boxes)
+            {
+                float inside = Mathf.Min(Mathf.Min(p.x - (b[0] - 0.5f * b[2]), b[0] + 0.5f * b[2] - p.x),
+                                         Mathf.Min(Mathf.Min(p.z - (b[1] - 0.5f * b[3]), b[1] + 0.5f * b[3] - p.z), Mathf.Min(p.y, b[4] - p.y)));
+                deepest = Mathf.Max(deepest, inside);
+            }
+
+            foreach (float[] q in Posts)
+            {
+                if (p.y > q[3])
+                    continue;
+                nearest = Mathf.Min(nearest, new Vector2(p.x - q[0], p.z - q[1]).magnitude - q[2]);
+            }
+        }
+
+        var inv = CultureInfo.InvariantCulture;
+        return "deepest in a box " + deepest.ToString("F3", inv) + " m" + (Posts.Count > 0 ? ", nearest a post " + nearest.ToString("F3", inv) + " m" : "") +
+               (cloth.Relaid > 0 ? ", laid out afresh " + cloth.Relaid : "");
     }
 
     /// <summary>
@@ -510,6 +619,30 @@ public static class FlagPreview
         pole.GetComponent<Renderer>().sharedMaterial = new Material(diffuse) { color = new Color(0.8f, 0.8f, 0.82f) };
         pole.transform.localScale = new Vector3(0.12f, 8f, 0.12f);
         pole.transform.position = new Vector3(-0.07f, 8f, 0f);
+
+        // The city round the flag (RF_BOXES, RF_POSTS): stone-grey boxes, dark posts.
+        CityObjects.Clear();
+        var stone = new Material(diffuse) { color = new Color(0.62f, 0.6f, 0.56f) };
+        var bark = new Material(diffuse) { color = new Color(0.25f, 0.22f, 0.18f) };
+        foreach (float[] b in Boxes)
+        {
+            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.name = "RFPreviewCity";
+            box.GetComponent<Renderer>().sharedMaterial = stone;
+            box.transform.localScale = new Vector3(b[2], b[4], b[3]);
+            box.transform.position = new Vector3(b[0], 0.5f * b[4], b[1]);
+            CityObjects.Add(box);
+        }
+
+        foreach (float[] p in Posts)
+        {
+            GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "RFPreviewCity";
+            post.GetComponent<Renderer>().sharedMaterial = bark;
+            post.transform.localScale = new Vector3(2f * p[2], 0.5f * p[3], 2f * p[2]);
+            post.transform.position = new Vector3(p[0], 0.5f * p[3], p[1]);
+            CityObjects.Add(post);
+        }
 
         GameObject sunObject = new GameObject("RFPreviewSun");
         s.Sun = sunObject.AddComponent<Light>();
@@ -621,6 +754,12 @@ public static class FlagPreview
             GameObject go = GameObject.Find(name);
             if (go != null)
                 go.GetComponent<Renderer>().enabled = on && (name != "RFPreviewPole" || greyPole);
+        }
+
+        foreach (GameObject go in CityObjects)
+        {
+            if (go != null)
+                go.GetComponent<Renderer>().enabled = on;
         }
     }
 
