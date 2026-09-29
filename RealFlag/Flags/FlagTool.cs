@@ -766,8 +766,15 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
-                Log.Warn("flags: drawing the tool's overlay threw: " + e.Message);
+                // Once per different error: the overlay is drawn every frame.
+                if (e.Message != _overlayFailure)
+                {
+                    _overlayFailure = e.Message;
+                    Log.Warn("flags: drawing the tool's overlay threw (said once): " + e.Message);
+                }
             }
         }
+
+        private string _overlayFailure;
     }
 }

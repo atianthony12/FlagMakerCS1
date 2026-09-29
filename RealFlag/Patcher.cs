@@ -60,9 +60,28 @@ namespace RealFlag
             try
             {
                 var harmony = new Harmony(HarmonyId);
-                harmony.PatchAll(typeof(Patcher).Assembly);
+
+                // Each class on its own: Harmony 2.0.4's PatchAll throws out at the first target it
+                // cannot find, which would leave every patch off, Move It's with them. The attribute
+                // patches are in Flags/FlagPatches.cs; Move It's are made by hand (FlagMoveItPick).
+                Type[] patchClasses = { typeof(Flags.FlagRayCastPatch), typeof(Flags.FlagOverlayPatch) };
+                int applied = 0;
+                foreach (Type patch in patchClasses)
+                {
+                    try
+                    {
+                        harmony.CreateClassProcessor(patch).Patch();
+                        applied++;
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error("Harmony: " + patch.Name + " could not be applied; the rest go on without it.", e);
+                    }
+                }
+
                 _patched = true;
-                Log.Msg("Harmony patches applied (" + HarmonyId + "): clicking a flag's cloth, Move It's outline of it");
+                Log.Msg("Harmony patches applied (" + HarmonyId + ", " + applied + " of " + patchClasses.Length +
+                        "): clicking a flag's cloth, Move It's outline of it");
                 Flags.FlagMoveItPick.TryPatch(harmony);
                 LogSharedMethods();
             }
@@ -78,17 +97,23 @@ namespace RealFlag
         /// </summary>
         public static void EnsureMoveIt()
         {
-            if (!_patched || Flags.FlagMoveItPick.IsPatched)
+            if (!_patched)
                 return;
 
-            try
+            if (!Flags.FlagMoveItPick.IsPatched)
             {
-                Flags.FlagMoveItPick.TryPatch(new Harmony(HarmonyId));
+                try
+                {
+                    Flags.FlagMoveItPick.TryPatch(new Harmony(HarmonyId));
+                }
+                catch (Exception e)
+                {
+                    Log.Warn("Could not patch Move It's pointer search: " + e.Message);
+                }
             }
-            catch (Exception e)
-            {
-                Log.Warn("Could not patch Move It's pointer search: " + e.Message);
-            }
+
+            // Again with the city: a mod that patches as a city loads was not there to be seen at start.
+            LogSharedMethods();
         }
 
         /// <summary>
@@ -140,6 +165,8 @@ namespace RealFlag
                 Debug.LogException(e);
             }
 
+            // UnpatchAll took Move It's too: patched again if the mod is enabled again.
+            Flags.FlagMoveItPick.Forget();
             _patched = false;
         }
     }

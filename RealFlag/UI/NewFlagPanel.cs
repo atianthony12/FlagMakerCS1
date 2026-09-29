@@ -201,11 +201,13 @@ namespace RealFlag.UI
             if (panel == null)
                 return;
 
+            // The screen as the UI sees it (1920 x 1080 only at 16:9: 1728 wide at 16:10).
+            Vector2 screen = view.GetScreenResolution();
             Vector3 p = panel.relativePosition;
             float x = p.x + panel.width + 6f;
-            if (x + width > view.fixedWidth)
+            if (x + width > screen.x)
                 x = Mathf.Max(0f, p.x - width - 6f);
-            relativePosition = new Vector3(x, Mathf.Clamp(p.y, 0f, Mathf.Max(0f, view.fixedHeight - height)));
+            relativePosition = new Vector3(x, Mathf.Clamp(p.y, 0f, Mathf.Max(0f, screen.y - height)));
         }
 
         public override void OnDestroy()

@@ -784,7 +784,10 @@ namespace RealFlag.Flags
 
                 if (!cloth.IsFinite())
                 {
+                    // Laid out again and let down, as every new cloth is (Invariant 9): dropped flat
+                    // into calm air it would whip through itself.
                     cloth.Reset(job.DirX, job.DirZ);
+                    cloth.Calm(FlagCloth.CalmTime);
                     job.WentWrong = true;
                 }
             }

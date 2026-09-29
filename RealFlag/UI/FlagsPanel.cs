@@ -261,8 +261,10 @@ namespace RealFlag.UI
         /// <summary>A little in from the left edge, a third of the way down: clear of the middle of the screen.</summary>
         private void PlaceAtLeft()
         {
-            UIView view = GetUIView();
-            relativePosition = new Vector3(Mathf.Floor(view.fixedWidth * 0.04f), Mathf.Floor((view.fixedHeight - height) * 0.3f));
+            // The screen as the UI sees it (1920 x 1080 only at 16:9); never above its top, where
+            // the title bar and its close button would be out of reach.
+            Vector2 screen = GetUIView().GetScreenResolution();
+            relativePosition = new Vector3(Mathf.Floor(screen.x * 0.04f), Mathf.Max(0f, Mathf.Floor((screen.y - height) * 0.3f)));
         }
 
         public override void OnDestroy()

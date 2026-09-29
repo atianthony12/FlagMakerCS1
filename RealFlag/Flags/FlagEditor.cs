@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using ColossalFramework.UI;
 using UnityEngine;
 
@@ -389,8 +390,10 @@ namespace RealFlag.Flags
             if (!TryEntry(out e))
                 return Localization.Get("Existing.NoneSelected");
 
-            return Localization.Get("Existing.Selected", Title(e), e.Anchor.x.ToString("F0"), e.Anchor.z.ToString("F0"),
-                                    (e.Anchor.y - e.Ground).ToString("F1"));
+            // Invariant: the sliders show "2.5 m" on every system, so the status line does too.
+            return Localization.Get("Existing.Selected", Title(e), e.Anchor.x.ToString("F0", CultureInfo.InvariantCulture),
+                                    e.Anchor.z.ToString("F0", CultureInfo.InvariantCulture),
+                                    (e.Anchor.y - e.Ground).ToString("F1", CultureInfo.InvariantCulture));
         }
 
         /// <summary>"Flag 12", or its name.</summary>

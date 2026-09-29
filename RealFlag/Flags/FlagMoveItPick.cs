@@ -57,6 +57,16 @@ namespace RealFlag.Flags
             get { return _patched; }
         }
 
+        /// <summary>
+        /// Harmony's patches were all removed (Patcher.Unpatch: the mod disabled): patch again when
+        /// it is enabled again. Without this, a disable and enable in one session left Move It's
+        /// search unpatched, and no line in the log said so.
+        /// </summary>
+        public static void Forget()
+        {
+            _patched = false;
+        }
+
         /// <summary>Patches Move It's per-cell prop search, if Move It is loaded and its method is the one read from its IL.</summary>
         public static void TryPatch(Harmony harmony)
         {

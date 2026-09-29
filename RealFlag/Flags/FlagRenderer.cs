@@ -414,6 +414,16 @@ namespace RealFlag.Flags
         private bool _loggedCost;
         private int _failures;
 
+        /// <summary>
+        /// Frames that threw, and cloths that went wrong (not a number), in this city: the first few
+        /// are said (a frame's error with its stack), the rest counted -- a fault that comes back
+        /// every frame would otherwise write sixty stacks a second into both logs.
+        /// </summary>
+        private int _frameFailures, _frameFailuresSaid, _wentWrong;
+        private string _frameFailureLast;
+        private const int MaxFrameFailuresSaid = 5;
+        private const int MaxWentWrongSaid = 10;
+
         /// <summary>The options changed (FlagRenderer.ClothOptionsChanged): applied after the next Collect.</summary>
         private bool _optionsChanged;
         private bool _selfCollision = true;
@@ -547,6 +557,10 @@ namespace RealFlag.Flags
             FlagSurroundings.Stop();
             FlagPicking.Clear();
 
+            // Whatever was only counted (see FrameFailed), said once with the city.
+            if (_frameFailures > _frameFailuresSaid || _wentWrong > MaxWentWrongSaid)
+                Log.Warn("flags: in this city " + _frameFailures + " frame(s) threw and " + _wentWrong + " cloth(s) went wrong (not a number)");
+
             if (Log.Detailed)
                 Log.Detail("flags: " + FlagImages.Describe() + " let go with the city");
             FlagImages.Clear();
@@ -671,12 +685,29 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
-                Log.Error("flags: the frame threw; flags are paused until the next frame.", e);
+                FrameFailed(e);
             }
 
             _worker.Run();
             _cost.Stop();
             Report();
+        }
+
+        /// <summary>
+        /// The frame threw (the flags skip the rest of it): said with its stack the first time, and
+        /// again for each different error up to <see cref="MaxFrameFailuresSaid"/>; every one counted.
+        /// </summary>
+        private void FrameFailed(Exception e)
+        {
+            _frameFailures++;
+            string what = e.GetType().Name + ": " + e.Message;
+            if (what == _frameFailureLast || _frameFailuresSaid >= MaxFrameFailuresSaid)
+                return;
+
+            _frameFailureLast = what;
+            _frameFailuresSaid++;
+            Log.Error("flags: the frame threw; flags are paused until the next frame" +
+                      (_frameFailuresSaid == MaxFrameFailuresSaid ? " (further errors are only counted)" : " (the same error again is only counted)"), e);
         }
 
         /// <summary>
@@ -732,15 +763,18 @@ namespace RealFlag.Flags
 
                 if (pose)
                 {
-                    if (jobs[i].WentWrong)
+                    if (jobs[i].WentWrong && _wentWrong++ < MaxWentWrongSaid)
                         Log.Warn("flags: flag #" + f.Prop + "'s still shape went wrong (not a number); laid out again and run on");
                     f.Pose.Took();
                     _stepsThisReport += jobs[i].Steps;
                     continue;
                 }
 
-                if (jobs[i].WentWrong)
-                    Log.Warn("flags: flag #" + f.Prop + "'s cloth went wrong (not a number); laid out again");
+                // Said for the first few; a cloth that keeps going wrong (something in reach of it
+                // that is not a number) would otherwise say it every frame.
+                if (jobs[i].WentWrong && _wentWrong++ < MaxWentWrongSaid)
+                    Log.Warn("flags: flag #" + f.Prop + "'s cloth went wrong (not a number); laid out again" +
+                             (_wentWrong == MaxWentWrongSaid ? " (further ones are counted in the detailed log)" : ""));
 
                 if (jobs[i].Mesh != null)
                 {
@@ -1146,7 +1180,14 @@ namespace RealFlag.Flags
             if (key == _loggedCamera)
                 return;
 
+            // At INFO the first time; after that in the detailed log only, at most once a second: a
+            // camera mod that zooms by the field of view changes it every frame of a zoom.
+            float now = Time.realtimeSinceStartup;
+            if (_cameraLines > 0 && (!Log.Detailed || now < _nextCameraLine))
+                return;
+
             _loggedCamera = key;
+            _nextCameraLine = now + 1f;
             string text = string.Empty;
             int[] details = FlagCloth.Details;
             for (int i = 1; i < details.Length; i++)
@@ -1156,11 +1197,18 @@ namespace RealFlag.Flags
                 text += (text.Length > 0 ? ", " : "") + UI.SettingsCatalog.DetailLogName(details[i]) + " within " + within.ToString("F0") + " m";
             }
 
-            Log.Msg("flags: camera " + _camera.pixelHeight + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
-                    " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + "); it is drawn to " +
-                    (3f * _pixelsPerRadian / DrawPixels).ToString("F0") + " m, moves to " + (3f * _pixelsPerRadian / MovePixels).ToString("F0") +
-                    " m, at the full rate within " + (3f * _pixelsPerRadian / FullRatePixels).ToString("F0") + " m");
+            string line = "flags: camera " + _camera.pixelHeight + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
+                          " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + "); it is drawn to " +
+                          (3f * _pixelsPerRadian / DrawPixels).ToString("F0") + " m, moves to " + (3f * _pixelsPerRadian / MovePixels).ToString("F0") +
+                          " m, at the full rate within " + (3f * _pixelsPerRadian / FullRatePixels).ToString("F0") + " m";
+            if (_cameraLines++ == 0)
+                Log.Msg(line);
+            else
+                Log.Detail(line);
         }
+
+        private int _cameraLines;
+        private float _nextCameraLine;
 
         /// <summary>The coarsest detail whose cells are at most <see cref="PixelsPerCell"/> for a flag this many pixels long, within the option's finest.</summary>
         private int DetailFor(float pixels)
@@ -1713,10 +1761,15 @@ namespace RealFlag.Flags
 
             // Full rate while FullRatePixels on the screen, half below, with a tenth's band either
             // side (a half-rate step takes twice the sub-steps once the wind carries the air a
-            // cell in one: it saves in light winds only). The ghost is always in the player's hand.
-            if (f.StepSize <= Step && !ghost && f.Pixels < FullRatePixels / 1.1f)
+            // cell in one: it saves in light winds only). The ghost is always in the player's hand;
+            // and a flag whose cloth can reach the ground, or the top of what stands round it, is
+            // always at the full rate: heaped on it in 1/30 s steps of a single sub-step, the cloth
+            // went through itself (the knots harness, 2026-09-29: a 2.8 m flag on a 3.7 m pole, 14
+            // knots in 15 min at half rate, none at full, at 3, 5 and 8 fps).
+            bool low = CanReachGround(f);
+            if (f.StepSize <= Step && !ghost && !low && f.Pixels < FullRatePixels / 1.1f)
                 f.StepSize = 2f * Step;
-            else if (f.StepSize > Step && (ghost || f.Pixels > FullRatePixels * 1.1f))
+            else if (f.StepSize > Step && (ghost || low || f.Pixels > FullRatePixels * 1.1f))
                 f.StepSize = Step;
             float size = f.StepSize;
             int sub = f.Cloth.SubStepsFor(speed, size);
@@ -1748,6 +1801,19 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The flag's cloth can reach the ground under it, or the top of the city round it: hanging
+        /// straight down from the foot of its hoist, its fly (FlagOutline's 1.02 of its length)
+        /// would go below that.
+        /// </summary>
+        private static bool CanReachGround(FlagInstance f)
+        {
+            float floor = f.Ground;
+            if (f.Surface != null)
+                floor = Mathf.Max(floor, f.Surface.Top + f.SurfaceOrigin.y);
+            return f.Anchor.y - floor < 1.02f * f.Spec.Length + f.Spec.Height;
+        }
+
+        /// <summary>
         /// The city round a waving flag, for its cloth to keep off (FlagSurroundings): the surface
         /// under it and the capsules of the props and trees near it, gathered when it has none over
         /// where it can reach now, a building changed near it, or they are old -- a few flags a
@@ -1768,7 +1834,6 @@ namespace RealFlag.Flags
 
             FlagOutline reach = FlagOutline.For(f.Anchor, f.Hoist, f.Spec.Height, f.Spec.Length);
             float time = Time.realtimeSinceStartup;
-            string who = f.Prop != 0 ? "flag #" + f.Prop : "the new flag";
 
             // Never gathered, stale, left behind or old (none after a failure: tried again when old).
             bool surface = f.SurfaceAt == 0f || f.SurfaceStale || (f.Surface != null && !Holds(f.SurfaceSquare, reach)) || time - f.SurfaceAt > SurfaceMaxAge;
@@ -1800,7 +1865,7 @@ namespace RealFlag.Flags
                     if (!_loggedGatherFailure)
                     {
                         _loggedGatherFailure = true;
-                        Log.Error("flags: could not read the city round " + who + " (its cloth keeps off the flat ground alone)", e);
+                        Log.Error("flags: could not read the city round " + Who(f) + " (its cloth keeps off the flat ground alone)", e);
                     }
                 }
 
@@ -1811,7 +1876,7 @@ namespace RealFlag.Flags
                 _surfaceGathers++;
                 _gatherMs += found.Milliseconds;
                 if (Log.Detailed && f.Surface != null && !ghost)
-                    Log.Detail("flags: the surface round " + who + ": " + f.Surface.Columns + "x" + f.Surface.Rows + " every " +
+                    Log.Detail("flags: the surface round " + Who(f) + ": " + f.Surface.Columns + "x" + f.Surface.Rows + " every " +
                                f.Surface.Spacing.ToString("F2") + " m, " + found.Buildings + " building(s) (" + found.Triangles +
                                " triangles), its top " + (f.Surface.Top + f.Anchor.y - f.Ground).ToString("F1") + " m over the ground here, in " +
                                found.Milliseconds.ToString("F2") + " ms");
@@ -1834,7 +1899,7 @@ namespace RealFlag.Flags
                     if (!_loggedGatherFailure)
                     {
                         _loggedGatherFailure = true;
-                        Log.Error("flags: could not read the props and trees round " + who, e);
+                        Log.Error("flags: could not read the props and trees round " + Who(f), e);
                     }
                 }
 
@@ -1844,7 +1909,7 @@ namespace RealFlag.Flags
                 _capsuleGathers++;
                 _gatherMs += found.Milliseconds;
                 if (Log.Detailed && f.Capsules != null && f.Capsules.Count != before && !ghost)
-                    Log.Detail("flags: " + who + " keeps off " + found.Props + " prop(s) and " + found.Trees + " tree(s) round it (" +
+                    Log.Detail("flags: " + Who(f) + " keeps off " + found.Props + " prop(s) and " + found.Trees + " tree(s) round it (" +
                                found.Milliseconds.ToString("F2") + " ms)");
             }
 
@@ -1860,9 +1925,15 @@ namespace RealFlag.Flags
             if (cloth.SurfaceBlocked && !f.LoggedBlocked && !ghost)
             {
                 f.LoggedBlocked = true;
-                Log.Msg("flags: " + who + "'s hoist stands under a roof, inside a building or against a wall: its cloth leaves the " +
+                Log.Msg("flags: " + Who(f) + "'s hoist stands under a roof, inside a building or against a wall: its cloth leaves the " +
                         "surface there out (the flat ground, props and trees still count)");
             }
+        }
+
+        /// <summary>A flag's name in the log, made only when a line is written (this runs every frame for every waving flag in view).</summary>
+        private static string Who(FlagInstance f)
+        {
+            return f.Prop != 0 ? "flag #" + f.Prop : "the new flag";
         }
 
         /// <summary>A square (middle x, z, half its side) holds all a flag can reach.</summary>
@@ -2185,6 +2256,8 @@ namespace RealFlag.Flags
                            (_worker.Threaded ? _worker.Threads + " thread(s) (" + (_batchWallMs / frames).ToString("F3") + " ms out)" : "the main thread") +
                            ", " + (1000.0 * _unitCost).ToString("F2") + " us a particle step | " + _stepsThisReport + " cloth steps in " +
                            seconds.ToString("F0") + " s" + (_failures > 0 ? ", " + _failures + " failed" : "") +
+                           (_wentWrong > 0 ? ", " + _wentWrong + " went wrong (not a number)" : "") +
+                           (_frameFailures > 0 ? ", " + _frameFailures + " frame(s) threw" : "") +
                            (_unknots > 0 ? ", " + _unknots + " knotted and laid out afresh in this city" : "") + " | in view by detail " +
                            DetailsInView() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
                            w.Describe() + " | the city: " +

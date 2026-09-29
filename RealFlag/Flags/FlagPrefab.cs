@@ -152,7 +152,11 @@ namespace RealFlag.Flags
                 info.m_material = new Material(shader) { name = Name };
 
             info.m_placementStyle = ItemClass.Placement.Manual;
-            info.m_availableIn = ItemClass.Availability.All;
+            // The game only: for a prop, availability is read by the placement panels and the asset
+            // editor's templates alone (never at load: a save's flags bind in any mode, the IL). In the
+            // editors, where nothing draws it, it would go into maps and assets as an invisible prop
+            // that every player without the mod would find missing.
+            info.m_availableIn = ItemClass.Availability.Game;
             info.m_minScale = 1f;
             info.m_maxScale = 1f;
             info.m_effects = new PropInfo.Effect[0];

@@ -145,8 +145,8 @@ foreach ($key in $en.Table.Keys) {
 }
 Check "every English text is non-empty with well-formed {n}" ($bad -join "; ") ""
 
-Check "a wrapped text is one line" ($en.Table["Mod.Unsupported"] -match "shows none in this city\. Your flags stay") "True"
-Check "\n is a real break, no stray spaces" ($en.Table["Mod.Unsupported"] -match "in its saves\.`n`nThe mod needs") "True"
+Check "a wrapped text is one line" ($en.Table["Mod.UnsupportedWindows"] -match "Your flags stay saved in the city\.") "True"
+Check "\n is a real break, no stray spaces" ($en.Table["Mod.UnsupportedWindows"] -match "in the city\.`n`nRemove any") "True"
 $header = $en.Table["File.Header"] -split "`n"
 Check "the settings file header: 12 lines, blank second line" ("" + $header.Count + "," + ($header[1] -eq "")) "12,True"
 

@@ -131,6 +131,15 @@ namespace RealFlag
         private static void LoadAtStartup(string file, string verb)
         {
             string text = File.ReadAllText(file);
+            if (text.Trim().Length == 0)
+            {
+                // Empty (a copy cut short, a tool that emptied it): nothing in it to keep, so it is
+                // written again with every default -- not left "broken", never saved over, for good.
+                Log.Warn("settings: " + file + " is empty; written again with every default");
+                SaveNow();
+                return;
+            }
+
             if (file == Path)
                 Remember(text);
 

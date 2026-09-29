@@ -22,6 +22,11 @@ namespace RealFlag.Flags
             if (!FlagPrefab.IsFlagIndex(__instance.m_infoIndex))
                 return true;
 
+            // No renderer (the mod stood down in this city: nothing drawn, no pick volume): the
+            // game's own test, so an unseen flag can still be found by the bulldozer and Move It.
+            if (FlagRenderer.Instance == null)
+                return true;
+
             __result = FlagPicking.RayCast(propID, ray, out t, out targetSqr);
             return false;
         }

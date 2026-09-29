@@ -37,6 +37,7 @@ namespace RealFlag.Flags
 
         private static readonly List<Entry> List = new List<Entry>();
         private static readonly Dictionary<string, Entry> ByName = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> TwinsSaid = new HashSet<string>(StringComparer.Ordinal);
         private static string _path;
         private static bool _scanned;
         private static string _lastProblem;
@@ -119,8 +120,9 @@ namespace RealFlag.Flags
 
             try
             {
+                // The game's Mac and Linux ways catch their own failures (its IL): this says it was asked.
                 ColossalFramework.Utils.OpenInFileBrowser(FolderPath);
-                Log.Msg("flags: your images folder opened: " + FolderPath);
+                Log.Msg("flags: your images folder handed to the file browser: " + FolderPath);
             }
             catch (Exception e)
             {
@@ -174,8 +176,17 @@ namespace RealFlag.Flags
                         if (FlagImageNames.Sanitise(name) != name)
                             continue;
 
+                        // Names are matched ignoring case (as Windows' files): on Linux "a.png" and
+                        // "A.png" can both be there -- the first is the picture, the other left out
+                        // (else the two would take turns at being it, "changed" at every look).
+                        if (!seen.Add(name))
+                        {
+                            if (TwinsSaid.Add(name))
+                                Log.Warn("flags: your images folder holds two pictures named '" + name + "' but for capitals; only the first is used");
+                            continue;
+                        }
+
                         var info = new FileInfo(file);
-                        seen.Add(name);
                         Entry e;
                         if (ByName.TryGetValue(name, out e))
                         {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using ColossalFramework.UI;
 using RealFlag.Flags;
 using UnityEngine;
@@ -22,6 +23,9 @@ namespace RealFlag.UI
         private readonly List<FlagEntry> _entries = new List<FlagEntry>();
         private readonly List<UIButton> _rows = new List<UIButton>();
         private readonly List<uint> _shown = new List<uint>();
+        // Per row: what it shows (its text and its colours or picture), and the sprites at its right.
+        private readonly List<string> _looks = new List<string>();
+        private readonly List<List<UIComponent>> _decorations = new List<List<UIComponent>>();
         private int _shownVersion = -1;
         private int _shownImages = -1;
         private uint _shownSelected = uint.MaxValue;
@@ -88,7 +92,7 @@ namespace RealFlag.UI
                 renderer.List(_entries);
 
             if (Changed())
-                Rebuild();
+                Sync();
 
             if (_shownSelected != FlagEditor.Selected)
                 Highlight();
@@ -112,78 +116,129 @@ namespace RealFlag.UI
             return false;
         }
 
-        private void Rebuild()
+        /// <summary>
+        /// The rows brought to <see cref="_entries"/>: rows are added or taken away at the end only,
+        /// and a row is drawn again only if what it shows changed. The list arranges ALL its rows
+        /// each time one is added or removed (UIScrollablePanel.OnComponentAdded/Removed call
+        /// AutoArrange, its IL), and a slider on the selected flag moves the registry's version up to
+        /// four times a second: making every row again each time grew as the square of the flags.
+        /// </summary>
+        private void Sync()
         {
-            foreach (UIButton row in _rows)
+            while (_rows.Count < _entries.Count)
+                AddRow();
+
+            while (_rows.Count > _entries.Count)
             {
-                _list.RemoveUIComponent(row);
-                Object.Destroy(row.gameObject);
+                int last = _rows.Count - 1;
+                _list.RemoveUIComponent(_rows[last]);
+                Object.Destroy(_rows[last].gameObject);
+                _rows.RemoveAt(last);
+                _shown.RemoveAt(last);
+                _looks.RemoveAt(last);
+                _decorations.RemoveAt(last);
             }
 
-            _rows.Clear();
-            _shown.Clear();
-
-            float width = _list.width;
-            foreach (FlagEntry e in _entries)
-            {
-                UIButton row = _list.AddUIComponent<UIButton>();
-                row.atlas = UIBuilder.Atlas;
-                row.size = new Vector2(width, RowHeight);
-                FlagCountry country = FlagCountries.Find(e.Spec.Country);
-                float shownWidth, shownHeight;
-                FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
-                string design = country != null ? country.Name : e.Spec.HasImage ? e.Spec.Image : Localization.Get(PatternKey(e.Spec.Pattern));
-                row.text = FlagEditor.Title(e) + "  ·  " + design + ", " + Localization.Get("Unit.Size", shownWidth.ToString("0.#"), shownHeight.ToString("0.#"));
-                row.textScale = 0.72f;
-                row.textHorizontalAlignment = UIHorizontalAlignment.Left;
-                row.textPadding = new RectOffset(8, 64, 4, 0);
-                row.normalBgSprite = "ButtonMenu";
-                row.hoveredBgSprite = "ButtonMenuHovered";
-                row.pressedBgSprite = "ButtonMenuPressed";
-                row.focusedBgSprite = "ButtonMenu";
-                row.canFocus = false;
-
-                // At the right: a country's flag, the player's picture, or the pattern's colours.
-                Texture2D thumb = country != null ? FlagImages.Thumbnail(country.Image) : e.Spec.HasImage ? FlagImages.UserPreview(e.Spec.Image) : null;
-                if (thumb != null)
-                {
-                    float scale = Mathf.Min(40f / Mathf.Max(1, thumb.width), 16f / Mathf.Max(1, thumb.height));
-                    UITextureSprite image = row.AddUIComponent<UITextureSprite>();
-                    image.texture = thumb;
-                    image.size = new Vector2(Mathf.Round(thumb.width * scale), Mathf.Round(thumb.height * scale));
-                    image.relativePosition = new Vector3(width - 60f, Mathf.Round(0.5f * (RowHeight - image.height)));
-                    image.isInteractive = false;
-                }
-                else
-                {
-                    uint[] colours = { e.Spec.Colour1, e.Spec.Colour2, e.Spec.Colour3 };
-                    int used = FlagPattern.ColoursUsed(e.Spec.Pattern);
-                    for (int c = 0; c < used; c++)
-                    {
-                        UIButton swatch = UIBuilder.AddSwatch(row, new Vector2(16f, 14f), new Vector3(width - 60f + c * 19f, 5f), colours[c]);
-                        swatch.isInteractive = false;
-                    }
-                }
-
-                // A click selects; a click on the selected one lets it go.
-                uint prop = e.Prop;
-                row.eventClick += (component, p) =>
-                {
-                    if (FlagEditor.Selected == prop)
-                        FlagEditor.Deselect();
-                    else
-                        FlagEditor.Select(prop);
-                    Highlight();
-                };
-
-                _rows.Add(row);
-                _shown.Add(prop);
-            }
+            for (int i = 0; i < _entries.Count; i++)
+                Show(i, _entries[i]);
 
             _shownVersion = FlagRegistry.Version;
             _shownImages = FlagImages.UserVersion;
             _shownSelected = uint.MaxValue;
             Highlight();
+        }
+
+        /// <summary>A row at the end of the list, empty until <see cref="Show"/> fills it.</summary>
+        private void AddRow()
+        {
+            int index = _rows.Count;
+            UIButton row = _list.AddUIComponent<UIButton>();
+            row.atlas = UIBuilder.Atlas;
+            row.size = new Vector2(_list.width, RowHeight);
+            row.textScale = 0.72f;
+            row.textHorizontalAlignment = UIHorizontalAlignment.Left;
+            row.textPadding = new RectOffset(8, 64, 4, 0);
+            row.normalBgSprite = "ButtonMenu";
+            row.hoveredBgSprite = "ButtonMenuHovered";
+            row.pressedBgSprite = "ButtonMenuPressed";
+            row.focusedBgSprite = "ButtonMenu";
+            row.canFocus = false;
+
+            // A click selects the flag the row shows now; a click on the selected one lets it go.
+            row.eventClick += (component, p) =>
+            {
+                if (index >= _shown.Count)
+                    return;
+
+                uint prop = _shown[index];
+                if (FlagEditor.Selected == prop)
+                    FlagEditor.Deselect();
+                else
+                    FlagEditor.Select(prop);
+                Highlight();
+            };
+
+            _rows.Add(row);
+            _shown.Add(0u);
+            _looks.Add(null);
+            _decorations.Add(new List<UIComponent>());
+        }
+
+        /// <summary>Row <paramref name="i"/> shows <paramref name="e"/>: drawn again only if its text, colours or picture changed.</summary>
+        private void Show(int i, FlagEntry e)
+        {
+            FlagCountry country = FlagCountries.Find(e.Spec.Country);
+            float shownWidth, shownHeight;
+            FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
+            string design = country != null ? country.Name : e.Spec.HasImage ? e.Spec.Image : Localization.Get(PatternKey(e.Spec.Pattern));
+            string text = FlagEditor.Title(e) + "  ·  " + design + ", " + Localization.Get("Unit.Size",
+                shownWidth.ToString("0.#", CultureInfo.InvariantCulture), shownHeight.ToString("0.#", CultureInfo.InvariantCulture));
+
+            // At the right: a country's flag, the player's picture, or the pattern's colours.
+            Texture2D thumb = country != null ? FlagImages.Thumbnail(country.Image) : e.Spec.HasImage ? FlagImages.UserPreview(e.Spec.Image) : null;
+            int used = thumb != null ? 0 : FlagPattern.ColoursUsed(e.Spec.Pattern);
+            string look = text + "|" + (thumb != null
+                ? "t" + thumb.GetInstanceID()
+                : "c" + used + "," + e.Spec.Colour1 + "," + e.Spec.Colour2 + "," + e.Spec.Colour3);
+
+            _shown[i] = e.Prop;
+            if (look == _looks[i])
+                return;
+
+            _looks[i] = look;
+            UIButton row = _rows[i];
+            row.text = text;
+
+            List<UIComponent> decoration = _decorations[i];
+            foreach (UIComponent old in decoration)
+            {
+                row.RemoveUIComponent(old);
+                Object.Destroy(old.gameObject);
+            }
+
+            decoration.Clear();
+
+            float width = row.width;
+            if (thumb != null)
+            {
+                float scale = Mathf.Min(40f / Mathf.Max(1, thumb.width), 16f / Mathf.Max(1, thumb.height));
+                UITextureSprite image = row.AddUIComponent<UITextureSprite>();
+                image.texture = thumb;
+                image.size = new Vector2(Mathf.Round(thumb.width * scale), Mathf.Round(thumb.height * scale));
+                image.relativePosition = new Vector3(width - 60f, Mathf.Round(0.5f * (RowHeight - image.height)));
+                image.isInteractive = false;
+                decoration.Add(image);
+            }
+            else
+            {
+                uint[] colours = { e.Spec.Colour1, e.Spec.Colour2, e.Spec.Colour3 };
+                for (int c = 0; c < used; c++)
+                {
+                    UIButton swatch = UIBuilder.AddSwatch(row, new Vector2(16f, 14f), new Vector3(width - 60f + c * 19f, 5f), colours[c]);
+                    swatch.isInteractive = false;
+                    decoration.Add(swatch);
+                }
+            }
         }
 
         private void Highlight()

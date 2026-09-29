@@ -118,6 +118,37 @@ pole). A pole asset right beside a flag's hoist can be behind that target: Move 
 or its filters pick it. This needs the Harmony mod, which the game offers to subscribe to when
 it is missing.
 
+## Requirements and compatibility
+
+- **Harmony** (Workshop 2040656402) is required; the game offers to subscribe to it when it is
+  missing. **Move It** and **Unified UI** are optional.
+- **Windows** is where the mod is made and tested. The **Mac** (Metal) and **Linux** (OpenGL)
+  have shaders of their own, checked in the editor but not yet run on either: new and
+  experimental. On a Mac the panel's key is Fn+F6 on most keyboards (the button always works),
+  and Page Up / Page Down are Fn+Up / Fn+Down on a laptop.
+- The log (`RealFlag.log`), the settings (`RealFlag.xml`) and your images folder
+  (`RealFlag/Images`) are in the game's data folder: `%LOCALAPPDATA%\Colossal Order\Cities_Skylines`
+  on Windows, `~/Library/Application Support/Colossal Order/Cities_Skylines` on a Mac,
+  `~/.local/share/Colossal Order/Cities_Skylines` on Linux.
+- **Extended Managers Library** (which Prop Anarchy's larger prop limit uses) keeps a city's
+  props where RealFlag cannot find them: with it enabled, RealFlag does nothing in a city and
+  says so, and saving the city keeps its flags' designs exactly as they were.
+- **Other tools that place props** (Find It, Picker, the game's own prop tool) can place
+  RealFlag's prop, which then becomes a flag with the new flag's design. Place flags with
+  RealFlag's own tool, or copy them with Move It, which keeps their designs.
+- Only one copy of RealFlag may be enabled: a copy in the game's local Mods folder and a
+  subscribed one would both run.
+
+## Saves
+
+The flags are the game's own props, and their designs are saved with the city under a key of
+the mod's own. Without the mod a city loads without its flags, as a city does without any prop
+asset it is missing: nothing else in it changes, and if it is not saved, its flags are all back
+with the mod (a save made without the mod has lost them). A city whose flags this copy of the
+mod cannot read (saved by a newer version) or cannot see (Extended Managers Library) is left
+alone, and its flags' designs are saved back exactly as they were loaded; a city that loses its
+flags while it loads -- which the mod has never seen happen -- says so, and asks not to be saved.
+
 ## How it works
 
 - **The cloth** is a grid of particles held together by distance constraints: position-based
@@ -197,13 +228,12 @@ it is missing.
   a zoomed camera keeps a far flag it shows large (a 3 m flag with the game's usual camera is
   drawn to about 4 km and waves to about 1.3 km; a 20 m flag several times as far).
 
-The designs are saved with the city. Without the mod, a city simply has no flags.
-
 ## Building
 
-See [BUILDING.md](BUILDING.md). In short: `.\build-bundle.ps1 -Only win` compiles the cloth
-shader with Unity 5.6.6, then `dotnet build RealFlag/RealFlag.csproj` builds the mod and deploys
-it to the game's Mods folder.
+See [BUILDING.md](BUILDING.md). In short: `.\build-bundle.ps1` compiles the cloth shader with
+Unity 5.6.6 for Windows, the Mac and Linux (`-Only win` for Windows alone, while working on it),
+then `dotnet build RealFlag/RealFlag.csproj` builds the mod and deploys it to the game's Mods
+folder.
 
 ## Credits
 

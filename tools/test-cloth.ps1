@@ -1262,6 +1262,49 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// A 3 x 2 m flag on the mod's pole 10 m up (on its halyard or sewn on), made as the renderer
+    /// makes one (Made) at <paramref name="detail"/>, then <paramref name="seconds"/> in a wind of
+    /// <paramref name="wind"/> m/s at 10 m FROM BEHIND it -- back over the pole, as the game's
+    /// wind blows now and then: draped round its pole, its links by the pole held long as chords
+    /// by the collider, whole. 0.1.0.42392 took that for a knot (FlagCloth.KnotStretch) and laid it
+    /// out afresh every few seconds at Very high and Ultra (the knots harness, 2026-09-29: 174
+    /// times a cloth-hour at Very high on a halyard). Returns: knots undone, samples (every 0.5 s)
+    /// with drawn triangles crossing / samples, the most pairs, finite, the grid.
+    /// </summary>
+    public static string Draped(int detail, bool halyard, float wind, float seconds)
+    {
+        FlagSpec spec = FlagSpec.Default;
+        float height = 10f, clock;
+        FlagCloth c = Made(spec, detail, halyard, wind, height, 0f, out clock);
+        if (!halyard)
+        {
+            spec.Pole = FlagPoleStyle.Ball; spec.Ropes = 0;
+            FlagPoleShape.For(spec, height).ApplyTo(c, 1f, 0f, 0f);
+        }
+        int before = c.Unknotted, samples = 0, crossing = 0, most = 0;
+        int[] tris = Triangles(c.Columns, c.Rows);
+        int steps = (int)(seconds * 60f);
+        for (int s = 0; s < steps; s++)
+        {
+            int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(wind, 1f, -1f, 0f, height, spec.Waviness, spec.Length, clock + i / 60f / sub, 0f, 0f);
+                c.Step(1f / 60f / sub, ref air);
+            }
+            clock += 1f / 60f;
+            if (s % 30 == 29)
+            {
+                int p = CrossingPairs(c, tris);
+                samples++;
+                if (p > 0) crossing++;
+                if (p > most) most = p;
+            }
+        }
+        return (c.Unknotted - before) + "," + crossing + "/" + samples + "," + most + "," + c.IsFinite() + "," + c.Columns + "x" + c.Rows;
+    }
+
+    /// <summary>
     /// A flag on a halyard (a drawn pole with its ropes: FlagCloth.SetHalyard): 8 s to settle,
     /// then 12 s: the two clips where they are held (the worst error, mm); the heading's middle
     /// off the hoist line, on average and at most, as a share of the hoist; the worst stretch;
@@ -2867,6 +2910,14 @@ foreach ($ropes in @(0, 2)) {
         $limit = $(if ($ropes -gt 0) { 1.25 } else { 1.20 })
         Check ("the cloth keeps off its pole ({2}): {0} m/s, wind {1} deg off its heading" -f $case[0], $case[1], $(if ($ropes -gt 0) { "on its halyard" } else { "sewn on" })) ($pl[0] -eq "True" -and (N $pl[2]) -ge -0.05 -and (N $pl[1]) -lt $limit) ("nearest particle " + $pl[2] + " cm off the pole's surface, worst stretch " + $pl[1])
     }
+}
+# Draped round its pole by a wind from behind, at the fine details: whole, and never taken for a
+# knot (its links by the pole are chords round it, held long by the collider). The crossings are
+# reported, not held to none: the pole's push can put one wrapped layer through another at Very
+# high now and then (~7% of samples, the knots harness) -- the collider's limit, not a knot.
+foreach ($case in @(@(32, $true), @(40, $true), @(32, $false), @(40, $false))) {
+    $dr = [ClothTests]::Draped($case[0], $case[1], 5, 60) -split ","
+    Check ("draped round its pole by a wind from behind ({0} cells, {1}): never taken for a knot" -f $case[0], $(if ($case[1]) { "on its halyard" } else { "sewn on" })) ((N $dr[0]) -eq 0 -and $dr[3] -eq "True") ($dr[4] + ", 60 s at 5 m/s: knots undone " + $dr[0] + "; triangles crossing in " + $dr[1] + " samples, at most " + $dr[2] + " pairs")
 }
 # On a halyard: held by the two clips alone; the heading between bows out -- at most as far as the
 # middle of a string 3% longer than the line between its ends can, 0.12 of the hoist.

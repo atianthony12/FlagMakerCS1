@@ -358,7 +358,13 @@ namespace RealFlag.Flags
         private static bool Add(CapsuleSet set, Vector3 origin, Vector3 at, Vector3 size, float x0, float z0, float x1, float z1)
         {
             float radius = (size.x + size.z) * 0.125f;
-            if (radius <= 0f || size.y <= 0f || at.x + radius < x0 || at.x - radius > x1 || at.z + radius < z0 || at.z - radius > z1)
+
+            // Each test is an ACCEPT, which a NaN fails (every comparison with NaN is false): an
+            // object whose size or place is not a number, or infinite, would otherwise turn every
+            // cloth near it to NaN at each step.
+            bool reaches = radius > 0f && radius < 1e4f && size.y > 0f && size.y < 1e4f && at.y > -1e5f && at.y < 1e5f &&
+                           at.x + radius >= x0 && at.x - radius <= x1 && at.z + radius >= z0 && at.z - radius <= z1;
+            if (!reaches)
                 return false;
 
             set.AddObject(at.x - origin.x, at.y - origin.y, at.z - origin.z, size.x, size.z, size.y);

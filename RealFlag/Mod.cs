@@ -49,7 +49,18 @@ namespace RealFlag
         /// <summary>Called by the game via reflection when the mod is disabled.</summary>
         public void OnDisabled()
         {
-            Patcher.Unpatch();
+            // Each step whatever the one before did: Unpatch names Harmony's types, which the JIT
+            // cannot find without the Harmony mod -- only called once patched, and caught.
+            try
+            {
+                if (Patcher.IsPatched)
+                    Patcher.Unpatch();
+            }
+            catch (System.Exception e)
+            {
+                Log.Error("Removing the Harmony patches threw.", e);
+            }
+
             FlagLoadingHook.Unregister();
             SettingsXml.Shutdown();
         }

@@ -696,13 +696,15 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Lays the cloth out as <see cref="LayOut"/> does (still, wobbled) along the first way that
-        /// leaves it out of the surface round it (<see cref="SetSurface"/>): towards (dirX, dirZ),
-        /// then turned from it 45, 90 and 135 degrees either side, then the other way; if none, the
-        /// way with the fewest particles in it. Laid into a wall, its particles would be carried
-        /// back out towards the hoist in a heap, in no order, and the cloth against itself would
-        /// lock the heap's layers as they fell (3 m flags laid through a wall: links 30-60% long
-        /// for seconds; reaching the wall from free air, 8-29% at worst). Returns the particles
-        /// left in it (0: clear).
+        /// leaves it out of the surface round it (<see cref="SetSurface"/>), its pole and the posts
+        /// in reach: towards (dirX, dirZ), then turned from it 45, 90 and 135 degrees either side,
+        /// then the other way; if none, the way with the fewest particles in them. Laid into a wall,
+        /// its particles would be carried back out towards the hoist in a heap, in no order, and the
+        /// cloth against itself would lock the heap's layers as they fell (3 m flags laid through a
+        /// wall: links 30-60% long for seconds; reaching the wall from free air, 8-29% at worst).
+        /// Laid through its own pole -- the wind's way, when it blows back over the pole -- it was
+        /// found knotted again 2 s later, over and over (the knots harness: 199 relayouts in 400 s,
+        /// 2 laid clear of the pole). Returns the particles left in the way (0: clear).
         /// </summary>
         public int LayOutClear(float dirX, float dirZ)
         {
@@ -712,7 +714,7 @@ namespace RealFlag.Flags
                 float x, z;
                 Turned(i, dirX, dirZ, out x, out z);
                 LayOut(x, 0f, z, true);
-                int inside = InSurface();
+                int inside = InTheWay();
                 if (inside == 0)
                     return 0;
 
@@ -738,12 +740,25 @@ namespace RealFlag.Flags
             tz = x * s + z * c;
         }
 
-        /// <summary>The free particles under the surface, where they are; none while it is not in use (none, or its hoist under it).</summary>
-        private int InSurface()
+        /// <summary>
+        /// The free particles, where they are, inside the pole or a capsule in use, and under the
+        /// surface (not counted while it is not in use: none, or its hoist under it).
+        /// </summary>
+        private int InTheWay()
         {
+            int inside = 0;
+            if (_poleOn || _capCount > 0)
+            {
+                for (int k = 0; k < Count; k++)
+                {
+                    if (_invMass[k] != 0f && OnPost(k, 0f))
+                        inside++;
+                }
+            }
+
             SurfaceGrid grid = _surface;
             if (grid == null)
-                return 0;
+                return inside;
 
             float ox = _surfaceX, oy = _surfaceY, oz = _surfaceZ;
             float h, sx, sz;
@@ -751,10 +766,9 @@ namespace RealFlag.Flags
             {
                 int k = j * Columns;
                 if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
-                    return 0;
+                    return inside;
             }
 
-            int inside = 0;
             for (int k = 0; k < Count; k++)
             {
                 if (_invMass[k] != 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy)
@@ -1598,13 +1612,84 @@ namespace RealFlag.Flags
 
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
 
-            // Knotted? Its worst link, every KnotCheck: laid out afresh after KnotTime over KnotStretch.
+            // Knotted? Its worst link off the pole and the city's posts, every KnotCheck: laid out
+            // afresh after KnotTime over KnotStretch.
             _knotClock += dt;
             if (_knotClock >= KnotCheck)
             {
-                _knotted = MaxStretch() > KnotStretch ? _knotted + _knotClock : 0f;
+                _knotted = WorstFreeStretch() > KnotStretch ? _knotted + _knotClock : 0f;
                 _knotClock = 0f;
             }
+        }
+
+        /// <summary>A particle this close to the pole's or a capsule's collider, metres, lies on it (<see cref="WorstFreeStretch"/>).</summary>
+        private const float ContactSlack = 0.01f;
+
+        /// <summary>
+        /// <see cref="MaxStretch"/> less the links with an end on the pole or a capsule in use (within
+        /// its collider and <see cref="ContactSlack"/>): the knot test's. A link can only go round a
+        /// post as a chord, and the collider holds it there: a flag draped over its pole at Very high
+        /// or Ultra (8-9 cm links round a pole ~15 cm across) kept its links by the pole 33-90% long
+        /// for good, the rest of it whole (no two triangles crossing), and was laid out afresh every
+        /// few seconds -- 0.1.0.42392 in the game; offline a 3 m flag on a halyard, the wind from
+        /// behind, 174 times a cloth-hour, and none with these links left out, every genuine knot
+        /// still found (the knots harness, 2026-09-29). Only a link that would be the worst so far
+        /// is looked at more closely.
+        /// </summary>
+        private float WorstFreeStretch()
+        {
+            float worst = 1f;
+            bool posts = _poleOn || _capCount > 0;
+            for (int c = 0; c < _links; c++)
+            {
+                if (_kind[c] != Structural)
+                    continue;
+
+                int a = _a[c], b = _b[c];
+                float dx = X[a] - X[b], dy = Y[a] - Y[b], dz = Z[a] - Z[b];
+                float r = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz) / _rest[c];
+                if (r <= worst)
+                    continue;
+
+                if (posts && (OnPost(a, ContactSlack) || OnPost(b, ContactSlack)))
+                    continue;
+
+                worst = r;
+            }
+
+            return worst;
+        }
+
+        /// <summary>
+        /// Particle <paramref name="k"/> lies on or in the pole or a capsule in use: within its
+        /// collider (the radius the cloth is kept to) and <paramref name="slack"/> more.
+        /// </summary>
+        private bool OnPost(int k, float slack)
+        {
+            if (_poleOn)
+            {
+                float dx = X[k] - _poleX, dy = Y[k] - _poleY, dz = Z[k] - _poleZ;
+                float s = dx * _hx + dy * _hy + dz * _hz;
+                if (s >= _poleTop - slack && s <= _poleBottom + slack)
+                {
+                    float rx = dx - s * _hx, ry = dy - s * _hy, rz = dz - s * _hz;
+                    float reach = _poleRadius + _poleMargin + _poleGrowth * s + slack;
+                    if (rx * rx + ry * ry + rz * rz < reach * reach)
+                        return true;
+                }
+            }
+
+            for (int c = 0; c < _capCount; c++)
+            {
+                float y = Y[k];
+                float ay = y < _capBottom[c] ? _capBottom[c] : y > _capTop[c] ? _capTop[c] : y;
+                float dx = X[k] - _capX[c], dy = y - ay, dz = Z[k] - _capZ[c];
+                float reach = _capReach[c] + slack;
+                if (dx * dx + dy * dy + dz * dz < reach * reach)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
