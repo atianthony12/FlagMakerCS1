@@ -56,6 +56,9 @@
     Still missing? Report it with the log:\n{1}
   </String>
 
+  <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
+  <String key="Mod.NoProcedural">Flags can't become Procedural Objects. They stay as they are.</String>
+
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">RealFlag flag</String>
   <String key="Prop.Description">A waving cloth flag. Edit it in the RealFlag panel.</String>

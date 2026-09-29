@@ -33,7 +33,7 @@ namespace RealFlag
             // Made during loading by FlagLoadingHook; made (and bound) here only if the mod was
             // switched on after the city had loaded.
             FlagPrefab.EnsureCreated(true);
-            Patcher.EnsureMoveIt();
+            Patcher.EnsureOtherMods();
 
             // Before anything is drawn or placed: the city's flags must be ones this copy of the
             // mod can keep. If not, it leaves them alone and their designs are saved as they came.
@@ -189,8 +189,8 @@ namespace RealFlag
                          : Localization.Get("Mod.Unsupported"));
         }
 
-        /// <summary>The game's own message box, with the mod's name.</summary>
-        private static void Show(string message)
+        /// <summary>The game's own message box, with the mod's name (main thread only).</summary>
+        internal static void Show(string message)
         {
             try
             {

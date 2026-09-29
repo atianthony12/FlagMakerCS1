@@ -83,6 +83,7 @@ namespace RealFlag
                 Log.Msg("Harmony patches applied (" + HarmonyId + ", " + applied + " of " + patchClasses.Length +
                         "): clicking a flag's cloth, Move It's outline of it");
                 Flags.FlagMoveItPick.TryPatch(harmony);
+                Flags.FlagProceduralObjects.TryPatch(harmony);
                 LogSharedMethods();
             }
             catch (Exception e)
@@ -92,10 +93,11 @@ namespace RealFlag
         }
 
         /// <summary>
-        /// Move It's pointer search, once a city is loaded, if it could not be patched when the
-        /// mod was enabled (Move It's assembly not loaded yet).
+        /// Move It's pointer search and Move It's and Procedural Objects' Convert to PO, once a city
+        /// is loaded, if they could not be patched when the mod was enabled (their assemblies not
+        /// loaded yet).
         /// </summary>
-        public static void EnsureMoveIt()
+        public static void EnsureOtherMods()
         {
             if (!_patched)
                 return;
@@ -110,6 +112,15 @@ namespace RealFlag
                 {
                     Log.Warn("Could not patch Move It's pointer search: " + e.Message);
                 }
+            }
+
+            try
+            {
+                Flags.FlagProceduralObjects.TryPatch(new Harmony(HarmonyId));
+            }
+            catch (Exception e)
+            {
+                Log.Warn("Could not patch Convert to PO: " + e.Message);
             }
 
             // Again with the city: a mod that patches as a city loads was not there to be seen at start.
@@ -165,8 +176,9 @@ namespace RealFlag
                 Debug.LogException(e);
             }
 
-            // UnpatchAll took Move It's too: patched again if the mod is enabled again.
+            // UnpatchAll took Move It's and PO's too: patched again if the mod is enabled again.
             Flags.FlagMoveItPick.Forget();
+            Flags.FlagProceduralObjects.Forget();
             _patched = false;
         }
     }

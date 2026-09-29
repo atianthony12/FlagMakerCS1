@@ -137,6 +137,9 @@ it is missing.
 - **Other tools that place props** (Find It, Picker, the game's own prop tool) can place
   RealFlag's prop, which then becomes a flag with the new flag's design. Place flags with
   RealFlag's own tool, or copy them with Move It, which keeps their designs.
+- **Procedural Objects** can't turn a flag into one (its own Convert to PO or Move It's): it
+  would copy only a flat placeholder, not the cloth. RealFlag refuses and the flag stays a flag;
+  in a selection, Move It converts the rest.
 - Only one copy of RealFlag may be enabled: a copy in the game's local Mods folder and a
   subscribed one would both run.
 
