@@ -1551,6 +1551,79 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// A flag with the mod's pole turned onto a new hoist line stands again where it stood
+    /// (FlagStand.Base and Restands, as FlagEditor's Restand uses them): Base undoes Anchor for
+    /// every design (the worst miss, m); the thirteenth-run case -- a 6 m flag at 1:2 on a 24.9 m
+    /// pole switched to its top and back -- its anchor where it was (m off) and the banner's top
+    /// over the pole's old foot (m); tilted 59 deg from its top, the pole standing on the same foot
+    /// (m off) with its top up its axis (m over the foot); a crossbar turned, or a pole whose length
+    /// is still being found, keeps its top (Restands). "worst|round trip|banner|tilted foot|tilted top|crossbar|unknown".
+    /// </summary>
+    public static string Restand()
+    {
+        float worst = 0f;
+        FlagSpec s = FlagSpec.Default;
+        s.Length = 3f; s.Proportion = 667;
+        foreach (int pole in new[] { FlagPoleStyle.None, FlagPoleStyle.Ball })
+            foreach (int hoisted in new[] { FlagHoist.Side, FlagHoist.Top })
+                foreach (float tilt in new[] { 0f, 25.7f, -45f, 59f, 75f })
+                    foreach (float lean in new[] { 0f, 30f })
+                        foreach (float heading in new[] { 0f, 1.1f, -2.5f })
+                            foreach (float length in new[] { 1f, 12f, 37f })
+                            {
+                                s.Pole = pole; s.HoistedFrom = hoisted; s.Tilt = tilt; s.Lean = lean;
+                                float ax, ay, az, bx, by, bz;
+                                FlagStand.Anchor(s, heading, length, 3f, 5f, -2f, out ax, out ay, out az);
+                                FlagStand.Base(s, heading, length, ax, ay, az, out bx, out by, out bz);
+                                worst = Math.Max(worst, Apart(bx, by, bz, 3f, 5f, -2f));
+                            }
+
+        const float h = 0.7f, P = 24.9f, footX = 10f, footY = 40f, footZ = 20f;
+        FlagSpec side = FlagSpec.Default;
+        side.Length = 6f; side.Proportion = 500; side.Pole = FlagPoleStyle.Ball; side.PoleLength = P;
+        float a0x, a0y, a0z, bx1, by1, bz1, a1x, a1y, a1z, bx2, by2, bz2, a2x, a2y, a2z;
+        FlagStand.Anchor(side, h, P, footX, footY, footZ, out a0x, out a0y, out a0z);
+
+        // To its top: a crossbar, the banner standing where the pole's foot was.
+        FlagSpec top = side;
+        top.HoistedFrom = FlagHoist.Top;
+        top.PoleLength = 0f;
+        bool toTop = FlagStand.Restands(side, top);
+        FlagStand.Base(side, h, P, a0x, a0y, a0z, out bx1, out by1, out bz1);
+        FlagStand.Anchor(top, h, P, bx1, by1, bz1, out a1x, out a1y, out a1z);
+
+        // And back: the pole as tall as it was, on the same foot, the flag at its top.
+        FlagSpec back = side;
+        bool toSide = FlagStand.Restands(top, back);
+        FlagStand.Base(top, h, P, a1x, a1y, a1z, out bx2, out by2, out bz2);
+        FlagStand.Anchor(back, h, P, bx2, by2, bz2, out a2x, out a2y, out a2z);
+        string trip = (toTop && toSide ? "" : "not re-stood, ") + Apart(a2x, a2y, a2z, a0x, a0y, a0z).ToString("F5", Inv);
+        string banner = (a1y - footY).ToString("F2", Inv) + (FlagStand.PoleStands(top) ? " stands" : "");
+
+        // Tilted 59 deg from its top (the gizmo's ring, as flag #62 was): a pole that stands again.
+        FlagSpec tilted = top;
+        tilted.Tilt = 59f;
+        float a3x, a3y, a3z, bx3, by3, bz3;
+        bool toTilted = FlagStand.Restands(top, tilted) && FlagStand.PoleStands(tilted);
+        FlagStand.Anchor(tilted, h, P, bx1, by1, bz1, out a3x, out a3y, out a3z);
+        FlagStand.Base(tilted, h, P, a3x, a3y, a3z, out bx3, out by3, out bz3);
+        string foot = (toTilted ? "" : "not re-stood, ") + Apart(bx3, by3, bz3, footX, footY, footZ).ToString("F5", Inv);
+
+        // A crossbar turned to another keeps its top; so does a pole still being found.
+        FlagSpec turned = top;
+        turned.Tilt = 20f;
+        FlagSpec unknown = side;
+        unknown.PoleLength = 0f;
+        return worst.ToString("F5", Inv) + "|" + trip + "|" + banner + "|" + foot + "|" + (a3y - footY).ToString("F2", Inv) + "|" +
+               FlagStand.Restands(top, turned) + "|" + FlagStand.Restands(unknown, top);
+    }
+
+    static float Apart(float ax, float ay, float az, float bx, float by, float bz)
+    {
+        return (float)Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by) + (az - bz) * (az - bz));
+    }
+
+    /// <summary>
     /// Format 3: the pole and the tilt round trip; a format-2 save (byte by byte) reads with no
     /// pole, straight down, the pole's defaults ready; values out of range are pulled in.
     /// </summary>
@@ -3086,6 +3159,11 @@ Check "the pole's foot as the makers size it: ~16 cm for 3 x 2 m on 10 m, ~13 fo
 # Placing: the flag stands where it is put, its pole as tall as its Pole height whatever is under it.
 $sd = [ClothTests]::Stand() -split "\|"
 Check "a flag placed stands there: a standing pole's foot on the spot at any height, tilt, lean, heading; no pole, the hoist's foot; from the top or on a crossbar, the hanging cloth's; 70 deg is a crossbar" ((N $sd[0]) -lt 1e-4 -and $sd[1] -eq "2.00" -and $sd[2] -eq "3.00" -and $sd[3] -eq "3.00" -and $sd[4] -eq "False") ("foot off the spot " + $sd[0] + " m; the anchor over it: no pole " + $sd[1] + ", from the top " + $sd[2] + ", on a crossbar " + $sd[3] + " m; 70 deg stands: " + $sd[4])
+# A new hoist line (the edge hoisted, a tilt): the flag stands again where it stood, its pole as tall
+# as it was -- the thirteenth run's flag #62, whose 24.9 m pole became a 4.1 m crossbar with the
+# banner left up in the air, then a 29 m pole down to the ground when tilted back.
+$rs = [ClothTests]::Restand() -split "\|"
+Check "a new hoist line stands the flag again where it stood: side to top and back returns it, the banner on the pole's foot, tilted the pole on the same foot as tall; a crossbar turned keeps its top" ((N $rs[0]) -lt 1e-4 -and (N $rs[1]) -lt 1e-4 -and $rs[2] -eq "6.00" -and (N $rs[3]) -lt 1e-4 -and [Math]::Abs((N $rs[4]) - 24.9 * [Math]::Sin(59 * [Math]::PI / 180)) -lt 0.25 -and $rs[5] -eq "False" -and $rs[6] -eq "False") ("Base off Anchor " + $rs[0] + " m; side, top, side: " + $rs[1] + " m from where it was; the banner's top " + $rs[2] + " m over the old foot; tilted 59 deg: the foot " + $rs[3] + " m off, the top " + $rs[4] + " m over it; a crossbar turned re-stands: " + $rs[5] + ", a pole being found: " + $rs[6])
 
 # ---- the cloth against itself --------------------------------------------------------------
 # Every 0.1 s over 20 s, after 8 s to settle: the pairs of the drawn triangles that cross.

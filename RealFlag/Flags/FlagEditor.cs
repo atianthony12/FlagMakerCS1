@@ -21,6 +21,10 @@ namespace RealFlag.Flags
     /// closed, the other tab) lets the selection go. The first version kept a flag selected --
     /// glowing, outlined -- until the city unloaded ("when I select an item, it doesn't
     /// de-select").
+    ///
+    /// A flag with a pole that stands keeps the Pole height the player gave it: turned onto a new
+    /// hoist line (the edge hoisted, a tilt or lean) it stands again where it stood, as the tool
+    /// stands a new one (Restand); the Pole height's slider moves its top, its foot staying.
     /// </remarks>
     public static class FlagEditor
     {
@@ -135,14 +139,21 @@ namespace RealFlag.Flags
                     Settings.SelTopColour.value = (int)e.Spec.TopColour;
                     Settings.SelRopeColour.value = (int)e.Spec.RopeColour;
                     Settings.SelPoleThickness.value = e.Spec.PoleThickness;
+
+                    // With no pole that stands (none, a crossbar, one still being found), the Pole
+                    // height is a new flag's: what it stands with if its hoist turns down.
+                    if (!FlagStand.PoleStands(e.Spec) || e.Spec.PoleLength <= 0f)
+                        Settings.SelHeight.value = Settings.NewHeight.value;
                 }
 
                 float degrees = Mathf.Repeat(e.Angle * Mathf.Rad2Deg, 360f);
                 if (Mathf.Abs(Mathf.DeltaAngle(degrees, Settings.SelRotation.value)) > 0.05f)
                     Settings.SelRotation.value = Mathf.Round(degrees * 10f) / 10f;
 
-                // Its pole's length (0 while a crossbar's or an older save's is still being found).
-                if (e.Spec.HasPole && e.Spec.PoleLength > 0f && Mathf.Abs(e.Spec.PoleLength - Settings.SelHeight.value) > 0.01f)
+                // Its pole's height, if it stands (0 while an older save's is still being found). A
+                // crossbar's length is its own, found along it: the row keeps the height the pole
+                // stands with when its hoist turns down again.
+                if (FlagStand.PoleStands(e.Spec) && e.Spec.PoleLength > 0f && Mathf.Abs(e.Spec.PoleLength - Settings.SelHeight.value) > 0.01f)
                     Settings.SelHeight.value = Mathf.Round(e.Spec.PoleLength * 100f) / 100f;
 
                 if (Mathf.Abs(e.Spec.Tilt - Settings.SelTilt.value) > 0.05f)
@@ -163,7 +174,8 @@ namespace RealFlag.Flags
             if (_loading || !TryEntry(out e))
                 return;
 
-            FlagSpec spec = e.Spec;
+            FlagSpec old = Latest(e);
+            FlagSpec spec = old;
             FlagCountry country = FlagCountries.At(Settings.SelCountry.value);
             spec.Country = country != null ? country.Code : string.Empty;
             spec.Image = FlagImageNames.At(Settings.SelImage.value);
@@ -192,43 +204,62 @@ namespace RealFlag.Flags
             spec.Lean = Settings.SelLean.value;
             spec = spec.Sanitised();
 
-            // A new line for the pole (its tilt, its lean, the edge hoisted), or a pole put back
-            // (the flag may have moved since): its length found again down it.
-            if (!spec.SameHoist(e.Spec) || (spec.HasPole && !e.Spec.HasPole))
+            // A new line for the pole (its tilt, its lean, the edge hoisted): the flag stands again
+            // where it stood, a pole that stands as tall as it was (Restand). A pole put back (the
+            // flag may have moved since): its length found again down it, the flag staying.
+            Vector3 anchor = e.Anchor;
+            bool stood = false;
+            if (!spec.SameHoist(old))
+                stood = Restand(e, old, ref spec, e.Angle, out anchor);
+            else if (spec.HasPole && !old.HasPole)
                 spec.PoleLength = 0f;
             FlagRegistry.Set(Selected, spec);
+            if (stood)
+                FlagProps.Move(Selected, anchor);
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
 
             if (Log.Detailed)
-                Log.Detail("flags: flag #" + Selected + " redesigned: " + spec.Describe());
+                Log.Detail("flags: flag #" + Selected + " redesigned: " + spec.Describe() +
+                           (stood ? " -- standing where it stood, its top " + (anchor.y - _base.y).ToString("F1") + " m over it" : ""));
         }
 
         /// <summary>
         /// The gizmo moved or turned the selected flag: its prop moved and turned (on the
         /// simulation thread, as the panel's own sliders do), its tilt and lean into its spec, and
-        /// the tab's controls showing the new values at once.
+        /// the tab's controls showing the new values at once. Tilted or leaning, it stands again
+        /// where it stood (Restand: a pole that stands pivots on its foot, as tall as it was).
         /// </summary>
-        public static void ApplyTransform(Vector3 anchor, float angle, float tilt, float lean)
+        /// <returns>Where the flag's anchor goes: <paramref name="anchor"/>, or where it stands again.</returns>
+        public static Vector3 ApplyTransform(Vector3 anchor, float angle, float tilt, float lean)
         {
             FlagEntry e;
             if (!TryEntry(out e))
-                return;
+                return anchor;
 
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
+            FlagSpec old = Latest(e);
+            if (Mathf.Abs(tilt - old.Tilt) > 1e-4f || Mathf.Abs(lean - old.Lean) > 1e-4f)
+            {
+                // Against the spec as last set (the renderer's is a frame behind a drag): every
+                // step of a ring's drag is a new line (the gizmo calls when it changed by 1e-4).
+                FlagSpec spec = old;
+                spec.Tilt = tilt;
+                spec.Lean = lean;
+                Vector3 stood;
+                if (Restand(e, old, ref spec, angle, out stood))
+                    anchor = stood;
+                FlagRegistry.Set(Selected, spec);
+            }
+            else
+            {
+                // Moved or turned: where it stands goes with it.
+                LetBaseGo();
+            }
+
             if ((anchor - e.Anchor).sqrMagnitude > 1e-8f)
                 FlagProps.Move(Selected, anchor);
             if (Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, e.Angle * Mathf.Rad2Deg)) > 1e-3f)
                 FlagProps.Rotate(Selected, angle);
-
-            if (Mathf.Abs(tilt - e.Spec.Tilt) > 1e-3f || Mathf.Abs(lean - e.Spec.Lean) > 1e-3f)
-            {
-                // Tilted: its pole found again down its new line (a move keeps the pole's length).
-                FlagSpec spec = e.Spec;
-                spec.Tilt = tilt;
-                spec.Lean = lean;
-                spec.PoleLength = 0f;
-                FlagRegistry.Set(Selected, spec);
-            }
 
             _loading = true;
             try
@@ -241,6 +272,8 @@ namespace RealFlag.Flags
             {
                 _loading = false;
             }
+
+            return anchor;
         }
 
         /// <summary>The selected flag's place, heading and design, for the gizmo; false with none.</summary>
@@ -256,6 +289,7 @@ namespace RealFlag.Flags
                 return;
 
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
+            LetBaseGo();
             FlagProps.Rotate(Selected, Settings.SelRotation.value * Mathf.Deg2Rad);
         }
 
@@ -268,45 +302,128 @@ namespace RealFlag.Flags
         public static void ApplyPoleHeight()
         {
             FlagEntry e;
-            if (_loading || !TryEntry(out e) || !e.Spec.HasPole)
+            if (_loading || !TryEntry(out e))
                 return;
 
-            FlagSpec spec = e.Spec;
-            float length = Mathf.Clamp(Settings.SelHeight.value, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+            FlagSpec spec = Latest(e);
+            if (!FlagStand.PoleStands(spec))
+                return;
+
+            float length = PoleHeight();
             float old = spec.PoleLength;
             if (Mathf.Abs(length - old) < 1e-3f)
                 return;
 
-            float hx, hy, hz, fx, fy, fz;
-            FlagOrientation.Frame(e.Angle, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
-            Vector3 hoist = new Vector3(hx, hy, hz);
-
-            // The foot, from where the flag stood when the slider began to move: while it moves the
-            // prop follows a frame or two behind, and the spec's length is already the new one.
-            float now = Time.realtimeSinceStartup;
-            if (_footOf != Selected || now > _footUntil)
-            {
-                _footOf = Selected;
-                _footKnown = old > 0f;
-                _foot = e.Anchor + hoist * old;
-            }
-
-            _footUntil = now + 0.6f;
-            _quietUntil = now + 0.6f;
+            // The foot, from where the flag stood when the slider began to move (HoldBase).
+            bool known = HoldBase(e, spec);
+            _quietUntil = Time.realtimeSinceStartup + 0.6f;
             spec.PoleLength = length;
             FlagRegistry.Set(Selected, spec);
-            if (_footKnown)
-                FlagProps.Move(Selected, _foot - hoist * length);
+            if (known)
+            {
+                _baseHeight = length;
+                FlagProps.Move(Selected, StandAt(spec, e.Angle));
+            }
 
             if (Log.Detailed)
                 Log.Detail("flags: flag #" + Selected + "'s pole " + length.ToString("F1") + " m tall now (was " + old.ToString("F1") + ")");
         }
 
-        /// <summary>The selected flag's pole's foot while its Pole height moves (<see cref="ApplyPoleHeight"/>), and until when it holds.</summary>
-        private static Vector3 _foot;
-        private static uint _footOf;
-        private static bool _footKnown;
-        private static float _footUntil;
+        // ---- where the selected flag stands ---------------------------------------------------
+
+        /// <summary>
+        /// Where the selected flag stands (FlagStand.Base: its standing pole's foot, else the lowest
+        /// of it at rest), the height its pole stands with, and whether that is known -- held while a
+        /// change that stands it again is under way (the Pole height's slider, the edge hoisted, a
+        /// tilt or lean from the Flagpole popup or the gizmo's rings): the prop follows a frame or two
+        /// behind, and the spec's new values are already the registry's, so working it out afresh
+        /// from the two mid-change would walk the flag's foot away.
+        /// </summary>
+        private static Vector3 _base;
+        private static float _baseHeight;
+        private static bool _baseKnown;
+        private static uint _baseOf;
+        private static float _baseUntil;
+
+        /// <summary>A change's stand point is held this long after its last step, seconds (the time the prop may take to follow, as <see cref="_quietUntil"/>'s).</summary>
+        private const float HoldTime = 0.6f;
+
+        private static bool Holding
+        {
+            get { return _baseOf == Selected && Selected != 0 && Time.realtimeSinceStartup <= _baseUntil; }
+        }
+
+        /// <summary>
+        /// Holds where the selected flag stands, worked out from its prop and <paramref name="spec"/>
+        /// (as it stands, at rest) when no change is under way; false if that cannot be known -- a
+        /// pole that stands, its length still being found (an older save's): then the flag's top stays.
+        /// </summary>
+        private static bool HoldBase(FlagEntry e, FlagSpec spec)
+        {
+            if (!Holding)
+            {
+                bool stands = FlagStand.PoleStands(spec);
+                _baseOf = Selected;
+                _baseKnown = !stands || spec.PoleLength > 0f;
+                _baseHeight = stands && spec.PoleLength > 0f ? spec.PoleLength : PoleHeight();
+                float x, y, z;
+                FlagStand.Base(spec, e.Angle, _baseHeight, e.Anchor.x, e.Anchor.y, e.Anchor.z, out x, out y, out z);
+                _base = new Vector3(x, y, z);
+            }
+
+            _baseUntil = Time.realtimeSinceStartup + HoldTime;
+            return _baseKnown;
+        }
+
+        /// <summary>The flag moved or turned some other way (the gizmo's arrows, Page Up and Page Down, its rotation): where it stands goes with it.</summary>
+        private static void LetBaseGo()
+        {
+            _baseUntil = 0f;
+        }
+
+        /// <summary>Where the anchor of the selected flag, of <paramref name="spec"/> turned to <paramref name="heading"/>, goes to stand on the held stand point.</summary>
+        private static Vector3 StandAt(FlagSpec spec, float heading)
+        {
+            float x, y, z;
+            FlagStand.Anchor(spec, heading, _baseHeight, _base.x, _base.y, _base.z, out x, out y, out z);
+            return new Vector3(x, y, z);
+        }
+
+        /// <summary>
+        /// The selected flag turns onto a new hoist line, from <paramref name="old"/> to
+        /// <paramref name="spec"/> (<paramref name="heading"/> its angle then). With a pole that
+        /// stands before or after (FlagStand.Restands), it stands again where it stood, as the tool
+        /// stands a new one: a pole that stands keeps its height -- the Pole height's, whatever the
+        /// line -- and its foot, a crossbar finds its length along to its wall (0); true, and where
+        /// its anchor goes. Otherwise (no pole, a crossbar turned, a pole still being found) its top
+        /// stays and the length is found along the new line: false.
+        /// </summary>
+        private static bool Restand(FlagEntry e, FlagSpec old, ref FlagSpec spec, float heading, out Vector3 anchor)
+        {
+            anchor = e.Anchor;
+            if (!old.HasPole || !spec.HasPole || (!Holding && !FlagStand.Restands(old, spec)) || !HoldBase(e, old))
+            {
+                spec.PoleLength = 0f;
+                return false;
+            }
+
+            spec.PoleLength = FlagStand.PoleStands(spec) ? _baseHeight : 0f;
+            anchor = StandAt(spec, heading);
+            return true;
+        }
+
+        /// <summary>The Pole height row's value: how tall the selected flag's pole stands, or would if its hoist turned down.</summary>
+        private static float PoleHeight()
+        {
+            return Mathf.Clamp(Settings.SelHeight.value, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+        }
+
+        /// <summary>The selected flag's spec as last set: the registry's -- the renderer's copy is a frame behind a change of ours.</summary>
+        private static FlagSpec Latest(FlagEntry e)
+        {
+            FlagSpec spec;
+            return FlagRegistry.TryGet(e.Prop, out spec) ? spec : e.Spec;
+        }
 
         /// <summary>The Flagpole popup's "Pole down to the ground": the selected flag's pole finds what stands under it again (after Move It raised or lowered the whole flag, say).</summary>
         public static void PoleToGround()
@@ -315,7 +432,8 @@ namespace RealFlag.Flags
             if (!TryEntry(out e) || !e.Spec.HasPole)
                 return;
 
-            LetPoleGo(e.Spec);
+            LetBaseGo();
+            LetPoleGo(Latest(e));
             Log.Msg("flags: flag #" + Selected + "'s pole sent down to the ground again");
         }
 

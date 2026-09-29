@@ -89,7 +89,8 @@ namespace RealFlag.Flags
     /// never changes the pole: the first rule put the flag's top its Elevation over the surface
     /// and cast the pole down from there, so over a building -- the pointer on a wall, part way up
     /// -- the pole grew with the height the pointer found ("the flagpole's height is being affected
-    /// by the altitude"). PURE.
+    /// by the altitude"). A flag turned onto a new hoist line stands again where it stood the same
+    /// way (<see cref="Base"/>, <see cref="Restands"/>). PURE.
     /// </summary>
     public static class FlagStand
     {
@@ -139,6 +140,54 @@ namespace RealFlag.Flags
             ax = x;
             ay = y + spec.Height * Math.Max(0f, -hy) + spec.Length * Math.Max(0f, -fy);
             az = z;
+        }
+
+        /// <summary>
+        /// Where a flag of <paramref name="spec"/> whose anchor is at (ax, ay, az) stands: the inverse
+        /// of <see cref="Anchor"/> -- a standing pole's foot (the pole <paramref name="poleLength"/>
+        /// long: where the renderer draws it), else the point straight under the anchor by the flag's
+        /// depth at rest.
+        /// </summary>
+        public static void Base(FlagSpec spec, float heading, float poleLength, float ax, float ay, float az,
+                                out float x, out float y, out float z)
+        {
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(heading, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            if (spec.HasPole && Upright(hy))
+            {
+                FlagPoleShape shape = FlagPoleShape.For(spec, poleLength);
+                x = ax + hx * shape.Length - fx * shape.Offset;
+                y = ay + hy * shape.Length - fy * shape.Offset;
+                z = az + hz * shape.Length - fz * shape.Offset;
+                return;
+            }
+
+            x = ax;
+            y = ay - (spec.Height * Math.Max(0f, -hy) + spec.Length * Math.Max(0f, -fy));
+            z = az;
+        }
+
+        /// <summary>
+        /// A flag with the mod's pole turns onto a new hoist line (the edge hoisted, its tilt or lean),
+        /// from <paramref name="old"/> to <paramref name="spec"/>: it stands again where it stood, as
+        /// the tool stands a new one (<see cref="Base"/> under the old, <see cref="Anchor"/> under the
+        /// new), when a pole that stands is part of the change -- one that stood, its length known (its
+        /// foot is where the flag stands), or one that will. A pole that stands keeps its height: only
+        /// the Pole height changes it. A crossbar turned to another, or a pole whose length is still
+        /// being found: the flag's top stays, the length found along the new line.
+        /// </summary>
+        /// <remarks>
+        /// The first rule found the length again down every new line from where the flag's top was:
+        /// switched to a banner, a 25 m pole became a 4 m crossbar with the banner left up where the
+        /// pole's top had been, and turned down again (the gizmo's tilt ring) it reached the ground
+        /// from there, 29 m long -- "it shrunk but the flagpole height remained the same ... the pole
+        /// increased in height" (the author, 2026-09-29).
+        /// </remarks>
+        public static bool Restands(FlagSpec old, FlagSpec spec)
+        {
+            if (!old.HasPole || !spec.HasPole)
+                return false;
+            return PoleStands(old) ? old.PoleLength > 0f : PoleStands(spec);
         }
     }
 

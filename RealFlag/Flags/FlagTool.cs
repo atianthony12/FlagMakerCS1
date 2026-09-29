@@ -277,9 +277,47 @@ namespace RealFlag.Flags
             _lift = 0f;
 
             // Put away by any means: a drag stays where it got to, the selection goes.
-            _gizmo.End();
+            EndDrag();
             _gizmo.ClearHover();
             FlagEditor.Deselect();
+        }
+
+        /// <summary>
+        /// A drag of the gizmo let go: the flag stays where it was taken, and the log says so, as
+        /// for every other way a flag moves (the drags were silent: a tilt that re-found a pole's
+        /// length showed in the log only as the pole's new length).
+        /// </summary>
+        private void EndDrag()
+        {
+            FlagGizmo.Handle handle = _gizmo.Dragging;
+            _gizmo.End();
+            uint flag = FlagEditor.Selected;
+            if (handle == FlagGizmo.Handle.None || flag == 0)
+                return;
+
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Vector3 anchor = _gizmo.Anchor;
+            string what;
+            if (handle == FlagGizmo.Handle.TurnHeading)
+            {
+                what = "turned with the gizmo to " + Mathf.Repeat(_gizmo.Angle * Mathf.Rad2Deg, 360f).ToString("F0", inv) + " deg";
+            }
+            else if (handle == FlagGizmo.Handle.TurnTilt || handle == FlagGizmo.Handle.TurnLean)
+            {
+                what = "tilted with the gizmo: " + _gizmo.Tilt.ToString("0.#", inv) + " deg, leaning " + _gizmo.Lean.ToString("0.#", inv) + " deg";
+                FlagSpec spec;
+                if (FlagRegistry.TryGet(flag, out spec) && spec.HasPole)
+                    what += !FlagStand.PoleStands(spec) ? ", on a crossbar found along it"
+                          : spec.PoleLength > 0f ? ", its pole " + spec.PoleLength.ToString("0.#", inv) + " m tall on its foot"
+                          : ", its pole found again down it";
+            }
+            else
+            {
+                what = "moved with the gizmo";
+            }
+
+            Log.Msg("flags: flag #" + flag + " " + what + "; top of the hoist at (" + anchor.x.ToString("F0", inv) + ", " +
+                    anchor.z.ToString("F0", inv) + "), " + anchor.y.ToString("F1", inv) + " m");
         }
 
         protected override void OnDestroy()
@@ -657,14 +695,14 @@ namespace RealFlag.Flags
                 Hovered = 0;
                 if (!haveSelected || !Input.GetMouseButton(0))
                 {
-                    _gizmo.End();
+                    EndDrag();
                 }
                 else
                 {
                     bool snap = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
                     bool fine = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                     if (_gizmo.Update(camera, mouse, snap, fine))
-                        FlagEditor.ApplyTransform(_gizmo.Anchor, _gizmo.Angle, _gizmo.Tilt, _gizmo.Lean);
+                        _gizmo.Follow(FlagEditor.ApplyTransform(_gizmo.Anchor, _gizmo.Angle, _gizmo.Tilt, _gizmo.Lean));
                     ShowToolInfo(true, _gizmo.Describe(), _gizmo.Anchor);
                     return;
                 }
@@ -706,7 +744,7 @@ namespace RealFlag.Flags
 
             if (e.type == EventType.MouseUp && e.button == 0 && _gizmo.IsDragging)
             {
-                _gizmo.End();
+                EndDrag();
                 return;
             }
 

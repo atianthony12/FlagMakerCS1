@@ -324,6 +324,17 @@ namespace RealFlag.Flags
             return changed;
         }
 
+        /// <summary>
+        /// The flag went elsewhere than the drag put it -- tilted or leaning on a pole that stands,
+        /// it pivots on the pole's foot (FlagEditor.ApplyTransform): the handles go with it. The
+        /// drag's own measure (the pointer's travel since it began) is unchanged.
+        /// </summary>
+        public void Follow(Vector3 anchor)
+        {
+            if (IsDragging)
+                Anchor = anchor;
+        }
+
         /// <summary>The drag done: the flag stays where it was taken.</summary>
         public void End()
         {

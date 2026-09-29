@@ -1012,7 +1012,8 @@ namespace RealFlag.Flags
                 }
                 else if (f.PoleLength < 0f)
                 {
-                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
+                    // Until the cast is back: down to the ground, or a crossbar's arm.
+                    f.PoleLength = FlagStand.Upright(f.Hoist.y) ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
                 }
             }
 
@@ -1263,9 +1264,14 @@ namespace RealFlag.Flags
                 f.PoseWanted = true;
             }
 
-            // Its pole's length let go (a new tilt, "Pole down to the ground"): found again.
+            // Its pole's length let go (a crossbar turned, "Pole down to the ground"): found again.
             if (spec.PoleLength <= 0f && f.Spec.PoleLength > 0f)
                 f.PoleCastAsked = 0;
+
+            // A pole that stands turned to a crossbar or back: nothing of the old length is drawn
+            // along the new line meanwhile (a 25 m crossbar until its wall is found).
+            if (FlagStand.PoleStands(spec) != FlagStand.PoleStands(f.Spec))
+                f.PoleLength = -1f;
             f.Spec = spec;
             f.BlockReady = false;
             f.PoleBlockReady = false;
