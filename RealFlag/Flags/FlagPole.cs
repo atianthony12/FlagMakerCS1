@@ -82,6 +82,67 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// Where a flag being placed stands: the lowest of it at rest ON the surface under the pointer,
+    /// raised or lowered whole by the keys -- a standing pole's foot, the flag at its top as tall
+    /// as its Pole height makes it; with no pole (or a banner's crossbar, found along to its wall),
+    /// the hoist, or the cloth a banner hangs down from its crossbar. What is under the pointer
+    /// never changes the pole: the first rule put the flag's top its Elevation over the surface
+    /// and cast the pole down from there, so over a building -- the pointer on a wall, part way up
+    /// -- the pole grew with the height the pointer found ("the flagpole's height is being affected
+    /// by the altitude"). PURE.
+    /// </summary>
+    public static class FlagStand
+    {
+        /// <summary>
+        /// A pole stands on its foot while its hoist runs within 60 degrees of straight down (the
+        /// cosine: the hoist's downward share); nearer level it is a crossbar reaching out to a
+        /// wall, and its length is found along it (FlagRenderer's cast).
+        /// </summary>
+        public const float UprightShare = 0.5f;
+
+        /// <summary>A hoist running this way down (its y) is along a standing pole.</summary>
+        public static bool Upright(float hoistY)
+        {
+            return -hoistY > UprightShare;
+        }
+
+        /// <summary>The flag has a pole that stands on its foot (its length the player's), rather than none or a crossbar.</summary>
+        public static bool PoleStands(FlagSpec spec)
+        {
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(0f, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            return spec.HasPole && Upright(hy);
+        }
+
+        /// <summary>
+        /// The anchor (the top hoist corner) of a flag of <paramref name="spec"/> turned to
+        /// <paramref name="heading"/> standing at (x, y, z): a standing pole
+        /// <paramref name="poleLength"/> long has its foot there, and the anchor up its axis and
+        /// its Offset out towards the fly (FlagPoleShape: the hoist hangs beside the pole); else the
+        /// anchor is straight above it by the flag's own depth at rest -- its hoist's, or the
+        /// length a banner hangs down from its crossbar.
+        /// </summary>
+        public static void Anchor(FlagSpec spec, float heading, float poleLength, float x, float y, float z,
+                                  out float ax, out float ay, out float az)
+        {
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(heading, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            if (spec.HasPole && Upright(hy))
+            {
+                FlagPoleShape shape = FlagPoleShape.For(spec, poleLength);
+                ax = x - hx * shape.Length + fx * shape.Offset;
+                ay = y - hy * shape.Length + fy * shape.Offset;
+                az = z - hz * shape.Length + fz * shape.Offset;
+                return;
+            }
+
+            ax = x;
+            ay = y + spec.Height * Math.Max(0f, -hy) + spec.Length * Math.Max(0f, -fy);
+            az = z;
+        }
+    }
+
+    /// <summary>
     /// The raise and lower keys on the flag being placed or the one selected (the game's
     /// elevation keys, Page Up and Page Down unless the player changed them -- Move It's own
     /// defaults too), as Move It moves its selection with them (MoveItTool.ProcessMoveKeys and

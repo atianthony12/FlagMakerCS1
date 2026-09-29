@@ -109,18 +109,12 @@ namespace RealFlag.Flags
         public bool PoleVisible;
 
         /// <summary>
-        /// The pole's length along its axis to what it stands on: cast on the simulation thread
-        /// (FlagTool.CastAlong) from where the axis crosses the anchor's level, again whenever
-        /// that point or the axis moves. Negative until known.
+        /// The pole's length along its axis from the anchor to its foot: the spec's own, or, while
+        /// that is 0 (a banner's crossbar, an older save's pole, one sent down to the ground again),
+        /// cast on the simulation thread (FlagTool.CastAlong) from where the axis crosses the
+        /// anchor's level, again whenever that point or the axis moves. Negative until known.
         /// </summary>
         public float PoleLength = -1f;
-
-        /// <summary>
-        /// The flag being placed only: raised (or lowered) whole over its elevation by the keys
-        /// (FlagTool.NewLift), metres -- its pole is found down from where it would stand without,
-        /// and carried up with it.
-        /// </summary>
-        public float Lift;
         public Vector3 PoleCastFrom;
         public Vector3 PoleCastAlong;
         public int PoleCastAsked;
@@ -386,7 +380,6 @@ namespace RealFlag.Flags
         private Vector3 _ghostAnchor;
         private float _ghostAngle;
         private FlagSpec _ghostSpec;
-        private float _ghostLift;
 
         private Material _material;
         private Material _poleMaterial;
@@ -897,13 +890,16 @@ namespace RealFlag.Flags
                     continue;
                 }
 
-                // Placed by a tool that puts props on the ground: raise it to the new flag's height,
-                // once, or the flag hangs underground.
+                // Placed by a tool that puts props on the ground: stood there as the mod's own tool
+                // stands a flag (FlagStand: a standing pole's foot on it, else the hoist), once, or
+                // the flag hangs underground.
                 if (!fixedHeight && _heightFixed.Add(f.Prop))
                 {
-                    float height = Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
-                    FlagProps.FixHeight(f.Prop, height);
-                    Log.Msg("flags: flag #" + f.Prop + " stood on the ground; raised to " + height.ToString("F1") + " m and fixed there");
+                    float pole = f.Spec.PoleLength > 0f ? f.Spec.PoleLength : Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
+                    float x, rise, z;
+                    FlagStand.Anchor(f.Spec, angle, pole, 0f, 0f, 0f, out x, out rise, out z);
+                    FlagProps.FixHeight(f.Prop, rise);
+                    Log.Msg("flags: flag #" + f.Prop + " stood on the ground; raised " + rise.ToString("F1") + " m to stand there, and fixed");
                 }
 
                 FlagSpec spec;
@@ -960,11 +956,12 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// The pole under a flag that has one: its length the flag's own (Spec.PoleLength: it goes
-        /// where the flag goes, Move It raising it raises the pole too) or, while it has none yet,
-        /// found down its axis on the simulation thread and then kept -- the flag being placed
-        /// looks again wherever it goes; its mesh made again when its size changed, the cloth told
-        /// to keep off it; and whether it is in view (it can be when the flag is not). A flag
-        /// without one has its mesh and collider dropped.
+        /// where the flag goes, Move It raising it raises the pole too -- a standing pole's is the
+        /// Pole height it was placed with) or, while it has none (a banner's crossbar, an older
+        /// save's pole, one sent down to the ground again), found along its axis on the simulation
+        /// thread and then kept -- the flag being placed looks again wherever it goes; its mesh made
+        /// again when its size changed, the cloth told to keep off it; and whether it is in view (it
+        /// can be when the flag is not). A flag without one has its mesh and collider dropped.
         /// </summary>
         private void UpdatePole(FlagInstance f, Plane[] planes)
         {
@@ -986,10 +983,9 @@ namespace RealFlag.Flags
             else
             {
                 // Where the axis crosses the anchor's level, from the last shape's offset (a
-                // centimetre or two either way until the first cast is back) -- the flag being placed,
-                // as it would stand before the keys raised or lowered it: its pole goes with it.
-                float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Lift - f.Ground, 1f)).Offset;
-                Vector3 from = f.Anchor - Vector3.up * f.Lift - f.Fly * offset;
+                // centimetre or two either way until the first cast is back).
+                float offset = f.PoleMesh != null ? f.PoleShape.Offset : FlagPoleShape.For(f.Spec, Mathf.Max(f.Anchor.y - f.Ground, 1f)).Offset;
+                Vector3 from = f.Anchor - f.Fly * offset;
                 if (f.PoleCastAsked == 0 || (from - f.PoleCastFrom).sqrMagnitude > 1e-4f || (f.Hoist - f.PoleCastAlong).sqrMagnitude > 1e-6f)
                     CastPole(f, from);
 
@@ -999,9 +995,9 @@ namespace RealFlag.Flags
                     f.PoleLength = f.PoleCastResult;
 
                     // Found: the flag's own from now on (the ghost keeps looking as it moves) --
-                    // unless its prop has moved or turned since this frame read it (the Elevation
-                    // slider's move, queued before the cast, has run with it): then it is looked
-                    // for again from where the flag stands now, never kept for where it stood.
+                    // unless its prop has moved or turned since this frame read it (a move queued
+                    // before the cast has run with it): then it is looked for again from where
+                    // the flag stands now, never kept for where it stood.
                     if (f.Prop != 0)
                     {
                         Vector3 now;
@@ -1016,7 +1012,7 @@ namespace RealFlag.Flags
                 }
                 else if (f.PoleLength < 0f)
                 {
-                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Lift - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
+                    f.PoleLength = f.Hoist.y < -0.05f ? Mathf.Max(f.Anchor.y - f.Ground, 0f) / -f.Hoist.y : FlagPoleShape.Fallback(f.Spec);
                 }
             }
 
@@ -1089,7 +1085,7 @@ namespace RealFlag.Flags
             FlagSpec spec = f.Spec;
 
             // Upright, down to the ground however far; nearer level, an arm's length at most.
-            float reach = along.y < -0.5f ? PoleCastLength : LevelPoleCastHoists * spec.Height + LevelPoleCastMore;
+            float reach = FlagStand.Upright(along.y) ? PoleCastLength : LevelPoleCastHoists * spec.Height + LevelPoleCastMore;
 
             try
             {
@@ -1690,23 +1686,26 @@ namespace RealFlag.Flags
                 Log.Detail("flags: " + (f.Prop != 0 ? "flag #" + f.Prop : "the new flag") + "'s cloth was buried in a building (moved into it): laid out afresh where it is free");
             f.Relaid = f.Cloth.Relaid;
 
-            // Knotted (FlagCloth.KnotStretch): said while there are few, counted in the report after.
+            Vector3 dir = wind.DirectionFor(f.Angle);
+            f.WindDir = dir;
+            float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
+            float at10 = wind.SpeedFor(f.Anchor, f.Ground);
+            float speed = FlagWind.SpeedAt(at10, height);
+
+            // Knotted (FlagCloth.KnotStretch): said while there are few, with where its worst link
+            // was and the wind at the flag, counted in the report after.
             if (f.Cloth.Unknotted > f.Unknotted)
             {
                 _unknots++;
                 if (_unknots <= 20)
                     Log.Msg("flags: " + (f.Prop != 0 ? "flag #" + f.Prop : "the new flag") + "'s cloth was knotted (a link " +
                             ((FlagCloth.KnotStretch - 1f) * 100f).ToString("F0") + "% long or more for " + FlagCloth.KnotTime.ToString("F0") +
-                            " s): laid out afresh where it is free" + (_unknots == 20 ? " (further ones are counted in the detailed log)" : ""));
+                            " s; at last " + ((f.Cloth.KnotLink - 1f) * 100f).ToString("F0") + "%, column " + f.Cloth.KnotColumn + " and row " +
+                            f.Cloth.KnotRow + " of " + f.Cloth.Columns + "x" + f.Cloth.Rows + ", in " + speed.ToString("F1") +
+                            " m/s): laid out afresh where it is free" + (_unknots == 20 ? " (further ones are counted in the detailed log)" : ""));
             }
 
             f.Unknotted = f.Cloth.Unknotted;
-
-            Vector3 dir = wind.DirectionFor(f.Angle);
-            f.WindDir = dir;
-            float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
-            float at10 = wind.SpeedFor(f.Anchor, f.Ground);
-            float speed = FlagWind.SpeedAt(at10, height);
             var job = new ClothJob
             {
                 Cloth = f.Cloth,
@@ -2306,25 +2305,16 @@ namespace RealFlag.Flags
         // ---- the placement ghost --------------------------------------------------------------
 
         /// <summary>
-        /// The flag the tool is about to place, at the cursor, raised (or lowered) whole by
-        /// <paramref name="lift"/> over its elevation: call every frame while wanted (the tool
-        /// does, from its Update). Only noted here; applied in LateUpdate, when no cloth is being
-        /// stepped.
+        /// The flag the tool is about to place, standing at the cursor (FlagStand): call every
+        /// frame while wanted (the tool does, from its Update). Only noted here; applied in
+        /// LateUpdate, when no cloth is being stepped.
         /// </summary>
-        public void SetGhost(Vector3 anchor, float angle, FlagSpec spec, float lift)
+        public void SetGhost(Vector3 anchor, float angle, FlagSpec spec)
         {
             _ghostAnchor = anchor;
             _ghostAngle = angle;
             _ghostSpec = spec;
-            _ghostLift = lift;
             _ghostWanted = true;
-        }
-
-        /// <summary>The pole under the flag being placed, as long as it is drawn (as it stands at the elevation, before the keys raised it): false while there is none, or its length is not known yet.</summary>
-        public bool TryGhostPole(out float length)
-        {
-            length = _ghost != null && _ghost.Spec.HasPole && _ghost.PoleMesh != null ? _ghost.PoleLength : -1f;
-            return length > 0f;
         }
 
         private void ApplyGhost(Vector3 eye, Plane[] planes)
@@ -2344,7 +2334,6 @@ namespace RealFlag.Flags
             if (!Same(_ghostSpec, _ghost.Spec))
                 SetSpec(_ghost, _ghostSpec);
 
-            _ghost.Lift = _ghostLift;
             Place(_ghost, _ghostAnchor, _ghostAngle);
             _ghost.Distance = Vector3.Distance(eye, _ghostAnchor);
             _ghost.Pixels = Mathf.Max(_ghostSpec.Length, _ghostSpec.Height) / Mathf.Max(_ghost.Distance, 1f) * _pixelsPerRadian;

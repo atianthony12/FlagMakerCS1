@@ -691,6 +691,113 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// A knot made by hand: a 3 x 2 m cloth at <paramref name="detail"/> laid as an upright sheet
+    /// folded back on itself -- out from the hoist, back half a cell off it -- whose third layer
+    /// is put THROUGH its first; then 8 s of calm air. The pairs of triangles crossing after one
+    /// step, the knots undone, the pairs crossing at the end and the worst stretch then.
+    /// </summary>
+    public static string MadeKnot(int detail)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, detail);
+        c.GroundY = -40f;
+        int cols = c.Columns, rows = c.Rows;
+        float cu = c.CellU, cv = c.CellV, gap = 0.5f * Math.Min(cu, cv);
+        float[] x = new float[c.Count], y = new float[c.Count], z = new float[c.Count];
+        float[] px = new float[cols], pz = new float[cols];
+        int turn = cols / 2;
+        float cx = 0f, cz = 0f;
+        for (int i = 1; i < cols; i++)
+        {
+            if (i <= turn) { cx += cu; }
+            else if (i == turn + 1) { cz = gap; cx += 0.5f * cu; }
+            else if (cx > 1f && cz > 0f) { cx -= cu; }
+            else if (cz > 0f) { cz = -gap; }
+            else { cx -= cu; }
+            px[i] = cx; pz[i] = cz;
+        }
+
+        for (int j = 0; j < rows; j++)
+        {
+            for (int i = 0; i < cols; i++)
+            {
+                int k = j * cols + i;
+                x[k] = px[i]; y[k] = -j * cv; z[k] = pz[i];
+            }
+        }
+
+        c.SetShape(x, y, z, 0f);
+        int[] tris = Triangles(cols, rows);
+        float t = 0f;
+        int first = -1;
+        for (int s = 0; s < 480; s++)
+        {
+            FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 40f, 1f, 3f, t, 0f, 0f);
+            c.Step(1f / 60f, ref air);
+            t += 1f / 60f;
+            if (s == 0) first = CrossingPairs(c, tris);
+        }
+        return first + "," + c.Unknotted + "," + CrossingPairs(c, tris) + "," + c.MaxStretch().ToString("F3", Inv) + "," + cols + "x" + rows;
+    }
+
+    /// <summary>
+    /// The thirteenth run's knotting flag: 2.8 m at 2:3, 200% wavy, its hoist tilted 25.7 deg
+    /// 3.33 m over flat ground, the wind 5 m/s at 10 m from behind (the air's realisation at
+    /// <paramref name="ax"/>, <paramref name="az"/>), made and settled at Normal as the renderer
+    /// makes one, then Ultra once calm; <paramref name="seconds"/> of 1/60 s steps. The knots
+    /// undone and the first one's time (-1: none), and the samples crossing (every 0.5 s) in the
+    /// last 10 s.
+    /// </summary>
+    public static string LowFlag(float ax, float az, float seconds)
+    {
+        FlagSpec spec = FlagSpec.Default;
+        spec.Length = 2.8f; spec.Proportion = 667; spec.Waviness = 2f; spec.Tilt = 25.7f;
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, spec.Tilt, 0f, FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
+        float height = 3.33f, dirX = -1f, dirZ = 0f, speed = FlagWind.SpeedAt(5f, height);
+        FlagCloth c = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz);
+        c.Calm(FlagCloth.CalmTime);
+        c.GroundY = -height;
+        float t = -1.5f;
+        for (int s = 0; s < 45; s++)
+        {
+            int sub = c.SubStepsFor(speed, 2f / 60f);
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(5f, 1f, dirX, dirZ, height, spec.Waviness, spec.Length, t + i * (2f / 60f) / sub, ax, az);
+                c.Step(2f / 60f / sub, ref air);
+            }
+            t += 2f / 60f;
+        }
+
+        int[] tris = null;
+        float first = -1f;
+        int crossing = 0, before = 0;
+        for (int s = 0; s * (1f / 60f) < seconds; s++)
+        {
+            if (c.Detail != 40 && !c.Calming)
+            {
+                FlagCloth fine = new FlagCloth(c.Length, c.Height, c.Fabric, 1f, 0f, 40);
+                fine.TakeShape(c, true);
+                fine.GroundY = c.GroundY;
+                c = fine;
+                tris = Triangles(c.Columns, c.Rows);
+                before = c.Unknotted;
+            }
+
+            int sub = c.SubStepsFor(speed, 1f / 60f);
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(5f, 1f, dirX, dirZ, height, spec.Waviness, spec.Length, t + i * (1f / 60f) / sub, ax, az);
+                c.Step(1f / 60f / sub, ref air);
+            }
+            t += 1f / 60f;
+            if (first < 0f && c.Unknotted > before) first = s / 60f;
+            if (tris != null && s * (1f / 60f) >= seconds - 10f && s % 30 == 0 && CrossingPairs(c, tris) > 0) crossing++;
+        }
+        return (c.Unknotted - before) + "," + first.ToString("F1", Inv) + "," + crossing + "," + c.Columns + "x" + c.Rows;
+    }
+
+    /// <summary>
     /// A 3 x 2 m flag's hoist sunk half into the ground (the ground 1 m below the anchor), calm,
     /// 8 s: the worst stretch (held up by the ground, its cloth was torn from its hoist), and how
     /// far below the ground its lowest particle hangs (m).
@@ -1396,6 +1503,51 @@ public static class ClothTests
     static string Cm(FlagPoleShape p)
     {
         return (200f * p.RadiusFoot).ToString("F0", Inv) + "/" + (200f * p.RadiusTop).ToString("F0", Inv) + "/" + (100f * p.Offset).ToString("F0", Inv);
+    }
+
+    /// <summary>
+    /// Where a flag being placed stands (FlagStand) at (3, 5, -2): a standing pole's foot there
+    /// -- worked back from its anchor as the renderer finds a pole's foot -- whatever its height,
+    /// tilt (under 60 deg), lean or heading (the worst miss, m); a 3 x 2 m flag with no pole, its
+    /// hoist's foot there (the anchor's height over it); from its top, or on a crossbar, its hanging
+    /// cloth's (the same); a pole tilted 70 deg is a crossbar. "worst|no pole|from the top|crossbar|70 deg stands".
+    /// </summary>
+    public static string Stand()
+    {
+        float worst = 0f;
+        FlagSpec s = FlagSpec.Default;
+        s.Length = 3f; s.Proportion = 667; s.Pole = FlagPoleStyle.Ball;
+        foreach (float tilt in new[] { 0f, 25.7f, -45f, 55f })
+            foreach (float lean in new[] { 0f, 30f })
+                foreach (float heading in new[] { 0f, 1.1f, -2.5f })
+                    foreach (float length in new[] { 1f, 12f, 37f })
+                    {
+                        s.Tilt = tilt; s.Lean = lean;
+                        if (!FlagStand.PoleStands(s))
+                            continue;
+
+                        float ax, ay, az, hx, hy, hz, fx, fy, fz;
+                        FlagStand.Anchor(s, heading, length, 3f, 5f, -2f, out ax, out ay, out az);
+                        FlagOrientation.Frame(heading, tilt, lean, s.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+                        FlagPoleShape shape = FlagPoleShape.For(s, length);
+                        float footX = ax - fx * shape.Offset + hx * shape.Length, footY = ay - fy * shape.Offset + hy * shape.Length, footZ = az - fz * shape.Offset + hz * shape.Length;
+                        float miss = (float)Math.Sqrt((footX - 3f) * (footX - 3f) + (footY - 5f) * (footY - 5f) + (footZ + 2f) * (footZ + 2f));
+                        if (miss > worst) worst = miss;
+                    }
+
+        float x, y, z;
+        FlagSpec bare = FlagSpec.Default;
+        bare.Length = 3f; bare.Proportion = 667;
+        FlagStand.Anchor(bare, 0.7f, 12f, 3f, 5f, -2f, out x, out y, out z);
+        string none = (y - 5f).ToString("F2", Inv) + (x == 3f && z == -2f ? "" : " moved");
+        bare.HoistedFrom = FlagHoist.Top;
+        FlagStand.Anchor(bare, 0.7f, 12f, 3f, 5f, -2f, out x, out y, out z);
+        string top = (y - 5f).ToString("F2", Inv);
+        bare.Pole = FlagPoleStyle.Flat;
+        FlagStand.Anchor(bare, 0.7f, 12f, 3f, 5f, -2f, out x, out y, out z);
+        string bar = (y - 5f).ToString("F2", Inv) + (FlagStand.PoleStands(bare) ? " stands" : "");
+        s.Tilt = 70f; s.Lean = 0f;
+        return worst.ToString("F5", Inv) + "|" + none + "|" + top + "|" + bar + "|" + FlagStand.PoleStands(s);
     }
 
     /// <summary>
@@ -2931,6 +3083,10 @@ $ps = [ClothTests]::PoleSizes() -split ","
 $sizes = $ps[0] -split " " | ForEach-Object { [int](($_ -split "/")[0]) }
 Check "the pole's foot as the makers size it: ~16 cm for 3 x 2 m on 10 m, ~13 for 2.4 x 1.5 m on 9 m, 80-100 for a 30 m flag on 22 m" ($sizes[0] -ge 14 -and $sizes[0] -le 18 -and $sizes[1] -ge 11 -and $sizes[1] -le 15 -and $sizes[2] -ge 80 -and $sizes[2] -le 100 -and $ps[1] -eq "True" -and $ps[2] -eq "True") ("foot/top/hoist off the axis, cm: " + $ps[0] + "; hoist clear of the pole: " + $ps[1])
 
+# Placing: the flag stands where it is put, its pole as tall as its Pole height whatever is under it.
+$sd = [ClothTests]::Stand() -split "\|"
+Check "a flag placed stands there: a standing pole's foot on the spot at any height, tilt, lean, heading; no pole, the hoist's foot; from the top or on a crossbar, the hanging cloth's; 70 deg is a crossbar" ((N $sd[0]) -lt 1e-4 -and $sd[1] -eq "2.00" -and $sd[2] -eq "3.00" -and $sd[3] -eq "3.00" -and $sd[4] -eq "False") ("foot off the spot " + $sd[0] + " m; the anchor over it: no pole " + $sd[1] + ", from the top " + $sd[2] + ", on a crossbar " + $sd[3] + " m; 70 deg stands: " + $sd[4])
+
 # ---- the cloth against itself --------------------------------------------------------------
 # Every 0.1 s over 20 s, after 8 s to settle: the pairs of the drawn triangles that cross.
 
@@ -3198,7 +3354,23 @@ foreach ($case in @(@(2, 500, 40), @(2, 667, 24), @(3, 500, 40), @(5, 667, 40), 
     Check ("settled calmly: a {0} m flag at {1}, {2} cells, calm air: never through itself after, never knotted" -f $case[0], $case[1], $case[2]) ((N $st[0]) -eq 0 -and (N $st[1]) -eq 0 -and (N $st[2]) -lt 1.2 -and (N $st[3]) -eq 0) ($st[5] + ": crossing in " + $st[0] + " of the last 5 s, " + $st[1] + " pairs at the end, stretch " + $st[2] + "; " + $st[4] + " deg of droop when first shown")
 }
 $raw = [ClothTests]::Settled(3, 500, 40, $false) -split ","
-Check "dropped undamped (the first settle), a 3 m 1:2 flag at Ultra knots: found knotted, laid out afresh, whole again" ((N $raw[0]) -eq 0 -and (N $raw[1]) -eq 0 -and (N $raw[2]) -lt 1.25) ($raw[5] + ": knots undone " + $raw[3] + ", crossing in " + $raw[0] + " of the last 5 s, " + $raw[1] + " at the end, stretch " + $raw[2])
+Check "dropped undamped (the first settle), a 3 m 1:2 flag at Ultra: whole after (a cell thick, it knotted, and was found and laid out afresh)" ((N $raw[0]) -eq 0 -and (N $raw[1]) -eq 0 -and (N $raw[2]) -lt 1.25) ($raw[5] + ": knots undone " + $raw[3] + ", crossing in " + $raw[0] + " of the last 5 s, " + $raw[1] + " at the end, stretch " + $raw[2])
+
+# The knot net on a knot made by hand (at High and Ultra the cloth no longer knots by itself in
+# any case above): a fold's third layer put through its first. At Normal the same knot holds its
+# links 28-30% long, under the net's 30%: found by nothing, it stays.
+foreach ($detail in 24, 40) {
+    $mk = [ClothTests]::MadeKnot($detail) -split ","
+    Check ("a knot made by hand at $detail cells (a fold's third layer through its first): found, laid out afresh, whole again") ((N $mk[0]) -gt 0 -and (N $mk[1]) -ge 1 -and (N $mk[2]) -eq 0 -and (N $mk[3]) -lt 1.25) ($mk[4] + ": " + $mk[0] + " pairs crossing at first, knots undone " + $mk[1] + ", " + $mk[2] + " crossing at the end, stretch " + $mk[3])
+}
+
+# The thirteenth run's flag that kept "resetting": low on its tilted pole, light wind from
+# behind, at Ultra. A cell thick, the cloth let its particles through one another and knotted
+# (at 7.5 and 10.8 s in these two); as thick as FlagCloth.CollisionWidth, never.
+foreach ($seed in @(@(37, 11), @(91, 53))) {
+    $lf = [ClothTests]::LowFlag($seed[0], $seed[1], 30) -split ","
+    Check ("the thirteenth run's knotting flag (2.8 m, 200% wavy, a 25.7 deg hoist 3.3 m up, 5 m/s from behind, Ultra; air " + ($seed -join ",") + "): never knotted, never through itself") ((N $lf[0]) -eq 0 -and (N $lf[2]) -eq 0) ($lf[3] + ", 30 s: knots undone " + $lf[0] + " (the first at " + $lf[1] + " s), crossing in " + $lf[2] + " of the last 20 samples")
+}
 
 $bu = [ClothTests]::Buried() -split ","
 Check "a flag's hoist half into the ground: its cloth hangs into the ground from it, not held up and torn" ((N $bu[0]) -lt 1.2 -and (N $bu[1]) -gt 0.3) ("worst stretch " + $bu[0] + ", its lowest particle " + $bu[1] + " m under the ground")

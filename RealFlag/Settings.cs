@@ -134,7 +134,11 @@ namespace RealFlag
         /// <summary>The way the flag points (its prop's rotation), degrees.</summary>
         public static FloatSetting NewRotation { get; private set; }
 
-        /// <summary>The top of the hoist over the ground (or the roof) where it is placed, metres.</summary>
+        /// <summary>
+        /// The new flag's POLE HEIGHT: its length up its axis from its foot to the flag's top,
+        /// metres (FlagSpec.PoleLength, for a pole that stands: FlagStand). Its name is the old
+        /// Elevation's (the flag's top over what was under it), whose value the file keeps.
+        /// </summary>
         public static FloatSetting NewHeight { get; private set; }
 
         // ---- the pole and the hoist's lean (each tab's Flagpole popup) ----
@@ -175,6 +179,8 @@ namespace RealFlag
         public static FloatSetting SelWaviness { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
         public static FloatSetting SelRotation { get; private set; }
+
+        /// <summary>The selected flag's pole height (FlagSpec.PoleLength): changed, its foot stays and the flag goes up or down with the pole's top.</summary>
         public static FloatSetting SelHeight { get; private set; }
         public static IntSetting SelPole { get; private set; }
         public static IntSetting SelRopes { get; private set; }
@@ -263,10 +269,10 @@ namespace RealFlag
             public const float Darkness = 0f;
             public const float Rotation = 0f;
 
-            /// <summary>m: the top of an ordinary flagpole.</summary>
+            /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
             public const float Height = 10f;
 
-            /// <summary>m: the new flag's elevation reaches this high (its slider, and Page Up while placing).</summary>
+            /// <summary>m: the pole height's slider reaches this high.</summary>
             public const float MaxNewHeight = 200f;
 
             /// <summary>No pole drawn: the flag is for the city's own poles, the mod's purpose.</summary>
@@ -430,6 +436,10 @@ namespace RealFlag
             spec.PoleThickness = NewPoleThickness.value;
             spec.Tilt = NewTilt.value;
             spec.Lean = NewLean.value;
+
+            // A pole that stands is as tall as its row says, wherever the flag goes; a crossbar
+            // reaching out level finds its wall (0: found along it).
+            spec.PoleLength = FlagStand.PoleStands(spec) ? Math.Max(NewHeight.value, FlagPoleShape.MinLength) : 0f;
             return spec.Sanitised();
         }
 

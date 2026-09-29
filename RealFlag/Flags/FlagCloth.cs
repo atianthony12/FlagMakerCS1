@@ -102,8 +102,8 @@ namespace RealFlag.Flags
     /// few passes cannot stop a long chain of links stretching under its own weight; the
     /// attachment does it in one projection, so the cloth never goes elastic.
     ///
-    /// The cloth does not go through itself: its particles are spheres a cell wide that the
-    /// passes keep apart like the links (<see cref="CollisionThickness"/>), found through a
+    /// The cloth does not go through itself: its particles are spheres a cell wide (wider at a
+    /// finer detail) that the passes keep apart like the links (<see cref="CollisionWidth"/>), found through a
     /// spatial hash and a neighbour list, skipped while the cloth is too flat to fold onto
     /// itself. A hanging flag's folds, which went through one another in every frame of calm
     /// air, now lie against one another.
@@ -194,10 +194,29 @@ namespace RealFlag.Flags
         /// 12 m/s, every detail): without it the cloth went through itself in every frame of calm
         /// air (52 crossing pairs of triangles on average, 1300 at 36 cells) and in 72% of the
         /// frames at 2 m/s; at 0.75 of a cell, in half the frames of calm air (1.7 pairs); at one
-        /// cell, in none. A folded flag's layers stay a cell apart: 17 cm on a 3 m flag at Normal,
-        /// 9 cm at Very high.
+        /// cell, in none. A folded flag's layers stay a cell apart: 17 cm on a 3 m flag at Normal.
+        /// A finer detail's cloth is thicker than its cells (<see cref="CollisionWidth"/>).
         /// </summary>
         public const float CollisionThickness = 1.0f;
+
+        /// <summary>
+        /// Self-collision's thickness, metres: <see cref="CollisionThickness"/> cells at Normal, and
+        /// at a finer detail the geometric mean of its cell and the Normal detail's -- 1.15 cells
+        /// at High, 1.33 at Very high, 1.45-1.49 at Ultra (a 3 m flag: 17, 14, 12.5, 11.5 cm). The
+        /// cloth moves as far in a step at every detail -- the air and the step are the same, only
+        /// the cells shrink -- so a cell-thick finer cloth let its particles through one another
+        /// twice as often, and the cloth against itself then held the layers crossed: a 2.8 m flag
+        /// low on its pole in light wind from behind, at Very high and Ultra, was found knotted and
+        /// laid out afresh 41 times in 3 hours of cloth (twelve cases, the knots harness,
+        /// 2026-09-29; in the game seven times in 32 s, the "resetting" the author saw by a
+        /// building); at this thickness never, nor in the release sweep's 16 cases (draped on a
+        /// pole, big flags, calm), whose crossings it lowered. 1.1 and 1.2 cells still knotted (18
+        /// and 3 times). A thicker cloth holds the links round a pole long more often (a flag draped
+        /// on its pole: 55-90% of the time against 10-37%): all of them on the pole, which the knot
+        /// test leaves out and the pole hides. Under two cells no particle but the eight neighbours
+        /// is within a thickness at rest.
+        /// </summary>
+        public readonly float CollisionWidth;
 
         /// <summary>
         /// The neighbour list's reach, as a multiple of the thickness: pairs this near are listed,
@@ -453,6 +472,13 @@ namespace RealFlag.Flags
             Count = Columns * Rows;
             CellU = Length / (Columns - 1);
             CellV = Height / (Rows - 1);
+
+            // A cell at Normal; finer, the geometric mean of its cell and Normal's.
+            int normalColumns, normalRows;
+            GridFor(Length, Height, CellsAlong, out normalColumns, out normalRows);
+            float cell = Math.Min(CellU, CellV);
+            float normal = Math.Min(Length / (normalColumns - 1), Height / (normalRows - 1));
+            CollisionWidth = CollisionThickness * (normal > cell ? (float)Math.Sqrt(cell * normal) : cell);
 
             X = new float[Count]; Y = new float[Count]; Z = new float[Count];
             PrevX = new float[Count]; PrevY = new float[Count]; PrevZ = new float[Count];
@@ -1313,6 +1339,14 @@ namespace RealFlag.Flags
         /// <summary>Times the cloth was found knotted and laid out afresh (<see cref="KnotStretch"/>).</summary>
         public int Unknotted { get; private set; }
 
+        /// <summary>The last knot found: its worst link's stretch (a ratio to its length), and the column and row of its first particle -- for the log.</summary>
+        public float KnotLink { get; private set; }
+        public int KnotColumn { get; private set; }
+        public int KnotRow { get; private set; }
+
+        /// <summary>The worst link <see cref="WorstFreeStretch"/> last found (-1: none over its length).</summary>
+        private int _worstFree = -1;
+
         private static int _unknottedAll;
 
         /// <summary>Every cloth's knots undone in this process: the tests hold a healthy flag's to none, whatever it is doing.</summary>
@@ -1360,6 +1394,15 @@ namespace RealFlag.Flags
                 {
                     wx = X[Count - 1] - X[0];
                     wz = Z[Count - 1] - Z[0];
+                }
+
+                if (knotted && !buried && _worstFree >= 0)
+                {
+                    int a = _a[_worstFree], b = _b[_worstFree];
+                    float dx = X[a] - X[b], dy = Y[a] - Y[b], dz = Z[a] - Z[b];
+                    KnotLink = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz) / _rest[_worstFree];
+                    KnotColumn = a % Columns;
+                    KnotRow = a / Columns;
                 }
 
                 LayOutClear(wx, wz);
@@ -1546,7 +1589,7 @@ namespace RealFlag.Flags
             float thick = 0f;
             if (SelfCollision && !Flat())
             {
-                thick = CollisionThickness * Math.Min(CellU, CellV);
+                thick = CollisionWidth;
                 ListPairs(thick);
             }
             else
@@ -1639,6 +1682,7 @@ namespace RealFlag.Flags
         private float WorstFreeStretch()
         {
             float worst = 1f;
+            int worstLink = -1;
             bool posts = _poleOn || _capCount > 0;
             for (int c = 0; c < _links; c++)
             {
@@ -1655,8 +1699,10 @@ namespace RealFlag.Flags
                     continue;
 
                 worst = r;
+                worstLink = c;
             }
 
+            _worstFree = worstLink;
             return worst;
         }
 

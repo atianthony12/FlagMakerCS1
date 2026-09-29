@@ -37,8 +37,7 @@ namespace RealFlag
                                          (Settings.WindMode != null && Settings.WindMode.value == Settings.WindModes.Fixed
                                              ? " " + Value(Settings.WindDirection, 0f).ToString("F0") + "deg" : "")) +
                         " freeze when paused=" + (Settings.FreezeWhenPaused == null || Settings.FreezeWhenPaused.value ? "on" : "off") +
-                        " | next flag: " + Settings.NewSpec().Describe() +
-                        ", " + Value(Settings.NewHeight, Settings.Defaults.Height).ToString("F1") + " m up, " +
+                        " | next flag: " + Settings.NewSpec().Describe() + ", " +
                         Value(Settings.NewRotation, Settings.Defaults.Rotation).ToString("F0") + " deg");
             }
             catch (Exception e)

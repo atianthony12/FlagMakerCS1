@@ -7,8 +7,8 @@ namespace RealFlag.Flags
 {
     /// <summary>
     /// The mod's tool on the map, in two modes. PLACE (while the New flag window is open): the new
-    /// flag follows the cursor -- the real cloth, blowing -- at the chosen height over the ground
-    /// or roof under it; left click places it, again and again; the right button turns it as the
+    /// flag follows the cursor -- the real cloth, blowing -- standing on the ground or roof under
+    /// it; left click places it, again and again; the right button turns it as the
     /// game's props turn (a click a step, a drag freely); Esc puts the tool away, and the window
     /// with it. PICK (the Flags tab's): the flag under the cursor lights up, a click selects it;
     /// the selected flag carries the gizmo (FlagGizmo) -- drag its arrows to move it, its rings to
@@ -31,15 +31,19 @@ namespace RealFlag.Flags
     /// round(a / 45 - 1) x 45). The turn is the new flag's rotation itself, so the New flag
     /// window shows it. Unlike PropTool's prop, the flag holds where it stood while a drag turns it.
     ///
-    /// The game's raise and lower keys (Page Up, Page Down) move a flag up and down WHOLE, its pole
-    /// with it, as Move It moves its selection (ElevationKeys: 0.125 m a step, Shift x8, Alt /8,
-    /// repeating after a third of a second held). Placing, they raise the new flag over its
-    /// elevation (<see cref="NewLift"/>, shown after the elevation in the New flag window, let go
-    /// with the window): its pole keeps the length it has at the elevation, its foot off the
-    /// ground (or in it), and the flag placed keeps that pole -- the first version changed the
-    /// elevation itself, and a pole always reaches down to what is under it: "PgUp / down just
-    /// increases the height of the flagpole". Picking, they move the selected flag as the gizmo's
-    /// arrows do (FlagEditor.ApplyTransform: its pole's length kept).
+    /// Placing, the flag STANDS on the surface under the pointer (FlagStand): a standing pole's foot
+    /// there, the flag at its top as tall as the Pole height makes it; with no pole, its hoist (a
+    /// banner's cloth) there. The surface is the top of what is under the pointer, looked for
+    /// straight down from just above where the pointer's ray met the city: a roof, a road, the
+    /// ground -- and for a ray that met a wall's face, the ground in front of it, not a point part
+    /// way up the wall. The game's raise and lower keys (Page Up, Page Down) move a flag up and down
+    /// WHOLE, its pole with it, as Move It moves its selection (ElevationKeys: 0.125 m a step,
+    /// Shift x8, Alt /8, repeating after a third of a second held): placing, off that surface
+    /// (let go with the window); picking, the selected flag as the gizmo's arrows move it
+    /// (FlagEditor.ApplyTransform: its pole's length kept). Nothing under the pointer changes the
+    /// pole: the first rule put the flag's top an Elevation over the surface and cast the pole down
+    /// from there, and over a building the pole grew with the height the pointer found on a wall
+    /// ("the flagpole's height is being affected by the altitude").
     ///
     /// Esc (and, picking, the right button) steps back one thing at a time: a drag (the flag
     /// goes back where it was, or the new flag the way it pointed), then the selection, then the
@@ -89,7 +93,7 @@ namespace RealFlag.Flags
         private float _raisedBy;
         private float _raisedAt = -1f;
 
-        /// <summary>Placing: the new flag raised (or, less than 0, lowered) whole over its elevation, metres.</summary>
+        /// <summary>Placing: the new flag raised (or, less than 0, lowered) whole off the surface it stands on, metres.</summary>
         private float _lift;
 
         // Picking: the selected flag the keys move, and where they have sent it -- its own while
@@ -105,14 +109,16 @@ namespace RealFlag.Flags
         /// <summary>The selected flag's place the keys sent it to is trusted over its prop's this long after their last step, seconds (FlagEditor's own quiet time).</summary>
         private const float RaiseOwnTime = 0.6f;
 
-        /// <summary>The new flag is raised or lowered at most this far over its elevation, metres.</summary>
+        /// <summary>The new flag is raised or lowered at most this far off the surface, metres.</summary>
         private const float MaxLift = 1000f;
 
-        /// <summary>Placing: the new flag raised (or, less than 0, lowered) whole over its elevation by Page Up and Page Down, metres; 0 when not placing.</summary>
-        public static float NewLift
-        {
-            get { return Instance != null && Instance.enabled && Instance.CurrentMode == Mode.Place ? Instance._lift : 0f; }
-        }
+        /// <summary>
+        /// Where the pointer's ray met the city, the surface under it is looked for straight down
+        /// from this high above that point, and this much nearer the camera (level): a ray that met
+        /// a wall's face finds the ground in front of it, one that met a roof finds the roof.
+        /// </summary>
+        private const float SurfaceProbeUp = 0.5f;
+        private const float SurfaceProbeBack = 0.1f;
 
         private static readonly Color PlaceColour = new Color(0.95f, 0.85f, 0.4f, 0.6f);
 
@@ -309,14 +315,37 @@ namespace RealFlag.Flags
             RaycastOutput output;
             if (Cast(_mouseRay, _mouseRayLength, out output))
             {
+                Vector3 hit = output.m_hitPos;
+                if (CurrentMode == Mode.Place)
+                    hit = SurfaceUnder(hit, _mouseRay.direction);
+
                 lock (_hitLock)
-                    _hit = output.m_hitPos;
+                    _hit = hit;
                 _hitValid = true;
             }
             else
             {
                 _hitValid = false;
             }
+        }
+
+        /// <summary>
+        /// On the simulation thread: the top of what is under a point the pointer's ray met -- the
+        /// first ground, roof or road straight down from just above it, a little towards the camera
+        /// (<see cref="SurfaceProbeUp"/>, <see cref="SurfaceProbeBack"/>). A roof, a road or the
+        /// ground finds itself again; a wall's face, the ground (or a lower roof) in front of it.
+        /// </summary>
+        private Vector3 SurfaceUnder(Vector3 hit, Vector3 rayDirection)
+        {
+            Vector3 back = new Vector3(-rayDirection.x, 0f, -rayDirection.z);
+            float level = back.magnitude;
+            back = level > 1e-4f ? back * (SurfaceProbeBack / level) : Vector3.zero;
+            Vector3 from = hit + back + Vector3.up * SurfaceProbeUp;
+
+            RaycastOutput down;
+            if (Cast(new Ray(from, Vector3.down), _mouseRayLength, out down) && down.m_hitPos.y <= from.y)
+                return down.m_hitPos;
+            return hit;
         }
 
         /// <summary>The ground, the roofs and the roads (the game's ToolBase.RayCast, on the simulation thread).</summary>
@@ -355,13 +384,14 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// Where the flag would stand: its anchor (the top of the hoist) the chosen height over the
-        /// surface under the cursor, and raised or lowered whole by the keys (<see cref="NewLift"/>).
+        /// Where the new flag's anchor (the top of its hoist) goes: the flag of <paramref name="spec"/>
+        /// standing on the surface under the cursor (FlagStand), raised or lowered whole by the keys.
         /// </summary>
-        private Vector3 AnchorOver(Vector3 hit)
+        private Vector3 AnchorOver(Vector3 surface, FlagSpec spec)
         {
-            float height = Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
-            return new Vector3(hit.x, hit.y + Mathf.Max(0f, height) + _lift, hit.z);
+            float x, y, z;
+            FlagStand.Anchor(spec, NewAngle(), spec.PoleLength, surface.x, surface.y + _lift, surface.z, out x, out y, out z);
+            return new Vector3(x, y, z);
         }
 
         /// <summary>The new flag's rotation, degrees: the way the next flag points.</summary>
@@ -438,9 +468,9 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Every GUI event (Move It's OnToolGUI reads its keys on every one): the raise and lower
-        /// keys move a flag up and down whole (ElevationKeys) -- placing, the new one over its
-        /// elevation; picking, the selected one. Not while a text field has the keyboard, as Move
-        /// It does not.
+        /// keys move a flag up and down whole (ElevationKeys) -- placing, the new one off the
+        /// surface it stands on; picking, the selected one. Not while a text field has the
+        /// keyboard, as Move It does not.
         /// </summary>
         private void UpdateRaise(Event e)
         {
@@ -464,7 +494,7 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>Placing: the new flag, pole and all, a step higher or lower over its elevation.</summary>
+        /// <summary>Placing: the new flag, pole and all, a step higher or lower off the surface it stands on.</summary>
         private void RaiseNew(float step)
         {
             _lift = Mathf.Clamp(_lift + step, -MaxLift, MaxLift);
@@ -526,7 +556,7 @@ namespace RealFlag.Flags
             if (_raisedFlag != 0)
                 Log.Msg("flags: flag #" + _raisedFlag + " " + moved + " (" + keys + ")");
             else
-                Log.Msg("flags: the new flag " + moved + ": " + _lift.ToString("0.###") + " m over its elevation now (" + keys + ")");
+                Log.Msg("flags: the new flag " + moved + ": " + _lift.ToString("0.###") + " m off the surface under it now (" + keys + ")");
         }
 
         /// <summary>The keys moved a flag a moment ago (or are held): its move goes in the tooltip.</summary>
@@ -586,11 +616,16 @@ namespace RealFlag.Flags
                 bool turning = UpdateTurn();
                 valid = TryGhostHit(out hit);
                 if (valid && FlagRenderer.Instance != null)
-                    FlagRenderer.Instance.SetGhost(AnchorOver(hit), NewAngle(), Settings.NewSpec(), _lift);
+                {
+                    FlagSpec spec = Settings.NewSpec();
+                    FlagRenderer.Instance.SetGhost(AnchorOver(hit, spec), NewAngle(), spec);
+                }
 
+                // Raised or lowered off the surface: said while the keys work, and over the hint after.
                 string text = FlagPrefab.Info == null ? Localization.Get("Tool.NoPrefab")
                             : turning ? Localization.Get("Gizmo.Heading", NewDegrees().ToString("0", System.Globalization.CultureInfo.InvariantCulture))
                             : ShowingRaise && _raisedFlag == 0 ? RaiseText(_lift)
+                            : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys())
                             : Localization.Get("Tool.PlaceHint", RaiseKeys());
                 ShowToolInfo(valid, valid ? text : null, hit);
                 return;
@@ -718,16 +753,11 @@ namespace RealFlag.Flags
             if (!TryGhostHit(out hit))
                 return;
 
-            Vector3 anchor = AnchorOver(hit);
-            float angle = NewAngle();
+            // Its pole (if it stands) as tall as the Pole height says: the placed flag keeps it.
             FlagSpec spec = Settings.NewSpec();
-
-            // Raised or lowered whole by the keys: its pole as long as the flag being placed shows it
-            // (as it stands at the elevation), kept -- not found down to the ground again from where
-            // the flag now is.
-            float lift = _lift, pole;
-            if (spec.HasPole && Mathf.Abs(lift) > 1e-4f && FlagRenderer.Instance != null && FlagRenderer.Instance.TryGhostPole(out pole))
-                spec.PoleLength = Mathf.Clamp(pole, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+            Vector3 anchor = AnchorOver(hit, spec);
+            float angle = NewAngle();
+            float lift = _lift;
 
             FlagProps.Create(anchor, angle, spec, prop =>
             {
@@ -735,10 +765,9 @@ namespace RealFlag.Flags
                     Log.Warn("flags: the flag was not placed (the city has as many props as it can hold)");
                 else
                     Log.Msg("flags: flag #" + prop + " placed at (" + anchor.x.ToString("F0") + ", " + anchor.z.ToString("F0") + "), top of the hoist " +
-                            anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over what is under it" +
-                            (Mathf.Abs(lift) > 1e-4f ? ", " + (lift > 0f ? "raised " : "lowered ") + Mathf.Abs(lift).ToString("0.###") + " m whole" +
-                             (spec.PoleLength > 0f ? ", its pole " + spec.PoleLength.ToString("F1") + " m" : "") : "") + "), " +
-                            (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
+                            anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over the surface under it" +
+                            (Mathf.Abs(lift) > 1e-4f ? ", " + (lift > 0f ? "raised " : "lowered ") + Mathf.Abs(lift).ToString("0.###") + " m off it" : "") +
+                            "), " + (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
             });
         }
 
@@ -759,7 +788,7 @@ namespace RealFlag.Flags
                 if (!TryGhostHit(out hit))
                     return;
 
-                // Where the pole would stand, on the ground or roof.
+                // Where the flag stands (its pole's foot, or its hoist), on the ground or roof.
                 Singleton<RenderManager>.instance.OverlayEffect.DrawCircle(cameraInfo, PlaceColour, hit, 1.2f, hit.y - 20f, hit.y + 20f,
                                                                           false, true);
                 Singleton<ToolManager>.instance.m_drawCallData.m_overlayCalls++;

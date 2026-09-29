@@ -560,30 +560,22 @@ namespace RealFlag.UI
             return Localization.Get("Unit.Metres", value.ToString("0.#", CultureInfo.InvariantCulture));
         }
 
-        /// <summary>The new flag's elevation, and how far Page Up and Page Down have raised or lowered it whole while it is placed (FlagTool.NewLift): "24.5 m +3.125 m".</summary>
-        private static string NewElevation(float value)
-        {
-            float lift = FlagTool.NewLift;
-            if (Math.Abs(lift) < 0.0005f)
-                return Metres(value);
-
-            return Localization.Get("Unit.MetresLift", value.ToString("0.#", CultureInfo.InvariantCulture),
-                                    (lift > 0f ? "+" : "-") + Math.Abs(lift).ToString("0.###", CultureInfo.InvariantCulture));
-        }
-
         private static string Degrees(float value)
         {
             return Localization.Get("Unit.Degrees", value.ToString("F0"));
         }
 
-        /// <summary>The Flagpole button's words: "Flagpole: none" or "Flagpole: ball, 2 ropes", and the tilt if any.</summary>
-        private static Func<string> PoleSummary(IntSetting pole, IntSetting ropes, FloatSetting tilt, FloatSetting lean)
+        /// <summary>The Flagpole button's words: "Flagpole: none" or "Flagpole: ball, 10 m, 2 ropes" (a crossbar's length is its wall's), and the tilt if any.</summary>
+        private static Func<string> PoleSummary(IntSetting pole, FloatSetting height, IntSetting ropes, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom)
         {
             return () =>
             {
                 int style = pole != null ? pole.value : Settings.Defaults.Pole;
                 string text = style == FlagPoleStyle.None
                     ? Localization.Get("PoleButton.None")
+                    : Stands(tilt, lean, hoistedFrom)
+                    ? Localization.Get("PoleButton.Tall", Localization.Get(PoleKey(style)), (height != null ? height.value : Settings.Defaults.Height).ToString("0.#", CultureInfo.InvariantCulture),
+                                       ropes != null ? ropes.value : 0)
                     : Localization.Get("PoleButton.Pole", Localization.Get(PoleKey(style)), ropes != null ? ropes.value : 0);
 
                 float t = tilt != null ? tilt.value : 0f, l = lean != null ? lean.value : 0f;
@@ -591,6 +583,15 @@ namespace RealFlag.UI
                     text += Localization.Get("PoleButton.Tilted", t.ToString("F0"), l.ToString("F0"));
                 return text;
             };
+        }
+
+        /// <summary>A window's pole stands on its foot, by its tilt, lean and edge hoisted (FlagStand); else it is a crossbar reaching out level.</summary>
+        private static bool Stands(FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom)
+        {
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(0f, tilt != null ? tilt.value : 0f, lean != null ? lean.value : 0f, hoistedFrom != null ? hoistedFrom.value : FlagHoist.Side,
+                                  out hx, out hy, out hz, out fx, out fy, out fz);
+            return FlagStand.Upright(hy);
         }
 
         private static string PoleKey(int style)
@@ -964,8 +965,9 @@ namespace RealFlag.UI
         /// ropes, colours and thickness, and the hoist's tilt and lean -- the pole's angle, which a
         /// flag on a pole of the city's own (a wall-mounted one) has too.
         /// </summary>
-        private static void AddPole(PanelPage page, IntSetting pole, IntSetting ropes, IntSetting poleColour, IntSetting topColour, IntSetting ropeColour,
-                                    FloatSetting thickness, FloatSetting tilt, FloatSetting lean, Action changed, Func<bool> enabled)
+        private static void AddPole(PanelPage page, IntSetting pole, FloatSetting height, IntSetting ropes, IntSetting poleColour, IntSetting topColour,
+                                    IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
+                                    Action changed, Action heightChanged, Func<bool> enabled)
         {
             Func<bool> drawn = () => (enabled == null || enabled()) && pole.value != FlagPoleStyle.None;
 
@@ -979,6 +981,20 @@ namespace RealFlag.UI
                 ChoiceKeys = FlagPoleStyle.NameKeys,
                 AfterChange = changed,
                 Enabled = enabled,
+            });
+
+            // How tall a pole that stands is (its foot to the flag's top); a crossbar reaching out
+            // level finds its own length, along to its wall.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = page,
+                Float = height,
+                DefaultFloat = Settings.Defaults.Height,
+                Min = 1f, Max = Settings.Defaults.MaxNewHeight, Step = 0.5f,
+                Format = Metres,
+                AfterChange = heightChanged,
+                Enabled = () => drawn() && Stands(tilt, lean, hoistedFrom),
             });
 
             Add(new Row
@@ -1060,15 +1076,15 @@ namespace RealFlag.UI
         }
 
         /// <summary>A window's Flagpole button: its words say what the pole is; a click opens the popup's page for it, beside the window (<paramref name="beside"/>, a UI component's name).</summary>
-        private static void AddPoleButton(PanelPage tab, PanelPage popup, string id, string beside, IntSetting pole, IntSetting ropes,
-                                          FloatSetting tilt, FloatSetting lean, Func<bool> enabled)
+        private static void AddPoleButton(PanelPage tab, PanelPage popup, string id, string beside, IntSetting pole, FloatSetting height, IntSetting ropes,
+                                          FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom, Func<bool> enabled)
         {
             Add(new Row
             {
                 Kind = RowKind.Button,
                 Panel = tab,
                 Id = id,
-                ButtonText = PoleSummary(pole, ropes, tilt, lean),
+                ButtonText = PoleSummary(pole, height, ropes, tilt, lean, hoistedFrom),
                 OnClick = () => PolePanel.Toggle(popup, Component(beside)),
                 Enabled = enabled,
             });
@@ -1110,10 +1126,12 @@ namespace RealFlag.UI
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewDarkness, null, null);
 
-            AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewRopes,
-                          Settings.NewTilt, Settings.NewLean, null);
-            AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
-                    Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, null, null);
+            // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
+            // Elevation of its own. Its pole's height is in the Flagpole popup.
+            AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewHeight, Settings.NewRopes,
+                          Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
+            AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
+                    Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null, null, null);
 
             Add(new Row
             {
@@ -1123,16 +1141,6 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.Rotation,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Panel = PanelPage.New,
-                Float = Settings.NewHeight,
-                DefaultFloat = Settings.Defaults.Height,
-                Min = 0f, Max = Settings.Defaults.MaxNewHeight, Step = 0.5f,
-                Format = NewElevation,
             });
 
             Add(new Row
@@ -1278,10 +1286,12 @@ namespace RealFlag.UI
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelDarkness, FlagEditor.ApplyDesign, selected);
 
-            AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelRopes,
-                          Settings.SelTilt, Settings.SelLean, selected);
-            AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
-                    Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, FlagEditor.ApplyDesign, selected);
+            // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
+            // in the Flagpole popup; Page Up, Page Down and the gizmo move the whole flag.
+            AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelHeight, Settings.SelRopes,
+                          Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, selected);
+            AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHeight, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
+                    Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
 
             // The pole keeps its length when Move It raises the flag; this finds the ground again.
             Add(new Row
@@ -1301,17 +1311,6 @@ namespace RealFlag.UI
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
                 AfterChange = FlagEditor.ApplyRotation,
-                Enabled = selected,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Panel = PanelPage.Existing,
-                Float = Settings.SelHeight,
-                Min = 0f, Max = 300f, Step = 0.5f,
-                Format = Metres,
-                AfterChange = FlagEditor.ApplyHeight,
                 Enabled = selected,
             });
 

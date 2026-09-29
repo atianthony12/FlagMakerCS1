@@ -15,15 +15,16 @@ flagpole under it.
 Open the panel with **F6** (or its Unified UI button). It opens on the city's **Flags**.
 
 **+ New flag** (at the top of the Flags tab) opens the new flag's window beside the panel, and
-the flag follows the pointer, blowing, at the chosen height over whatever is under it (ground,
-roof, road): click to place it, and again for more. The right button turns it as the game's
-props turn: a right click turns it 45 degrees, a drag with the right button turns it freely (it
-holds its place meanwhile). **Page Up** and **Page Down** (the game's raise and lower keys)
-raise and lower the whole flag, pole and all, as Move It raises and lowers what it moves: a step
-of 12.5 cm a press, on their own once held a third of a second, Shift eight times faster, Alt
-eight times finer. The pole keeps the length it has at the elevation (its foot leaves the
-ground, or sinks into it), and the flags you place keep it; the window shows how far after the
-elevation ("24.5 m +3 m") until you close it. Close the window, or press Esc, when done. In the
+the flag follows the pointer, blowing, standing on whatever is under it (ground, roof, road;
+pointed at a wall, the ground in front of it): with a pole, the pole's foot is there and the flag
+at its top; without one, the flag's hoist. Click to place it, and again for more. The right
+button turns it as the game's props turn: a right click turns it 45 degrees, a drag with the
+right button turns it freely (it holds its place meanwhile). **Page Up** and **Page Down** (the
+game's raise and lower keys) raise and lower the whole flag, pole and all, off what it stands
+on, as Move It raises and lowers what it moves: a step of 12.5 cm a press, on their own once held
+a third of a second, Shift eight times faster, Alt eight times finer -- the way to put a flag
+without a pole where it hangs. The pointer's tip says how far, and the flags you place keep it,
+until you close the window. Close the window, or press Esc, when done. In the
 window: a country's flag -- every country and territory, England, Scotland, Wales, Northern
 Ireland, the EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
 (plain, bands, crosses, a saltire, a canton, stripes and canton, a disc, a hoist triangle, a
@@ -35,7 +36,7 @@ from** -- its side, as flags fly, or its top, as a banner hangs from a crossbar 
 turns as a flag hung upright does: the canton at the top on the left); its **motion** -- it
 **waves** in the wind, keeps **still**, or is held **flat**; how wavy the cloth is, how dark
 (for a flag whose white or yellow glares in a bright sun: its colours as if dyed darker, up to
-80%), the way it points and its elevation over the ground.
+80%), and the way it points.
 
 **Motion**: a **still** flag keeps one shape for good, caught as it flew in a steady breeze
 blowing the way it points (turn it to aim its fly; a banner hoisted from its top hangs), with
@@ -65,23 +66,23 @@ pattern until the file is back, and an edited picture shows on its flags when th
 is next open.
 
 **Flagpole** (a button in the new flag's window and in the Flags tab, which opens beside them): none by default -- the flag
-is for a pole of your own -- or a pole the mod draws from whatever the flag stands over up to
-the flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
+is for a pole of your own -- or a pole the mod draws, its **Pole height** from its foot to the
+flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
 a flash collar at its foot, a truck at its top and a gilt ball, a flat cap or a spear on it,
 one or two halyard lines, your colours for the pole, its top and its ropes, and a thickness to
 taste. With ropes, the flag hangs from its top and bottom clips only, as a hoisted flag does,
 and its edge bows out between them in the wind; without, it is held along its whole edge. The
 cloth keeps off the pole: a flag the wind turns back over its pole wraps round it. A banner
 hoisted from its top gets a crossbar instead, reaching to a wall it hangs near. The pole is
-part of the flag: raised or lowered with Move It, the flag takes its pole with it. The flag's
-own **Elevation** slides it up or down its pole, which still reaches the ground, and **Pole down
-to the ground** (a selected flag's Flagpole window) sends a moved pole down to whatever stands
-under it again. Here
+part of the flag: raised or lowered with Move It or Page Up and Page Down, the flag takes its
+pole with it. A selected flag's **Pole height** makes its pole taller or shorter, its foot where
+it stands and the flag going with the top, and **Pole down to the ground** (the same window)
+sends a moved pole down to whatever stands under it again. Here
 too the pole's **tilt** and **lean** (a wall-mounted pole leans 30 to 45 degrees, a horizontal
 one 90) -- the flag hangs from the tilted line whether a pole is drawn or not.
 
 **Flags**: every flag in the city. Click one in the list (or **Pick on the map**) to
-select it: its design, size, pole, rotation and elevation are in the tab, and it carries a
+select it: its design, size, pole and rotation are in the tab, and it carries a
 **gizmo** -- drag its red, green and blue arrows to move it along its own axes (the white knob
 slides it anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap,
 Shift to go finely. **Page Up** and **Page Down** raise and lower it, pole and all, as they do
@@ -156,7 +157,8 @@ flags while it loads -- which the mod has never seen happen -- says so, and asks
   never stretches like rubber (Kim, Chentanez and Müller 2012) and shorter steps in strong
   wind (Macklin et al. 2019). The hoist edge is pinned where the pole would be.
 - **It does not go through itself**: every particle is a sphere as wide as the grid's spacing
-  that no other may enter (Macklin et al. 2014; Müller's *Ten Minute Physics*), found through a
+  that no other may enter (Macklin et al. 2014; Müller's *Ten Minute Physics*) -- wider at a finer
+  detail, whose particles move as far in a step through smaller cells -- found through a
   spatial hash (Teschner et al. 2003) and a neighbour list (Verlet 1967), and skipped while the
   cloth is too flat to fold onto itself (Volino and Magnenat-Thalmann 1994). A flag hanging in
   calm air lays its folds on one another. A new flag is let down into the air, damped as a

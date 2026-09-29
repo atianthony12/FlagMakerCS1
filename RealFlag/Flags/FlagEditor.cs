@@ -95,8 +95,8 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Copies the selected flag into the tab's controls: everything, or (<paramref name="all"/>
-        /// false: the panel's periodic refresh) only its rotation and height, which Move It may have
-        /// changed.
+        /// false: the panel's periodic refresh) only its rotation, tilt and pole height, which Move
+        /// It, the gizmo or the pole's first cast may have changed.
         /// </summary>
         public static void Load(bool all)
         {
@@ -141,9 +141,9 @@ namespace RealFlag.Flags
                 if (Mathf.Abs(Mathf.DeltaAngle(degrees, Settings.SelRotation.value)) > 0.05f)
                     Settings.SelRotation.value = Mathf.Round(degrees * 10f) / 10f;
 
-                float height = e.Anchor.y - e.Ground;
-                if (Mathf.Abs(height - Settings.SelHeight.value) > 0.01f)
-                    Settings.SelHeight.value = Mathf.Round(height * 100f) / 100f;
+                // Its pole's length (0 while a crossbar's or an older save's is still being found).
+                if (e.Spec.HasPole && e.Spec.PoleLength > 0f && Mathf.Abs(e.Spec.PoleLength - Settings.SelHeight.value) > 0.01f)
+                    Settings.SelHeight.value = Mathf.Round(e.Spec.PoleLength * 100f) / 100f;
 
                 if (Mathf.Abs(e.Spec.Tilt - Settings.SelTilt.value) > 0.05f)
                     Settings.SelTilt.value = Mathf.Round(e.Spec.Tilt * 10f) / 10f;
@@ -234,7 +234,6 @@ namespace RealFlag.Flags
             try
             {
                 Settings.SelRotation.value = Mathf.Round(Mathf.Repeat(angle * Mathf.Rad2Deg, 360f) * 10f) / 10f;
-                Settings.SelHeight.value = Mathf.Round((anchor.y - FlagProps.GroundAt(anchor)) * 100f) / 100f;
                 Settings.SelTilt.value = Mathf.Round(tilt * 10f) / 10f;
                 Settings.SelLean.value = Mathf.Round(lean * 10f) / 10f;
             }
@@ -261,21 +260,53 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The panel's Elevation: the flag's top this high over the ground, up or down its pole --
-        /// the pole reaching down to what stands under it again, its foot where it was. (Move It and
-        /// the gizmo's arrows move the whole flag, its pole with it.)
+        /// The Flagpole popup's Pole height: the selected flag's pole this long, its foot where it
+        /// was -- the flag goes up or down its axis with the pole's top. (Move It, the gizmo's arrows
+        /// and Page Up and Page Down move the whole flag, its pole with it.) Before its first cast
+        /// has found the pole's length (an older save's), the flag stays and the foot goes.
         /// </summary>
-        public static void ApplyHeight()
+        public static void ApplyPoleHeight()
         {
             FlagEntry e;
-            if (_loading || !TryEntry(out e))
+            if (_loading || !TryEntry(out e) || !e.Spec.HasPole)
                 return;
 
-            _quietUntil = Time.realtimeSinceStartup + 0.6f;
-            FlagProps.Move(Selected, new Vector3(e.Anchor.x, e.Ground + Settings.SelHeight.value, e.Anchor.z));
-            if (e.Spec.HasPole && e.Spec.PoleLength > 0f)
-                LetPoleGo(e.Spec);
+            FlagSpec spec = e.Spec;
+            float length = Mathf.Clamp(Settings.SelHeight.value, FlagPoleShape.MinLength, FlagSpec.MaxPoleLength);
+            float old = spec.PoleLength;
+            if (Mathf.Abs(length - old) < 1e-3f)
+                return;
+
+            float hx, hy, hz, fx, fy, fz;
+            FlagOrientation.Frame(e.Angle, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            Vector3 hoist = new Vector3(hx, hy, hz);
+
+            // The foot, from where the flag stood when the slider began to move: while it moves the
+            // prop follows a frame or two behind, and the spec's length is already the new one.
+            float now = Time.realtimeSinceStartup;
+            if (_footOf != Selected || now > _footUntil)
+            {
+                _footOf = Selected;
+                _footKnown = old > 0f;
+                _foot = e.Anchor + hoist * old;
+            }
+
+            _footUntil = now + 0.6f;
+            _quietUntil = now + 0.6f;
+            spec.PoleLength = length;
+            FlagRegistry.Set(Selected, spec);
+            if (_footKnown)
+                FlagProps.Move(Selected, _foot - hoist * length);
+
+            if (Log.Detailed)
+                Log.Detail("flags: flag #" + Selected + "'s pole " + length.ToString("F1") + " m tall now (was " + old.ToString("F1") + ")");
         }
+
+        /// <summary>The selected flag's pole's foot while its Pole height moves (<see cref="ApplyPoleHeight"/>), and until when it holds.</summary>
+        private static Vector3 _foot;
+        private static uint _footOf;
+        private static bool _footKnown;
+        private static float _footUntil;
 
         /// <summary>The Flagpole popup's "Pole down to the ground": the selected flag's pole finds what stands under it again (after Move It raised or lowered the whole flag, say).</summary>
         public static void PoleToGround()

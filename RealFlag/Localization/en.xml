@@ -170,7 +170,10 @@
   <String key="SelPoleButton.Label">Flagpole</String>
   <String key="SelPoleButton.Tooltip">Pole, ropes, tilt.</String>
   <String key="PoleButton.None">Flagpole: none</String>
+  <!-- A crossbar (a banner's, or a pole tilted past 60 degrees): its length is found along to its wall. -->
   <String key="PoleButton.Pole">Flagpole: {0}, ropes: {1}</String>
+  <!-- A pole that stands: its style, its height (metres), its ropes. -->
+  <String key="PoleButton.Tall">Flagpole: {0}, {1} m, ropes: {2}</String>
   <String key="PoleButton.Tilted">, tilted {0}° / {1}°</String>
   <String key="Tab.PoleNew">New flag's pole</String>
   <String key="Tab.PoleExisting">Selected flag's pole</String>
@@ -226,10 +229,11 @@
   <String key="SelRotation.Label">Rotation</String>
   <String key="SelRotation.Tooltip">Which way it points.</String>
 
-  <String key="NewHeight.Label">Elevation</String>
-  <String key="NewHeight.Tooltip">Flag's top above ground.</String>
-  <String key="SelHeight.Label">Elevation</String>
-  <String key="SelHeight.Tooltip">Flag's top above ground.</String>
+  <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
+  <String key="NewHeight.Label">Pole height</String>
+  <String key="NewHeight.Tooltip">Foot to flag top.</String>
+  <String key="SelHeight.Label">Pole height</String>
+  <String key="SelHeight.Tooltip">Foot stays put.</String>
 
   <!-- The Flags tab. -->
   <String key="NewFlag.Label">+ New flag</String>
@@ -390,8 +394,6 @@
   <String key="Unit.Percent">{0}%</String>
   <String key="Unit.Metres">{0} m</String>
   <String key="Unit.MetresShape">{0} m · {1}</String>
-  <!-- The new flag's elevation, then how far Page Up and Page Down raised (+) or lowered (-) it, pole and all: "24.5 m +3.125 m". -->
-  <String key="Unit.MetresLift">{0} m {1} m</String>
   <String key="Unit.Size">{0} × {1} m</String>
   <String key="Unit.Degrees">{0}°</String>
   <String key="Unit.Wind">{0} m/s · Bf {1}</String>
