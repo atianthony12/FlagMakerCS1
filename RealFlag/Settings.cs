@@ -220,8 +220,8 @@ namespace RealFlag
             public const int Language = 0;
             public const bool FreezeWhenPaused = true;
 
-            /// <summary>Normal: 18 cells along, the cloth as it was first made.</summary>
-            public const int ClothDetail = FlagCloth.CellsAlong;
+            /// <summary>High: 32 cells along (2026-10-01, the author's choice; it was 18, now Low).</summary>
+            public const int ClothDetail = 32;
             public const bool SelfCollision = true;
             public const bool CityCollision = true;
 

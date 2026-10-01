@@ -143,6 +143,9 @@ namespace RealFlag.Flags
         /// <summary>Said once: its hoist stands under the surface (a roof over it, inside a building), which its cloth leaves out.</summary>
         public bool LoggedBlocked;
 
+        /// <summary>Said once: its hoist stands in a wall's slope, which its cloth keeps back from it (FlagCloth.WallShift).</summary>
+        public bool LoggedWall;
+
         /// <summary>Its cloth's FlagCloth.Relaid and FlagCloth.Unknotted when last looked at (a change is logged).</summary>
         public int Relaid;
         public int Unknotted;
@@ -302,9 +305,10 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// A flag is given the coarsest detail whose cells are at most this many pixels on the
-        /// screen (never coarser than Normal, never finer than the option): with a 45 deg camera on
-        /// a 2160-pixel screen, a 3 m flag gets High within 87 m, Very high within 65 m, Ultra
-        /// within 49 m -- a 15 m flag five times as far, a 1080-pixel screen half. The first frame
+        /// screen (never coarser than 18 cells, never finer than the option): with a 45 deg camera on
+        /// a 2160-pixel screen, a 3 m flag gets 24 cells within 87 m, 32 within 65 m, 40 within 49
+        /// m (and no more: its cells are FlagCloth.MinCell there) -- a 15 m flag five times as far
+        /// (and 52 within 196 m, 64 within 150 m), a 1080-pixel screen half. The first frame
         /// logs the camera's own figures. With a band of 15% either way before it changes back,
         /// and a few changes a frame at most (a new cloth and mesh each).
         /// </summary>
@@ -1185,14 +1189,27 @@ namespace RealFlag.Flags
 
             _loggedCamera = key;
             _nextCameraLine = now + 1f;
-            string text = string.Empty;
+            string text = string.Empty, big = string.Empty;
             int[] details = FlagCloth.Details;
             for (int i = 1; i < details.Length; i++)
             {
-                // A detail is taken from where the cells of the one below it pass PixelsPerCell.
-                float within = 3f * _pixelsPerRadian / (details[i - 1] * PixelsPerCell);
-                text += (text.Length > 0 ? ", " : "") + UI.SettingsCatalog.DetailLogName(details[i]) + " within " + within.ToString("F0") + " m";
+                // A detail is taken from where the cells of the one below it pass PixelsPerCell. The
+                // finest refine only flags whose cells are not at FlagCloth.MinCell already: told
+                // for a 10 m flag.
+                int c0, r0, c1, r1;
+                FlagCloth.GridFor(3f, 2f, details[i - 1], out c0, out r0);
+                FlagCloth.GridFor(3f, 2f, details[i], out c1, out r1);
+                bool small = c1 != c0 || r1 != r0;
+                float within = (small ? 3f : 10f) * _pixelsPerRadian / (details[i - 1] * PixelsPerCell);
+                string part = UI.SettingsCatalog.DetailLogName(details[i]) + " within " + within.ToString("F0") + " m";
+                if (small)
+                    text += (text.Length > 0 ? ", " : "") + part;
+                else
+                    big += (big.Length > 0 ? ", " : "") + part;
             }
+
+            if (big.Length > 0)
+                text += "; a 10 m flag " + big;
 
             string line = "flags: camera " + _camera.pixelHeight + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
                           " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + "); it is drawn to " +
@@ -1648,7 +1665,7 @@ namespace RealFlag.Flags
             Vector3 start = wind.DirectionFor(f.Angle);
             if (f.Cloth == null)
             {
-                // Made and settled at Normal (six 1/30 s steps a frame at Ultra would be 35 ms of
+                // Made and settled at 18 cells (six 1/30 s steps a frame at 40 would be 35 ms of
                 // one thread), then made finer as its size on the screen asks (ChooseDetail),
                 // hanging from its hoist's line (FlagOrientation, set by Place).
                 f.Detail = FlagCloth.CellsAlong;
@@ -1930,8 +1947,15 @@ namespace RealFlag.Flags
             if (cloth.SurfaceBlocked && !f.LoggedBlocked && !ghost)
             {
                 f.LoggedBlocked = true;
-                Log.Msg("flags: " + Who(f) + "'s hoist stands under a roof, inside a building or against a wall: its cloth leaves the " +
+                Log.Msg("flags: " + Who(f) + "'s hoist stands under a roof or inside a building: its cloth leaves the " +
                         "surface there out (the flat ground, props and trees still count)");
+            }
+
+            if (cloth.WallShift > 0f && !f.LoggedWall && !ghost)
+            {
+                f.LoggedWall = true;
+                Log.Msg("flags: " + Who(f) + "'s hoist stands against a wall: its cloth keeps the building, the wall kept " +
+                        cloth.WallShift.ToString("F2") + " m back from the hoist");
             }
         }
 

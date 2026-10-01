@@ -2978,6 +2978,81 @@ public static class ClothTests
         return under.SurfaceBlocked + "," + same + "," + far.SurfaceInUse + "," + far.CapsulesInUse + "," + sameFar;
     }
 
+    /// <summary>
+    /// The author's 18.4 m flag (1:1.9, 200% wavy) beside a 36 m building (a box 20 m along the
+    /// flag's heading, 12 m deep, its face <paramref name="walld"/> m off the hoist, its roof 0.8 m
+    /// over the anchor), the wind 5 m/s <paramref name="relDegrees"/> off the heading: made at 18
+    /// cells and calmed as the renderer makes one, 4 s, made 64 cells, then dragged 15 m along the
+    /// wall in 2 s as Move It drags a prop (the anchor moved every 1/60 s frame, its step through
+    /// PlanDrag), then 6 s. Returns the particles that moved more than a cell in one sub-step (the
+    /// building swept into the cloth and put it out at once: 900-1300 before 2026-10-01), the knots
+    /// and buried relayouts, the worst stretch from the drag on, blocked at the end, the wall kept
+    /// back from the hoist (m).
+    /// </summary>
+    public static string DraggedPastWall(float walld, float relDegrees)
+    {
+        float L = 18.4f, H = L * 0.526f, up = 35.5f;
+        double rel = relDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(rel), dirZ = (float)Math.Sin(rel);
+        SurfaceGrid g = Grid(0f, 0f, 1.25f * (1.02f * L + 0.5f), -up);
+        RaiseBox(g, -10f, walld, 10f, walld + 12f, -up, 0.8f);
+        g.Finish();
+
+        float ax = -15f;
+        FlagCloth c = new FlagCloth(L, H, FlagFabric.Standard(2f), dirX, dirZ);
+        c.GroundY = -up;
+        c.SetSurface(g, -ax, 0f, 0f);
+        c.LayOutClear(dirX, dirZ);
+        c.Calm(FlagCloth.CalmTime);
+        float t = 0f, dt = 1f / 60f;
+        float speed = FlagWind.SpeedAt(5f, up);
+        for (int s = 0; s < 240; s++)
+        {
+            int sub = c.SubStepsFor(speed, dt);
+            for (int i = 0; i < sub; i++) { FlagAir air = FlagWind.Air(5f, 1f, dirX, dirZ, up, 2f, L, t + i * dt / sub, ax, 0f); c.Step(dt / sub, ref air); }
+            t += dt;
+        }
+
+        FlagCloth f = new FlagCloth(L, H, c.Fabric, 1f, 0f, 64);
+        f.TakeShape(c, true);
+        f.GroundY = c.GroundY;
+        f.SetSurface(g, -ax, 0f, 0f);
+        c = f;
+        int before = c.Unknotted + c.Relaid, jumps = 0;
+        float worst = 1f, cell = Math.Min(c.CellU, c.CellV);
+        float[] lx = new float[c.Count], ly = new float[c.Count], lz = new float[c.Count];
+        for (int s = 0; s < 480; s++)
+        {
+            if (s < 120)
+            {
+                c.MoveAnchor(0.125f, 0f, 0f);
+                ax += 0.125f;
+                c.SetSurface(g, -ax, 0f, 0f);
+            }
+
+            int sub = c.SubStepsFor(speed, dt);
+            c.PlanDrag(dt, sub);
+            for (int i = 0; i < sub; i++)
+            {
+                Array.Copy(c.X, lx, c.Count); Array.Copy(c.Y, ly, c.Count); Array.Copy(c.Z, lz, c.Count);
+                int knots = c.Unknotted + c.Relaid;
+                FlagAir air = FlagWind.Air(5f, 1f, dirX, dirZ, up, 2f, L, t + i * dt / sub, ax, 0f);
+                c.Step(dt / sub, ref air);
+                if (c.Unknotted + c.Relaid != knots) continue;
+                for (int k = 0; k < c.Count; k++)
+                {
+                    float ex = c.X[k] - lx[k], ey = c.Y[k] - ly[k], ez = c.Z[k] - lz[k];
+                    if (ex * ex + ey * ey + ez * ez > cell * cell) jumps++;
+                }
+            }
+            c.EndDrag();
+            t += dt;
+            float st = c.MaxStretch(); if (st > worst) worst = st;
+        }
+        return jumps + "," + (c.Unknotted + c.Relaid - before) + "," + worst.ToString("F3", Inv) + "," + c.SurfaceBlocked + "," +
+               c.WallShift.ToString("F2", Inv) + "," + c.IsFinite() + "," + c.Columns + "x" + c.Rows;
+    }
+
     /// <summary>A step's cost (us, .NET) of a 3 x 2 m flag hanging in calm air onto a roof under it, and of the same flag with nothing under it.</summary>
     public static string CityCost()
     {
@@ -3170,7 +3245,8 @@ Check "a new hoist line stands the flag again where it stood: side to top and ba
 
 $off = [ClothTests]::Crossings(0, 1, 18, $false, 3, 2, 20) -split ","
 Check "without self-collision, calm air: the cloth goes through itself (the check sees it)" ((N $off[0]) -gt 0.5) ("in " + $off[0] + " of the samples, " + $off[1] + " pairs on average, " + $off[2] + " at most")
-foreach ($case in @(@(0, 1, 18, 3, 2), @(2, 1, 18, 3, 2), @(12, 1, 18, 3, 2), @(0, 2, 18, 3, 2), @(0, 1, 32, 3, 2), @(2, 1, 32, 3, 2), @(1.5, 2, 18, 14.5, 7.25), @(0, 1, 40, 3, 2))) {
+# The 52 and 64 cells refine only flags over 3.2 m: the author's 8.9 m flags (1:1.9, 2:3).
+foreach ($case in @(@(0, 1, 18, 3, 2), @(2, 1, 18, 3, 2), @(12, 1, 18, 3, 2), @(0, 2, 18, 3, 2), @(0, 1, 32, 3, 2), @(2, 1, 32, 3, 2), @(1.5, 2, 18, 14.5, 7.25), @(0, 1, 40, 3, 2), @(2, 1, 52, 8.9, 5.93), @(5, 2, 64, 8.9, 4.68))) {
     $x = [ClothTests]::Crossings($case[0], $case[1], $case[2], $true, $case[3], $case[4], 20) -split ","
     Check ("self-collision: {0} m flag, {1} m/s, waviness {2}%, {3} cells: never through itself" -f $case[3], $case[0], (100 * $case[1]), $case[2]) ((N $x[0]) -eq 0 -and (N $x[3]) -lt 1.30) ($x[4] + ": crossing in " + $x[0] + " of the samples, worst stretch " + $x[3])
 }
@@ -3178,7 +3254,7 @@ foreach ($case in @(@(0, 1, 18, 3, 2), @(2, 1, 18, 3, 2), @(12, 1, 18, 3, 2), @(
 # ---- the details ------------------------------------------------------------------------
 
 $g = [ClothTests]::Grids(3, 2); $g1 = [ClothTests]::Grids(1, 0.667); $g15 = [ClothTests]::Grids(14.5, 7.25)
-Check "the details' grids: finer on big flags, none under 8 cm" ($g -eq "19x13 25x17 33x22 39x26" -and $g1 -eq "13x9 13x9 13x9 13x9" -and $g15 -eq "19x10 25x13 33x17 41x21") ("3 x 2 m: " + $g + "; 1 m: " + $g1 + "; 14.5 m at 1:2: " + $g15)
+Check "the details' grids: finer on big flags, none under 8 cm" ($g -eq "19x13 25x17 33x22 39x26 39x26 39x26" -and $g1 -eq "13x9 13x9 13x9 13x9 13x9 13x9" -and $g15 -eq "19x10 25x13 33x17 41x21 53x27 65x33") ("3 x 2 m: " + $g + "; 1 m: " + $g1 + "; 14.5 m at 1:2: " + $g15)
 foreach ($d in 24, 32, 40) {
     $c0 = [ClothTests]::Droop([ClothTests]::RunAt(0, 12, 1, $d)) -split ","
     $c2 = [ClothTests]::Droop([ClothTests]::RunAt(2, 12, 1, $d)) -split ","
@@ -3386,6 +3462,16 @@ foreach ($case in @(@(6, 0, $false, 3), @(12, 0, $false, 3), @(6, 45, $false, 3)
 foreach ($case in @(@(6, 0, $false), @(6, 0, $true))) {
     $wl = [ClothTests]::Wall($case[0], $case[1], $case[2], $true) -split ","
     Check ("laid straight through a wall ({0}, {1} m/s): found buried, laid out afresh where it is free, then as the rest" -f $(if ($case[2]) { "a banner" } else { "a flag" }), $case[0]) ($wl[0] -eq "True" -and (N $wl[1]) -le 0.01 -and (N $wl[6]) -le (N $wl[9]) + 0.03 -and (N $wl[7]) -le 1 -and (N $wl[5]) -ge 1) ("laid out afresh " + $wl[5] + " time(s); at most " + $wl[1] + " m past its face after 1 s; stretch " + $wl[6] + " on average, over 30% for " + $wl[7] + "% of the time, " + $wl[3] + " at worst")
+}
+# Dragged along a building (Move It, 7.5 m/s): the wall sweeps into the cloth, which is carried with
+# its anchor. Put out at once, 900-1300 particles jumped more than a cell in a sub-step and a link
+# tore 170% long -- in the game "the flag animation resets many times ... fighting for space" (the
+# author's 18.4 m flag, 2026-10-01). Let out at a dragged flag's speed (FlagCloth.ExitTolerance): a
+# dozen at most, no knot. And a pole 0.3 m off the wall, its hoist in the wall's slope: the building
+# kept, the wall held back from the hoist (it was left out whole: the cloth blew through it).
+foreach ($case in @(@(0.8, 20), @(0.3, 0))) {
+    $dw = [ClothTests]::DraggedPastWall($case[0], $case[1]) -split ","
+    Check ("the author's 18.4 m flag at 64 cells dragged 15 m along a 36 m wall {0} m off its hoist in 2 s, the wind {1} deg towards it: no jumps, no knot, the wall kept" -f $case[0], $case[1]) ((N $dw[0]) -le 30 -and (N $dw[1]) -eq 0 -and (N $dw[2]) -lt 2.0 -and $dw[3] -eq "False" -and $dw[5] -eq "True") ($dw[6] + ": " + $dw[0] + " particle jumps of more than a cell in a sub-step, " + $dw[1] + " knots/relayouts, worst stretch " + $dw[2] + ", blocked " + $dw[3] + ", the wall kept " + $dw[4] + " m back from the hoist")
 }
 foreach ($speed in 2, 6) {
     $po = [ClothTests]::Post($speed) -split ","

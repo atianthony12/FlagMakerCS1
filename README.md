@@ -178,13 +178,19 @@ flags while it loads -- which the mod has never seen happen -- says so, and asks
   climbs to its roof: the cloth stops a few centimetres short of it rather than into it. Props
   and trees are the upright capsules the game itself picks them by, which the cloth keeps off as
   it keeps off its pole; one round the hoist (a pole of the city's own under a flag) is narrowed
-  to leave the hoist outside. A new flag is laid out the first way clear of the walls round it.
+  to leave the hoist outside; a wall a pole stands against is kept back from its hoist. A flag
+  dragged through or along a building (Move It, the placing pointer) is not snapped out of it: what
+  the building sweeps into is let out no faster than a dragged flag moves -- the cap NVIDIA PhysX
+  puts on an overlap's way out (its maximum depenetration velocity). A new flag is laid out the
+  first way clear of the walls round it.
   A flag high above everything costs nothing more. Not yet: roads and bridges; anything over a
   flag (an arcade, a canopy -- a flag whose hoist stands under a roof leaves that roof out);
   still and flat flags, which keep the shape they were made with.
-- **Cloth detail** (the options page, or the foot of the panel): Normal, High, Very high or
-  Ultra -- 18 to 40 cells along a flag. Only flags big on the screen get the finest; the others
-  as fine as their size there needs.
+- **Cloth detail** (the options page, or the foot of the panel): Low, Medium, High (the
+  default), Very high, Ultra or Extreme -- 18 to 64 cells along a flag. Only flags big on the
+  screen get the finest; the others as fine as their size there needs. Ultra and Extreme refine
+  flags over about 3 m (smaller ones are at their finest already) and cost two to four times
+  Very high's.
 - **The drawn surface** is smooth: a flag big on the screen is drawn up to four times finer
   than its particles, on the Catmull-Rom surface through them (Catmull and Rom 1974), worked
   out on the GPU from the particles in a small texture, with its normals from the surface; its
@@ -248,7 +254,9 @@ Written from scratch after these, with thanks (no code from them is included):
   and J. Ratcliff, *Position Based Dynamics* (2007); T.-Y. Kim, N. Chentanez and M. Müller,
   *Long Range Attachments* (SCA 2012); M. Macklin et al., *Small Steps in Physics Simulation*
   (SCA 2019) -- the cloth; the world velocity and inertia scales of NVIDIA PhysX's and Unity's
-  cloth -- the idea of a moved flag dragging its cloth only in part; A. S. Day, *An
+  cloth -- the idea of a moved flag dragging its cloth only in part; NVIDIA PhysX's maximum
+  depenetration velocity (Unity's Rigidbody.maxDepenetrationVelocity) -- the idea of letting
+  cloth the city swept into out slowly; A. S. Day, *An
   introduction to dynamic relaxation* (The Engineer, 1965), and M. R. Barnes, *Form-finding and
   analysis of prestressed nets and membranes* (Computers & Structures, 1988) -- a new flag let
   down into the air, not dropped.

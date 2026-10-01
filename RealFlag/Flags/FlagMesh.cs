@@ -42,8 +42,13 @@ namespace RealFlag.Flags
         /// <summary>At most this many drawn cells a cloth cell, each way.</summary>
         public const int MaxRefine = 4;
 
-        /// <summary>A drawn grid is kept under this many vertices (an Ultra 30 m flag at four: 17 500).</summary>
-        public const int MaxVertices = 20000;
+        /// <summary>
+        /// A drawn grid is kept under this many vertices: a 2:3 flag at four drawn cells a cloth
+        /// cell, 17 500 at 40 cells, 29 500 at 52, 44 500 at 64 (a square one at 64 is drawn at
+        /// three, 37 000). It was 20 000 until 2026-10-01, which drew a 64-cell flag at two, coarser
+        /// than at 40. Under 65 535: Unity 5.6's 16-bit indices.
+        /// </summary>
+        public const int MaxVertices = 45000;
 
         /// <summary>The edges smoothed before drawing (ClothSurface.SmoothEdges); off for comparisons in the preview.</summary>
         public static bool SmoothEdges = true;

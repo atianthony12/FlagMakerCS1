@@ -162,19 +162,27 @@ namespace RealFlag.Flags
         public const int CellsAlong = 18;
 
         /// <summary>
-        /// The details a cloth can have, cells along its longer side: Normal, High, Very high,
-        /// Ultra (the option's choice is the finest; the renderer gives each flag what its size on
-        /// the screen needs). Measured on a 3 x 2 m flag against Normal (20 s each, the scratchpad's
-        /// bench and tools/test-cloth.ps1): the same flight at 6 m/s -- the fly's reach, the
-        /// waves' speed within a tenth, the fly's flapping within a fifth -- while in calm air the
-        /// finer cloth hangs straighter (82 deg of droop at Normal, 85 at High, 87 at Very high, 88
-        /// at Ultra), as real cloth does. The cost (the GPU preview's Unity 5.6 Mono, a 1/60 s step
-        /// with its mesh): 0.4 ms at Normal, x2 at High, x4 at Very high in calm air and x8 at
-        /// 6 m/s (its 9 cm cells take two sub-steps there), x7 and x13 at Ultra. Flags over 3 m
+        /// The details a cloth can have, cells along its longer side: Low, Medium, High, Very high,
+        /// Ultra, Extreme (the option's choice is the finest; the renderer gives each flag what its
+        /// size on the screen needs). Until 2026-10-01 there were four, named Normal 18, High 24,
+        /// Very high 32, Ultra 40 -- the names the comments and docs/HISTORY.md use for those
+        /// counts ("Normal" is 18 cells, <see cref="CellsAlong"/>, throughout). Measured on a 3 x 2 m
+        /// flag against 18 (20 s each, the scratchpad's bench and tools/test-cloth.ps1): the same
+        /// flight at 6 m/s -- the fly's reach, the waves' speed within a tenth, the fly's flapping
+        /// within a fifth -- while in calm air the finer cloth hangs straighter (82 deg of droop at
+        /// 18, 85 at 24, 87 at 32, 88 at 40), as real cloth does. The cost (the GPU preview's Unity
+        /// 5.6 Mono, a 1/60 s step with its mesh): 0.4 ms at 18, x2 at 24, x4 at 32 in calm air and
+        /// x8 at 6 m/s (its 9 cm cells take two sub-steps there), x7 and x13 at 40. Flags over 3 m
         /// keep one sub-step to stronger winds (their cells are longer), so they cost less for the
-        /// same detail.
+        /// same detail. 52 and 64 (2026-10-01) refine only flags over 3.2 m (a 3 m flag's cells are
+        /// <see cref="MinCell"/> at 40 already): on the author's 8.9 m flag at 1:1.9 (41 x 22
+        /// particles at 40, 53 x 28 at 52, 65 x 35 at 64) the cloth bends tighter at each -- the
+        /// tightest 1% of its bends 18-21 cm in radius at 40, 14-16 at 52, 11-13 at 64; 14.5 and
+        /// 21.7 m flags alike in proportion -- at the same flight (droop and reach), worst link
+        /// 1.09-1.18, never through itself in free air (.NET, 20 s at 0-12 m/s, 23 m up). The cost
+        /// (.NET, a 1/60 s step): x2 at 52 and x3-4 at 64 against 40 (1.3-2.9 ms at 64 on one thread).
         /// </summary>
-        public static readonly int[] Details = { 18, 24, 32, 40 };
+        public static readonly int[] Details = { 18, 24, 32, 40, 52, 64 };
 
         /// <summary>
         /// The smallest cell, metres: flags under 1.44 m (at Normal) get fewer cells, not smaller
@@ -200,9 +208,10 @@ namespace RealFlag.Flags
         public const float CollisionThickness = 1.0f;
 
         /// <summary>
-        /// Self-collision's thickness, metres: <see cref="CollisionThickness"/> cells at Normal, and
-        /// at a finer detail the geometric mean of its cell and the Normal detail's -- 1.15 cells
-        /// at High, 1.33 at Very high, 1.45-1.49 at Ultra (a 3 m flag: 17, 14, 12.5, 11.5 cm). The
+        /// Self-collision's thickness, metres: <see cref="CollisionThickness"/> cells at Normal (18
+        /// cells), and at a finer detail the geometric mean of its cell and the Normal detail's --
+        /// 1.15 cells at 24, 1.33 at 32, 1.45-1.49 at 40 (a 3 m flag: 17, 14, 12.5, 11.5 cm) --
+        /// held to <see cref="MaxCollisionCells"/> at 52 and 64. The
         /// cloth moves as far in a step at every detail -- the air and the step are the same, only
         /// the cells shrink -- so a cell-thick finer cloth let its particles through one another
         /// twice as often, and the cloth against itself then held the layers crossed: a 2.8 m flag
@@ -217,6 +226,19 @@ namespace RealFlag.Flags
         /// is within a thickness at rest.
         /// </summary>
         public readonly float CollisionWidth;
+
+        /// <summary>
+        /// The most cells <see cref="CollisionWidth"/> may be: 40 cells' 1.45-1.49, so the four
+        /// first details are as they were. Grown on by the geometric mean, 64 cells' cloth would be
+        /// 1.9 cells thick: a particle and the one two along it touch at a bend of a radius near the
+        /// thickness, so it bent no tighter than 52's, and in calm air held its links 17% long
+        /// (pushed apart in its own plane). Held here, the bends grow tighter with every detail and
+        /// no knot was found: the author's 8.9 m flag on its 23 m, 200% thick pole, a 14.5 m and a 6
+        /// m tilted low one, the wind from behind (draped), across and away, a wall behind, at 40, 52
+        /// and 64 cells, 10 min each (the knots harness, 2026-10-01): none laid out afresh, the
+        /// draped flag through itself in 1-4% of the samples at 52 and 64 against 2-22% at 40.
+        /// </summary>
+        public const float MaxCollisionCells = 1.5f;
 
         /// <summary>
         /// The neighbour list's reach, as a multiple of the thickness: pairs this near are listed,
@@ -268,6 +290,55 @@ namespace RealFlag.Flags
         /// (<see cref="SurfaceBlocked"/>): a flag hoisted along a roof's edge is not under it.
         /// </summary>
         private const float HoistUnder = 0.05f;
+
+        /// <summary>
+        /// A held hoist under the surface where it slopes steeper than this (rise over run) stands
+        /// in a WALL's slope -- the grid holds a wall as a slope a node wide, grown half a node
+        /// out: the wall is kept back from it down the slope first (<see cref="HoistClear"/>), then
+        /// any of eight ways.
+        /// </summary>
+        private const float WallSlope = 1f;
+
+        /// <summary>
+        /// The most a wall is kept back from a hoist standing in it, in the grid's nodes, and at
+        /// least <see cref="MinWallShift"/> metres: a pole partly touching a building (2026-10-01:
+        /// the author's 18.4 m flag, its hoist 0.3 m off a 36 m wall, found its hoist in the wall's
+        /// slope and left the whole surface out -- the cloth blew through the building). Further in
+        /// than that, the flag stands inside the building: the surface is left out, as before.
+        /// </summary>
+        private const float WallShiftNodes = 2f;
+        private const float MinWallShift = 0.5f;
+
+        /// <summary>
+        /// A free particle that BEGINS a step inside the city -- deeper than this share of the
+        /// surface's gap, or of a capsule's margin -- did not move there: a building or a tree
+        /// swept into it (its flag dragged by Move It or the placing pointer: the cloth is carried
+        /// with its anchor), it was laid or carried there, or the city changed round it. It is let
+        /// out no faster than a moved flag is dragged (<see cref="DragSpeed"/>,
+        /// <see cref="MaxDragCells"/> a sub-step), along the way the surface or capsule would put
+        /// it out, and never deeper -- the speed PhysX caps an overlap's way out at (its
+        /// "max depenetration velocity", Unity's Rigidbody.maxDepenetrationVelocity). Put out at
+        /// once, as before, it jumped: the author's 18.4 m flag dragged 15 m along a 36 m wall in 2
+        /// s had 900-1300 particles jump more than a cell in a sub-step (the knots harness,
+        /// 2026-10-01), its links torn 170% long, and the flag laid out afresh for a knot after --
+        /// in the game "the flag animation resets many times ... fighting for space". A particle
+        /// that meets the city from free air (it began the step outside) is put out at once, as
+        /// before: a flag flying into a wall steps as it did, bit for bit.
+        /// </summary>
+        private const float ExitTolerance = 0.5f;
+
+        /// <summary>
+        /// The free particles letting themselves out of the city this step (<see cref="ExitTolerance"/>):
+        /// 0 none, 1 out of the surface or a capsule along its normal, 2 deep in a wall's block,
+        /// retreating level towards its row's hoist point; each kept at least as far out as A
+        /// along E.
+        /// </summary>
+        private byte[] _exit;
+        private float[] _exitAX, _exitAY, _exitAZ, _exitEX, _exitEY, _exitEZ;
+        private int _exiting;
+
+        /// <summary>The surface's point of the world this step, from the anchor (SetSurface's, less the wall kept back from the hoist).</summary>
+        private float _effX, _effZ;
 
         /// <summary>
         /// Self-collision is skipped while every normal is within 70 deg of the cloth's mean one:
@@ -478,7 +549,7 @@ namespace RealFlag.Flags
             GridFor(Length, Height, CellsAlong, out normalColumns, out normalRows);
             float cell = Math.Min(CellU, CellV);
             float normal = Math.Min(Length / (normalColumns - 1), Height / (normalRows - 1));
-            CollisionWidth = CollisionThickness * (normal > cell ? (float)Math.Sqrt(cell * normal) : cell);
+            CollisionWidth = CollisionThickness * (normal > cell ? Math.Min((float)Math.Sqrt(cell * normal), MaxCollisionCells * cell) : cell);
 
             X = new float[Count]; Y = new float[Count]; Z = new float[Count];
             PrevX = new float[Count]; PrevY = new float[Count]; PrevZ = new float[Count];
@@ -567,10 +638,11 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The passes a step of this cloth takes: the fabric's, one more at Very high, two more at
-        /// Ultra -- a longer chain of links takes more passes to hold together. Measured (3 x 2 m,
-        /// 20 s, the worst link at 6 and 12 m/s): Ultra 9.8% and 16.3% with five, 8.5% and 12.3%
-        /// with seven; Very high 7.8% and 11.2% with five. The stiffnesses are per step, so the
+        /// The passes a step of this cloth takes: the fabric's, one more at 32 cells, two more at
+        /// 40, three at 52, four at 64 -- a longer chain of links takes more passes to hold
+        /// together. Measured (3 x 2 m, 20 s, the worst link at 6 and 12 m/s): 40 cells 9.8% and
+        /// 16.3% with five, 8.5% and 12.3% with seven; 32 cells 7.8% and 11.2% with five; on an
+        /// 8.9 m flag at 12 m/s, 52 cells 11% and 64 14% at worst. The stiffnesses are per step, so the
         /// cloth folds the same (Mueller et al.'s per-pass formula).
         /// </summary>
         public int Passes
@@ -718,7 +790,22 @@ namespace RealFlag.Flags
             _dragX = 0f; _dragY = 0f; _dragZ = 0f;
             _dragStepX = 0f; _dragStepY = 0f; _dragStepZ = 0f;
             _knotted = 0f;
+
+            // Nothing on its way out of the city: laid into it, its particles count as newly buried,
+            // and its next step puts them out at once (FindExits).
+            if (_exit != null)
+                Array.Clear(_exit, 0, _exit.Length);
+            _exiting = 0;
+            _laid = true;
         }
+
+        /// <summary>
+        /// Laid out since the last step (<see cref="LayOut"/>): the city round it is put out of it at
+        /// once in the next step, as before (a banner laid hanging through the roof under it lies on
+        /// the roof from its first step; let out at a dragged flag's speed it rose through the roof
+        /// for 2 s) -- only what the city sweeps into later is let out slowly (<see cref="ExitTolerance"/>).
+        /// </summary>
+        private bool _laid;
 
         /// <summary>
         /// Lays the cloth out as <see cref="LayOut"/> does (still, wobbled) along the first way that
@@ -786,15 +873,12 @@ namespace RealFlag.Flags
             if (grid == null)
                 return inside;
 
-            float ox = _surfaceX, oy = _surfaceY, oz = _surfaceZ;
-            float h, sx, sz;
-            for (int j = 0; j < Rows; j++)
-            {
-                int k = j * Columns;
-                if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
-                    return inside;
-            }
+            // Its hoist under it: not in use, so not counted -- unless only a wall's slope, kept back.
+            float ox, oz, oy = _surfaceY;
+            if (!HoistClear(grid, out ox, out oz))
+                return inside;
 
+            float h, sx, sz;
             for (int k = 0; k < Count; k++)
             {
                 if (_invMass[k] != 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy)
@@ -1077,8 +1161,9 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// The last step found the surface over the cloth's own hoist (the flag under a roof, inside
-        /// a building, or its hoist in a wall's slope): it left the surface out -- the flat ground
-        /// alone, as before -- rather than pull the cloth against its hoist.
+        /// a building, or its hoist deeper in a wall than <see cref="WallShiftNodes"/> keeps back): it
+        /// left the surface out -- the flat ground alone, as before -- rather than pull the cloth
+        /// against its hoist.
         /// </summary>
         public bool SurfaceBlocked
         {
@@ -1178,6 +1263,9 @@ namespace RealFlag.Flags
 
             // Still being let down into the air (a flag made finer as it settles): so is this one.
             _calm = old._calm;
+
+            // Not laid out: the old cloth's shape, which the city may have swept into (FindExits).
+            _laid = false;
         }
 
         /// <summary>
@@ -1583,7 +1671,7 @@ namespace RealFlag.Flags
             _ground = ground;
 
             // ---- the city in reach this step: the surface under the cloth, the capsules near it ----
-            PrepareColliders();
+            PrepareColliders(dt);
 
             // ---- the pairs of particles near enough to collide this step (none while it is flat) ----
             float thick = 0f;
@@ -1635,10 +1723,16 @@ namespace RealFlag.Flags
 
                 Attach();
 
-                // Last: a roof or a wall is never gone through, whatever pulled the cloth there.
+                // Last: a roof or a wall is never gone through, whatever pulled the cloth there --
+                // and what began the step inside the city goes no deeper, on its way out.
                 if (_surfaceOn)
                     KeepAboveSurface();
+
+                if (_exiting > 0)
+                    KeepExiting();
             }
+
+            _laid = false;
 
             // ---- velocities are what the projection left ----
             float inv = 1f / dt;
@@ -1919,16 +2013,18 @@ namespace RealFlag.Flags
         /// highest node under it and each capsule's box -- a flag high on its pole touches nothing,
         /// and costs nothing more.
         /// The surface is left out while any held particle of the hoist lies under it (the flag under
-        /// a roof, inside a building, its hoist in a wall's slope: the grid holds all of that as
-        /// solid down to the ground, and the cloth would be pulled against its own hoist). A capsule
-        /// round the hoist is narrowed to leave the hoist outside, and its margin -- half a cell, so
-        /// no link between particles either side of a post cuts it -- kept within the room left, as
-        /// the pole's is (SetPole).
+        /// a roof, inside a building: the grid holds all of that as solid down to the ground, and the
+        /// cloth would be pulled against its own hoist) -- but a hoist in a wall's slope keeps the
+        /// surface, the wall kept back from it (<see cref="HoistClear"/>). A capsule round the hoist
+        /// is narrowed to leave the hoist outside, and its margin -- half a cell, so no link between
+        /// particles either side of a post cuts it -- kept within the room left, as the pole's is
+        /// (SetPole). Then what begins the step inside the city (<see cref="FindExits"/>).
         /// </summary>
-        private void PrepareColliders()
+        private void PrepareColliders(float dt)
         {
             _surfaceOn = false;
             _capCount = 0;
+            _exiting = 0;
             if (_surface == null && _capsules == null)
                 return;
 
@@ -1969,16 +2065,10 @@ namespace RealFlag.Flags
             SurfaceGrid grid = _surface;
             if (grid != null)
             {
-                float ox = _surfaceX, oy = _surfaceY, oz = _surfaceZ;
-                bool blocked = false;
-                for (int j = 0; j < Rows && !blocked; j++)
-                {
-                    int k = j * Columns;
-                    float h, sx, sz;
-                    if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
-                        blocked = true;
-                }
-
+                float ox, oy = _surfaceY, oz;
+                bool blocked = !HoistClear(grid, out ox, out oz);
+                _effX = ox;
+                _effZ = oz;
                 _surfaceBlocked = blocked;
                 if (!blocked)
                 {
@@ -1989,7 +2079,10 @@ namespace RealFlag.Flags
 
             CapsuleSet set = _capsules;
             if (set == null)
+            {
+                FindExits(dt);
                 return;
+            }
 
             float half = 0.5f * small;
             float bx = _capsulesX, by = _capsulesY, bz = _capsulesZ;
@@ -2039,6 +2132,274 @@ namespace RealFlag.Flags
                 _capReach[_capCount] = radius + margin;
                 _capCount++;
             }
+
+            FindExits(dt);
+        }
+
+        /// <summary>
+        /// Whether the surface can be kept with the held hoist where it is, and from where: the
+        /// surface's point of the world from the anchor (<paramref name="ox"/>, <paramref name="oz"/>)
+        /// -- SetSurface's, or, with the hoist in a wall's slope (<see cref="WallSlope"/>), that
+        /// point moved so the wall stands back from the hoist (<see cref="WallShift"/>): sampled
+        /// that much further down the slope, as if the wall were built that much further off. A
+        /// wall a node or two thick in the grid moves back whole, and so do the rest of the
+        /// building and the ground round it, by no more than <see cref="WallShiftNodes"/> nodes.
+        /// False: the hoist is under a roof or inside a building -- the surface is left out.
+        /// </summary>
+        private bool HoistClear(SurfaceGrid grid, out float ox, out float oz)
+        {
+            ox = _surfaceX;
+            oz = _surfaceZ;
+            float oy = _surfaceY;
+            float gx = 0f, gz = 0f;
+            bool under = false;
+            for (int j = 0; j < Rows; j++)
+            {
+                int k = j * Columns;
+                float h, sx, sz;
+                if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
+                {
+                    gx += sx;
+                    gz += sz;
+                    under = true;
+                }
+            }
+
+            if (!under)
+            {
+                WallShift = 0f;
+                return true;
+            }
+
+            // The same hoist on the same surface as last time: the same answer (the search below
+            // samples the grid up to 9 x 16 times a held particle).
+            int bottom = (Rows - 1) * Columns;
+            if (grid == _clearGrid && ox == _clearX && oy == _clearY && oz == _clearZ && X[0] == _clearTopX && Y[0] == _clearTopY &&
+                Z[0] == _clearTopZ && X[bottom] == _clearBottomX && Y[bottom] == _clearBottomY && Z[bottom] == _clearBottomZ)
+            {
+                ox = _clearOX;
+                oz = _clearOZ;
+                WallShift = _clearShift;
+                return _clearOk;
+            }
+
+            _clearGrid = grid; _clearX = ox; _clearY = oy; _clearZ = oz;
+            _clearTopX = X[0]; _clearTopY = Y[0]; _clearTopZ = Z[0];
+            _clearBottomX = X[bottom]; _clearBottomY = Y[bottom]; _clearBottomZ = Z[bottom];
+
+            // The nearest way back that leaves the hoist the cloth's own gap clear of the surface
+            // (KeepAboveSurface's: the particles beside the hoist are not pushed off it) -- down the
+            // slope first (away from a wall), then the eight ways round: a hoist inside a wall's
+            // band grown half a node out stands where the grid is level.
+            float g = (float)Math.Sqrt(gx * gx + gz * gz);
+            float gap = SurfaceGap + SurfaceGapCells * Math.Min(CellU, CellV);
+            float step = 0.125f * grid.Spacing, most = Math.Max(WallShiftNodes * grid.Spacing, MinWallShift);
+            for (float t = step; t <= most + 1e-4f; t += step)
+            {
+                for (int w = 0; w < 9; w++)
+                {
+                    float ux, uz;
+                    if (w == 0)
+                    {
+                        if (g < WallSlope)
+                            continue;
+
+                        ux = -gx / g;
+                        uz = -gz / g;
+                    }
+                    else
+                    {
+                        double a = (w - 1) * (Math.PI / 4);
+                        ux = (float)Math.Cos(a);
+                        uz = (float)Math.Sin(a);
+                    }
+
+                    float tx = ox - t * ux, tz = oz - t * uz;
+                    bool clear = true;
+                    for (int j = 0; j < Rows && clear; j++)
+                    {
+                        int k = j * Columns;
+                        float h, sx, sz;
+                        if (_invMass[k] == 0f && grid.Sample(X[k] - tx, Z[k] - tz, out h, out sx, out sz) && Y[k] < h + oy + gap)
+                            clear = false;
+                    }
+
+                    if (clear)
+                    {
+                        ox = tx;
+                        oz = tz;
+                        WallShift = t;
+                        _clearOk = true; _clearOX = ox; _clearOZ = oz; _clearShift = t;
+                        return true;
+                    }
+                }
+            }
+
+            // Further in than that: under a roof, or inside the building.
+            WallShift = 0f;
+            _clearOk = false; _clearOX = ox; _clearOZ = oz; _clearShift = 0f;
+            return false;
+        }
+
+        /// <summary>HoistClear's last question and answer.</summary>
+        private SurfaceGrid _clearGrid;
+        private float _clearX, _clearY, _clearZ, _clearTopX, _clearTopY, _clearTopZ, _clearBottomX, _clearBottomY, _clearBottomZ;
+        private bool _clearOk;
+        private float _clearOX, _clearOZ, _clearShift;
+
+        /// <summary>
+        /// How far the last step kept a wall back from the hoist standing in its slope, metres
+        /// (<see cref="HoistClear"/>); 0: none needed, or the surface left out (<see cref="SurfaceBlocked"/>).
+        /// </summary>
+        public float WallShift { get; private set; }
+
+        /// <summary>
+        /// The free particles that begin this step inside the surface or a capsule in use
+        /// (<see cref="ExitTolerance"/>): each is let out at most a dragged flag's step
+        /// (<see cref="DragSpeed"/>, <see cref="MaxDragCells"/>) along the way out it would be put
+        /// -- the surface's normal; deep in a wall's block, level towards its row's hoist point
+        /// (Retreat's way); deep under a roof lower than the hoist, up the normal (Carry's); a
+        /// capsule's, square to its axis, or deep in it towards the hoist's side -- and kept at
+        /// least that far out every pass (<see cref="KeepExiting"/>); its links may pull it out
+        /// faster. One deep in a wall's block that was not on its way out last step counts as
+        /// buried (<see cref="BuriedShare"/>): laid or carried there whole, not swept into.
+        /// </summary>
+        private void FindExits(float dt)
+        {
+            if ((!_surfaceOn && _capCount == 0) || _laid)
+            {
+                if (_exit != null)
+                    Array.Clear(_exit, 0, _exit.Length);
+                return;
+            }
+
+            if (_exit == null)
+            {
+                _exit = new byte[Count];
+                _exitAX = new float[Count]; _exitAY = new float[Count]; _exitAZ = new float[Count];
+                _exitEX = new float[Count]; _exitEY = new float[Count]; _exitEZ = new float[Count];
+            }
+
+            float most = Math.Min(DragSpeed * dt, MaxDragCells * Math.Min(CellU, CellV));
+            float gap = _surfaceMargin, depth = _depthLimit, tolerance = ExitTolerance * gap;
+            SurfaceGrid grid = _surfaceOn ? _surface : null;
+            float ox = _effX, oy = _surfaceY, oz = _effZ;
+
+            for (int k = 0; k < Count; k++)
+            {
+                byte was = _exit[k];
+                _exit[k] = 0;
+                if (_invMass[k] == 0f)
+                    continue;
+
+                float x = X[k], y = Y[k], z = Z[k];
+                float ex = 0f, ey = 0f, ez = 0f, far = 0f;
+                byte kind = 0;
+
+                float h, sx, sz;
+                if (grid != null && grid.Sample(x - ox, z - oz, out h, out sx, out sz))
+                {
+                    h += oy;
+                    float len = 1f / (float)Math.Sqrt(sx * sx + 1f + sz * sz);
+                    float nx = -sx * len, ny = len, nz = -sz * len;
+                    float push = gap - (y - h) * ny;
+                    if (push > tolerance)
+                    {
+                        if (push <= depth + gap || h <= _hoistTop)
+                        {
+                            ex = nx; ey = ny; ez = nz; far = push;
+                            kind = 1;
+                        }
+                        else
+                        {
+                            // Deep in a wall's block: left free, the surface out of its way (no way
+                            // out is known from here). Pushed level towards its row's hoist point
+                            // (Retreat's way) while its shallower neighbours went out through the
+                            // face, the two pulled apart -- links 3.8 times long -- and whipped back
+                            // 3-4 cells in a sub-step; free, the cloth outside draws it out.
+                            kind = 2;
+                            if (was != 2)
+                                _heaped++;
+                        }
+                    }
+                }
+
+                for (int c = 0; c < _capCount && kind == 0; c++)
+                {
+                    float cx = _capX[c], cz = _capZ[c], reach = _capReach[c];
+                    float dx = x - cx, dz = z - cz;
+                    if (dx > reach || dx < -reach || dz > reach || dz < -reach)
+                        continue;
+
+                    float ay = y < _capBottom[c] ? _capBottom[c] : y > _capTop[c] ? _capTop[c] : y;
+                    float dy = y - ay;
+                    float d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                    if (reach - d <= tolerance)
+                        continue;
+
+                    if (reach - d > depth || d < 1e-6f)
+                    {
+                        // Deep in it: out level, on the side of its row's hoist point (KeepOffCapsules' carry).
+                        int r = k / Columns * Columns;
+                        float hx = X[r] - cx, hz = Z[r] - cz;
+                        float hl = (float)Math.Sqrt(hx * hx + hz * hz);
+                        if (hl < 1e-4f)
+                            continue;
+
+                        float tx = cx + hx / hl * reach - x, tz = cz + hz / hl * reach - z;
+                        float tl = (float)Math.Sqrt(tx * tx + tz * tz);
+                        if (tl < 1e-6f)
+                            continue;
+
+                        ex = tx / tl; ez = tz / tl; far = tl;
+                    }
+                    else
+                    {
+                        ex = dx / d; ey = dy / d; ez = dz / d; far = reach - d;
+                    }
+
+                    kind = 1;
+                }
+
+                if (kind == 0)
+                    continue;
+
+                if (kind == 2)
+                {
+                    // Free inside the block: A behind it along nothing (KeepExiting leaves it be).
+                    _exit[k] = kind;
+                    _exitEX[k] = 0f; _exitEY[k] = 0f; _exitEZ[k] = 0f;
+                    _exitAX[k] = x; _exitAY[k] = y; _exitAZ[k] = z;
+                    _exiting++;
+                    continue;
+                }
+
+                float s = far < most ? far : most;
+                _exit[k] = kind;
+                _exitAX[k] = x + ex * s; _exitAY[k] = y + ey * s; _exitAZ[k] = z + ez * s;
+                _exitEX[k] = ex; _exitEY[k] = ey; _exitEZ[k] = ez;
+                _exiting++;
+            }
+        }
+
+        /// <summary>Every pass, last: a particle on its way out of the city (<see cref="FindExits"/>) at least as far out as this step lets it.</summary>
+        private void KeepExiting()
+        {
+            float[] px = _px, py = _py, pz = _pz;
+            for (int k = 0; k < Count; k++)
+            {
+                if (_exit[k] == 0)
+                    continue;
+
+                float ex = _exitEX[k], ey = _exitEY[k], ez = _exitEZ[k];
+                float s = (px[k] - _exitAX[k]) * ex + (py[k] - _exitAY[k]) * ey + (pz[k] - _exitAZ[k]) * ez;
+                if (s < 0f)
+                {
+                    px[k] -= ex * s;
+                    py[k] -= ey * s;
+                    pz[k] -= ez * s;
+                }
+            }
         }
 
         /// <summary>
@@ -2051,13 +2412,15 @@ namespace RealFlag.Flags
         {
             float[] px = _px, py = _py, pz = _pz;
             float depth = _depthLimit;
+            bool exiting = _exiting > 0;
             for (int c = 0; c < _capCount; c++)
             {
                 float cx = _capX[c], cz = _capZ[c], bottom = _capBottom[c], top = _capTop[c], reach = _capReach[c];
                 float reach2 = reach * reach;
                 for (int k = 0; k < Count; k++)
                 {
-                    if (_invMass[k] == 0f)
+                    // On its way out of the city this step (KeepExiting).
+                    if (_invMass[k] == 0f || (exiting && _exit[k] != 0))
                         continue;
 
                     float dx = px[k] - cx, dz = pz[k] - cz;
@@ -2113,15 +2476,17 @@ namespace RealFlag.Flags
             float[] heights = grid.Heights;
             int columns = grid.Columns, rows = grid.Rows;
             float inv = 1f / grid.Spacing;
-            // The grid's first node, relative to the anchor.
-            float ox = _surfaceX + grid.MinX, oy = _surfaceY, oz = _surfaceZ + grid.MinZ;
+            // The grid's first node, relative to the anchor (a wall kept back from the hoist: HoistClear).
+            float ox = _effX + grid.MinX, oy = _surfaceY, oz = _effZ + grid.MinZ;
             float gap = _surfaceMargin, depth = _depthLimit, ground = _ground;
             float lastX = columns - 1, lastZ = rows - 1;
             float[] px = _px, py = _py, pz = _pz;
+            bool exiting = _exiting > 0;
 
             for (int k = 0; k < Count; k++)
             {
-                if (_invMass[k] == 0f)
+                // On its way out of the city this step (KeepExiting).
+                if (_invMass[k] == 0f || (exiting && _exit[k] != 0))
                     continue;
 
                 float fx = (px[k] - ox) * inv, fz = (pz[k] - oz) * inv;
@@ -2159,7 +2524,7 @@ namespace RealFlag.Flags
                 else if (h <= _hoistTop)
                     Carry(k, nx * push, ny * push, nz * push);
                 else
-                    Retreat(k, grid, _surfaceX, oy, _surfaceZ);
+                    Retreat(k, grid, _effX, oy, _effZ);
             }
         }
 

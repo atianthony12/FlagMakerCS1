@@ -369,10 +369,12 @@
   <String key="Group.Cloth">Cloth</String>
   <String key="ClothDetail.Label">Cloth detail</String>
   <String key="ClothDetail.Tooltip">Higher looks better, costs more.</String>
-  <String key="ClothDetail.Normal">Normal</String>
+  <String key="ClothDetail.Low">Low</String>
+  <String key="ClothDetail.Medium">Medium</String>
   <String key="ClothDetail.High">High</String>
   <String key="ClothDetail.VeryHigh">Very high</String>
   <String key="ClothDetail.Ultra">Ultra</String>
+  <String key="ClothDetail.Extreme">Extreme</String>
   <String key="SelfCollision.Label">Cloth collides with itself</String>
   <String key="SelfCollision.Tooltip">No folds passing through.</String>
   <String key="CityCollision.Label">Cloth avoids buildings, props, trees</String>

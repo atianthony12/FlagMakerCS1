@@ -688,10 +688,10 @@ namespace RealFlag.UI
         /// <summary>The names of FlagCloth.Details, in its order.</summary>
         private static readonly string[] DetailNameKeys =
         {
-            "ClothDetail.Normal", "ClothDetail.High", "ClothDetail.VeryHigh", "ClothDetail.Ultra",
+            "ClothDetail.Low", "ClothDetail.Medium", "ClothDetail.High", "ClothDetail.VeryHigh", "ClothDetail.Ultra", "ClothDetail.Extreme",
         };
 
-        /// <summary>For the log: "High (24 cells)".</summary>
+        /// <summary>For the log: "High (32 cells)".</summary>
         public static string DetailLogName(int detail)
         {
             int[] values = FlagCloth.Details;
