@@ -16,6 +16,7 @@ ecosystem.
 | --- | --- | --- | --- |
 | [`UnifiedUILib.dll`](https://github.com/kianzarrin/UnifiedUI) | kianzarrin | MIT | Registers the mod's button with Unified UI, and hosts the button panel itself when the Unified UI mod is not enabled |
 | [`CitiesHarmony.API.dll`](https://github.com/boformer/CitiesHarmony) | boformer | MIT | Bootstrap shim: waits for the Harmony mod and prompts the player to install it if it is missing |
+| [ModsLibCS1](https://github.com/anthonytoumaibrahim/ModsLibCS1) (git submodule `ModsLibCS1/`) | This mod's author's own UI library | MIT | The panel's controls and looks, compiled into `RealFlag.dll` (not a DLL of its own) |
 | [`MoveItIntegration.dll`](https://github.com/Quboid/CS-MoveIt) | Quboid (Move It) | MIT | The interfaces Move It looks for in other mods, so a copied, pasted or restored flag keeps its design. Taken from Move It's own Workshop folder; with Move It installed, the game uses the copy it loaded first |
 
 ## Artwork
@@ -24,6 +25,28 @@ ecosystem.
 | --- | --- | --- | --- |
 | `RealFlag/Resources/FlagIcon.png` | Drawn by `tools/make-icon.ps1` (System.Drawing) for this mod | MIT, as the rest | The mod's button icon, embedded in the DLL |
 | `RealFlag/Resources/Flags/*.png`, `Flags/Small/*.png` | The world's flags from [Flagpedia.net](https://flagpedia.net) (its CDN, flagcdn.com), drawn from [Wikimedia Commons](https://commons.wikimedia.org)' vector files; fetched by `tools/fetch-flags.ps1` | Public domain: "The flag images provided on our website are in the public domain and can be used freely without restriction" ([flagpedia.net/terms](https://flagpedia.net/terms)) | The countries' flags on the cloth (640 px) and in the country picker (80 px), embedded in the DLL. 256 codes, 252 images |
+
+| The panel's icons: the tab and folder icons (`RealFlag/Resources/PanelIcons.png`, listed in `PanelIcons.lucide.txt`) and the library's glyphs (`ModsLibCS1/sprites/sheet.png`) | Drawn by the ModsLibCS1 UI library's tools (the library is compiled into the DLL) from the path data of [Lucide](https://lucide.dev) icons (lucide-static 0.460.0): flag, settings (the tabs), folder-open (the images folder's buttons); rotate-ccw, chevron-down, chevron-right, x (the library's reset, fold, dropdown, close) | ISC (copyright Lucide Contributors; portions Cole Bemis, as part of Feather, MIT); its notice follows | The panel's tab icons, the images folder's buttons, the close cross and the dropdown arrow, embedded in the DLL |
+
+Lucide's licence, as published in its repository:
+
+```
+ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
 
 National flags are state symbols. Showing them flown, as a city-builder does, is their ordinary
 use; some countries have laws against their flag's misuse or its registration as a trademark

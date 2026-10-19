@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ColossalFramework.UI;
+using ModsLibCS1.UI;
 using RealFlag.Flags;
 using UnityEngine;
 
@@ -16,23 +17,31 @@ namespace RealFlag.UI
     /// <remarks>
     /// What FlagsPanel did itself before the popup needed the same (Volumetric Explosions'
     /// builders, grown for flags): build a page's rows in catalog order, refresh every control
-    /// from its setting (a write only where something changed, never back into the setting --
-    /// writing a slider's value fires its change event), grey out the rows that do not apply.
+    /// from its setting (a write only where something changed, never back into the setting),
+    /// grey out the rows that do not apply. The sliders, switches, choices, headings and status
+    /// lines are ModsLibCS1's rows in the panel's look (<see cref="PanelLook"/>); this mod's own
+    /// kinds of row (colours, country, image, shape, segmented, the flag list) are built of the
+    /// library's names and buttons, their parts lined up on its names' column.
     /// </remarks>
     public sealed class RowSet
     {
         private readonly UIComponent _owner;
+        private readonly Builder _ui;
         private readonly List<Control> _controls = new List<Control>();
 
-        /// <summary>Guards the refresh against its own callbacks (writing a slider's value fires eventValueChanged).</summary>
+        /// <summary>
+        /// Guards the refresh against its own callbacks: a row set from its setting must never write
+        /// the setting straight back. (The library's SetValue / SetIndex are quiet as well.)
+        /// </summary>
         private bool _refreshing;
 
         /// <summary>The flag list, if one of the rows was it.</summary>
         public FlagListView List { get; private set; }
 
-        public RowSet(UIComponent owner)
+        public RowSet(UIComponent owner, Builder ui)
         {
             _owner = owner;
+            _ui = ui;
         }
 
         public int Count
@@ -40,13 +49,19 @@ namespace RealFlag.UI
             get { return _controls.Count; }
         }
 
+        /// <summary>Where a row's control starts: right of the names' column (200 in Vanilla, as it was).</summary>
+        private float Column
+        {
+            get { return _ui.LabelWidth + _ui.Theme.Gap; }
+        }
+
         /// <summary>One built row: whatever components it made, so they can be refreshed and greyed.</summary>
         private class Control
         {
             public Row Source;
-            public UISlider Slider;
-            public UICheckBox Check;
-            public UILabel Readout;
+            public SliderRow Slider;
+            public ChoiceRow Choice;
+            public ToggleRow Toggle;
             public UILabel Status;
             public UIButton Swatch;
             public UIButton Button;
@@ -79,6 +94,7 @@ namespace RealFlag.UI
         {
             UIPanel coloursLine = null;
             int coloursInLine = 0;
+            float rowHeight = _ui.RowHeight;
 
             foreach (Row row in SettingsCatalog.Rows)
             {
@@ -87,8 +103,8 @@ namespace RealFlag.UI
 
                 if (row.Group != null)
                 {
-                    UIBuilder.AddHeading(page, row.GroupTitle, y + 4f);
-                    y += FlagsPanel.HeadingHeight;
+                    _ui.AddHeading(page, row.GroupTitle, y + 4f);
+                    y += _ui.Theme.HeadingHeight;
                 }
 
                 // A design's colours share one line: "Colours [1] [2] [3]".
@@ -98,13 +114,11 @@ namespace RealFlag.UI
                     {
                         coloursLine = page;
                         coloursInLine = 0;
-                        UILabel label = UIBuilder.AddLabel(page, Localization.Get("Colours.Label"), new Vector3(0f, y + 8f), 0.8f);
-                        label.autoSize = false;
-                        label.size = new Vector2(196f, 20f);
-                        y += UIBuilder.RowHeight;
+                        _ui.AddName(page, Localization.Get("Colours.Label"), new Vector3(0f, y + 8f), _ui.LabelWidth);
+                        y += rowHeight;
                     }
 
-                    Control swatch = BuildSwatch(page, row, y - UIBuilder.RowHeight, coloursInLine);
+                    Control swatch = BuildSwatch(page, row, y - rowHeight, coloursInLine);
                     _controls.Add(swatch);
                     coloursInLine++;
                     continue;
@@ -118,17 +132,17 @@ namespace RealFlag.UI
                 switch (row.Kind)
                 {
                     case RowKind.Button:
-                        y += UIBuilder.RowHeight + 6f;
+                        y += rowHeight + 6f;
                         break;
                     case RowKind.FlagList:
                         y += FlagListView.RowHeight * FlagListView.VisibleRows + 12f;
                         break;
                     case RowKind.Shape:
                     case RowKind.Segmented:
-                        y += UIBuilder.RowHeight + 4f;
+                        y += rowHeight + 4f;
                         break;
                     default:
-                        y += UIBuilder.RowHeight;
+                        y += rowHeight;
                         break;
                 }
             }
@@ -156,20 +170,18 @@ namespace RealFlag.UI
                 {
                     Row row = control.Source;
 
+                    // Set quietly: the row's own callback never runs for a refresh. Again when only
+                    // the readout differs: an override (a country's proportions) changes with another row.
                     if (control.Slider != null)
                     {
-                        float display = row.Kind == RowKind.Choice ? row.ChoiceIndex : Mathf.Clamp(row.Display, row.Min, row.Max);
-                        if (!Mathf.Approximately(control.Slider.value, display))
-                            control.Slider.value = display;
-
-                        // Every time: an override (a country's proportions) changes with another row.
-                        if (control.Readout != null)
-                        {
-                            string text = ReadoutText(row, display);
-                            if (control.Readout.text != text)
-                                control.Readout.text = text;
-                        }
+                        float display = Mathf.Clamp(row.Display, row.Min, row.Max);
+                        if (!Mathf.Approximately(control.Slider.Slider.value, display) ||
+                            control.Slider.Value.text != ReadoutText(row, display))
+                            control.Slider.SetValue(display);
                     }
+
+                    if (control.Choice != null && control.Choice.Index != row.ChoiceIndex)
+                        control.Choice.SetIndex(row.ChoiceIndex);
 
                     // Again when its thumbnail went with the last city (FlagImages.Clear).
                     if (control.Country != null && row.Int != null &&
@@ -182,12 +194,13 @@ namespace RealFlag.UI
                          control.ImageFolderVersion != FlagImageFolder.Version || (row.Int.value != 0 && control.ImageThumb.texture == null)))
                         ShowImage(control);
 
-                    if (control.Check != null && row.Bool != null && !row.Pending && control.Check.isChecked != row.Bool.value)
-                        control.Check.isChecked = row.Bool.value;
+                    // Not while its confirmation is open: the value is still the old one.
+                    if (control.Toggle != null && row.Bool != null && !row.Pending && control.Toggle.Check.isChecked != row.Bool.value)
+                        control.Toggle.SetValue(row.Bool.value);
 
                     if (control.Swatch != null && row.Int != null)
                     {
-                        UIBuilder.SetSwatch(control.Swatch, (uint)row.Int.value);
+                        FlagWidgets.SetSwatch(control.Swatch, (uint)row.Int.value);
 
                         // Its code on it, to read off or type in elsewhere.
                         string tip = row.Label + " " + FlagColours.Hex((uint)row.Int.value) + ": " + row.Tooltip;
@@ -197,7 +210,7 @@ namespace RealFlag.UI
 
                     if (control.Button != null && row.ButtonText != null)
                     {
-                        string text = row.ButtonText();
+                        string text = _ui.Caps(row.ButtonText());
                         if (control.Button.text != text)
                             control.Button.text = text;
                     }
@@ -215,7 +228,7 @@ namespace RealFlag.UI
         }
 
         /// <summary>A shape or segmented row: the button of the shape the flag has (or the choice made) lit, the little flags hoisted as it is.</summary>
-        private static void RefreshOptions(Control control)
+        private void RefreshOptions(Control control)
         {
             Row row = control.Source;
 
@@ -241,21 +254,14 @@ namespace RealFlag.UI
                     continue;
 
                 control.Lit[i] = state;
-                UIBuilder.SetLit(control.Options[i], lit);
+                PanelLook.SetLit(_ui, control.Options[i], lit);
             }
         }
 
         private static string ReadoutText(Row row, float display)
         {
             string over = row.ReadoutOverride != null ? row.ReadoutOverride() : null;
-            if (over != null)
-                return over;
-
-            if (row.Kind != RowKind.Choice)
-                return row.FormatDisplay(display);
-
-            int index = Mathf.RoundToInt(display);
-            return row.Choices != null && index >= 0 && index < row.Choices.Length ? row.Choices[index] : string.Empty;
+            return over ?? row.FormatDisplay(display);
         }
 
         private void RefreshEnabled()
@@ -294,8 +300,8 @@ namespace RealFlag.UI
         {
             var control = new Control { Source = row };
             const float width = 70f, gap = 8f;
-            UIButton swatch = UIBuilder.AddSwatch(page, new Vector2(width, 22f), new Vector3(200f + index * (width + gap), y + 6f),
-                                                  row.Int != null ? (uint)row.Int.value : 0xFFFFFFu);
+            UIButton swatch = FlagWidgets.AddSwatch(page, new Vector2(width, 22f), new Vector3(Column + index * (width + gap), y + 6f),
+                                                    row.Int != null ? (uint)row.Int.value : 0xFFFFFFu);
             swatch.tooltip = row.Label + ": " + row.Tooltip;
             Row captured = row;
             swatch.eventClick += (component, e) =>
@@ -312,20 +318,18 @@ namespace RealFlag.UI
         private Control Build(UIPanel page, Row row, float y)
         {
             var control = new Control { Source = row };
+            float column = Column;
 
             switch (row.Kind)
             {
                 case RowKind.Status:
-                    control.Status = UIBuilder.AddLabel(page, row.StatusText != null ? row.StatusText() : string.Empty, new Vector3(0f, y + 8f), 0.8f);
-                    control.Status.autoSize = false;
-                    control.Status.size = new Vector2(page.width, 20f);
-                    control.Status.textColor = UIBuilder.StatusColour;
+                    control.Status = _ui.AddStatus(page, y, row.StatusText != null ? row.StatusText() : string.Empty);
                     break;
 
                 case RowKind.FlagList:
                     List = page.AddUIComponent<FlagListView>();
                     List.relativePosition = new Vector3(0f, y + 4f);
-                    List.Build(page.width);
+                    List.Build(page.width, _ui);
                     break;
 
                 case RowKind.Button:
@@ -333,8 +337,8 @@ namespace RealFlag.UI
                     bool pair = row.Id2 != null;
                     float width = pair ? (page.width - 8f) * 0.5f : page.width;
 
-                    UIButton button = UIBuilder.AddButton(page, row.ButtonText != null ? row.ButtonText() : row.Label, new Vector2(width, 32f),
-                                                          new Vector3(0f, y + 4f));
+                    UIButton button = _ui.AddButton(page, row.ButtonText != null ? row.ButtonText() : row.Label, new Vector2(width, 32f),
+                                                    new Vector3(0f, y + 4f));
                     button.textScale = 0.9f;
                     button.tooltip = row.Tooltip;
                     Row captured = row;
@@ -351,7 +355,7 @@ namespace RealFlag.UI
 
                     if (pair)
                     {
-                        UIButton second = UIBuilder.AddButton(page, row.Label2, new Vector2(width, 32f), new Vector3(width + 8f, y + 4f));
+                        UIButton second = _ui.AddButton(page, row.Label2, new Vector2(width, 32f), new Vector3(width + 8f, y + 4f));
                         second.textScale = 0.9f;
                         second.tooltip = row.Tooltip2;
                         second.eventClick += (component, e) =>
@@ -372,17 +376,11 @@ namespace RealFlag.UI
                 case RowKind.Country:
                 {
                     // "Country's flag   [ France          ] [flag]": a button that opens the picker.
-                    UILabel label = UIBuilder.AddLabel(page, row.Label, new Vector3(0f, y + 8f), 0.8f);
-                    label.autoSize = false;
-                    label.size = new Vector2(196f, 20f);
-                    label.tooltip = row.Tooltip;
+                    AddRowLabel(page, row, y, control);
 
                     const float imageWidth = 42f;
-                    float width = page.width - 200f - imageWidth - 8f;
-                    UIButton button = UIBuilder.AddButton(page, string.Empty, new Vector2(width, 26f), new Vector3(200f, y + 3f));
-                    button.textScale = 0.8f;
-                    button.textHorizontalAlignment = UIHorizontalAlignment.Left;
-                    button.textPadding = new RectOffset(8, 8, 5, 0);
+                    float width = page.width - column - imageWidth - 8f;
+                    UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
                     button.tooltip = row.Tooltip;
                     Row captured = row;
                     button.eventClick += (component, e) =>
@@ -393,12 +391,11 @@ namespace RealFlag.UI
 
                     UITextureSprite image = page.AddUIComponent<UITextureSprite>();
                     image.size = new Vector2(imageWidth, 26f);
-                    image.relativePosition = new Vector3(200f + width + 8f, y + 3f);
+                    image.relativePosition = new Vector3(column + width + 8f, y + 3f);
                     image.isInteractive = false;
 
                     control.Country = button;
                     control.CountryImage = image;
-                    control.Parts.Add(label);
                     control.Parts.Add(button);
                     control.Parts.Add(image);
                     ShowCountry(control);
@@ -413,11 +410,8 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
 
                     const float imageWidth = 42f, folderWidth = 30f, gap = 6f;
-                    float width = page.width - 200f - imageWidth - folderWidth - 2f * gap;
-                    UIButton button = UIBuilder.AddButton(page, string.Empty, new Vector2(width, 26f), new Vector3(200f, y + 3f));
-                    button.textScale = 0.8f;
-                    button.textHorizontalAlignment = UIHorizontalAlignment.Left;
-                    button.textPadding = new RectOffset(8, 8, 5, 0);
+                    float width = page.width - column - imageWidth - folderWidth - 2f * gap;
+                    UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
                     button.tooltip = row.Tooltip;
                     Row captured = row;
                     button.eventClick += (component, e) =>
@@ -428,10 +422,10 @@ namespace RealFlag.UI
 
                     UITextureSprite image = page.AddUIComponent<UITextureSprite>();
                     image.size = new Vector2(imageWidth, 26f);
-                    image.relativePosition = new Vector3(200f + width + gap, y + 3f);
+                    image.relativePosition = new Vector3(column + width + gap, y + 3f);
                     image.isInteractive = false;
 
-                    UIButton folder = UIBuilder.AddButton(page, string.Empty, new Vector2(folderWidth, 26f), new Vector3(page.width - folderWidth, y + 3f));
+                    UIButton folder = _ui.AddButton(page, string.Empty, new Vector2(folderWidth, 26f), new Vector3(page.width - folderWidth, y + 3f));
                     folder.tooltip = Localization.Get("Image.OpenTip");
                     new FolderIcon(folder, new Vector3(6f, 6f), new Vector2(18f, 14f));
                     folder.eventClick += (component, e) => FlagImageFolder.Open();
@@ -450,12 +444,12 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
                     int count = row.Presets != null ? row.Presets.Length : 0;
                     const float gap = 4f, height = 28f;
-                    float width = count > 0 ? Mathf.Floor((page.width - 200f - gap * (count - 1)) / count) : 0f;
+                    float width = count > 0 ? Mathf.Floor((page.width - column - gap * (count - 1)) / count) : 0f;
                     Row captured = row;
                     for (int i = 0; i < count; i++)
                     {
                         int preset = row.Presets[i];
-                        UIButton button = UIBuilder.AddButton(page, string.Empty, new Vector2(width, height), new Vector3(200f + i * (width + gap), y + 3f));
+                        UIButton button = _ui.AddButton(page, string.Empty, new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
                         button.tooltip = FlagProportion.Name(preset);
                         button.eventClick += (component, e) =>
                         {
@@ -483,12 +477,12 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
                     int count = row.ChoiceValues != null ? row.ChoiceValues.Length : 0;
                     const float gap = 6f, height = 28f;
-                    float width = count > 0 ? Mathf.Floor((page.width - 200f - gap * (count - 1)) / count) : 0f;
+                    float width = count > 0 ? Mathf.Floor((page.width - column - gap * (count - 1)) / count) : 0f;
                     Row captured = row;
                     for (int i = 0; i < count; i++)
                     {
                         int value = row.ChoiceValues[i];
-                        UIButton button = UIBuilder.AddButton(page, row.ChoiceName(i), new Vector2(width, height), new Vector3(200f + i * (width + gap), y + 3f));
+                        UIButton button = _ui.AddButton(page, row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
                         button.tooltip = row.Tooltip;
                         button.eventClick += (component, e) =>
                         {
@@ -520,48 +514,49 @@ namespace RealFlag.UI
                 case RowKind.Toggle:
                 {
                     Row captured = row;
-                    UICheckBox box = UIBuilder.AddCheckbox(page, y, row.Label, row.Bool != null && row.Bool.value, isChecked =>
+                    ToggleRow toggle = _ui.AddToggle(page, y, row.Label, row.Bool != null && row.Bool.value, isChecked =>
                     {
                         if (_refreshing)
                             return;
 
                         SettingsCatalog.ApplyToggle(captured, isChecked);
                     });
-                    box.tooltip = row.Tooltip;
-                    control.Check = box;
-                    control.Parts.Add(box);
+                    toggle.Check.tooltip = row.Tooltip;
+                    control.Toggle = toggle;
+                    control.Parts.AddRange(toggle.Parts);
                     break;
                 }
 
                 case RowKind.Choice:
                 {
-                    // A slider over the choices, with the choice's name as the readout (a dropdown
-                    // would need sprites nobody has read out of the atlas: Volumetric Explosions).
+                    // Vanilla: a slider over the choices, the choice's name as its value. The new
+                    // looks: a row of buttons, or a dropdown when the names don't fit (measured, so
+                    // it follows the language). Either way the row hands back an index, and what is
+                    // stored is that choice's VALUE (choice rows are stored by value).
                     Row captured = row;
-                    int count = row.Choices != null ? row.Choices.Length : 1;
-                    UISlider slider = UIBuilder.AddSlider(page, y, row.Label, 0f, Mathf.Max(1, count - 1), 1f, row.ChoiceIndex,
-                        v => ReadoutText(captured, v),
-                        v =>
-                        {
-                            if (_refreshing || captured.Int == null || captured.ChoiceValues == null)
-                                return;
+                    ChoiceRow choice = _ui.AddChoice(page, y, row.Label, row.Choices, row.ChoiceIndex, index =>
+                    {
+                        if (_refreshing || captured.Int == null || captured.ChoiceValues == null)
+                            return;
 
-                            int index = Mathf.Clamp(Mathf.RoundToInt(v), 0, captured.ChoiceValues.Length - 1);
-                            captured.Int.value = captured.ChoiceValues[index];
-                            Changed(captured);
-                        });
-                    slider.tooltip = row.Tooltip;
-                    control.Slider = slider;
-                    control.Parts.Add(slider);
-                    AddSiblings(page, control, slider);
+                        index = Mathf.Clamp(index, 0, captured.ChoiceValues.Length - 1);
+                        if (captured.Int.value == captured.ChoiceValues[index])
+                            return;
+
+                        captured.Int.value = captured.ChoiceValues[index];
+                        Changed(captured);
+                    });
+                    Tip(choice, row.Tooltip);
+                    control.Choice = choice;
+                    control.Parts.AddRange(choice.Parts);
                     break;
                 }
 
                 default:
                 {
                     Row captured = row;
-                    UISlider slider = UIBuilder.AddSlider(page, y, row.Label, row.Min, row.Max, row.Step,
-                        Mathf.Clamp(row.Display, row.Min, row.Max), row.FormatDisplay,
+                    SliderRow slider = _ui.AddSlider(page, y, row.Label, row.Min, row.Max, row.Step,
+                        Mathf.Clamp(row.Display, row.Min, row.Max), v => ReadoutText(captured, v),
                         v =>
                         {
                             if (_refreshing)
@@ -570,15 +565,31 @@ namespace RealFlag.UI
                             captured.Store(v);
                             Changed(captured);
                         });
-                    slider.tooltip = row.Tooltip;
+                    Tip(slider, row.Tooltip);
                     control.Slider = slider;
-                    control.Parts.Add(slider);
-                    AddSiblings(page, control, slider);
+                    control.Parts.AddRange(slider.Parts);
                     break;
                 }
             }
 
             return control;
+        }
+
+        /// <summary>A button that shows a name (a country's, a picture's) from its left, in the row's text size.</summary>
+        private UIButton NameButton(UIPanel page, float width, Vector3 position)
+        {
+            UIButton button = _ui.AddButton(page, string.Empty, new Vector2(width, 26f), position);
+            button.textScale = 0.8f;
+            button.textHorizontalAlignment = UIHorizontalAlignment.Left;
+            button.textPadding = new RectOffset(8, 8, 5, 0);
+            return button;
+        }
+
+        /// <summary>A row's tooltip on every part of it: whichever the pointer is over says it.</summary>
+        private static void Tip(BuiltRow row, string tooltip)
+        {
+            foreach (UIComponent part in row.Parts)
+                part.tooltip = tooltip;
         }
 
         /// <summary>A country row as its setting stands: the name on the button, the flag beside it (its thumbnail, at the flag's proportions), or "none".</summary>
@@ -625,11 +636,9 @@ namespace RealFlag.UI
         }
 
         /// <summary>A row's name on the left, as a slider row has it (greyed with the row).</summary>
-        private static void AddRowLabel(UIPanel page, Row row, float y, Control control)
+        private void AddRowLabel(UIPanel page, Row row, float y, Control control)
         {
-            UILabel label = UIBuilder.AddLabel(page, row.Label, new Vector3(0f, y + 8f), 0.8f);
-            label.autoSize = false;
-            label.size = new Vector2(196f, 20f);
+            UILabel label = _ui.AddName(page, row.Label, new Vector3(0f, y + 8f), _ui.LabelWidth);
             label.tooltip = row.Tooltip;
             control.Parts.Add(label);
         }
@@ -642,37 +651,6 @@ namespace RealFlag.UI
 
             row.AfterChange();
             SettingsCatalog.RefreshAllUIs();
-        }
-
-        /// <summary>The name label and the value readout of a slider row, so the whole row greys out together (AddSlider makes exactly three components, in that order).</summary>
-        private static void AddSiblings(UIPanel page, Control control, UISlider slider)
-        {
-            int index = -1;
-            for (int i = 0; i < page.components.Count; i++)
-            {
-                if (page.components[i] == slider)
-                {
-                    index = i;
-                    break;
-                }
-            }
-
-            if (index <= 0)
-                return;
-
-            UILabel name = page.components[index - 1] as UILabel;
-            if (name != null)
-                control.Parts.Add(name);
-
-            if (index + 1 < page.components.Count)
-            {
-                UILabel readout = page.components[index + 1] as UILabel;
-                if (readout != null)
-                {
-                    control.Readout = readout;
-                    control.Parts.Add(readout);
-                }
-            }
         }
     }
 }

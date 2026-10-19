@@ -46,6 +46,13 @@ namespace RealFlag
         /// <summary>0: the game's own language; otherwise one of <see cref="Localization.LanguageCodes"/>, from 1.</summary>
         public static IntSetting Language { get; private set; }
 
+        /// <summary>
+        /// THE PANELS' LOOK (ModsLibCS1.UI.Skin), stored by VALUE (append only): 0 See-through, 1
+        /// Game blue, 2 Vanilla (the panels as they were), 3 Frosted, the default -- Volumetric
+        /// Weather's and Real Glass's row. Every window of the panel and the HUD button wear it.
+        /// </summary>
+        public static IntSetting PanelSkin { get; private set; }
+
         /// <summary>The flags stop when the game is paused (a still for screenshots), and wave again when it runs.</summary>
         public static BoolSetting FreezeWhenPaused { get; private set; }
 
@@ -218,6 +225,9 @@ namespace RealFlag
             public const float HudButtonY = 140f;
 
             public const int Language = 0;
+
+            /// <summary>Frosted glass (ModsLibCS1.UI.Skin.Frosted), as in Volumetric Weather and Real Glass.</summary>
+            public const int PanelSkin = 3;
             public const bool FreezeWhenPaused = true;
 
             /// <summary>High: 32 cells along (2026-10-01, the author's choice; it was 18, now Low).</summary>
@@ -315,6 +325,7 @@ namespace RealFlag
                 ToggleKey = new SavedInputKey("ToggleKey", InMemory, DefaultToggleKey, false);
                 DetailedLogging = new BoolSetting("DetailedLogging", Defaults.DetailedLogging);
                 Language = new IntSetting("Language", Defaults.Language);
+                PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 FreezeWhenPaused = new BoolSetting("FreezeWhenPaused", Defaults.FreezeWhenPaused);
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);

@@ -1477,6 +1477,30 @@ namespace RealFlag.UI
                 AfterChange = ModController.RefreshButton,
             });
 
+            // The panels' look (ModsLibCS1, Volumetric Weather's and Real Glass's row). Stored by
+            // value, append only; listed with the default (Frosted glass) first and the old look
+            // last. A change rebuilds the panel where it stands (its windows with it) and the HUD
+            // button, which wears the look too.
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Options = OptionsPage.General,
+                Int = Settings.PanelSkin,
+                DefaultInt = Settings.Defaults.PanelSkin,
+                ChoiceKeys = new[] { "PanelSkin.Frosted", "PanelSkin.SeeThrough", "PanelSkin.GameBlue", "PanelSkin.Vanilla" },
+                ChoiceValues = new[]
+                {
+                    (int)ModsLibCS1.UI.Skin.Frosted, (int)ModsLibCS1.UI.Skin.SeeThrough,
+                    (int)ModsLibCS1.UI.Skin.GameBlue, (int)ModsLibCS1.UI.Skin.Vanilla,
+                },
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: panel look = " + PanelLook.Skin);
+                    ModController.RebuildPanel();
+                    ModController.RefreshButton();
+                },
+            });
+
             // The pause and the cloth: on this page and in the panel's Settings tab (the author:
             // "give it as an option for users"), where a change can be watched as it happens.
             Add(new Row

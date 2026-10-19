@@ -26,6 +26,18 @@
     <LibsDir>$(MSBuildProjectDirectory)\..\libs</LibsDir>
   </PropertyGroup>
 
+  <!-- ModsLibCS1 (git submodule at the repo root): the panels' controls and looks, compiled INTO
+       this DLL with its sprite sheet, and this mod's own icons (Resources\PanelIcons.png + .txt,
+       drawn from PanelIcons.lucide.txt) merged into its atlas. A clone made without its
+       submodules stops here, saying why. -->
+  <PropertyGroup>
+    <ModsLibCS1Props>$(MSBuildThisFileDirectory)..\ModsLibCS1\ModsLibCS1.props</ModsLibCS1Props>
+  </PropertyGroup>
+  <Import Project="$(ModsLibCS1Props)" Condition="Exists('$(ModsLibCS1Props)')" />
+  <Target Name="CheckModsLibCS1" BeforeTargets="BeforeBuild" Condition="!Exists('$(ModsLibCS1Props)')">
+    <Error Text="ModsLibCS1 is missing: run git submodule update --init" />
+  </Target>
+
   <ItemGroup>
     <EmbeddedResource Include="Resources\FlagIcon.png" />
     <!-- The countries' flags (tools\fetch-flags.ps1, Flagpedia's public-domain set): 640 px for

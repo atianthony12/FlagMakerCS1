@@ -51,7 +51,8 @@ namespace RealFlag.UI
         private UIComponent _beside;
         private bool _built, _filled;
 
-        private UILabel _title, _hint, _dragHint, _zoomReadout, _seeThrough;
+        private ModsLibCS1.UI.Builder _ui;
+        private UILabel _title, _hint, _dragHint, _seeThrough;
         private UIPanel _box;
         private UIScrollbar _bar;
         private readonly UIButton[] _buttons = new UIButton[Rows];
@@ -59,7 +60,7 @@ namespace RealFlag.UI
         private UITextureSprite _canvas;
         private Texture2D _canvasTexture;
         private Color32[] _canvasPixels;
-        private UISlider _zoom;
+        private ModsLibCS1.UI.SliderRow _zoom;
         private UIButton _fill, _whole, _turn, _shape, _cut, _through;
         private readonly List<UIComponent> _cropParts = new List<UIComponent>();
         private readonly List<UIComponent> _alphaParts = new List<UIComponent>();
@@ -137,35 +138,20 @@ namespace RealFlag.UI
         {
             base.Start();
 
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "MenuPanel2";
+            _ui = PanelLook.NewBuilder("the Image window");
             size = new Vector2(PanelWidth, 10f);
             canFocus = true;
             isInteractive = true;
             name = "RealFlagImagePanel";
 
-            _title = UIBuilder.AddLabel(this, "", new Vector3(Margin, 12f), 0.9f);
-            _title.autoSize = false;
-            _title.size = new Vector2(PanelWidth - 50f, 20f);
+            // Background, title (the window's: Edit), close button and drag handle (ModsLibCS1).
+            _title = _ui.AddFrame(this, string.Empty, Hide).Title;
+            _title.textScale = 0.9f;
 
-            UIButton close = AddUIComponent<UIButton>();
-            close.atlas = atlas;
-            close.size = new Vector2(28f, 28f);
-            close.relativePosition = new Vector3(PanelWidth - 32f, 4f);
-            close.normalBgSprite = "buttonclose";
-            close.hoveredBgSprite = "buttonclosehover";
-            close.pressedBgSprite = "buttonclosepressed";
-            close.eventClick += (component, e) => Hide();
-
-            UIDragHandle drag = AddUIComponent<UIDragHandle>();
-            drag.target = this;
-            drag.size = new Vector2(PanelWidth - 36f, 36f);
-            drag.relativePosition = Vector3.zero;
-
-            float y = 40f;
+            float y = 46f;
 
             // The folder: the button, and where it is.
-            UIButton open = UIBuilder.AddButton(this, Localization.Get("Image.Open"), new Vector2(Inner, 28f), new Vector3(Margin, y));
+            UIButton open = _ui.AddButton(this, Localization.Get("Image.Open"), new Vector2(Inner, 28f), new Vector3(Margin, y));
             open.textHorizontalAlignment = UIHorizontalAlignment.Left;
             open.textPadding = new RectOffset(36, 8, 7, 0);
             open.tooltip = Localization.Get("Image.OpenTip");
@@ -178,18 +164,17 @@ namespace RealFlag.UI
             };
             y += 32f;
 
-            _hint = UIBuilder.AddLabel(this, Localization.Get("Image.Hint"), new Vector3(Margin, y), 0.7f);
+            _hint = _ui.AddLabel(this, Localization.Get("Image.Hint"), new Vector3(Margin, y), 0.7f);
             _hint.autoSize = false;
             _hint.wordWrap = true;
             _hint.size = new Vector2(Inner, 30f);
-            _hint.textColor = UIBuilder.StatusColour;
+            _ui.Paint(_hint, _ui.Theme.Status);
             _hint.tooltip = FlagImageFolder.FolderPath;
             y += 34f;
 
             // The list: a dark box of rows, the scrollbar at its right.
             _box = AddUIComponent<UIPanel>();
-            _box.atlas = atlas;
-            _box.backgroundSprite = "GenericPanelDark";
+            PanelLook.DressListBox(_ui, _box);
             _box.size = new Vector2(Inner, RowHeight * Rows + 6f);
             _box.relativePosition = new Vector3(Margin, y);
             _box.eventMouseWheel += (component, p) =>
@@ -202,17 +187,12 @@ namespace RealFlag.UI
             for (int i = 0; i < Rows; i++)
             {
                 UIButton button = _box.AddUIComponent<UIButton>();
-                button.atlas = atlas;
+                PanelLook.DressListRow(_ui, button);
                 button.size = new Vector2(rowWidth, RowHeight);
                 button.relativePosition = new Vector3(3f, 3f + i * RowHeight);
                 button.textScale = 0.72f;
                 button.textHorizontalAlignment = UIHorizontalAlignment.Left;
                 button.textPadding = new RectOffset(44, 6, 5, 0);
-                button.normalBgSprite = "ButtonMenu";
-                button.hoveredBgSprite = "ButtonMenuHovered";
-                button.pressedBgSprite = "ButtonMenuPressed";
-                button.focusedBgSprite = "ButtonMenu";
-                button.canFocus = false;
                 int index = i;
                 button.eventClick += (component, e) => Pick(index);
                 button.eventMouseWheel += (component, p) =>
@@ -228,25 +208,9 @@ namespace RealFlag.UI
                 _thumbs[i] = thumb;
             }
 
-            _bar = _box.AddUIComponent<UIScrollbar>();
-            _bar.size = new Vector2(10f, _box.height - 6f);
-            _bar.relativePosition = new Vector3(_box.width - 13f, 3f);
-            _bar.orientation = UIOrientation.Vertical;
-            _bar.minValue = 0f;
-            _bar.stepSize = 1f;
+            float barWidth = PanelLook.ListBarWidth(_ui);
+            _bar = PanelLook.AddListBar(_ui, _box, new Vector2(barWidth, _box.height - 6f), new Vector3(_box.width - 3f - barWidth, 3f));
             _bar.incrementAmount = 2f;
-            UISlicedSprite track = _bar.AddUIComponent<UISlicedSprite>();
-            track.atlas = atlas;
-            track.spriteName = "ScrollbarTrack";
-            track.size = _bar.size;
-            track.relativePosition = Vector3.zero;
-            _bar.trackObject = track;
-            UISlicedSprite handle = track.AddUIComponent<UISlicedSprite>();
-            handle.atlas = atlas;
-            handle.spriteName = "ScrollbarThumb";
-            handle.size = new Vector2(10f, 30f);
-            handle.relativePosition = Vector3.zero;
-            _bar.thumbObject = handle;
             _bar.eventValueChanged += (component, value) =>
             {
                 if (_refreshing)
@@ -257,10 +221,10 @@ namespace RealFlag.UI
             y += _box.height + 8f;
 
             // Where it lies on the flag.
-            _dragHint = UIBuilder.AddLabel(this, Localization.Get("Image.Drag"), new Vector3(Margin, y), 0.7f);
+            _dragHint = _ui.AddLabel(this, Localization.Get("Image.Drag"), new Vector3(Margin, y), 0.7f);
             _dragHint.autoSize = false;
             _dragHint.size = new Vector2(Inner, 16f);
-            _dragHint.textColor = UIBuilder.StatusColour;
+            _ui.Paint(_dragHint, _ui.Theme.Status);
             _cropParts.Add(_dragHint);
             y += 18f;
 
@@ -279,26 +243,34 @@ namespace RealFlag.UI
             };
             y += CanvasHeight + 6f;
 
-            _zoom = UIBuilder.AddCompactSlider(this, y, Localization.Get("Image.Zoom"), 56f, 56f, 0f, ZoomSteps, 1f, SliderOf(1f),
+            // The zoom: the library's slider row in a strip inside the margins, its name and readout short.
+            UIPanel zoomRow = AddUIComponent<UIPanel>();
+            zoomRow.size = new Vector2(Inner, 28f);
+            zoomRow.relativePosition = new Vector3(Margin, y - 2f);
+            _ui.LabelWidth = 56f;
+            _ui.ValueWidth = 58f;
+            _zoom = _ui.AddSlider(zoomRow, 0f, Localization.Get("Image.Zoom"), 0f, ZoomSteps, 1f, SliderOf(1f),
                 v => ZoomText(ZoomOf(v)), v =>
                 {
                     if (_refreshing || _target == null || !_cropEnabled)
                         return;
                     SetZoom(ZoomOf(v), 0.5f, 0.5f);
                 });
-            _zoom.tooltip = Localization.Get("Image.ZoomTip");
-            _cropParts.Add(_zoom);
-            AddSliderSiblings(_zoom);
+            foreach (UIComponent part in _zoom.Parts)
+            {
+                part.tooltip = Localization.Get("Image.ZoomTip");
+                _cropParts.Add(part);
+            }
             y += 30f;
 
             float third = (Inner - 12f) / 3f;
-            _fill = UIBuilder.AddButton(this, Localization.Get("Image.Fill"), new Vector2(third, 28f), new Vector3(Margin, y));
+            _fill = _ui.AddButton(this, Localization.Get("Image.Fill"), new Vector2(third, 28f), new Vector3(Margin, y));
             _fill.tooltip = Localization.Get("Image.FillTip");
             _fill.eventClick += (component, e) => Fill();
-            _whole = UIBuilder.AddButton(this, Localization.Get("Image.Whole"), new Vector2(third, 28f), new Vector3(Margin + third + 6f, y));
+            _whole = _ui.AddButton(this, Localization.Get("Image.Whole"), new Vector2(third, 28f), new Vector3(Margin + third + 6f, y));
             _whole.tooltip = Localization.Get("Image.WholeTip");
             _whole.eventClick += (component, e) => Whole();
-            _turn = UIBuilder.AddButton(this, Localization.Get("Image.Turn"), new Vector2(third, 28f), new Vector3(Margin + 2f * (third + 6f), y));
+            _turn = _ui.AddButton(this, Localization.Get("Image.Turn"), new Vector2(third, 28f), new Vector3(Margin + 2f * (third + 6f), y));
             _turn.tooltip = Localization.Get("Image.TurnTip");
             _turn.eventClick += (component, e) =>
             {
@@ -310,25 +282,23 @@ namespace RealFlag.UI
             _cropParts.Add(_turn);
             y += 32f;
 
-            _shape = UIBuilder.AddButton(this, "", new Vector2(Inner, 28f), new Vector3(Margin, y));
+            _shape = _ui.AddButton(this, "", new Vector2(Inner, 28f), new Vector3(Margin, y));
             _shape.tooltip = Localization.Get("Image.ShapeTip");
             _shape.eventClick += (component, e) => TakeShape();
             _cropParts.Add(_shape);
             y += 34f;
 
             // What its see-through parts do.
-            _seeThrough = UIBuilder.AddLabel(this, Localization.Get("Image.SeeThrough"), new Vector3(Margin, y + 6f), 0.75f);
-            _seeThrough.autoSize = false;
-            _seeThrough.size = new Vector2(112f, 18f);
+            _seeThrough = _ui.AddName(this, Localization.Get("Image.SeeThrough"), new Vector3(Margin, y + 4f), 108f);
             float half = (Inner - 112f - 6f) * 0.5f;
-            _cut = UIBuilder.AddButton(this, Localization.Get("Image.Cut"), new Vector2(half, 26f), new Vector3(Margin + 112f, y));
+            _cut = _ui.AddButton(this, Localization.Get("Image.Cut"), new Vector2(half, 26f), new Vector3(Margin + 112f, y));
             _cut.tooltip = Localization.Get("Image.CutTip");
             _cut.eventClick += (component, e) =>
             {
                 if (_target != null && _alphaEnabled)
                     _target.SetAlpha(FlagImageAlpha.Cut);
             };
-            _through = UIBuilder.AddButton(this, Localization.Get("Image.Through"), new Vector2(half, 26f), new Vector3(Margin + 112f + half + 6f, y));
+            _through = _ui.AddButton(this, Localization.Get("Image.Through"), new Vector2(half, 26f), new Vector3(Margin + 112f + half + 6f, y));
             _through.tooltip = Localization.Get("Image.ThroughTip");
             _through.eventClick += (component, e) =>
             {
@@ -340,7 +310,7 @@ namespace RealFlag.UI
             _alphaParts.Add(_through);
             y += 34f;
 
-            UIButton done = UIBuilder.AddButton(this, Localization.Get("Picker.Done"), new Vector2(Inner, 28f), new Vector3(Margin, y));
+            UIButton done = _ui.AddButton(this, Localization.Get("Picker.Done"), new Vector2(Inner, 28f), new Vector3(Margin, y));
             done.eventClick += (component, e) => Hide();
             y += 38f;
 
@@ -363,26 +333,6 @@ namespace RealFlag.UI
             };
         }
 
-        /// <summary>The label and the readout AddCompactSlider made either side of the slider, greyed with it.</summary>
-        private void AddSliderSiblings(UISlider slider)
-        {
-            for (int i = 0; i < components.Count; i++)
-            {
-                if (components[i] != slider)
-                    continue;
-
-                if (i > 0 && components[i - 1] is UILabel)
-                    _cropParts.Add(components[i - 1]);
-                if (i + 1 < components.Count && components[i + 1] is UILabel)
-                {
-                    _zoomReadout = (UILabel)components[i + 1];
-                    _cropParts.Add(_zoomReadout);
-                }
-
-                return;
-            }
-        }
-
         private void Edit(ImageTarget target, UIComponent beside)
         {
             if (_target != target)
@@ -395,23 +345,13 @@ namespace RealFlag.UI
                 return; // Start has not run yet: Update fills it in on the next frame
 
             _filled = true;
-            _title.text = Localization.Get(target.Page == PanelPage.New ? "Image.TitleNew" : "Image.TitleExisting");
+            _title.text = _ui.Caps(Localization.Get(target.Page == PanelPage.New ? "Image.TitleNew" : "Image.TitleExisting"));
             FlagImageFolder.Scan();
             _nextScan = Time.realtimeSinceStartup + ScanInterval;
             Filter();
             ScrollToChosen();
 
-            if (beside != null)
-            {
-                // The screen as the UI sees it (1920 x 1080 only at 16:9: 1728 wide at 16:10).
-                Vector2 screen = GetUIView().GetScreenResolution();
-                Vector3 p = beside.relativePosition;
-                float x = p.x + beside.width + 6f;
-                if (x + width > screen.x)
-                    x = Mathf.Max(0f, p.x - width - 6f);
-                relativePosition = new Vector3(x, Mathf.Clamp(p.y + 40f, 0f, Mathf.Max(0f, screen.y - height)));
-            }
-
+            PanelLook.PlaceBeside(this, beside, 40f);
             RefreshAll();
             BringToFront();
         }
@@ -572,7 +512,7 @@ namespace RealFlag.UI
                 }
 
                 bool lit = string.Equals(name, chosen, StringComparison.OrdinalIgnoreCase);
-                UIBuilder.SetLit(button, lit);
+                PanelLook.SetListLit(_ui, button, lit);
                 button.isEnabled = _enabled;
             }
         }
@@ -646,10 +586,11 @@ namespace RealFlag.UI
             {
                 float zoom = FlagCrop.ClampZoom(_target.Zoom.value);
                 float slider = SliderOf(zoom);
-                if (!Mathf.Approximately(_zoom.value, slider))
-                    _zoom.value = slider;
-                if (_zoomReadout != null)
-                    _zoomReadout.text = ZoomText(zoom);
+                if (!Mathf.Approximately(_zoom.Slider.value, slider))
+                    _zoom.SetValue(slider);
+
+                // The zoom itself, not the slider's step nearest it.
+                _zoom.Value.text = ZoomText(zoom);
             }
             finally
             {
@@ -658,8 +599,8 @@ namespace RealFlag.UI
 
             int shape = _target.PictureShape();
             _shape.text = shape > 0 ? Localization.Get("Image.Shape", FlagProportion.Name(shape)) : Localization.Get("Image.ShapeNone");
-            UIBuilder.SetLit(_cut, _target.Alpha.value == FlagImageAlpha.Cut);
-            UIBuilder.SetLit(_through, _target.Alpha.value == FlagImageAlpha.Through);
+            PanelLook.SetLit(_ui, _cut, _target.Alpha.value == FlagImageAlpha.Cut);
+            PanelLook.SetLit(_ui, _through, _target.Alpha.value == FlagImageAlpha.Through);
 
             Draw(_dragging || _quickUntil > 0f);
         }
@@ -731,7 +672,7 @@ namespace RealFlag.UI
             float cx = FlagCrop.ClampCentre(_target.X.value, ww), cy = FlagCrop.ClampCentre(_target.Y.value, wh);
 
             FlagCropView.Render(pixels, pw, ph, turn, ww, wh, cx, cy, through, _canvasPixels, vw, vh, fx * scale, fy * scale, fw * scale, fh * scale,
-                                UIBuilder.Swatch(field), Back, Edge, Dim);
+                                FlagWidgets.Swatch(field), Back, Edge, Dim);
             _canvasTexture.SetPixels32(_canvasPixels);
             _canvasTexture.Apply(false);
             _canvas.texture = _canvasTexture;

@@ -12,7 +12,9 @@ flagpole under it.
 
 ## Using it
 
-Open the panel with **F6** (or its Unified UI button). It opens on the city's **Flags**.
+Open the panel with **F6** (or its Unified UI button). It opens on the city's **Flags**. Its
+look is the options page's **Panel look**: Frosted glass (the default, over a blurred copy of the
+city), See-through, Blue, or Vanilla, the game's own.
 
 **+ New flag** (at the top of the Flags tab) opens the new flag's window beside the panel, and
 the flag follows the pointer, blowing, standing on whatever is under it (ground, roof, road;
@@ -307,6 +309,7 @@ Written from scratch after these, with thanks (no code from them is included):
   header.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
+- The panel's icons: drawn from [Lucide](https://lucide.dev)'s, ISC.
 
 ## License
 

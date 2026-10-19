@@ -12,6 +12,13 @@
 
 ## The mod
 
+The panel is built with **ModsLibCS1**, a UI library kept as a git submodule at the repository
+root and compiled into the DLL with its sprite sheet. Clone with `git clone --recurse-submodules`,
+or run `git submodule update --init` after a plain clone; without it the build stops and says so.
+The panel's own icons (its tabs, the images folder) are listed in
+`RealFlag/Resources/PanelIcons.lucide.txt`; after a change to that list, draw them again with
+`powershell -File ModsLibCS1\tools\make-icons.ps1 -Spec RealFlag\Resources\PanelIcons.lucide.txt`.
+
 ```
 dotnet build RealFlag/RealFlag.csproj
 ```

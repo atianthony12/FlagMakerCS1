@@ -361,6 +361,14 @@
   <String key="ShowInUnifiedUI.Label">Show in Unified UI</String>
   <String key="ShowInUnifiedUI.Tooltip">Button on the UUI bar.</String>
 
+  <!-- The panel's look, every window of it. Vanilla is the game's own look. -->
+  <String key="PanelSkin.Label">Panel look</String>
+  <String key="PanelSkin.Tooltip">How the windows look.</String>
+  <String key="PanelSkin.Frosted">Frosted glass</String>
+  <String key="PanelSkin.SeeThrough">See-through</String>
+  <String key="PanelSkin.GameBlue">Blue</String>
+  <String key="PanelSkin.Vanilla">Vanilla</String>
+
   <String key="Group.Flags">Flags</String>
   <String key="FreezeWhenPaused.Label">Freeze flags when paused</String>
   <String key="FreezeWhenPaused.Tooltip">Handy for screenshots.</String>

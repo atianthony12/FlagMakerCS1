@@ -28,7 +28,8 @@ namespace RealFlag.UI
         private RowSet _rows;
         private UIPanel _create, _existing;
         private float _createHeight, _existingHeight;
-        private UILabel _title;
+        private ModsLibCS1.UI.Builder _ui;
+        private ModsLibCS1.UI.Frame _frame;
         private PanelPage _page = PanelPage.PoleNew;
         private UIComponent _beside;
         private bool _built;
@@ -86,32 +87,17 @@ namespace RealFlag.UI
         {
             base.Start();
 
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "MenuPanel2";
+            _ui = PanelLook.NewBuilder("the Flagpole popup");
             size = new Vector2(PanelWidth, 200f);
             canFocus = true;
             isInteractive = true;
             name = "RealFlagPolePanel";
 
-            _title = UIBuilder.AddLabel(this, "", new Vector3(Margin, Margin), 1f);
-            _title.autoSize = false;
-            _title.size = new Vector2(PanelWidth - 60f, 24f);
+            // Background, title (the page's: ShowPage), close button and the drag handle (ModsLibCS1).
+            _frame = _ui.AddFrame(this, string.Empty, Hide);
+            _frame.Title.textScale = 1f;
 
-            UIButton close = AddUIComponent<UIButton>();
-            close.atlas = atlas;
-            close.size = new Vector2(32f, 32f);
-            close.relativePosition = new Vector3(PanelWidth - 36f, 4f);
-            close.normalBgSprite = "buttonclose";
-            close.hoveredBgSprite = "buttonclosehover";
-            close.pressedBgSprite = "buttonclosepressed";
-            close.eventClick += (component, e) => Hide();
-
-            UIDragHandle drag = AddUIComponent<UIDragHandle>();
-            drag.target = this;
-            drag.size = new Vector2(PanelWidth - 40f, TitleBarHeight);
-            drag.relativePosition = Vector3.zero;
-
-            _rows = new RowSet(this);
+            _rows = new RowSet(this, _ui);
             _create = AddPage();
             _createHeight = _rows.BuildRows(_create, PanelPage.PoleNew, 0f);
             _existing = AddPage();
@@ -156,18 +142,8 @@ namespace RealFlag.UI
             float content = create ? _createHeight : _existingHeight;
             (create ? _create : _existing).height = content;
             height = TitleBarHeight + 4f + content + Margin;
-            _title.text = SettingsCatalog.TabName(_page);
-
-            if (_beside != null)
-            {
-                // The screen as the UI sees it (1920 x 1080 only at 16:9: 1728 wide at 16:10).
-                Vector2 screen = GetUIView().GetScreenResolution();
-                Vector3 p = _beside.relativePosition;
-                float x = p.x + _beside.width + 6f;
-                if (x + width > screen.x)
-                    x = Mathf.Max(0f, p.x - width - 6f);
-                relativePosition = new Vector3(x, Mathf.Clamp(p.y + 40f, 0f, Mathf.Max(0f, screen.y - height)));
-            }
+            _frame.Title.text = _ui.Caps(SettingsCatalog.TabName(_page));
+            PanelLook.PlaceBeside(this, _beside, 40f);
 
             ColourPicker.Close();
             _rows.RefreshValues();

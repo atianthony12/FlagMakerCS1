@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using ColossalFramework.UI;
+using ModsLibCS1.UI;
 using RealFlag.Flags;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace RealFlag.UI
         public const float RowHeight = 24f;
         public const int VisibleRows = 5;
 
+        private Builder _ui;
         private UIScrollablePanel _list;
         private UIScrollbar _bar;
         private UILabel _empty;
@@ -30,12 +32,12 @@ namespace RealFlag.UI
         private int _shownImages = -1;
         private uint _shownSelected = uint.MaxValue;
 
-        /// <summary>Builds the box inside a page, <paramref name="width"/> wide.</summary>
-        public void Build(float width)
+        /// <summary>Builds the box inside a page, <paramref name="width"/> wide, in the panel's look.</summary>
+        public void Build(float width, Builder ui)
         {
+            _ui = ui;
             size = new Vector2(width, RowHeight * VisibleRows + 6f);
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "GenericPanelDark";
+            PanelLook.DressListBox(ui, this);
 
             _list = AddUIComponent<UIScrollablePanel>();
             _list.size = new Vector2(width - 16f, height - 6f);
@@ -47,36 +49,19 @@ namespace RealFlag.UI
             _list.scrollWheelAmount = (int)RowHeight;
             _list.clipChildren = true;
 
-            _bar = AddUIComponent<UIScrollbar>();
-            _bar.size = new Vector2(10f, height - 6f);
-            _bar.relativePosition = new Vector3(width - 12f, 3f);
-            _bar.orientation = UIOrientation.Vertical;
-            _bar.minValue = 0f;
+            float barWidth = PanelLook.ListBarWidth(ui);
+            _bar = PanelLook.AddListBar(ui, this, new Vector2(barWidth, height - 6f), new Vector3(width - 2f - barWidth, 3f));
             _bar.value = 0f;
             _bar.incrementAmount = RowHeight;
             _bar.autoHide = true;
 
-            UISlicedSprite track = _bar.AddUIComponent<UISlicedSprite>();
-            track.atlas = UIBuilder.Atlas;
-            track.spriteName = "ScrollbarTrack";
-            track.size = _bar.size;
-            track.relativePosition = Vector3.zero;
-            _bar.trackObject = track;
-
-            UISlicedSprite thumb = track.AddUIComponent<UISlicedSprite>();
-            thumb.atlas = UIBuilder.Atlas;
-            thumb.spriteName = "ScrollbarThumb";
-            thumb.size = new Vector2(10f, 20f);
-            thumb.relativePosition = Vector3.zero;
-            _bar.thumbObject = thumb;
-
             _list.verticalScrollbar = _bar;
 
-            _empty = UIBuilder.AddLabel(this, Localization.Get("Existing.Empty"), new Vector3(10f, 10f), 0.75f);
+            _empty = ui.AddLabel(this, Localization.Get("Existing.Empty"), new Vector3(10f, 10f), 0.75f);
             _empty.autoSize = false;
             _empty.wordWrap = true;
             _empty.size = new Vector2(width - 20f, height - 20f);
-            _empty.textColor = UIBuilder.StatusColour;
+            ui.Paint(_empty, ui.Theme.Status);
         }
 
         /// <summary>Brings the rows up to date with the city's flags; cheap when nothing changed.</summary>
@@ -153,16 +138,11 @@ namespace RealFlag.UI
         {
             int index = _rows.Count;
             UIButton row = _list.AddUIComponent<UIButton>();
-            row.atlas = UIBuilder.Atlas;
+            PanelLook.DressListRow(_ui, row);
             row.size = new Vector2(_list.width, RowHeight);
             row.textScale = 0.72f;
             row.textHorizontalAlignment = UIHorizontalAlignment.Left;
             row.textPadding = new RectOffset(8, 64, 4, 0);
-            row.normalBgSprite = "ButtonMenu";
-            row.hoveredBgSprite = "ButtonMenuHovered";
-            row.pressedBgSprite = "ButtonMenuPressed";
-            row.focusedBgSprite = "ButtonMenu";
-            row.canFocus = false;
 
             // A click selects the flag the row shows now; a click on the selected one lets it go.
             row.eventClick += (component, p) =>
@@ -234,7 +214,7 @@ namespace RealFlag.UI
                 uint[] colours = { e.Spec.Colour1, e.Spec.Colour2, e.Spec.Colour3 };
                 for (int c = 0; c < used; c++)
                 {
-                    UIButton swatch = UIBuilder.AddSwatch(row, new Vector2(16f, 14f), new Vector3(width - 60f + c * 19f, 5f), colours[c]);
+                    UIButton swatch = FlagWidgets.AddSwatch(row, new Vector2(16f, 14f), new Vector3(width - 60f + c * 19f, 5f), colours[c]);
                     swatch.isInteractive = false;
                     decoration.Add(swatch);
                 }
@@ -245,10 +225,7 @@ namespace RealFlag.UI
         {
             for (int i = 0; i < _rows.Count && i < _shown.Count; i++)
             {
-                bool selected = _shown[i] == FlagEditor.Selected;
-                _rows[i].normalBgSprite = selected ? "ButtonMenuFocused" : "ButtonMenu";
-                _rows[i].focusedBgSprite = _rows[i].normalBgSprite;
-                _rows[i].textColor = selected ? new Color32(255, 255, 255, 255) : new Color32(210, 225, 240, 255);
+                PanelLook.SetListLit(_ui, _rows[i], _shown[i] == FlagEditor.Selected);
             }
 
             _shownSelected = FlagEditor.Selected;

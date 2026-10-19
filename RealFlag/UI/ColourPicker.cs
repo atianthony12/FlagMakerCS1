@@ -39,7 +39,8 @@ namespace RealFlag.UI
         private UILabel _title;
         private UIButton _preview;
         private UITextField _hex;
-        private UISlider _hue, _saturation, _brightness;
+        private ModsLibCS1.UI.Builder _ui;
+        private ModsLibCS1.UI.SliderRow _hue, _saturation, _brightness;
         private bool _refreshing;
         private float _h, _s, _v;
 
@@ -85,41 +86,26 @@ namespace RealFlag.UI
         {
             base.Start();
 
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "MenuPanel2";
+            _ui = PanelLook.NewBuilder("the colour picker");
             size = new Vector2(PanelWidth, 10f);
             canFocus = true;
             isInteractive = true;
             name = "RealFlagColourPicker";
 
-            _title = UIBuilder.AddLabel(this, "", new Vector3(12f, 12f), 0.9f);
-            _title.autoSize = false;
-            _title.size = new Vector2(PanelWidth - 50f, 20f);
+            // Background, title (the row's: ShowColour), close button and drag handle (ModsLibCS1).
+            _title = _ui.AddFrame(this, string.Empty, Hide).Title;
+            _title.textScale = 0.9f;
 
-            UIButton close = AddUIComponent<UIButton>();
-            close.atlas = atlas;
-            close.size = new Vector2(28f, 28f);
-            close.relativePosition = new Vector3(PanelWidth - 32f, 4f);
-            close.normalBgSprite = "buttonclose";
-            close.hoveredBgSprite = "buttonclosehover";
-            close.pressedBgSprite = "buttonclosepressed";
-            close.eventClick += (component, e) => Hide();
-
-            UIDragHandle drag = AddUIComponent<UIDragHandle>();
-            drag.target = this;
-            drag.size = new Vector2(PanelWidth - 36f, 36f);
-            drag.relativePosition = Vector3.zero;
-
-            float y = 40f;
-            _preview = UIBuilder.AddSwatch(this, new Vector2(44f, 28f), new Vector3(12f, y), 0xFFFFFF);
+            float y = 46f;
+            _preview = FlagWidgets.AddSwatch(this, new Vector2(44f, 28f), new Vector3(12f, y), 0xFFFFFF);
             _preview.isInteractive = false;
             _hex = AddHexField(new Vector3(62f, y), new Vector2(92f, 28f));
 
-            UIButton copy = UIBuilder.AddButton(this, Localization.Get("Picker.Copy"), new Vector2(60f, 28f), new Vector3(160f, y));
+            UIButton copy = _ui.AddButton(this, Localization.Get("Picker.Copy"), new Vector2(60f, 28f), new Vector3(160f, y));
             copy.tooltip = Localization.Get("Picker.CopyTip");
             copy.eventClick += (component, e) => CopyHex();
 
-            UIButton paste = UIBuilder.AddButton(this, Localization.Get("Picker.Paste"), new Vector2(62f, 28f), new Vector3(226f, y));
+            UIButton paste = _ui.AddButton(this, Localization.Get("Picker.Paste"), new Vector2(62f, 28f), new Vector3(226f, y));
             paste.tooltip = Localization.Get("Picker.PasteTip");
             paste.eventClick += (component, e) => PasteHex();
             y += 38f;
@@ -131,24 +117,29 @@ namespace RealFlag.UI
                 uint rgb = FlagColours.Palette[i];
                 float x = left + (i % PerRow) * (Swatch + 3f);
                 float sy = y + (i / PerRow) * (Swatch + 3f);
-                UIButton swatch = UIBuilder.AddSwatch(this, new Vector2(Swatch, Swatch), new Vector3(x, sy), rgb);
+                UIButton swatch = FlagWidgets.AddSwatch(this, new Vector2(Swatch, Swatch), new Vector3(x, sy), rgb);
                 swatch.tooltip = FlagColours.Hex(rgb);
                 swatch.eventClick += (component, e) => Pick(rgb);
             }
 
             y += ((FlagColours.Palette.Length + PerRow - 1) / PerRow) * (Swatch + 3f) + 6f;
 
-            _hue = UIBuilder.AddCompactSlider(this, y, Localization.Get("Picker.Hue"), 70f, 44f, 0f, 359f, 1f, 0f,
-                                              v => v.ToString("F0") + "°", v => Slide());
-            y += 28f;
-            _saturation = UIBuilder.AddCompactSlider(this, y, Localization.Get("Picker.Saturation"), 70f, 44f, 0f, 100f, 1f, 0f,
-                                                     v => v.ToString("F0") + "%", v => Slide());
-            y += 28f;
-            _brightness = UIBuilder.AddCompactSlider(this, y, Localization.Get("Picker.Brightness"), 70f, 44f, 0f, 100f, 1f, 0f,
-                                                     v => v.ToString("F0") + "%", v => Slide());
-            y += 34f;
+            // Hue, saturation, brightness: the library's slider rows in a strip inside the margins,
+            // a short name and a short readout.
+            UIPanel sliders = AddUIComponent<UIPanel>();
+            sliders.size = new Vector2(PanelWidth - 24f, 3f * 28f);
+            sliders.relativePosition = new Vector3(12f, y - 2f);
+            _ui.LabelWidth = 70f;
+            _ui.ValueWidth = 48f;
+            _hue = _ui.AddSlider(sliders, 0f, Localization.Get("Picker.Hue"), 0f, 359f, 1f, 0f,
+                                 v => v.ToString("F0") + "°", v => Slide());
+            _saturation = _ui.AddSlider(sliders, 28f, Localization.Get("Picker.Saturation"), 0f, 100f, 1f, 0f,
+                                        v => v.ToString("F0") + "%", v => Slide());
+            _brightness = _ui.AddSlider(sliders, 56f, Localization.Get("Picker.Brightness"), 0f, 100f, 1f, 0f,
+                                        v => v.ToString("F0") + "%", v => Slide());
+            y += 3f * 28f + 6f;
 
-            UIButton done = UIBuilder.AddButton(this, Localization.Get("Picker.Done"), new Vector2(PanelWidth - 24f, 28f), new Vector3(12f, y));
+            UIButton done = _ui.AddButton(this, Localization.Get("Picker.Done"), new Vector2(PanelWidth - 24f, 28f), new Vector3(12f, y));
             done.eventClick += (component, e) => Hide();
             y += 38f;
 
@@ -167,27 +158,11 @@ namespace RealFlag.UI
         /// <summary>The hex code's text field (the country picker's search field, dressed alike).</summary>
         private UITextField AddHexField(Vector3 position, Vector2 size)
         {
-            UITextField field = AddUIComponent<UITextField>();
-            field.atlas = atlas;
-            field.size = size;
-            field.relativePosition = position;
-            field.normalBgSprite = "TextFieldPanel";
-            field.hoveredBgSprite = "TextFieldPanelHovered";
-            field.focusedBgSprite = "TextFieldPanelFocused";
-            field.selectionSprite = "EmptySprite";
-            field.selectionBackgroundColor = new Color32(0, 105, 210, 255);
-            field.textColor = new Color32(20, 20, 20, 255);
-            field.color = new Color32(255, 255, 255, 255);
+            // The library's field: Ctrl+A/C/V/X, Enter submits, Esc gives the edit up, a click elsewhere submits.
+            UITextField field = _ui.AddTextField(this, size, position, 32);
             field.textScale = 0.9f;
             field.padding = new RectOffset(8, 6, 7, 3);
             field.horizontalAlignment = UIHorizontalAlignment.Left;
-            field.builtinKeyNavigation = true;
-            field.isInteractive = true;
-            field.readOnly = false;
-            field.canFocus = true;
-            field.selectOnFocus = true;
-            field.submitOnFocusLost = true;
-            field.maxLength = 32;
             field.tooltip = Localization.Get("Picker.HexTip");
 
             // A whole code applies as it is typed or pasted; anything else waits for Enter.
@@ -284,17 +259,7 @@ namespace RealFlag.UI
             FlagColours.ToHsv(rgb, out _h, out _s, out _v);
             ShowColour(rgb);
 
-            if (beside != null)
-            {
-                // The screen as the UI sees it (1920 x 1080 only at 16:9: 1728 wide at 16:10).
-                Vector2 screen = GetUIView().GetScreenResolution();
-                Vector3 p = beside.relativePosition;
-                float x = p.x + beside.width + 6f;
-                if (x + width > screen.x)
-                    x = Mathf.Max(0f, p.x - width - 6f);
-                relativePosition = new Vector3(x, Mathf.Clamp(p.y + 60f, 0f, Mathf.Max(0f, screen.y - height)));
-            }
-
+            PanelLook.PlaceBeside(this, beside, 60f);
             BringToFront();
         }
 
@@ -316,13 +281,13 @@ namespace RealFlag.UI
             _refreshing = true;
             try
             {
-                _title.text = _row != null ? _row.Label : "";
-                UIBuilder.SetSwatch(_preview, rgb);
+                _title.text = _ui.Caps(_row != null ? _row.Label : "");
+                FlagWidgets.SetSwatch(_preview, rgb);
                 if (field)
                     _hex.text = FlagColours.Hex(rgb);
-                _hue.value = _h;
-                _saturation.value = _s * 100f;
-                _brightness.value = _v * 100f;
+                _hue.SetValue(_h);
+                _saturation.SetValue(_s * 100f);
+                _brightness.SetValue(_v * 100f);
             }
             finally
             {
@@ -343,16 +308,16 @@ namespace RealFlag.UI
             if (_refreshing || _row == null)
                 return;
 
-            _h = _hue.value;
-            _s = _saturation.value / 100f;
-            _v = _brightness.value / 100f;
+            _h = _hue.Slider.value;
+            _s = _saturation.Slider.value / 100f;
+            _v = _brightness.Slider.value / 100f;
             uint rgb = FlagColours.FromHsv(_h, _s, _v);
             Store(rgb);
 
             _refreshing = true;
             try
             {
-                UIBuilder.SetSwatch(_preview, rgb);
+                FlagWidgets.SetSwatch(_preview, rgb);
                 _hex.text = FlagColours.Hex(rgb);
             }
             finally

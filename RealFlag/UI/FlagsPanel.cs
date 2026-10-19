@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ColossalFramework.UI;
+using ModsLibCS1.UI;
 using RealFlag.Flags;
 using UnityEngine;
 
@@ -21,6 +22,11 @@ namespace RealFlag.UI
     /// line); the list is <see cref="FlagListView"/>; two buttons can share a line; the Flagpole
     /// button opens the <see cref="PolePanel"/> beside it. It opens at the LEFT of the screen,
     /// clear of the middle where flags are placed.
+    ///
+    /// Every control comes from ModsLibCS1, in the look the "Panel look" row picks
+    /// (<see cref="PanelLook"/>); Vanilla is the panel as it was before. In the new looks the two
+    /// tabs are this mod's own icons (a flag, a gear: Resources\PanelIcons), the open tab's name
+    /// after the title. The panel grows with the tab shown, in every look.
     /// </remarks>
     public class FlagsPanel : UIPanel
     {
@@ -31,15 +37,35 @@ namespace RealFlag.UI
         private const float MinPanelHeight = 180f;
         private const float TitleBarHeight = 40f;
         private const float TabHeight = 28f;
+
+        /// <summary>The new looks' icon tabs: taller, for the icons (Volumetric Weather's and Real Glass's).</summary>
+        private const float IconTabHeight = 36f;
         private const float Margin = 14f;
-        public const float HeadingHeight = 24f;
 
         private static readonly PanelPage[] Tabs = { PanelPage.Existing, PanelPage.Settings };
+
+        /// <summary>
+        /// A tab's icon in the new looks: a Lucide name drawn into this mod's own sheet
+        /// (Resources\PanelIcons.lucide.txt; THIRD-PARTY-NOTICES.md). Vanilla keeps the names.
+        /// </summary>
+        private static string IconOf(PanelPage page)
+        {
+            switch (page)
+            {
+                case PanelPage.Existing: return "flag";
+                case PanelPage.Settings: return "settings";
+                default: return null;
+            }
+        }
 
         /// <summary>Where to open, when replacing a panel that was already on screen. Null = the default spot.</summary>
         public Vector3? InitialPosition;
 
-        private readonly List<UIButton> _tabs = new List<UIButton>();
+        private Builder _ui;
+        private Frame _frame;
+        private TabStrip _tabs;
+        private float _tabHeight = TabHeight;
+        private readonly List<string> _tabNames = new List<string>();
         private readonly List<UIPanel> _pages = new List<UIPanel>();
         private readonly List<float> _contentHeights = new List<float>();
         private RowSet _rows;
@@ -96,21 +122,31 @@ namespace RealFlag.UI
             base.Start();
 
             _instance = this;
-            _rows = new RowSet(this);
+            _ui = PanelLook.NewBuilder("the panel");
+            _tabHeight = _ui.Skin == Skin.Vanilla ? TabHeight : IconTabHeight;
+            _rows = new RowSet(this, _ui);
 
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "MenuPanel2";
             size = new Vector2(PanelWidth, MinPanelHeight);
             canFocus = true;
             isInteractive = true;
             name = ComponentName;
 
-            BuildTitleBar();
+            // Background, title, close button; dragging the title bar moves the whole panel.
+            _frame = _ui.AddFrame(this, Mod.DisplayName, Hide);
+
+            List<string> icons = new List<string>();
+            foreach (PanelPage page in Tabs)
+            {
+                _tabNames.Add(SettingsCatalog.TabName(page));
+                icons.Add(IconOf(page));
+            }
+
+            _tabs = _ui.AddTabStrip(this, new Vector3(Margin, TitleBarHeight + 2f), PanelWidth - 2f * Margin, _tabHeight,
+                                    _tabNames, SelectPage, icons);
 
             foreach (PanelPage page in Tabs)
-                _contentHeights.Add(_rows.BuildRows(AddPage(SettingsCatalog.TabName(page)), page, 0f));
+                _contentHeights.Add(_rows.BuildRows(AddPage(), page, 0f));
 
-            LayoutTabs();
             SelectPage(0);
 
             if (InitialPosition.HasValue)
@@ -146,7 +182,7 @@ namespace RealFlag.UI
                 Log.Msg("flags: Esc: " + step + " (the key kept from the game's pause menu)");
             };
 
-            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs");
+            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin + ")");
         }
 
         public override void Update()
@@ -178,67 +214,29 @@ namespace RealFlag.UI
             ImagePanel.RefreshOpen();
         }
 
-        private void BuildTitleBar()
+        private UIPanel AddPage()
         {
-            UILabel title = UIBuilder.AddLabel(this, Mod.DisplayName, new Vector3(Margin, Margin), 1.1f);
-            title.autoSize = false;
-            title.size = new Vector2(PanelWidth - TitleBarHeight, TitleBarHeight);
-
-            UIButton close = AddUIComponent<UIButton>();
-            close.atlas = atlas;
-            close.size = new Vector2(32f, 32f);
-            close.relativePosition = new Vector3(PanelWidth - 36f, 4f);
-            close.normalBgSprite = "buttonclose";
-            close.hoveredBgSprite = "buttonclosehover";
-            close.pressedBgSprite = "buttonclosepressed";
-            close.eventClick += (component, e) => Hide();
-
-            UIDragHandle drag = AddUIComponent<UIDragHandle>();
-            drag.target = this;
-            drag.size = new Vector2(PanelWidth - 40f, TitleBarHeight);
-            drag.relativePosition = Vector3.zero;
-        }
-
-        private UIPanel AddPage(string tabName)
-        {
-            int index = _pages.Count;
-
-            UIButton tab = UIBuilder.AddTab(this, tabName, new Vector2(10f, TabHeight), Vector3.zero);
-            tab.eventClick += (component, e) => SelectPage(index);
-            _tabs.Add(tab);
-
             UIPanel page = AddUIComponent<UIPanel>();
             page.size = new Vector2(PanelWidth - 2f * Margin, 10f);
-            page.relativePosition = new Vector3(Margin, TitleBarHeight + TabHeight + Margin * 0.5f);
+            page.relativePosition = new Vector3(Margin, TitleBarHeight + _tabHeight + Margin * 0.5f);
             _pages.Add(page);
 
             return page;
-        }
-
-        private void LayoutTabs()
-        {
-            float width = (PanelWidth - 2f * Margin) / _tabs.Count;
-            for (int i = 0; i < _tabs.Count; i++)
-            {
-                _tabs[i].size = new Vector2(width, TabHeight);
-                _tabs[i].relativePosition = new Vector3(Margin + i * width, TitleBarHeight + 2f);
-            }
         }
 
         private void SelectPage(int index)
         {
             _page = index;
             for (int i = 0; i < _pages.Count; i++)
-            {
                 _pages[i].isVisible = i == index;
-                if (i < _tabs.Count)
-                    UIBuilder.SetTabSelected(_tabs[i], i == index);
-            }
+
+            _tabs.Select(index);
+            _ui.SetSubtitle(_frame, _tabNames[index]);
 
             // As tall as the selected page needs.
             float content = _contentHeights[index];
             _pages[index].height = content;
-            float top = TitleBarHeight + TabHeight + Margin * 0.5f;
+            float top = TitleBarHeight + _tabHeight + Margin * 0.5f;
             height = Mathf.Max(MinPanelHeight, top + content + Margin);
 
             // The selection and its gizmo belong to the Flags tab (the New flag window stands on its own).

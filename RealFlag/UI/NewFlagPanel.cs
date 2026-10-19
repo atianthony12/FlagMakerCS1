@@ -101,32 +101,17 @@ namespace RealFlag.UI
         {
             base.Start();
 
-            atlas = UIBuilder.Atlas;
-            backgroundSprite = "MenuPanel2";
+            ModsLibCS1.UI.Builder ui = PanelLook.NewBuilder("the New flag window");
             size = new Vector2(PanelWidth, 200f);
             canFocus = true;
             isInteractive = true;
             name = ComponentName;
 
-            UILabel title = UIBuilder.AddLabel(this, SettingsCatalog.TabName(PanelPage.New), new Vector3(Margin, Margin), 1f);
-            title.autoSize = false;
-            title.size = new Vector2(PanelWidth - 60f, 24f);
+            // Background, title, close button and the drag handle over the title (ModsLibCS1).
+            ModsLibCS1.UI.Frame frame = ui.AddFrame(this, SettingsCatalog.TabName(PanelPage.New), Hide);
+            frame.Title.textScale = 1f;
 
-            UIButton close = AddUIComponent<UIButton>();
-            close.atlas = atlas;
-            close.size = new Vector2(32f, 32f);
-            close.relativePosition = new Vector3(PanelWidth - 36f, 4f);
-            close.normalBgSprite = "buttonclose";
-            close.hoveredBgSprite = "buttonclosehover";
-            close.pressedBgSprite = "buttonclosepressed";
-            close.eventClick += (component, e) => Hide();
-
-            UIDragHandle drag = AddUIComponent<UIDragHandle>();
-            drag.target = this;
-            drag.size = new Vector2(PanelWidth - 40f, TitleBarHeight);
-            drag.relativePosition = Vector3.zero;
-
-            _rows = new RowSet(this);
+            _rows = new RowSet(this, ui);
             _page = AddUIComponent<UIPanel>();
             _page.size = new Vector2(PanelWidth - 2f * Margin, 10f);
             _page.relativePosition = new Vector3(Margin, TitleBarHeight + 4f);
