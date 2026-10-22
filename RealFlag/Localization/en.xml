@@ -173,7 +173,9 @@
   <String key="SelPoleButton.Label">Flagpole</String>
   <String key="SelPoleButton.Tooltip">Pole, ropes, tilt.</String>
   <String key="PoleButton.None">Flagpole: none</String>
-  <!-- A crossbar (a banner's, or a pole tilted past 60 degrees): its length is found along to its wall. -->
+  <!-- A flag hoisted from its top has no pole (its choice kept for the side). -->
+  <String key="PoleButton.Top">Flagpole: none (top hoist)</String>
+  <!-- A crossbar (a pole tilted past 60 degrees): its length is found along to its wall. -->
   <String key="PoleButton.Pole">Flagpole: {0}, ropes: {1}</String>
   <!-- A pole that stands: its style, its height (metres), its ropes. -->
   <String key="PoleButton.Tall">Flagpole: {0}, {1} m, ropes: {2}</String>
@@ -237,6 +239,9 @@
   <String key="NewHeight.Tooltip">Foot to flag top.</String>
   <String key="SelHeight.Label">Pole height</String>
   <String key="SelHeight.Tooltip">Foot stays put.</String>
+  <!-- Under the pole height in both Flagpole popups: its slider to 200 m instead of 50 m (Settings.Defaults.LockedHeight / MaxNewHeight). -->
+  <String key="UnlockPoleHeight.Label">Unlock range</String>
+  <String key="UnlockPoleHeight.Tooltip">Pole height up to 200 m.</String>
 
   <!-- The Flags tab. -->
   <String key="NewFlag.Label">+ New flag</String>

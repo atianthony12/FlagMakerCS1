@@ -148,6 +148,13 @@ namespace RealFlag
         /// </summary>
         public static FloatSetting NewHeight { get; private set; }
 
+        /// <summary>
+        /// The pole height's slider over its whole range (to MaxNewHeight) instead of its first
+        /// LockedHeight metres, finer to set. One switch for both windows; it limits the slider
+        /// only -- a pole already taller keeps its height.
+        /// </summary>
+        public static BoolSetting UnlockPoleHeight { get; private set; }
+
         // ---- the pole and the hoist's lean (each tab's Flagpole popup) ----
 
         /// <summary>A FlagPoleStyle value: the pole the mod draws, by its top; 0 none.</summary>
@@ -282,8 +289,14 @@ namespace RealFlag
             /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
             public const float Height = 10f;
 
-            /// <summary>m: the pole height's slider reaches this high.</summary>
+            /// <summary>m: the pole height's slider reaches this high once its range is unlocked (and the file's value may be).</summary>
             public const float MaxNewHeight = 200f;
+
+            /// <summary>m: the pole height's slider reaches this high while its range is locked -- a tall city flagpole; 1..200 m was too coarse to set (2026-10-22, the author).</summary>
+            public const float LockedHeight = 50f;
+
+            /// <summary>Locked: the slider over 1..LockedHeight m.</summary>
+            public const bool UnlockPoleHeight = false;
 
             /// <summary>No pole drawn: the flag is for the city's own poles, the mod's purpose.</summary>
             public const int Pole = FlagPoleStyle.None;
@@ -357,6 +370,7 @@ namespace RealFlag
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
                 NewRotation = new FloatSetting("NewRotation", Defaults.Rotation);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
+                UnlockPoleHeight = new BoolSetting("UnlockPoleHeight", Defaults.UnlockPoleHeight);
                 NewPole = new IntSetting("NewPole", Defaults.Pole);
                 NewRopes = new IntSetting("NewRopes", Defaults.Ropes);
                 NewPoleColour = new IntSetting("NewPoleColour", Defaults.PoleColour);

@@ -401,7 +401,7 @@ namespace RealFlag.Flags
         private static bool Restand(FlagEntry e, FlagSpec old, ref FlagSpec spec, float heading, out Vector3 anchor)
         {
             anchor = e.Anchor;
-            if (!old.HasPole || !spec.HasPole || (!Holding && !FlagStand.Restands(old, spec)) || !HoldBase(e, old))
+            if (!old.PoleChosen || !spec.PoleChosen || (!Holding && !FlagStand.Restands(old, spec)) || !HoldBase(e, old))
             {
                 spec.PoleLength = 0f;
                 return false;

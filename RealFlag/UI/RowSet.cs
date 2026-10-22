@@ -174,7 +174,13 @@ namespace RealFlag.UI
                     // the readout differs: an override (a country's proportions) changes with another row.
                     if (control.Slider != null)
                     {
-                        float display = Mathf.Clamp(row.Display, row.Min, row.Max);
+                        // A top that moved (the pole height's range unlocked or locked): a lower
+                        // one pulls the slider in with it, quietly too -- the setting keeps its value.
+                        float top = row.Top;
+                        if (control.Slider.Slider.maxValue != top)
+                            control.Slider.Slider.maxValue = top;
+
+                        float display = Mathf.Clamp(row.Display, row.Min, top);
                         if (!Mathf.Approximately(control.Slider.Slider.value, display) ||
                             control.Slider.Value.text != ReadoutText(row, display))
                             control.Slider.SetValue(display);
@@ -555,8 +561,8 @@ namespace RealFlag.UI
                 default:
                 {
                     Row captured = row;
-                    SliderRow slider = _ui.AddSlider(page, y, row.Label, row.Min, row.Max, row.Step,
-                        Mathf.Clamp(row.Display, row.Min, row.Max), v => ReadoutText(captured, v),
+                    SliderRow slider = _ui.AddSlider(page, y, row.Label, row.Min, row.Top, row.Step,
+                        Mathf.Clamp(row.Display, row.Min, row.Top), v => ReadoutText(captured, v),
                         v =>
                         {
                             if (_refreshing)

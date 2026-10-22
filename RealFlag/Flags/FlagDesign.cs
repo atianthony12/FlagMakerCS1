@@ -736,8 +736,19 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>A pole is drawn under this flag.</summary>
+        /// <summary>
+        /// A pole is drawn under this flag: one chosen (<see cref="PoleChosen"/>), and the flag
+        /// hoisted from its side. A banner hoisted from its top hangs with none -- its crossbar was
+        /// too small (the author, 2026-10-22: "we just should not have a pole if it's hoisted from
+        /// the top"; a side-hoisted flag turned level is the way to one).
+        /// </summary>
         public bool HasPole
+        {
+            get { return Pole != FlagPoleStyle.None && HoistedFrom != FlagHoist.Top; }
+        }
+
+        /// <summary>The player chose the mod's pole (a style), drawn or not: kept through a top hoist, so the pole comes back with the side's.</summary>
+        public bool PoleChosen
         {
             get { return Pole != FlagPoleStyle.None; }
         }

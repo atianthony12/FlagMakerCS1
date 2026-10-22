@@ -185,7 +185,9 @@ namespace RealFlag.Flags
         /// </remarks>
         public static bool Restands(FlagSpec old, FlagSpec spec)
         {
-            if (!old.HasPole || !spec.HasPole)
+            // Chosen, not drawn: a flag hoisted from its top has none, and comes down to stand on
+            // its pole's foot, and back up it hoisted from its side again.
+            if (!old.PoleChosen || !spec.PoleChosen)
                 return false;
             return PoleStands(old) ? old.PoleLength > 0f : PoleStands(spec);
         }

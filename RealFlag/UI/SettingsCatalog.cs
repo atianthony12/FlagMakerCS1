@@ -116,6 +116,13 @@ namespace RealFlag.UI
 
         public float Min, Max, Step;
 
+        /// <summary>
+        /// A panel slider whose top moves (the pole height's, locked or not): its top now, held
+        /// within Min..Max. Null: Max. Max stays the setting's range -- the file's values are held
+        /// to it, not to this.
+        /// </summary>
+        public Func<float> SliderMax;
+
         /// <summary>Formats the slider readout. Null means "N%".</summary>
         public Func<float, string> Format;
 
@@ -284,6 +291,12 @@ namespace RealFlag.UI
         public bool IsEnabled2
         {
             get { return Enabled2 == null || Enabled2(); }
+        }
+
+        /// <summary>The panel slider's top now: <see cref="SliderMax"/> within Min..Max, else Max.</summary>
+        public float Top
+        {
+            get { return SliderMax != null ? Math.Max(Min, Math.Min(Max, SliderMax())) : Max; }
         }
 
         /// <summary>The slider position: percent rows are stored as a fraction and shown x100.</summary>
@@ -571,7 +584,9 @@ namespace RealFlag.UI
             return () =>
             {
                 int style = pole != null ? pole.value : Settings.Defaults.Pole;
-                string text = style == FlagPoleStyle.None
+                string text = hoistedFrom != null && hoistedFrom.value == FlagHoist.Top
+                    ? Localization.Get("PoleButton.Top")
+                    : style == FlagPoleStyle.None
                     ? Localization.Get("PoleButton.None")
                     : Stands(tilt, lean, hoistedFrom)
                     ? Localization.Get("PoleButton.Tall", Localization.Get(PoleKey(style)), (height != null ? height.value : Settings.Defaults.Height).ToString("0.#", CultureInfo.InvariantCulture),
@@ -969,7 +984,10 @@ namespace RealFlag.UI
                                     IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
                                     Action changed, Action heightChanged, Func<bool> enabled)
         {
-            Func<bool> drawn = () => (enabled == null || enabled()) && pole.value != FlagPoleStyle.None;
+            // Hoisted from its top, a flag has no pole (FlagSpec.HasPole): the pole's rows grey out,
+            // the choice kept for its side again; the tilt and lean still turn the banner.
+            Func<bool> side = () => (enabled == null || enabled()) && hoistedFrom.value != FlagHoist.Top;
+            Func<bool> drawn = () => side() && pole.value != FlagPoleStyle.None;
 
             Add(new Row
             {
@@ -980,11 +998,17 @@ namespace RealFlag.UI
                 ChoiceValues = FlagPoleStyle.Values,
                 ChoiceKeys = FlagPoleStyle.NameKeys,
                 AfterChange = changed,
-                Enabled = enabled,
+                Enabled = side,
             });
 
             // How tall a pole that stands is (its foot to the flag's top); a crossbar reaching out
-            // level finds its own length, along to its wall.
+            // level finds its own length, along to its wall. The slider goes to LockedHeight until
+            // its range is unlocked (the author: "The range is too far ... add an option 'Unlock
+            // range'? But by default it's locked to the lower limit"); a pole taller than the
+            // slider reaches keeps its height, and its readout says it.
+            Func<bool> standing = () => drawn() && Stands(tilt, lean, hoistedFrom);
+            Func<float> top = () => Settings.UnlockPoleHeight != null && Settings.UnlockPoleHeight.value
+                ? Settings.Defaults.MaxNewHeight : Settings.Defaults.LockedHeight;
             Add(new Row
             {
                 Kind = RowKind.Value,
@@ -992,9 +1016,22 @@ namespace RealFlag.UI
                 Float = height,
                 DefaultFloat = Settings.Defaults.Height,
                 Min = 1f, Max = Settings.Defaults.MaxNewHeight, Step = 0.5f,
+                SliderMax = top,
                 Format = Metres,
+                ReadoutOverride = () => height.value > top() + 0.01f ? Metres(height.value) : null,
                 AfterChange = heightChanged,
-                Enabled = () => drawn() && Stands(tilt, lean, hoistedFrom),
+                Enabled = standing,
+            });
+
+            // One switch for both windows.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = page,
+                Bool = Settings.UnlockPoleHeight,
+                DefaultBool = Settings.Defaults.UnlockPoleHeight,
+                AfterChange = State("pole height's range unlocked", OnOff(Settings.UnlockPoleHeight)),
+                Enabled = standing,
             });
 
             Add(new Row
@@ -1300,7 +1337,8 @@ namespace RealFlag.UI
                 Panel = PanelPage.PoleExisting,
                 Id = "PoleToGround",
                 OnClick = FlagEditor.PoleToGround,
-                Enabled = () => selected() && Settings.SelPole != null && Settings.SelPole.value != FlagPoleStyle.None,
+                Enabled = () => selected() && Settings.SelPole != null && Settings.SelPole.value != FlagPoleStyle.None &&
+                                Settings.SelHoistedFrom.value != FlagHoist.Top,
             });
 
             Add(new Row
