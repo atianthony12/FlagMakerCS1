@@ -132,6 +132,9 @@
     <Copy SourceFiles="$(LibsDir)\UnifiedUILib.dll" DestinationFolder="$(ModsDir)" />
     <Copy SourceFiles="$(LibsDir)\CitiesHarmony.API.dll" DestinationFolder="$(ModsDir)" />
     <Copy SourceFiles="$(LibsDir)\MoveItIntegration.dll" DestinationFolder="$(ModsDir)" />
+    <!-- The notices travel with the binaries (Real Glass's practice): MIT asks for its notice "in
+         all copies", and a link to GitHub is not in the copy a player downloads. -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\THIRD-PARTY-NOTICES.md" DestinationFolder="$(ModsDir)" />
     <Message Importance="high" Text="Deployed $(AssemblyName).dll -> $(ModsDir)" />
   </Target>
 

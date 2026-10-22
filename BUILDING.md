@@ -75,6 +75,43 @@ tenth), the wind to the Eurocode, the cloth's thread to the main thread's result
 the frame planning to its budget, and the save and Move It formats to their round trips. The
 other two check the settings file format and the language files.
 
+Apple's Metal compiler (the Metal Developer Tools for Windows, free behind an Apple account sign-in
+at developer.apple.com/download/all; looked for in `Program Files\Metal Developer Tools` or
+`$env:RF_METAL`; its installer's PATH step is not needed):
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-metal.ps1
+```
+
+cuts every Metal program out of the shipped mac bundle (Unity 5.6 ships Metal as source, compiled
+by the Mac when the shader loads) and compiles each at the oldest and newest Metal language
+versions; it fails on a program Apple's compiler refuses, which on a Mac makes the whole shader
+unsupported. The table shows each program's textures, samplers and buffers (Metal: 16 samplers).
+
+AMD's compiler (Radeon GPU Analyzer, free: github.com/GPUOpen-Tools/radeon_gpu_analyzer; runs on
+any GPU, looked for in `Documents\Projects\RGA` or `$env:RF_RGA`):
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-amd.ps1
+```
+
+builds the exact programs in the shipped Windows bundle for RX 7000 and RX 9000 (through RGA's
+Direct3D 12 mode) and for RX 6000, RX 5000 and Vega (Direct3D 11), and fails on a program that
+does not compile or spills registers.
+
+**Before a release:**
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -DryRun
+```
+
+runs every check of a release without changing anything: the tree committed, the submodule
+pushed, the version new and dated in the changelog, the bundles newer than the shaders, the
+Workshop texts and image, the build and what the DLL embeds, the five shipped files, the tests
+above. Without `-DryRun` it also stages an update in the subscribed Workshop folder and parks the
+local copy. `docs\RELEASE-CHECKLIST.md` has the rest; `tools\bbcode-preview.html` (open it from
+disk) previews the Workshop description and counts it as Steam does.
+
 **Look at a change before playing it:**
 
 ```

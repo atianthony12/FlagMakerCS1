@@ -69,13 +69,14 @@ is next open.
 
 **Flagpole** (a button in the new flag's window and in the Flags tab, which opens beside them): none by default -- the flag
 is for a pole of your own -- or a pole the mod draws, its **Pole height** from its foot to the
-flag: 64-sided, tapered like a real one and as thick as one for that flag and height, with
+flag (1 to 50 m on the slider; **Unlock range** under it opens it to 200 m): 64-sided, tapered like a real one and as thick as one for that flag and height, with
 a flash collar at its foot, a truck at its top and a gilt ball, a flat cap or a spear on it,
 one or two halyard lines, your colours for the pole, its top and its ropes, and a thickness to
 taste. With ropes, the flag hangs from its top and bottom clips only, as a hoisted flag does,
 and its edge bows out between them in the wind; without, it is held along its whole edge. The
 cloth keeps off the pole: a flag the wind turns back over its pole wraps round it. A banner
-hoisted from its top gets a crossbar instead, reaching to a wall it hangs near. The pole is
+hoisted from its top has no pole (the pole you chose comes back with the side's); for a pole
+reaching out level, tilt a flag hoisted from its side. The pole is
 part of the flag: raised or lowered with Move It or Page Up and Page Down, the flag takes its
 pole with it. A selected flag's **Pole height** makes its pole taller or shorter, its foot where
 it stands and the flag going with the top, and **Pole down to the ground** (the same window)

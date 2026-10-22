@@ -23,6 +23,11 @@ param(
 #       exit 1 unless EVERY named shader is there and carries exactly these platform ids
 #       (any order), each with real code: an EMPTY, unknown or corrupt blob fails.
 #       build-bundle.ps1 passes the names read out of BundleBuilder.cs.
+#   Any run fails a GLSL / Metal blob holding "~int(u_xlatb": Unity 5.6's HLSLcc writes a "not"
+#   of a combined condition that way, and it is never false (see Describe); and a Metal blob with
+#   a sampler past slot 15 (Metal's 16, one per texture there: the Mac refuses the shader).
+#   (Both from Real Glass, 2026-10-22: its rooms never showed on Linux or the Mac through the
+#   first, and its 1.1.2 stood down on every Mac through the second.)
 #   .\bundle-apis.ps1 -Bundle <new win bundle> -Compare <old win bundle> [-ComparePlatform 4]
 #       exit 1 unless the decompressed blob for that platform is byte-identical per shader:
 #       the proof that a change elsewhere (another platform added, a tool updated) left the
@@ -47,6 +52,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 public class BundleBlob
 {
@@ -179,6 +185,24 @@ public static class BundleApis
             foreach (KeyValuePair<string, int> kv in versions) vs.Add(kv.Key + " x" + kv.Value);
             vs.Sort();
             parts.Add("GLSL #version " + string.Join(", ", vs.ToArray()));
+        }
+
+        // Unity 5.6's HLSLcc (OpenGL Core, Metal) writes a DXBC "not" of a bool as
+        // "~int(b) * int(0xffffffffu)": the ~ binds first, so not-true is 2 and not-false 1 --
+        // never false. Real Glass's rooms never showed on Linux or the Mac that way (its 1.0.0 to
+        // 2026-10-22). Every "~int(u_xlatb" / "~uint(u_xlatb" is one.
+        int nots = Count(blob, "~int(u_xlatb") + Count(blob, "~uint(u_xlatb");
+        if (nots > 0) parts.Add("HLSLCC-NOT x" + nots);
+
+        // Metal takes sixteen samplers a function (slots 0-15), and Unity 5.6 gives every texture
+        // one of its own, Load or not. A slot past 15 and the device's compiler refuses the whole
+        // shader at load: on the Mac, Real Glass 1.1.2's Glass (18 textures) stood that mod down.
+        if (metal > 0)
+        {
+            int over = 0;
+            foreach (Match m in Regex.Matches(Encoding.ASCII.GetString(blob), @"\[\[\s*sampler\s*\((\d+)\)\s*\]\]"))
+                if (int.Parse(m.Groups[1].Value) > 15) over++;
+            if (over > 0) parts.Add("METAL-SAMPLERS-OVER-16 x" + over);
         }
 
         return parts.Count > 0 ? string.Join(" + ", parts.ToArray()) : "unknown";
@@ -368,6 +392,14 @@ foreach ($file in $Bundle) {
             }
             elseif ($b.Kind -eq "unknown" -or $b.Kind -like "CORRUPT*") {
                 Write-Host ("    {0}: nothing recognisable in the blob ({1})" -f [BundleApis]::PlatformName($b.Platform), $b.Kind) -ForegroundColor Red
+                $failed = $true
+            }
+            if ($b.Kind -like "*HLSLCC-NOT*") {
+                Write-Host ("    {0}: a 'not' that HLSLcc made never false (~int(bool) * -1): write that condition without the 'not' (-DumpDir, grep '~int(u_xlatb')" -f [BundleApis]::PlatformName($b.Platform)) -ForegroundColor Red
+                $failed = $true
+            }
+            if ($b.Kind -like "*METAL-SAMPLERS-OVER-16*") {
+                Write-Host ("    {0}: a program with a sampler past slot 15 -- Metal takes 16, one per texture: the Mac refuses the shader" -f [BundleApis]::PlatformName($b.Platform)) -ForegroundColor Red
                 $failed = $true
             }
         }
