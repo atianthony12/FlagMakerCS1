@@ -60,22 +60,54 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
-    /// The wind over the city, as each flag feels it: the log-law profile with height and the
-    /// turbulence of built-up ground, both from EN 1991-1-4 (Eurocode 1, wind actions, section 4),
-    /// the ratios of the turbulence's three components from the atmospheric surface layer
-    /// (Panofsky and Dutton 1984), and the inertial range for the eddies the size of a flag
-    /// (Kolmogorov 1941: velocity differences over a distance r go as r^(1/3)).
+    /// The wind over the city, as each flag feels it: the mean speed growing with height by the
+    /// power law of its terrain (Davenport 1960; the exponents of ASCE 7-95's exposures), the
+    /// turbulence of that terrain from EN 1991-1-4 (Eurocode 1, wind actions, section 4), the
+    /// ratios of the turbulence's three components from the atmospheric surface layer (Panofsky
+    /// and Dutton 1984), and the inertial range for the eddies the size of a flag (Kolmogorov
+    /// 1941: velocity differences over a distance r go as r^(1/3)).
     /// </summary>
+    /// <remarks>
+    /// THE TERRAIN is a roughness length z0 (<see cref="CityRoughness"/>: the buildings round the
+    /// flag), from <see cref="RoughnessLength"/> (towns, EN category III, the default) to
+    /// <see cref="CityCentre"/> (category IV). The panel's speed is the mean at 10 m over the
+    /// ground WHERE THE FLAG IS; a rougher terrain makes the wind grow faster above that (city
+    /// centres: U ~ z^(1/3); towns: z^(1/4)) and fade faster below it, and gustier throughout
+    /// (Eurocode: I = 1 / ln(z / z0)). So a flag over a city centre's roofs flies in more wind than
+    /// one as high over a suburb, and one down in its streets in less. Until 2026-10-30 this was the
+    /// log law of category III everywhere, held below 5 m: the author's 16.9 m flag on a 37 m pole
+    /// downtown got 1.38 the 10 m wind, a flag on a 3 m pole 0.80 ("flags that are hoisted on tall
+    /// flagpoles or ... on top of buildings should almost always react to wind way stronger").
+    /// </remarks>
     public static class FlagWind
     {
         /// <summary>
         /// Roughness length z0, metres: EN 1991-1-4 terrain category III, "regular cover of
-        /// vegetation or buildings, or isolated obstacles" -- suburbs, villages, towns.
+        /// vegetation or buildings, or isolated obstacles" -- suburbs, villages, towns. The least a
+        /// flag is given: away from the city the wind is as it always was.
         /// </summary>
         public const float RoughnessLength = 0.3f;
 
-        /// <summary>Below this the profile is held (the Eurocode's z_min for category III), metres.</summary>
-        public const float MinimumHeight = 5f;
+        /// <summary>
+        /// The roughest terrain, metres: EN 1991-1-4 category IV, "at least 15 % of the surface
+        /// covered with buildings whose average height exceeds 15 m" (ASCE 7-95's exposure A, large
+        /// city centres). Rougher than this the Eurocode does not go.
+        /// </summary>
+        public const float CityCentre = 1f;
+
+        /// <summary>Below this the mean speed is held, metres (a flag lower than that is in someone's hand).</summary>
+        public const float MinimumHeight = 2f;
+
+        /// <summary>
+        /// Roughness lengths and the power-law exponents of their terrains: EN 1991-1-4's categories
+        /// II (open country), III (towns) and IV (city centres) against ASCE 7-95's exposures C
+        /// (1/6.5), B (1/4) and A (1/3), the same terrains; interpolated in ln z0 between.
+        /// </summary>
+        private static readonly float[] Roughnesses = { 0.05f, 0.3f, 1f };
+        private static readonly float[] Exponents = { 1f / 6.5f, 0.25f, 1f / 3f };
+
+        /// <summary>EN 1991-1-4 table 4.1's z_min for the same terrains, metres: the turbulence is held below it.</summary>
+        private static readonly float[] TurbulenceFloors = { 2f, 5f, 10f };
 
         /// <summary>
         /// The panel's wind speed is the mean speed at this height, metres: where weather
@@ -96,34 +128,90 @@ namespace RealFlag.Flags
         /// <summary>
         /// The most a flag's cloth is given, m/s. Hurricane force (Beaufort 12) begins at
         /// 32.7 m/s, and no flag flies in more; but the panel's 30 m/s in rain (x1.5) at the top
-        /// of a tower (the log law: x1.8 at 200 m) would be 80 m/s, which the cloth is not built
-        /// for (FlagCloth.MaxSubSteps is sized for this).
+        /// of a tower (a city centre's power law: x2.7 at 200 m) would be 120 m/s, which the cloth
+        /// is not built for (FlagCloth.MaxSubSteps is sized for this).
         /// </summary>
         public const float MaxSpeed = 40f;
 
-        /// <summary>The mean speed at <paramref name="height"/> metres over the ground, from the speed at 10 m (the log law), at most <see cref="MaxSpeed"/>.</summary>
+        /// <summary>A roughness length held to the terrains the wind knows (<see cref="RoughnessLength"/>..<see cref="CityCentre"/>); 0 or less is the default.</summary>
+        public static float Terrain(float roughness)
+        {
+            if (!(roughness > 0f))
+                return RoughnessLength;
+            return Math.Min(Math.Max(roughness, RoughnessLength), CityCentre);
+        }
+
+        /// <summary>The mean speed's power-law exponent over a terrain (its roughness length, metres).</summary>
+        public static float Exponent(float roughness)
+        {
+            return Interpolate(Exponents, Terrain(roughness));
+        }
+
+        /// <summary>The height the turbulence is held below over a terrain, metres (EN 1991-1-4's z_min).</summary>
+        public static float TurbulenceFloor(float roughness)
+        {
+            return Interpolate(TurbulenceFloors, Terrain(roughness));
+        }
+
+        /// <summary>A terrain's value from the table over <see cref="Roughnesses"/>, linear in ln z0, held at its ends.</summary>
+        private static float Interpolate(float[] values, float z0)
+        {
+            if (z0 <= Roughnesses[0])
+                return values[0];
+            for (int i = 1; i < Roughnesses.Length; i++)
+            {
+                if (z0 <= Roughnesses[i])
+                {
+                    double t = Math.Log(z0 / Roughnesses[i - 1]) / Math.Log(Roughnesses[i] / Roughnesses[i - 1]);
+                    return (float)(values[i - 1] + (values[i] - values[i - 1]) * t);
+                }
+            }
+            return values[values.Length - 1];
+        }
+
+        /// <summary>The mean speed at <paramref name="height"/> metres over the ground in a town, from the speed at 10 m, at most <see cref="MaxSpeed"/>.</summary>
         public static float SpeedAt(float speed10, float height)
         {
+            return SpeedAt(speed10, height, RoughnessLength);
+        }
+
+        /// <summary>The same over a terrain of <paramref name="roughness"/> metres (the power law: the speed at 10 m there x (z / 10)^alpha).</summary>
+        public static float SpeedAt(float speed10, float height, float roughness)
+        {
             float z = Math.Max(height, MinimumHeight);
-            float speed = speed10 * (float)(Math.Log(z / RoughnessLength) / Math.Log(ReferenceHeight / RoughnessLength));
+            float speed = speed10 * (float)Math.Pow(z / ReferenceHeight, Exponent(roughness));
             return Math.Min(speed, MaxSpeed);
         }
 
-        /// <summary>Turbulence intensity sigma_u / U at a height (EN 1991-1-4 (4.7) with k_I = c_0 = 1).</summary>
+        /// <summary>Turbulence intensity sigma_u / U at a height in a town (EN 1991-1-4 (4.7) with k_I = c_0 = 1).</summary>
         public static float Intensity(float height)
         {
-            float z = Math.Max(height, MinimumHeight);
-            return 1f / (float)Math.Log(z / RoughnessLength);
+            return Intensity(height, RoughnessLength);
+        }
+
+        /// <summary>The same over a terrain of <paramref name="roughness"/> metres: I = 1 / ln(z / z0), held below its z_min.</summary>
+        public static float Intensity(float height, float roughness)
+        {
+            float z0 = Terrain(roughness);
+            float z = Math.Max(height, TurbulenceFloor(z0));
+            return 1f / (float)Math.Log(z / z0);
         }
 
         /// <summary>
-        /// The turbulence's integral length scale at a height, metres (EN 1991-1-4 annex B:
-        /// L = 300 (z / 200)^alpha, alpha = 0.67 + 0.05 ln z0): the size of the big gusts.
+        /// The turbulence's integral length scale at a height in a town, metres (EN 1991-1-4 annex
+        /// B: L = 300 (z / 200)^alpha, alpha = 0.67 + 0.05 ln z0): the size of the big gusts.
         /// </summary>
         public static float LengthScale(float height)
         {
-            float z = Math.Max(height, MinimumHeight);
-            double alpha = 0.67 + 0.05 * Math.Log(RoughnessLength);
+            return LengthScale(height, RoughnessLength);
+        }
+
+        /// <summary>The same over a terrain of <paramref name="roughness"/> metres.</summary>
+        public static float LengthScale(float height, float roughness)
+        {
+            float z0 = Terrain(roughness);
+            float z = Math.Max(height, TurbulenceFloor(z0));
+            double alpha = 0.67 + 0.05 * Math.Log(z0);
             return (float)(300.0 * Math.Pow(z / 200.0, alpha));
         }
 
@@ -140,10 +228,17 @@ namespace RealFlag.Flags
         public static FlagAir Air(float speed10, float gusts, float dirX, float dirZ, float height, float waviness,
                                   float flagLength, float time, float anchorX, float anchorZ)
         {
-            float speed = SpeedAt(Math.Max(speed10, 0f), height);
-            float turbulence = Intensity(height) * speed;
+            return Air(speed10, gusts, dirX, dirZ, height, waviness, flagLength, time, anchorX, anchorZ, RoughnessLength);
+        }
+
+        /// <summary>The same over a terrain of <paramref name="roughness"/> metres (the buildings round the flag: <see cref="CityRoughness"/>).</summary>
+        public static FlagAir Air(float speed10, float gusts, float dirX, float dirZ, float height, float waviness,
+                                  float flagLength, float time, float anchorX, float anchorZ, float roughness)
+        {
+            float speed = SpeedAt(Math.Max(speed10, 0f), height, roughness);
+            float turbulence = Intensity(height, roughness) * speed;
             float sigma = turbulence * Math.Max(gusts, 0f);
-            float scale = LengthScale(height);
+            float scale = LengthScale(height, roughness);
 
             float along = anchorX * dirX + anchorZ * dirZ;
             float across = -anchorX * dirZ + anchorZ * dirX;
@@ -186,6 +281,71 @@ namespace RealFlag.Flags
             air.InvScale = 1f / eddy;
             air.Evolution = Math.Max(0.35f * speed / eddy, 0.25f);
             return air;
+        }
+    }
+
+    /// <summary>
+    /// The roughness of the city round a flag, from its buildings: Lettau's (1969) z0 = 0.5 h
+    /// lambda_f -- h their mean height, lambda_f their frontal area over the ground's -- the simplest
+    /// of the morphometric rules Grimmond and Oke (1999) review, held to the terrains FlagWind knows
+    /// (EN 1991-1-4 categories III to IV: Lettau's rule overshoots where the buildings stand close).
+    /// A building's frontal area is its height x its plan's mean width over every wind direction
+    /// (Cauchy: a convex plan's mean width is its perimeter / pi). PURE.
+    /// </summary>
+    public struct CityRoughness
+    {
+        /// <summary>
+        /// How far round a flag its buildings count, metres: the wind at a few tens of metres has
+        /// come over the last few hundred (an internal boundary layer grows about a tenth as fast
+        /// as it goes).
+        /// </summary>
+        public const float Reach = 200f;
+
+        /// <summary>The buildings counted, their plans, frontal areas and volumes added up (m^2, m^2, m^3).</summary>
+        public int Buildings;
+        public double Plan, Frontal, Volume;
+
+        /// <summary>One building: its plan's width and depth and its height, metres.</summary>
+        public void Add(float width, float depth, float height)
+        {
+            if (!(width > 0f) || !(depth > 0f) || !(height > 0f))
+                return;
+
+            double plan = (double)width * depth;
+            Buildings++;
+            Plan += plan;
+            Frontal += height * 2.0 * (width + depth) / Math.PI;
+            Volume += plan * height;
+        }
+
+        /// <summary>The ground they stand on, m^2: the disc of <see cref="Reach"/>.</summary>
+        public static double Ground
+        {
+            get { return Math.PI * Reach * Reach; }
+        }
+
+        /// <summary>The share of the ground built on (lambda_p).</summary>
+        public float PlanShare
+        {
+            get { return (float)(Plan / Ground); }
+        }
+
+        /// <summary>The frontal area over the ground's (lambda_f).</summary>
+        public float FrontalShare
+        {
+            get { return (float)(Frontal / Ground); }
+        }
+
+        /// <summary>Their height, metres, weighted by their plans.</summary>
+        public float MeanHeight
+        {
+            get { return Plan > 0.0 ? (float)(Volume / Plan) : 0f; }
+        }
+
+        /// <summary>The terrain's roughness length, metres (Lettau), within FlagWind's terrains.</summary>
+        public float Roughness
+        {
+            get { return FlagWind.Terrain(Math.Max(0.5f * MeanHeight * FrontalShare, FlagWind.RoughnessLength)); }
         }
     }
 }

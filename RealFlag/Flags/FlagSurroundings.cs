@@ -235,6 +235,60 @@ namespace RealFlag.Flags
             return raised;
         }
 
+        /// <summary>
+        /// The buildings standing within CityRoughness.Reach of (x, z), for the wind's terrain: each
+        /// by its prefab's size (BuildingInfo.m_size, which InitializePrefab takes from its generated
+        /// mesh info: width, height, length), found through the building grid as
+        /// <see cref="Buildings"/> finds them, the same ones counted (Created, not Deleted, Hidden or
+        /// Collapsed, on the Default layer).
+        /// </summary>
+        public static CityRoughness Roughness(float x, float z, ref Gathered found)
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var city = new CityRoughness();
+            BuildingManager manager = Singleton<BuildingManager>.instance;
+            Building[] buffer = manager.m_buildings.m_buffer;
+            ushort[] cells = manager.m_buildingGrid;
+            const int res = BuildingManager.BUILDINGGRID_RESOLUTION;
+            const float size = BuildingManager.BUILDINGGRID_CELL_SIZE;
+            const Building.Flags wanted = Building.Flags.Created;
+            const Building.Flags mask = Building.Flags.Created | Building.Flags.Deleted | Building.Flags.Hidden | Building.Flags.Collapsed;
+            const float reach = CityRoughness.Reach;
+
+            int gx0 = Mathf.Max((int)((x - reach) / size + res * 0.5f), 0);
+            int gz0 = Mathf.Max((int)((z - reach) / size + res * 0.5f), 0);
+            int gx1 = Mathf.Min((int)((x + reach) / size + res * 0.5f), res - 1);
+            int gz1 = Mathf.Min((int)((z + reach) / size + res * 0.5f), res - 1);
+
+            for (int gz = gz0; gz <= gz1; gz++)
+            {
+                for (int gx = gx0; gx <= gx1; gx++)
+                {
+                    ushort id = cells[gz * res + gx];
+                    int guard = 0;
+                    while (id != 0)
+                    {
+                        ref Building b = ref buffer[id];
+                        float dx = b.m_position.x - x, dz = b.m_position.z - z;
+                        if ((b.m_flags & mask) == wanted && dx * dx + dz * dz <= reach * reach)
+                        {
+                            BuildingInfo info = b.Info;
+                            if (info != null && info.m_class != null && (info.m_class.m_layer & ItemClass.Layer.Default) != 0)
+                                city.Add(info.m_size.x, info.m_size.z, info.m_size.y);
+                        }
+
+                        id = b.m_nextGridBuilding;
+                        if (++guard >= buffer.Length)
+                            break;
+                    }
+                }
+            }
+
+            found.Buildings += city.Buildings;
+            found.Milliseconds += watch.Elapsed.TotalMilliseconds;
+            return city;
+        }
+
         /// <summary>A building's LOD mesh's box in its own frame (x0, z0, x1, z1), read from its vertices once.</summary>
         private static Vector4 MeshBox(BuildingInfo info, Vector3[] v)
         {

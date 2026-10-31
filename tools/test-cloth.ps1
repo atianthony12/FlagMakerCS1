@@ -120,6 +120,15 @@ public static class ClothTests
         return c;
     }
 
+    /// <summary>The roughness of <paramref name="count"/> like buildings round a flag (CityRoughness), and their plan share.</summary>
+    public static string City(int count, float width, float depth, float height)
+    {
+        CityRoughness city = new CityRoughness();
+        for (int i = 0; i < count; i++)
+            city.Add(width, depth, height);
+        return city.Roughness.ToString("F3", Inv) + "," + city.PlanShare.ToString("F3", Inv) + "," + city.MeanHeight.ToString("F1", Inv);
+    }
+
     /// <summary>Degrees the fly's mean sits below the hoist's middle, and how far out it reaches (x L).</summary>
     public static string Droop(FlagCloth c)
     {
@@ -1003,6 +1012,12 @@ public static class ClothTests
     /// <summary>A flag's steps over some seconds of frames at a steady rate: total, most in a frame, alpha within 0..1 throughout.</summary>
     public static string Frames(float fps, float seconds)
     {
+        return Frames(fps, seconds, 3);
+    }
+
+    /// <summary>The same with at most <paramref name="maxSteps"/> a frame (the renderer's MaxStepsPerFrame).</summary>
+    public static string Frames(float fps, float seconds, int maxSteps)
+    {
         float size = 1f / 60f, pending = 0f;
         int steps = 0, most = 0;
         bool alphaOk = true;
@@ -1012,7 +1027,7 @@ public static class ClothTests
             double spent = 0.0;
             float behind;
             bool waiting;
-            int due = ClothPlan.Due(ref pending, 1f / fps, size, 3, 0.3, 8.0, ref spent, false, out behind, out waiting);
+            int due = ClothPlan.Due(ref pending, 1f / fps, size, maxSteps, 0.3, 8.0 * maxSteps, ref spent, false, out behind, out waiting);
             steps += due;
             if (due > most) most = due;
             float alpha = pending / size;
@@ -3118,9 +3133,9 @@ Check "noise is deterministic" ([ClothTests]::NoiseDeterministic()) "same inputs
 
 $w = $asm.GetType("RealFlag.Flags.FlagWind", $true)
 Check "the wind setting is the speed at 10 m" ([math]::Abs($w::SpeedAt(10, 10) - 10) -lt 1e-4) ("{0:F3} m/s" -f $w::SpeedAt(10, 10))
-Check "held below 5 m (EN 1991-1-4 z_min)" ($w::SpeedAt(10, 1) -eq $w::SpeedAt(10, 5)) ("{0:F2} m/s at 1 m and at 5 m" -f $w::SpeedAt(10, 1))
-Check "more wind higher up (log law)" ($w::SpeedAt(10, 30) -gt 12.5 -and $w::SpeedAt(10, 30) -lt 13.5) ("{0:F2} m/s at 30 m" -f $w::SpeedAt(10, 30))
-Check "held to 40 m/s: 30 m/s in rain at 200 m would be 80" ($w::SpeedAt(45, 200) -eq 40) ("{0:F1} m/s" -f $w::SpeedAt(45, 200))
+Check "held below 2 m" ($w::SpeedAt(10, 1) -eq $w::SpeedAt(10, 2)) ("{0:F2} m/s at 1 m and at 2 m" -f $w::SpeedAt(10, 1))
+Check "more wind higher up (a town's power law, z^(1/4))" ([math]::Abs($w::SpeedAt(10, 30) - 10 * [math]::Pow(3, 0.25)) -lt 0.01) ("{0:F2} m/s at 30 m" -f $w::SpeedAt(10, 30))
+Check "held to 40 m/s: 30 m/s in rain at 200 m over a city centre would be 120" ($w::SpeedAt(45, 200) -eq 40) ("{0:F1} m/s" -f $w::SpeedAt(45, 200))
 $clothType = [RealFlag.Flags.FlagCloth]
 $step = [single](1.0 / 60.0)
 $subSteps = (@(0, 9, 9.1, 18, 27.5, 40) | ForEach-Object { $clothType::SubSteps($_, $step, 3.0 / 18.0) }) -join ","
@@ -3133,6 +3148,16 @@ $grids = @(@(3, 2), @(1, 0.667), @(0.5, 0.333), @(30, 20)) | ForEach-Object {
 Check "grids: 18 cells along, none shorter than 8 cm" (($grids -join " ") -eq "19x13 13x9 7x5 19x13") ("3 x 2 m: " + $grids[0] + "; 1 m: " + $grids[1] + "; 0.5 m: " + $grids[2] + "; 30 m: " + $grids[3])
 Check "town turbulence at 10 m: I = 1 / ln(10 / 0.3)" ([math]::Abs($w::Intensity(10) - 0.2852) -lt 0.001) ("{0:F4}" -f $w::Intensity(10))
 Check "the gusts' length scale at 10 m ~ 50 m" ($w::LengthScale(10) -gt 40 -and $w::LengthScale(10) -lt 60) ("{0:F1} m" -f $w::LengthScale(10))
+$terr = @(0, 0.1, 0.55, 5) | ForEach-Object { $w::Terrain($_).ToString("F2") }
+Check "the wind's terrains: a town's (0.3 m, also for none) to a city centre's (1 m, EN 1991-1-4 IV)" (($terr -join ",") -eq "0.30,0.30,0.55,1.00") ($terr -join ",")
+$cityHigh = $w::SpeedAt(1, 37, 1.0); $townHigh = $w::SpeedAt(1, 37, 0.3); $cityLow = $w::SpeedAt(1, 3, 1.0); $townLow = $w::SpeedAt(1, 3, 0.3)
+Check "over a city centre the wind grows as z^(1/3), a town's z^(1/4) (ASCE 7-95's A and B): more above 10 m, less below" ([math]::Abs($cityHigh - [math]::Pow(3.7, 1.0 / 3)) -lt 0.002 -and [math]::Abs($townHigh - [math]::Pow(3.7, 0.25)) -lt 0.002 -and $cityLow -lt $townLow -and $w::SpeedAt(1, 10, 1.0) -eq 1) ("at 37 m {0:F3} / {1:F3}, at 3 m {2:F3} / {3:F3}" -f $cityHigh, $townHigh, $cityLow, $townLow)
+$expo = @(0.05, 0.3, 1.0) | ForEach-Object { (1 / $w::Exponent($_)).ToString("F2") }
+Check "the exponents: 1/6.5, 1/4 and 1/3 at EN's II, III, IV (the first two held to III)" (($expo -join ",") -eq "4.00,4.00,3.00") ($expo -join ",")
+$iCity = $w::Intensity(37, 1.0); $iLow = $w::Intensity(3, 1.0)
+Check "a city centre's turbulence: 1 / ln(z / 1 m), held below its z_min of 10 m" ([math]::Abs($iCity - 1 / [math]::Log(37)) -lt 1e-4 -and [math]::Abs($iLow - 1 / [math]::Log(10)) -lt 1e-4 -and $w::Intensity(37, 0.3) -eq $w::Intensity(37)) ("{0:F3} at 37 m, {1:F3} at 3 m" -f $iCity, $iLow)
+$empty = [ClothTests]::City(0, 0, 0, 0) -split ","; $suburb = [ClothTests]::City(209, 10, 12, 7) -split ","; $downtown = [ClothTests]::City(56, 30, 30, 16) -split ","
+Check "the buildings round a flag: none a town's, houses ~0.6 m (Lettau), downtown held to 1 m" ((N $empty[0]) -eq 0.3 -and (N $suburb[0]) -gt 0.5 -and (N $suburb[0]) -lt 0.65 -and (N $downtown[0]) -eq 1) ("none " + $empty[0] + "; 209 houses 10x12x7 m (" + $suburb[1] + " of the ground) " + $suburb[0] + "; 56 blocks 30x30x16 m (" + $downtown[1] + ") " + $downtown[0])
 
 # ---- the cloth ----------------------------------------------------------------------------
 
@@ -3151,7 +3176,10 @@ foreach ($speed in 6, 12) {
     $wv = ([ClothTests]::Waves($speed) -split ",")
     Check "$speed m/s: the flapping grows towards the fly" ((N $wv[1]) -gt 1.8 * (N $wv[0])) ("rms " + $wv[0] + " m at a third, " + $wv[1] + " m at the fly")
     Check "$speed m/s: they run from the hoist to the fly, slower than the wind" ((N $wv[2]) -gt 0.25 -and (N $wv[2]) -lt 1.1) ($wv[2] + " x the wind over 1-6 Hz, most flutter at " + $wv[4] + " Hz")
-    Check "$speed m/s: stretched at most 12%" ((N $wv[3]) -lt 1.12) ("worst " + $wv[3])
+    # The worst moment of one 20 s run: 2026-10-30, 5.8-6.24 m/s at 10 m in 12 steps, 1.097-1.127 on
+    # the old log law (1.127 at 6.2 m/s), 1.095-1.123 on the power law (1.120 at 6 m/s): the same
+    # spread. 12% was one draw's margin; 12.5% holds the spread.
+    Check "$speed m/s: stretched at most 12.5%" ((N $wv[3]) -lt 1.125) ("worst " + $wv[3])
 }
 
 $storm = [ClothTests]::Storm() -split ","
@@ -3208,7 +3236,10 @@ foreach ($case in @(@(45, 0, 0), @(45, 0, 6), @(45, 0, 12), @(90, 0, 6), @(30, 2
     Check ("hoist tilted {0} deg, leaning {1}, {2} m/s: finite, hoist on its line, stretched at most 15%" -f $case[0], $case[1], $case[2]) ($t[0] -eq "True" -and $t[1] -eq "True" -and (N $t[2]) -lt 1.15) ("worst stretch " + $t[2] + ", fly " + $t[3] + " L off the hoist line")
 }
 $turn = [ClothTests]::TurnHoist() -split ","
-Check "a flying flag's hoist tilted 45 deg: the cloth turns whole, its hoist on the new line, flies on" ((N $turn[0]) -lt 0.5 -and $turn[1] -eq "True" -and $turn[2] -eq "True" -and (N $turn[3]) -lt 1.12 -and $turn[4] -eq "True") ("distances changed at most " + $turn[0] + " mm, then 3 s: worst stretch " + $turn[3])
+# Tilted: 15% as the tilted flags above (Invariant 6). It was 12%, which one speed's draw passed:
+# 2026-10-30, 5.8-6.24 m/s at 10 m in 12 steps, the worst stretch 1.063-1.149 on the old log law
+# (5 of 12 over 1.12; 1.063 at 6 m/s), 1.095-1.130 on the power law -- the same spread, chaos.
+Check "a flying flag's hoist tilted 45 deg: the cloth turns whole, its hoist on the new line, flies on" ((N $turn[0]) -lt 0.5 -and $turn[1] -eq "True" -and $turn[2] -eq "True" -and (N $turn[3]) -lt 1.15 -and $turn[4] -eq "True") ("distances changed at most " + $turn[0] + " mm, then 3 s: worst stretch " + $turn[3])
 foreach ($ropes in @(0, 2)) {
     foreach ($case in @(@(0, 0), @(2, 180), @(6, 180), @(12, 180), @(6, 90))) {
         $pl = [ClothTests]::Pole($case[0], $case[1], $ropes) -split ","
@@ -3291,6 +3322,12 @@ Check "threads for 4, 8, 12, 16, 28, 64 processors" (($tf -join ",") -eq "1,1,2,
 foreach ($rate in @(@(60, 600, 1), @(144, 600, 1), @(30, 600, 2), @(20, 600, 3), @(10, 300, 3))) {
     $fr = [ClothTests]::Frames($rate[0], 10) -split ","
     $what = if ($rate[0] -ge 20) { "every 1/60 s stepped" } else { "3 a frame at most, the rest let go" }
+    Check ("{0} fps for 10 s: {1}" -f $rate[0], $what) ([math]::Abs([int]$fr[0] - $rate[1]) -le 1 -and [int]$fr[1] -eq $rate[2] -and $fr[2] -eq "True") ($fr[0] + " steps, at most " + $fr[1] + " a frame, alpha in 0..1: " + $fr[2])
+}
+# The renderer's MaxStepsPerFrame since 2026-10-30: real time down to 7.5 fps (the author's 7-11 fps city).
+foreach ($rate in @(@(10, 600, 6), @(8, 600, 8), @(5, 400, 8))) {
+    $fr = [ClothTests]::Frames($rate[0], 10, 8) -split ","
+    $what = if ($rate[0] -ge 7.5) { "every 1/60 s stepped (8 a frame at most)" } else { "8 a frame at most, the rest let go" }
     Check ("{0} fps for 10 s: {1}" -f $rate[0], $what) ([math]::Abs([int]$fr[0] - $rate[1]) -le 1 -and [int]$fr[1] -eq $rate[2] -and $fr[2] -eq "True") ($fr[0] + " steps, at most " + $fr[1] + " a frame, alpha in 0..1: " + $fr[2])
 }
 

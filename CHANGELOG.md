@@ -16,7 +16,8 @@ The first release.
   flutters, drawn with a fabric shader in the game's own lighting (the sun and its shadows, street
   lights at night, fog), wet-looking in rain.
 - **The game's wind** by default (its direction, stronger in rain and higher up), or your own speed,
-  gusts and direction on the Settings tab.
+  gusts and direction on the Settings tab. With Volumetric Weather on, its wind: the strength of
+  its weather or of its Now tab, its direction, and the gusts that bend its trees passing each flag.
 - **Designs**: every country's and territory's flag, fifteen patterns in your colours, or your own
   pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
   stretched); width and height from 0.5 to 30 m, any shape from 1:5 to 5:1; hoisted from its side

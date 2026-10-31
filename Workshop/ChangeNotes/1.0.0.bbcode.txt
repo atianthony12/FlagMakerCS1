@@ -1,0 +1,10 @@
+[h1]Version 1.0.0[/h1]
+[b]New[/b]
+[list]
+[*][b]First release[/b]: cloth flags that wave in the game's wind, lit by its sun, shadows and street lights. Everything is in the in-game panel (F6).
+[*][b]Any design[/b]: every country's flag, patterns in your colours, or your own pictures.
+[*][b]Any size and shape[/b]: 0.5 to 30 m, hoisted from the side or the top; waving, still or flat.
+[*][b]Flagpoles[/b]: optional, with a ball, flat or spear top, halyard ropes, tilt and lean.
+[*][b]Keeps off the city[/b]: flags drape over roofs, walls, props and trees instead of passing through.
+[*][b]Move It[/b]: move, copy and paste flags with their designs.
+[/list]

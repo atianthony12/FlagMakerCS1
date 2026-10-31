@@ -1466,6 +1466,16 @@ namespace RealFlag.UI
             if (!GameWind.Read(out direction, out weather, out rain, out fog))
                 return Localization.Get("GameWindNow.NoCity");
 
+            // Volumetric Weather's wind when it is on (2026-10-30): its weather is in it already.
+            float vwSpeed;
+            bool overridden;
+            UnityEngine.Vector3 vwDirection;
+            if (WeatherModWind.TryRead(out vwDirection, out vwSpeed, out overridden))
+            {
+                float vwDegrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(vwDirection.z, vwDirection.x) * UnityEngine.Mathf.Rad2Deg, 360f);
+                return Localization.Get(overridden ? "GameWindNow.WeatherSet" : "GameWindNow.Weather", WindText(vwSpeed), vwDegrees.ToString("F0"));
+            }
+
             float speed = GameWind.BaseSpeed * weather;
             // As a flag's rotation, the way the "Angle" slider reads it (FlagProps.Direction).
             float degrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(direction.z, direction.x) * UnityEngine.Mathf.Rad2Deg, 360f);

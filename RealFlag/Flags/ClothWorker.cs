@@ -24,6 +24,9 @@ namespace RealFlag.Flags
         /// <summary>The air, as FlagWind.Air takes it.</summary>
         public float Speed, Gusts, DirX, DirZ, Height, Waviness, Length, AnchorX, AnchorZ;
 
+        /// <summary>The terrain's roughness length round the flag, metres (CityRoughness); 0 = a town's (FlagWind.RoughnessLength).</summary>
+        public float Roughness;
+
         /// <summary>Set by the thread: the cloth stopped being numbers and was laid out again.</summary>
         public bool WentWrong;
 
@@ -763,7 +766,7 @@ namespace RealFlag.Flags
 
             if (job.Steps > 0)
             {
-                int sub = cloth.SubStepsFor(FlagWind.SpeedAt(job.Speed, job.Height), job.Size);
+                int sub = cloth.SubStepsFor(FlagWind.SpeedAt(job.Speed, job.Height, job.Roughness), job.Size);
                 float dt = job.Size / sub;
 
                 // The anchor's moves since the last steps: as much as the cloth follows in these, the rest carried.
@@ -774,7 +777,7 @@ namespace RealFlag.Flags
                     for (int i = 0; i < sub; i++)
                     {
                         FlagAir air = FlagWind.Air(job.Speed, job.Gusts, job.DirX, job.DirZ, job.Height, job.Waviness, job.Length,
-                                                   job.Time + s * job.Size + i * dt, job.AnchorX, job.AnchorZ);
+                                                   job.Time + s * job.Size + i * dt, job.AnchorX, job.AnchorZ, job.Roughness);
                         cloth.Step(dt, ref air);
                     }
                 }

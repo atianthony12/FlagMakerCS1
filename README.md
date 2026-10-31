@@ -212,9 +212,12 @@ flags while it loads -- which the mod has never seen happen -- says so, and asks
   big flags fold and flap in a strong wind. Waves run from the hoist to the fly, slower than
   the wind, and grow towards the fly, as real flags' do. The less wavy a flag is set, the
   stiffer and rougher its cloth.
-- **The wind** follows the Eurocode for towns (EN 1991-1-4): more wind higher up, gusts of the
-  right size and strength, and eddies the size of a flag carried past it with the wind, so
-  flags a few metres apart feel the same gust one after the other. The game's own wind, which
+- **The wind** follows the Eurocode (EN 1991-1-4) and knows the city round each flag: its
+  buildings make the terrain rougher, from a town's to a city centre's, so the wind grows
+  faster with height there and is gustier -- a flag on a tall pole or over the roofs downtown
+  flies in far more wind than one down in the street. Gusts of the right size and strength,
+  and eddies the size of a flag carried past it with the wind, so flags a few metres apart
+  feel the same gust one after the other. The game's own wind, which
   has a direction but no speed, gives it its direction, and its weather and wind map (the ones
   its wind turbines use) make a gentle breeze stronger or calmer.
 - **The shader** is a two-sided fabric: the "Charlie" sheen of cloth at grazing angles
@@ -280,6 +283,10 @@ Written from scratch after these, with thanks (no code from them is included):
   H. Schlichting, *Boundary-Layer Theory* -- the air on the cloth.
 - EN 1991-1-4, Eurocode 1: wind actions; H. A. Panofsky and J. A. Dutton, *Atmospheric
   Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941) -- the wind.
+- A. G. Davenport, *Rationale for determining design wind velocities* (1960) and ASCE 7-95's
+  exposures -- the wind's growth with height over each terrain; H. Lettau (1969) and C. S. B.
+  Grimmond and T. R. Oke, *Aerodynamic properties of urban areas derived from analysis of
+  surface form* (1999) -- the city's roughness from its buildings.
 - A. C. Estevez and C. Kulla, *Production Friendly Microfacet Sheen BRDF* (2017); D. Neubelt
   and M. Pettineo, *Crafting a Next-Gen Material Pipeline for The Order: 1886* (2013);
   S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004) -- the fabric;

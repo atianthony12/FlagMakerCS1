@@ -80,6 +80,13 @@ techniques were written from scratch after them, and they are credited here with
       Theory" -- the friction along the cloth.
   The wind:
     EN 1991-1-4, Eurocode 1: Actions on structures -- Wind actions.
+    A. G. Davenport, "Rationale for determining design wind velocities" (1960), and ASCE 7-95,
+      "Minimum Design Loads for Buildings and Other Structures" (its exposures A, B and C) --
+      the power law of the wind with height over each terrain.
+    H. Lettau, "Note on aerodynamic roughness-parameter estimation on the basis of
+      roughness-element description" (1969); C. S. B. Grimmond and T. R. Oke, "Aerodynamic
+      properties of urban areas derived from analysis of surface form" (1999) -- the city's
+      roughness from its buildings.
     H. A. Panofsky and J. A. Dutton, "Atmospheric Turbulence" (1984).
     G. I. Taylor, "The spectrum of turbulence" (1938); A. N. Kolmogorov (1941).
   The fabric:

@@ -335,8 +335,10 @@
   <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
   <String key="Group.Wind">Wind</String>
   <String key="WindFromGame.Label">Use the game's wind</String>
-  <String key="WindFromGame.Tooltip">Off: set your own below.</String>
+  <String key="WindFromGame.Tooltip">Volumetric Weather's wind when it is on. Off: set your own below.</String>
   <String key="GameWindNow.Status">Now {0} at 10 m, towards {1}°</String>
+  <String key="GameWindNow.Weather">Volumetric Weather's: {0} at 10 m, towards {1}°</String>
+  <String key="GameWindNow.WeatherSet">Volumetric Weather's, set on its Now tab: {0}, towards {1}°</String>
   <String key="GameWindNow.Rain">, rain +{0}%</String>
   <String key="GameWindNow.Fog">, fog -{0}%</String>
   <String key="GameWindNow.Own">Your own wind, below</String>

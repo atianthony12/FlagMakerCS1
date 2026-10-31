@@ -152,6 +152,17 @@ namespace RealFlag.Flags
 
         /// <summary>Its new cloth has been laid out clear of the city (FlagCloth.LayOutClear), before it first settles.</summary>
         public bool LaidOut;
+
+        /// <summary>
+        /// The wind's terrain round it (FlagSurroundings.Roughness): the buildings' roughness length,
+        /// metres (0 until read: a town's), where (x, z) and when (real time) it was read, marked stale
+        /// by a building changed within its reach, and the value last logged.
+        /// </summary>
+        public float Roughness;
+        public Vector2 RoughnessPlace;
+        public float RoughnessAt;
+        public bool RoughnessStale;
+        public float RoughnessLogged;
     }
 
     /// <summary>A flag as the panel lists it.</summary>
@@ -246,8 +257,14 @@ namespace RealFlag.Flags
         /// </summary>
         private const double FirstGuessCost = 0.0015;
 
-        /// <summary>At most this many cloth steps a flag catches up in one frame (a hitch is not worth a burst of physics).</summary>
-        private const int MaxStepsPerFrame = 3;
+        /// <summary>
+        /// At most this many cloth steps a flag catches up in one frame (a hitch is not worth a burst
+        /// of physics): the flags keep real time down to 60 / this fps, and slow below it. Was 3
+        /// until 2026-10-30 -- real time to 20 fps only: the author plays at 7-11 fps in a big city,
+        /// where every flag ran at 0.35-0.55 of real time, and a 16.9 m flag on a 37 m pole (a big
+        /// flag's waves are slow for its size already) "wasn't waving at all".
+        /// </summary>
+        private const int MaxStepsPerFrame = 8;
 
         /// <summary>
         /// A new cloth is run this long before it is first shown, to settle, in 1/30 s steps:
@@ -366,6 +383,16 @@ namespace RealFlag.Flags
         private const float CapsulesMaxAge = 3f;
 
         /// <summary>
+        /// The wind's terrain (the buildings within CityRoughness.Reach: a few dozen grid cells, a
+        /// tenth of a millisecond) is read for at most this many flags a frame, the flag being placed
+        /// first; again when the flag has moved this far (metres) from where it was read, a building
+        /// changes within its reach, or it is this old (seconds).
+        /// </summary>
+        private const int RoughnessPerFrame = 4;
+        private const float RoughnessMove = 20f;
+        private const float RoughnessMaxAge = 60f;
+
+        /// <summary>
         /// The flag being placed, sliding with the pointer, gathers a new surface at most this often,
         /// seconds: a detailed building's LOD triangles in an 81 x 81 grid are a few milliseconds
         /// (2000 small triangles: 2 ms in .NET, ~10 in Unity's Mono). Meanwhile the old one holds
@@ -427,7 +454,7 @@ namespace RealFlag.Flags
         private bool _cityCollision = true;
 
         /// <summary>This frame's gatherings of the city (<see cref="SurfacesPerFrame"/>), the buildings changed, and the report's count.</summary>
-        private int _surfacesThisFrame, _capsulesThisFrame;
+        private int _surfacesThisFrame, _capsulesThisFrame, _roughnessThisFrame;
         private readonly List<Vector3> _changes = new List<Vector3>();
         private int _surfaceGathers, _capsuleGathers;
         private double _gatherMs;
@@ -675,6 +702,7 @@ namespace RealFlag.Flags
 
                 _surfacesThisFrame = 0;
                 _capsulesThisFrame = 0;
+                _roughnessThisFrame = 0;
                 _touching = 0;
                 _blocked = 0;
                 MarkChanges();
@@ -1713,7 +1741,8 @@ namespace RealFlag.Flags
             f.WindDir = dir;
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
             float at10 = wind.SpeedFor(f.Anchor, f.Ground);
-            float speed = FlagWind.SpeedAt(at10, height);
+            WindTerrain(f, ghost, height);
+            float speed = FlagWind.SpeedAt(at10, height, f.Roughness);
 
             // Knotted (FlagCloth.KnotStretch): said while there are few, with where its worst link
             // was and the wind at the flag, counted in the report after.
@@ -1741,6 +1770,7 @@ namespace RealFlag.Flags
                 Length = f.Spec.Length,
                 AnchorX = f.Anchor.x,
                 AnchorZ = f.Anchor.z,
+                Roughness = f.Roughness,
             };
 
             if (!f.Settled)
@@ -1959,6 +1989,60 @@ namespace RealFlag.Flags
             }
         }
 
+        /// <summary>
+        /// The wind's terrain round a waving flag (FlagWind, CityRoughness): read from the buildings
+        /// within CityRoughness.Reach when it has none, it has moved <see cref="RoughnessMove"/> from
+        /// where it was read, a building changed in reach, or it is old -- a few flags a frame
+        /// (<see cref="RoughnessPerFrame"/>), the flag being placed first. Logged when it first
+        /// reads, and when it changes by a twentieth.
+        /// </summary>
+        private void WindTerrain(FlagInstance f, bool ghost, float height)
+        {
+            float time = Time.realtimeSinceStartup;
+            Vector2 place = new Vector2(f.Anchor.x, f.Anchor.z);
+            bool read = f.RoughnessAt == 0f || f.RoughnessStale || (place - f.RoughnessPlace).sqrMagnitude > RoughnessMove * RoughnessMove ||
+                        time - f.RoughnessAt > RoughnessMaxAge;
+            if (!read || (!ghost && _roughnessThisFrame >= RoughnessPerFrame))
+                return;
+
+            _roughnessThisFrame++;
+            var found = new FlagSurroundings.Gathered();
+            CityRoughness city;
+            try
+            {
+                city = FlagSurroundings.Roughness(f.Anchor.x, f.Anchor.z, ref found);
+            }
+            catch (Exception e)
+            {
+                city = new CityRoughness();
+                if (!_loggedGatherFailure)
+                {
+                    _loggedGatherFailure = true;
+                    Log.Error("flags: could not read the buildings round " + Who(f) + " (its wind is a town's)", e);
+                }
+            }
+
+            f.Roughness = city.Roughness;
+            f.RoughnessPlace = place;
+            f.RoughnessAt = time;
+            f.RoughnessStale = false;
+            _gatherMs += found.Milliseconds;
+
+            if (ghost || !Log.Detailed || Mathf.Abs(f.Roughness - f.RoughnessLogged) <= 0.05f * f.Roughness)
+                return;
+
+            f.RoughnessLogged = f.Roughness;
+            float z0 = f.Roughness;
+            string terrain = z0 >= FlagWind.CityCentre - 1e-4f ? "a city centre's" : z0 <= FlagWind.RoughnessLength + 1e-4f ? "a town's" : "between a town's and a city centre's";
+            Log.Detail("flags: the wind round " + Who(f) + ": " + city.Buildings + " building(s) within " + CityRoughness.Reach.ToString("F0") +
+                       " m, " + city.MeanHeight.ToString("F1") + " m tall on average over " + (city.PlanShare * 100f).ToString("F0") +
+                       "% of the ground (frontal " + (city.FrontalShare * 100f).ToString("F0") + "%): roughness " + z0.ToString("F2") + " m, " + terrain +
+                       " -- at its " + height.ToString("F0") + " m the wind is " + FlagWind.SpeedAt(1f, height, z0).ToString("F2") +
+                       "x the 10 m speed (a town's " + FlagWind.SpeedAt(1f, height).ToString("F2") + "x), gusts " +
+                       (FlagWind.Intensity(height, z0) * 100f).ToString("F0") + "% of it (" + (FlagWind.Intensity(height) * 100f).ToString("F0") +
+                       "%), in " + found.Milliseconds.ToString("F2") + " ms");
+        }
+
         /// <summary>A flag's name in the log, made only when a line is written (this runs every frame for every waving flag in view).</summary>
         private static string Who(FlagInstance f)
         {
@@ -1987,6 +2071,25 @@ namespace RealFlag.Flags
 
         private void MarkChanged(FlagInstance f, bool all)
         {
+            // The wind's terrain: any building changed within its reach.
+            if (f.RoughnessAt != 0f && !f.RoughnessStale)
+            {
+                if (all)
+                    f.RoughnessStale = true;
+                else
+                {
+                    foreach (Vector3 change in _changes)
+                    {
+                        float dx = change.x - f.RoughnessPlace.x, dz = change.y - f.RoughnessPlace.y, r = CityRoughness.Reach + change.z;
+                        if (dx * dx + dz * dz <= r * r)
+                        {
+                            f.RoughnessStale = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (f.Surface == null || f.SurfaceStale)
                 return;
 
@@ -2558,15 +2661,34 @@ namespace RealFlag.Flags
         /// <summary>The game's weather in it (its GetWindSpeedFactor), and the rain and fog behind that: for the panel's line.</summary>
         public float Weather, Rain, Fog;
 
+        /// <summary>
+        /// Volumetric Weather's wind in place of the game's (WeatherModWind, 2026-10-30): its strength,
+        /// its direction, and the gust passing each flag -- the same that bends its trees.
+        /// </summary>
+        public bool FromWeatherMod;
+
+        /// <summary>Volumetric Weather's wind is set by hand on its Now tab.</summary>
+        public bool Overridden;
+
         public static Wind Current()
         {
             bool fromGame = Settings.WindFromGame != null ? Settings.WindFromGame.value : Settings.Defaults.WindFromGame;
             if (fromGame)
             {
-                // The game's: its direction, its weather; gusts as a town's (EN 1991-1-4).
+                // The game's: its direction, its weather; gusts as a town's (EN 1991-1-4). With Volumetric
+                // Weather on, its wind instead: it already has the weather in it (cloud, rain, storms).
                 var g = new Wind { FromGame = true, Gusts = 1f, Mode = Settings.WindModes.Game };
                 GameWind.Read(out g.Fixed, out g.Weather, out g.Rain, out g.Fog);
                 g.Speed = GameWind.BaseSpeed * g.Weather;
+                Vector3 direction;
+                float speed;
+                if (WeatherModWind.TryRead(out direction, out speed, out g.Overridden))
+                {
+                    g.FromWeatherMod = true;
+                    g.Fixed = direction;
+                    g.Speed = speed;
+                }
+
                 return g;
             }
 
@@ -2586,8 +2708,13 @@ namespace RealFlag.Flags
             }
             else if (w.Mode == Settings.WindModes.Game)
             {
-                float weather, rain, fog;
+                // The game's direction -- Volumetric Weather's when it is on (it may be turning slowly or fixed there).
+                float weather, rain, fog, speed;
+                bool overridden;
+                Vector3 direction;
                 GameWind.Read(out w.Fixed, out weather, out rain, out fog);
+                if (WeatherModWind.TryRead(out direction, out speed, out overridden))
+                    w.Fixed = direction;
             }
 
             return w;
@@ -2602,12 +2729,18 @@ namespace RealFlag.Flags
         /// <summary>The wind at 10 m for a flag standing here over this ground: the game's wind map's share of it, or the player's own.</summary>
         public float SpeedFor(Vector3 place, float ground)
         {
-            return FromGame ? Speed * GameWind.Exposure(place, ground) : Speed;
+            if (!FromGame)
+                return Speed;
+            float here = FromWeatherMod ? WeatherModWind.SpeedAt(place.x, place.z, Speed) : Speed;
+            return here * GameWind.Exposure(place, ground);
         }
 
-        /// <summary>For the log: "the game's (5.8 m/s over open ground, weather x1.15)" or "fixed".</summary>
+        /// <summary>For the log: "the game's (5.8 m/s over open ground, weather x1.15)", "Volumetric Weather's (...)" or "fixed".</summary>
         public string Describe()
         {
+            if (FromWeatherMod)
+                return "Volumetric Weather's (" + Speed.ToString("F1") + " m/s over open ground" + (Overridden ? ", set on its Now tab" : ", from its weather") +
+                       ", its gusts passing each flag)";
             return FromGame
                 ? "the game's (" + Speed.ToString("F1") + " m/s over open ground, weather x" + Weather.ToString("F2") + ")"
                 : Settings.WindModes.LogName(Mode);
