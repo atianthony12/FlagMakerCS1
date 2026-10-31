@@ -68,6 +68,14 @@ namespace RealFlag
         /// <summary>The cloth keeps off the city (FlagSurroundings): the ground, water and roofs under it, walls, props and trees.</summary>
         public static BoolSetting CityCollision { get; private set; }
 
+        /// <summary>
+        /// The threads that step the cloth (ClothWorker.ThreadChoices): 0 = Auto (one per six
+        /// processors, at most four), else the player's number -- more threads, more flags moving
+        /// at full detail, more of the CPU (the author: "users can choose willingly to utilize
+        /// their hardware").
+        /// </summary>
+        public static IntSetting ClothThreads { get; private set; }
+
         // ---- the wind (the panel's Settings tab) ----
 
         /// <summary>
@@ -242,6 +250,9 @@ namespace RealFlag
             public const bool SelfCollision = true;
             public const bool CityCollision = true;
 
+            /// <summary>Auto (the author's choice, 2026-10-31: players raise it themselves).</summary>
+            public const int ClothThreads = 0;
+
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
             public const bool WindFromGame = true;
@@ -343,6 +354,7 @@ namespace RealFlag
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
                 CityCollision = new BoolSetting("CityCollision", Defaults.CityCollision);
+                ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);

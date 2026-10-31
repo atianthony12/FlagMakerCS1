@@ -719,6 +719,14 @@ namespace RealFlag.UI
             return detail + " cells";
         }
 
+        /// <summary>The "Cloth threads" choices: "Auto (4)", then the numbers.</summary>
+        private static string ThreadsText(int value)
+        {
+            if (value <= 0)
+                return Localization.Get("ClothThreads.Auto", ClothWorker.ThreadsFor(Environment.ProcessorCount).ToString(CultureInfo.InvariantCulture));
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
         // ---- the catalog ----------------------------------------------------------------------
 
         private static void Build()
@@ -1603,6 +1611,26 @@ namespace RealFlag.UI
                 AfterChange = () =>
                 {
                     Log.Msg("setting: the cloth keeps off the city = " + OnOff(Settings.CityCollision)());
+                    FlagRenderer.ClothOptionsChanged();
+                },
+            });
+
+            // The cloth's threads (2026-10-31; the author: "give an option for More threads ... users
+            // can choose willingly to utilize their hardware"): Auto as before, or a number up to the
+            // machine's processors. Applied between batches (FlagRenderer.ApplyOptions).
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Int = Settings.ClothThreads,
+                DefaultInt = Settings.Defaults.ClothThreads,
+                ChoiceValues = ClothWorker.ThreadChoicesFor(Environment.ProcessorCount),
+                ChoiceText = ThreadsText,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: cloth threads = " + (Settings.ClothThreads.value <= 0 ? "Auto" : Settings.ClothThreads.value.ToString(CultureInfo.InvariantCulture)) +
+                            " (" + ClothWorker.ThreadsFor(Environment.ProcessorCount, Settings.ClothThreads.value) + " of " + Environment.ProcessorCount + " processors)");
                     FlagRenderer.ClothOptionsChanged();
                 },
             });

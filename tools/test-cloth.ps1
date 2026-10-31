@@ -1099,6 +1099,35 @@ public static class ClothTests
         return least + "," + most;
     }
 
+    /// <summary>
+    /// ClothLoad at 60 fps for <paramref name="seconds"/>: the flags in view want d0 of the budget
+    /// at no scale (d1 from <paramref name="dropAt"/> s), their cost going with the cells along
+    /// squared -- 1 / scale^2 (model 0), or (model 1) a STEP: d0 under a scale of 1.2, half the
+    /// budget from it (a notch of detail that tips the load either way). Returns the scale and
+    /// the time scale at <paramref name="at"/> s and at the end, the share wanted then, the raises
+    /// and lowerings in all and the raises in the last half.
+    /// </summary>
+    public static string Load(double d0, double d1, double dropAt, double seconds, double at, int model)
+    {
+        ClothLoad l = new ClothLoad();
+        float dt = 1f / 60f;
+        int frames = (int)(seconds * 60.0), mark = (int)(at * 60.0), half = frames / 2;
+        float scaleAt = 0f, timeAt = 0f;
+        int raisesHalf = 0;
+        for (int i = 0; i < frames; i++)
+        {
+            double d = i * dt >= dropAt ? d1 : d0;
+            double want = model == 0 ? d / (l.Scale * l.Scale) : (l.Scale < 1.2f ? d : 0.5);
+            l.Add(want * 1000.0, 1000.0, dt);
+            if (i == mark) { scaleAt = l.Scale; timeAt = l.TimeScale; }
+            if (i == half) raisesHalf = l.Raises;
+        }
+        double ratio = model == 0 ? (dropAt < seconds ? d1 : d0) / (l.Scale * l.Scale) : l.Ratio;
+        return scaleAt.ToString("F2", CultureInfo.InvariantCulture) + "," + timeAt.ToString("F2", CultureInfo.InvariantCulture) + "," +
+               l.Scale.ToString("F2", CultureInfo.InvariantCulture) + "," + l.TimeScale.ToString("F2", CultureInfo.InvariantCulture) + "," +
+               ratio.ToString("F2", CultureInfo.InvariantCulture) + "," + l.Raises + "," + l.Lowerings + "," + (l.Raises - raisesHalf);
+    }
+
     /// <summary>A 1/60 s step as the mod takes it (ClothWorker.Execute: its sub-steps included), microseconds.</summary>
     public static double MicrosecondsPerStep(float wind)
     {
@@ -3318,6 +3347,26 @@ Check "four threads step eight flags as this one does" ($pool[0] -eq "True" -and
 Check "their work adds up, and they stop" ($pool[1] -eq "True" -and $pool[3] -eq "True") ("particle steps counted: " + $pool[1] + ", stopped: " + $pool[3])
 $tf = @(4, 8, 12, 16, 28, 64) | ForEach-Object { [RealFlag.Flags.ClothWorker]::ThreadsFor($_) }
 Check "threads for 4, 8, 12, 16, 28, 64 processors" (($tf -join ",") -eq "1,1,2,2,4,4") ($tf -join ",")
+# The "Cloth threads" option (2026-10-31): Auto as above, else the player's number within the machine and 16.
+$wk = [RealFlag.Flags.ClothWorker]
+$to = @($wk::ThreadsFor(28, 0), $wk::ThreadsFor(28, 8), $wk::ThreadsFor(4, 16), $wk::ThreadsFor(28, 99), $wk::ThreadsFor(2, 3), $wk::ThreadsFor(28, -1))
+Check "the option's threads: Auto, 8, 16 on 4 processors, 99, 3 on 2, -1 (28 processors but where said)" (($to -join ",") -eq "4,8,4,16,2,4") ($to -join ",")
+$tc4 = $wk::ThreadChoicesFor(4) -join ","; $tc28 = $wk::ThreadChoicesFor(28) -join ","; $tc1 = $wk::ThreadChoicesFor(1) -join ","
+Check "the option's choices on 4, 28 and 1 processor(s)" ($tc4 -eq "0,1,2,3,4" -and $tc28 -eq "0,1,2,3,4,6,8,12,16" -and $tc1 -eq "0,1") ($tc4 + " | " + $tc28 + " | " + $tc1)
+
+# The load (ClothLoad, 2026-10-31; the author's 93 flags in view: 45 frozen, the rest taking turns).
+$ld = [ClothTests]::Load(3.0, 3.0, 999, 20, 3, 0) -split ","
+Check "the flags want 3x the budget: coarser within 3 s, at real time" ((N $ld[0]) -ge 1.7 -and (N $ld[1]) -eq 1 -and (N $ld[4]) -le 1.0 -and (N $ld[4]) -ge 0.4 -and (N $ld[3]) -eq 1) ("scale " + $ld[0] + " at 3 s, " + $ld[2] + " at 20 s, wanting " + $ld[4] + " of it; time x" + $ld[3] + "; " + $ld[5] + " raise(s), " + $ld[6] + " lowering(s)")
+$ld = [ClothTests]::Load(0.9, 0.9, 999, 30, 15, 0) -split ","
+Check "within the budget nothing changes" ((N $ld[2]) -eq 1 -and (N $ld[3]) -eq 1 -and [int]$ld[5] -eq 0) ("scale " + $ld[2] + ", time x" + $ld[3] + ", " + $ld[5] + " raise(s)")
+$ld = [ClothTests]::Load(3.0, 0.2, 10, 40, 9.9, 0) -split ","
+Check "the load gone: back to full detail" ((N $ld[0]) -gt 1.5 -and (N $ld[2]) -eq 1) ("scale " + $ld[0] + " under load, " + $ld[2] + " 30 s after; " + $ld[6] + " lowering(s)")
+$ld = [ClothTests]::Load(100.0, 100.0, 999, 20, 19, 0) -split ","
+Check "too much even at the coarsest: every flag slowed evenly (95% of what fits)" ((N $ld[2]) -eq 8 -and [math]::Abs((N $ld[3]) - 0.61) -le 0.01) ("scale " + $ld[2] + ", time x" + $ld[3])
+$ld = [ClothTests]::Load(500.0, 500.0, 999, 20, 19, 0) -split ","
+Check "and never slower than a quarter (the turns below it)" ((N $ld[2]) -eq 8 -and (N $ld[3]) -eq 0.25) ("scale " + $ld[2] + ", time x" + $ld[3])
+$ld = [ClothTests]::Load(1.1, 1.1, 999, 120, 60, 1) -split ","
+Check "a notch of detail that tips the load either way: it settles (back-off), not see-saws" ([int]$ld[7] -le 3) ($ld[5] + " raise(s) and " + $ld[6] + " lowering(s) in 120 s, " + $ld[7] + " raise(s) in the last 60; scale " + $ld[2])
 
 foreach ($rate in @(@(60, 600, 1), @(144, 600, 1), @(30, 600, 2), @(20, 600, 3), @(10, 300, 3))) {
     $fr = [ClothTests]::Frames($rate[0], 10) -split ","

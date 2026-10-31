@@ -26,7 +26,10 @@ The first release.
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
   Unlock range). The cloth keeps off its pole. A banner hoisted from its top has no pole.
 - **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default).
-- **Cloth detail** from Low to Extreme, finer near the camera.
+- **Cloth detail** from Low to Extreme, finer near the camera. With more flags in view than the
+  CPU has time for, the smallest on the screen go coarser and slower first, so every flag keeps
+  moving.
+- **Cloth threads** (Settings tab): Auto, or more threads for more flags at full detail.
 
 ### Placing and editing
 

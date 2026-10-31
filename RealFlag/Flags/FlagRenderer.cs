@@ -231,8 +231,13 @@ namespace RealFlag.Flags
         public const float MovePixels = 6f;
         public const float FullRatePixels = 30f;
 
-        /// <summary>At most this many flags move in one frame, the biggest on the screen first.</summary>
-        public const int MaxMoving = 48;
+        /// <summary>
+        /// At most this many flags move in one frame, the biggest on the screen first. Was 48 until
+        /// 2026-10-31: the author's 93 flags in view, 45 of them frozen whatever the threads had
+        /// room for. The budget decides now (ClothLoad makes the smaller ones coarser first); this
+        /// only bounds the main thread's share (a mesh handed over a flag, 2-9 us).
+        /// </summary>
+        public const int MaxMoving = 160;
 
         /// <summary>
         /// The cloth thread's work in a frame of 1/60 s, milliseconds: under half the frame, so
@@ -332,6 +337,19 @@ namespace RealFlag.Flags
         public const float PixelsPerCell = 5f;
         private const float DetailBand = 1.15f;
         private const int MaxDetailChanges = 2;
+
+        /// <summary>Coarser cloths a frame besides (a load being shed: a coarser cloth is cheaper to make and to step).</summary>
+        private const int MaxCoarserChanges = 4;
+
+        /// <summary>
+        /// The cloth under load (2026-10-31): the on-screen sizes PixelsPerCell and FullRatePixels
+        /// are taken x its Scale, so the smallest flags go coarser and to half rate first; its
+        /// TimeScale slows the flags evenly when even that is too much. _demand: this frame's
+        /// moving flags' cloth at real time, milliseconds of thread time a second.
+        /// </summary>
+        private readonly ClothLoad _load = new ClothLoad();
+        private double _demand;
+        private bool _loadSaid;
 
         /// <summary>
         /// A drawn cell is kept to about this many pixels (FlagMesh.Refine: up to four drawn cells a
@@ -514,10 +532,11 @@ namespace RealFlag.Flags
             ReadOptions();
 
             string problem;
-            int threads = ClothWorker.ThreadsFor(SystemInfo.processorCount);
+            int threads = ClothWorker.ThreadsFor(SystemInfo.processorCount, _threadsChosen);
+            _threadsStarted = _threadsChosen;
             string stepping = _worker.Start(threads, out problem)
                 ? "cloth stepped on " + (_worker.Threads == 1 ? "a thread of its own" : _worker.Threads + " threads of its own") +
-                  " (" + SystemInfo.processorCount + " processors here)" + (problem != null ? " -- " + (threads - _worker.Threads) + " did not start: " + problem : "")
+                  " (" + SystemInfo.processorCount + " processors here; " + (_threadsChosen > 0 ? "the option's" : "Auto") + ")" + (problem != null ? " -- " + (threads - _worker.Threads) + " did not start: " + problem : "")
                 : "cloth stepped on the main thread (its own threads did not start: " + problem + ")";
 
             FlagSurroundings.Listen();
@@ -542,9 +561,17 @@ namespace RealFlag.Flags
             _finest = FlagCloth.ClampDetail(Settings.ClothDetail != null ? Settings.ClothDetail.value : Settings.Defaults.ClothDetail);
             _selfCollision = Settings.SelfCollision == null || Settings.SelfCollision.value;
             _cityCollision = Settings.CityCollision == null || Settings.CityCollision.value;
+            _threadsChosen = Settings.ClothThreads != null ? Settings.ClothThreads.value : Settings.Defaults.ClothThreads;
         }
 
-        /// <summary>After a change of options, between batches: every cloth takes the new self-collision (the details follow in Refresh).</summary>
+        /// <summary>The "Cloth threads" option as read, and as the threads running were started with.</summary>
+        private int _threadsChosen, _threadsStarted;
+
+        /// <summary>
+        /// After a change of options, between batches (Collect has taken the last one, nothing is
+        /// out): every cloth takes the new self-collision (the details follow in Refresh), and the
+        /// threads are started again if their number changed.
+        /// </summary>
         private void ApplyOptions()
         {
             if (!_optionsChanged)
@@ -552,6 +579,22 @@ namespace RealFlag.Flags
 
             _optionsChanged = false;
             ReadOptions();
+            if (_threadsChosen != _threadsStarted && _worker.Threaded)
+            {
+                _threadsStarted = _threadsChosen;
+                int threads = ClothWorker.ThreadsFor(SystemInfo.processorCount, _threadsChosen);
+                if (threads != _worker.Threads)
+                {
+                    string problem;
+                    int was = _worker.Threads;
+                    bool stopped = _worker.Stop();
+                    bool started = _worker.Start(threads, out problem);
+                    Log.Msg("flags: the cloth now steps on " + (started ? _worker.Threads + " thread(s)" : "the main thread") + " (was " + was + ")" +
+                            (!stopped ? "; the old ones did not stop within 2 s (background threads: they end with the game)" : "") +
+                            (problem != null ? "; " + problem : ""));
+                    _load.Reset();
+                }
+            }
             foreach (FlagInstance f in _flags)
             {
                 if (f.Cloth != null)
@@ -1177,7 +1220,8 @@ namespace RealFlag.Flags
                 return;
             }
 
-            if (_detailChanges >= MaxDetailChanges)
+            // A few a frame; a few more coarser ones (a load being shed: ClothLoad).
+            if (_detailChanges >= (wanted < f.Detail ? MaxDetailChanges + MaxCoarserChanges : MaxDetailChanges))
                 return;
 
             _detailChanges++;
@@ -1252,10 +1296,13 @@ namespace RealFlag.Flags
         private int _cameraLines;
         private float _nextCameraLine;
 
-        /// <summary>The coarsest detail whose cells are at most <see cref="PixelsPerCell"/> for a flag this many pixels long, within the option's finest.</summary>
+        /// <summary>
+        /// The coarsest detail whose cells are at most <see cref="PixelsPerCell"/> (x the load's
+        /// scale, ClothLoad) for a flag this many pixels long, within the option's finest.
+        /// </summary>
         private int DetailFor(float pixels)
         {
-            float cells = pixels / PixelsPerCell;
+            float cells = pixels / (PixelsPerCell * _load.Scale);
             int[] details = FlagCloth.Details;
             for (int i = 0; i < details.Length; i++)
             {
@@ -1448,6 +1495,7 @@ namespace RealFlag.Flags
             int settles = 0;
             _moving = 0;
             _waiting = 0;
+            _demand = 0.0;
             float now = Time.realtimeSinceStartup;
 
             if (_ghost != null)
@@ -1475,7 +1523,9 @@ namespace RealFlag.Flags
                     bool moving = i < MaxMoving && f.Pixels >= MovePixels;
 
                     // Paused, frozen: only the flags being handled step, for a moment, slowing to a still.
-                    float flagDt = dt;
+                    // Under a load even the coarsest cannot take, the rest slow evenly (ClothLoad);
+                    // a flag in the player's hand keeps real time.
+                    float flagDt = f.AwakeUntil > now ? dt : dt * _load.TimeScale;
                     if (frozen)
                     {
                         flagDt = ClothPlan.PausedTime(realDt, f.AwakeUntil - now, WakeFade);
@@ -1485,6 +1535,37 @@ namespace RealFlag.Flags
                     PlanFlag(f, flagDt, wind, moving, false, ref spent, ref settles);
                 }
             }
+
+            // What the flags in view wanted against what the threads have, both at real time (not
+            // while frozen: the few flags handled then say nothing of the city's load).
+            if (!frozen && _load.Add(_demand, Budget / Math.Max(_frameTime, 1e-3f), realDt))
+                SayLoad();
+        }
+
+        /// <summary>The load's scale changed: said once at INFO the first time it is not none, then in the detailed log.</summary>
+        private void SayLoad()
+        {
+            string line = "flags: the flags in view want " + (_load.Ratio * 100.0).ToString("F0") + "% of the " +
+                          (_worker.Threaded ? _worker.Threads + " cloth thread(s)'" : "main thread's") + " budget -- " + LoadText();
+            if (!_loadSaid && _load.Scale > 1f)
+            {
+                _loadSaid = true;
+                Log.Msg(line + " (the smallest flags on the screen go coarser and to half rate first; the option 'Cloth threads' gives the cloth more room)");
+            }
+            else if (Log.Detailed)
+            {
+                Log.Detail(line);
+            }
+        }
+
+        /// <summary>For the log: what the load does now.</summary>
+        private string LoadText()
+        {
+            if (_load.Scale <= 1f && _load.TimeScale >= 1f)
+                return "every flag as fine as its size on the screen asks";
+            return "a cloth cell up to " + (PixelsPerCell * _load.Scale).ToString("F0") + " px, the full rate from " +
+                   (FullRatePixels * _load.Scale).ToString("F0") + " px on the screen" +
+                   (_load.TimeScale < 1f ? ", the flags at " + (_load.TimeScale * 100f).ToString("F0") + "% of real time" : "");
         }
 
         /// <summary>
@@ -1818,13 +1899,18 @@ namespace RealFlag.Flags
             // always at the full rate: heaped on it in 1/30 s steps of a single sub-step, the cloth
             // went through itself (the knots harness, 2026-09-29: a 2.8 m flag on a 3.7 m pole, 14
             // knots in 15 min at half rate, none at full, at 3, 5 and 8 fps).
+            // Under load the full rate's size grows with the rest (ClothLoad): the small go to half first.
             bool low = CanReachGround(f);
-            if (f.StepSize <= Step && !ghost && !low && f.Pixels < FullRatePixels / 1.1f)
+            float fullRate = FullRatePixels * _load.Scale;
+            if (f.StepSize <= Step && !ghost && !low && f.Pixels < fullRate / 1.1f)
                 f.StepSize = 2f * Step;
-            else if (f.StepSize > Step && (ghost || low || f.Pixels > FullRatePixels * 1.1f))
+            else if (f.StepSize > Step && (ghost || low || f.Pixels > fullRate * 1.1f))
                 f.StepSize = Step;
             float size = f.StepSize;
             int sub = f.Cloth.SubStepsFor(speed, size);
+
+            // Its cloth at real time, ms of thread time a second: the load's measure (ClothLoad).
+            _demand += sub * f.Cloth.Count * _unitCost / size;
 
             // No room left: frozen at its last step until the nearer flags leave some.
             float behind;
@@ -2391,7 +2477,7 @@ namespace RealFlag.Flags
                            (_wentWrong > 0 ? ", " + _wentWrong + " went wrong (not a number)" : "") +
                            (_frameFailures > 0 ? ", " + _frameFailures + " frame(s) threw" : "") +
                            (_unknots > 0 ? ", " + _unknots + " knotted and laid out afresh in this city" : "") + " | in view by detail " +
-                           DetailsInView() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
+                           DetailsInView() + " | load " + (_load.Ratio * 100.0).ToString("F0") + "% of the budget: " + LoadText() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
                            w.Describe() + " | the city: " +
                            (_cityCollision
                                 ? _touching + " touching it, " + _blocked + " under a roof; " + _surfaceGathers + " surface(s) and " +

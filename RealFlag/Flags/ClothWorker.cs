@@ -452,6 +452,149 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// The cloth's detail under load (2026-10-31; the author's 93 flags in view: 48 moved, the rest
+    /// frozen, and the moving ones took turns -- choppy, half speed). When the flags in view want
+    /// more of the threads' time than the budget, <see cref="Scale"/> grows the on-screen sizes the
+    /// renderer goes by (pixels a cloth cell, the full rate's): the SMALLEST flags on the screen go
+    /// coarser and to half rate first, the biggest last -- dynamic resolution scaling's feedback
+    /// loop (measure the frame's cost, scale the work to the budget), applied to the cloth. Up
+    /// fast, down slowly, and more slowly each time a lowering has to be undone (an exponential
+    /// back-off: a detail is a step of 1.7-3x in cost, so one notch down can tip the load over
+    /// again). Only while even the coarsest is too much does <see cref="TimeScale"/> slow every
+    /// flag evenly -- smooth slow motion, never turns taken (ClothPlan.Due's wait stays only as the
+    /// last guard). PURE: tested by tools/test-cloth.ps1.
+    /// </summary>
+    public sealed class ClothLoad
+    {
+        /// <summary>The most the sizes are scaled: 18 cells and half rate for a flag up to 8 x 30 = 240 px on the screen.</summary>
+        public const float MaxScale = 8f;
+
+        /// <summary>How often it decides, seconds of real time.</summary>
+        public const float Interval = 0.5f;
+
+        /// <summary>
+        /// A raise is the square root of the overload (a cloth's cost goes with its cells along
+        /// squared), within these: never so small that it crawls, never more than this a step.
+        /// </summary>
+        public const float MinRaise = 1.15f, MaxRaise = 1.6f;
+
+        /// <summary>A lowering's step.</summary>
+        public const float Lower = 1.1f;
+
+        /// <summary>Raised over this share of the budget wanted; lowered under <see cref="Low"/> for <see cref="CalmIntervals"/> decisions.</summary>
+        public const double High = 1.0, Low = 0.55;
+
+        /// <summary>Decisions under <see cref="Low"/> before a lowering (doubled each time one is undone within <see cref="BackOffTime"/>, to <see cref="MaxCalmIntervals"/>).</summary>
+        public const int CalmIntervals = 4, MaxCalmIntervals = 60;
+        public const float BackOffTime = 10f;
+
+        /// <summary>
+        /// Under this share no notch of detail can tip the load over (18 -> 32 cells is 3.2x the
+        /// cost): lowered at the first pace, the back-off forgotten -- the flags gone from view
+        /// come back to full detail in seconds, a load on a notch's edge stays backed off.
+        /// </summary>
+        public const double SafeLow = 0.3;
+
+        /// <summary>The slowest the flags go when even the coarsest is too much (ClothPlan.Due's turns below it).</summary>
+        public const float MinTimeScale = 0.25f;
+
+        /// <summary>The on-screen sizes' factor (1: none).</summary>
+        public float Scale = 1f;
+
+        /// <summary>The flags' time against real time (1: real time).</summary>
+        public float TimeScale = 1f;
+
+        /// <summary>The last decision's share of the budget wanted (at real time).</summary>
+        public double Ratio;
+
+        /// <summary>The raises and lowerings made so far (for the log and the tests).</summary>
+        public int Raises, Lowerings;
+
+        private double _want, _have;
+        private float _elapsed, _sinceLower = float.MaxValue;
+        private int _calm, _calmNeeded = CalmIntervals;
+
+        /// <summary>
+        /// A frame: the cloth the flags in view want at real time and what the threads have, both
+        /// milliseconds of thread time a second, over <paramref name="seconds"/> of real time. True
+        /// when <see cref="Scale"/> or <see cref="TimeScale"/> changed.
+        /// </summary>
+        public bool Add(double wanted, double budget, float seconds)
+        {
+            if (!(seconds > 0f))
+                return false;
+
+            _want += Math.Max(0.0, wanted) * seconds;
+            _have += Math.Max(1e-6, budget) * seconds;
+            _elapsed += seconds;
+            _sinceLower += seconds;
+            if (_elapsed < Interval)
+                return false;
+
+            double r = _want / _have;
+            _want = 0.0;
+            _have = 0.0;
+            _elapsed = 0f;
+            Ratio = r;
+
+            float scale = Scale;
+            if (r > High)
+            {
+                _calm = 0;
+                if (Scale < MaxScale)
+                {
+                    float step = (float)Math.Min(MaxRaise, Math.Max(MinRaise, Math.Sqrt(r)));
+                    Scale = Math.Min(MaxScale, Scale * step);
+                    Raises++;
+                    if (_sinceLower < BackOffTime)
+                        _calmNeeded = Math.Min(MaxCalmIntervals, _calmNeeded * 2);
+                }
+            }
+            else if (r < Low && Scale > 1f)
+            {
+                if (r < SafeLow)
+                    _calmNeeded = CalmIntervals;
+                if (++_calm >= _calmNeeded)
+                {
+                    Scale = Math.Max(1f, Scale / Lower);
+                    if (Scale < 1.001f)
+                        Scale = 1f;
+                    Lowerings++;
+                    _sinceLower = 0f;
+                    _calm = _calmNeeded / 2;
+                }
+            }
+            else
+            {
+                _calm = 0;
+            }
+
+            // Slow motion only for what the coarsest cannot take: while the scale still has room it
+            // is coming down by detail within a second or two.
+            float time = r > High && Scale >= MaxScale ? (float)Math.Max(MinTimeScale, 0.95 / r) : 1f;
+            bool changed = scale != Scale || time != TimeScale;
+            TimeScale = time;
+            return changed;
+        }
+
+        /// <summary>Back to none (a new city).</summary>
+        public void Reset()
+        {
+            Scale = 1f;
+            TimeScale = 1f;
+            Ratio = 0.0;
+            Raises = 0;
+            Lowerings = 0;
+            _want = 0.0;
+            _have = 0.0;
+            _elapsed = 0f;
+            _sinceLower = float.MaxValue;
+            _calm = 0;
+            _calmNeeded = CalmIntervals;
+        }
+    }
+
+    /// <summary>
     /// Steps the flags' cloth on threads of its own, while the game draws the frame. PURE of
     /// the engine: FlagMesh.Refresh is managed arithmetic on Unity's structs (Vector3.Min, Max,
     /// magnitude, Bounds.SetMinMax are IL, not internal calls -- read from the game's
@@ -477,8 +620,15 @@ namespace RealFlag.Flags
     /// </remarks>
     public sealed class ClothWorker
     {
-        /// <summary>The most threads the cloth takes, whatever the machine.</summary>
-        public const int MaxThreads = 4;
+        /// <summary>
+        /// The most threads the cloth takes, whatever the machine (the "Cloth threads" option's
+        /// top, 2026-10-31); Auto (<see cref="ThreadsFor(int)"/>) takes at most <see cref="AutoThreads"/>.
+        /// </summary>
+        public const int MaxThreads = 16;
+        public const int AutoThreads = 4;
+
+        /// <summary>The "Cloth threads" option's choices: 0 = Auto, then thread counts.</summary>
+        public static readonly int[] ThreadChoices = { 0, 1, 2, 3, 4, 6, 8, 12, 16 };
 
         private ClothJob[] _jobs = new ClothJob[32];
         private int _count;
@@ -522,7 +672,31 @@ namespace RealFlag.Flags
         /// </summary>
         public static int ThreadsFor(int processors)
         {
-            return Math.Max(1, Math.Min(MaxThreads, processors / 6));
+            return Math.Max(1, Math.Min(AutoThreads, processors / 6));
+        }
+
+        /// <summary>
+        /// The threads for the "Cloth threads" option: 0 (or less) = Auto (<see cref="ThreadsFor(int)"/>),
+        /// else the player's number, held to 1..<see cref="MaxThreads"/> and to the machine's processors.
+        /// </summary>
+        public static int ThreadsFor(int processors, int chosen)
+        {
+            if (chosen <= 0)
+                return ThreadsFor(processors);
+            return Math.Max(1, Math.Min(chosen, Math.Min(MaxThreads, Math.Max(1, processors))));
+        }
+
+        /// <summary>The option's choices on a machine of this many processors: Auto, and the counts it has the processors for.</summary>
+        public static int[] ThreadChoicesFor(int processors)
+        {
+            var list = new System.Collections.Generic.List<int>();
+            foreach (int c in ThreadChoices)
+            {
+                if (c <= 1 || c <= processors)
+                    list.Add(c);
+            }
+
+            return list.ToArray();
         }
 
         public int Count
