@@ -1079,6 +1079,20 @@ namespace RealFlag.Flags
             _listed = false;
         }
 
+        /// <summary>
+        /// Its places, places before and velocities were written from outside (shared motion:
+        /// MotionRecord.Play) and it steps on from them: the held particles back on its own hoist's
+        /// line, the normals made, the self-collision list and the prediction made afresh.
+        /// </summary>
+        public void Resume()
+        {
+            PinHoist();
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+            _primed = false;
+            _listed = false;
+            _laid = false;
+        }
+
         /// <summary>v cos + (k x v) sin + k (k . v)(1 - cos), for every vector of the three arrays.</summary>
         private void Rotate(float[] vx, float[] vy, float[] vz, float kx, float ky, float kz, float c, float s)
         {

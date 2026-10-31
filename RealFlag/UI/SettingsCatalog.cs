@@ -1635,6 +1635,22 @@ namespace RealFlag.UI
                 },
             });
 
+            // Shared motion (2026-10-31; the author: "add Shared motion as an option, it should be on
+            // by default. Users with more powerful hardware can choose to change that").
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Bool = Settings.SharedMotion,
+                DefaultBool = Settings.Defaults.SharedMotion,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: shared motion = " + OnOff(Settings.SharedMotion)());
+                    FlagRenderer.ClothOptionsChanged();
+                },
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Toggle,

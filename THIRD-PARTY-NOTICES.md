@@ -65,7 +65,8 @@ list is Flagpedia's, ISO 3166-1's countries and territories, without judgement o
 The cloth, the air acting on it, the wind and the fabric shader follow published work --
 position-based dynamics, long range attachments, Lighthill's slender-body theory of the
 fluttering flag, the Eurocode's wind profile and turbulence, the power law of the wind over a
-city (Davenport, ASCE 7) and its roughness from the buildings (Lettau), the "Charlie" sheen -- listed with
+city (Davenport, ASCE 7) and its roughness from the buildings (Lettau), the "Charlie" sheen, crowd
+animation's time offsets (shared motion) and dynamic resolution scaling (the load) -- listed with
 full references in `LICENSE` and `README.md`. The implementations were written for this mod.
 
 Other mods were read to understand the game's behaviour and to stay compatible with them --

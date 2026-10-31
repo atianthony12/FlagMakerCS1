@@ -30,6 +30,8 @@ The first release.
   CPU has time for, the smallest on the screen go coarser and slower first, so every flag keeps
   moving.
 - **Cloth threads** (Settings tab): Auto, or more threads for more flags at full detail.
+- **Shared motion** (Settings tab, on by default): with many like flags in view, the smallest
+  share one cloth's motion, each at its own delay, before any goes coarser.
 
 ### Placing and editing
 

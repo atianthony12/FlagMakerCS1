@@ -27,6 +27,20 @@ namespace RealFlag.Flags
         /// <summary>The terrain's roughness length round the flag, metres (CityRoughness); 0 = a town's (FlagWind.RoughnessLength).</summary>
         public float Roughness;
 
+        /// <summary>A shared motion's source: each step's places kept in it (MotionRecord.Add), at the step's end on the job's clock.</summary>
+        public MotionRecord Record;
+
+        /// <summary>
+        /// A follower (no steps): its cloth takes the record's steps <see cref="PlayA"/> and
+        /// <see cref="PlayB"/> (<see cref="PlaySpan"/> s apart) turned by (<see cref="PlayCos"/>,
+        /// <see cref="PlaySin"/>), blended from the From arrays by <see cref="PlayBlend"/> while it
+        /// joins; its mesh refreshed at <see cref="Alpha"/> between them.
+        /// </summary>
+        public MotionRecord Play;
+        public int PlayA, PlayB;
+        public float PlaySpan, PlayCos, PlaySin, PlayBlend;
+        public float[] FromX, FromY, FromZ;
+
         /// <summary>Set by the thread: the cloth stopped being numbers and was laid out again.</summary>
         public bool WentWrong;
 
@@ -510,7 +524,7 @@ namespace RealFlag.Flags
         /// <summary>The raises and lowerings made so far (for the log and the tests).</summary>
         public int Raises, Lowerings;
 
-        private double _want, _have;
+        private double _want, _have, _rate;
         private float _elapsed, _sinceLower = float.MaxValue;
         private int _calm, _calmNeeded = CalmIntervals;
 
@@ -532,16 +546,34 @@ namespace RealFlag.Flags
                 return false;
 
             double r = _want / _have;
+            _rate = _have / _elapsed;
             _want = 0.0;
             _have = 0.0;
             _elapsed = 0f;
             Ratio = r;
 
-            float scale = Scale;
+            float scale = Scale, share = Share;
+            if (!Sharing)
+                Share = 0f;
+            _hold = Math.Max(0f, _hold - Interval);
+
             if (r > High)
             {
                 _calm = 0;
-                if (Scale < MaxScale)
+
+                // Shared first (the smallest that can, as many as the overload needs), then
+                // coarser; nothing more while the flags just set to share wait for their sources.
+                if (_hold > 0f)
+                {
+                }
+                else if (Sharing && ShareMore((r - 0.9) * _rate))
+                {
+                    Shares++;
+                    _hold = ShareHold;
+                    if (_sinceLower < BackOffTime)
+                        _calmNeeded = Math.Min(MaxCalmIntervals, _calmNeeded * 2);
+                }
+                else if (Scale < MaxScale)
                 {
                     float step = (float)Math.Min(MaxRaise, Math.Max(MinRaise, Math.Sqrt(r)));
                     Scale = Math.Min(MaxScale, Scale * step);
@@ -550,15 +582,26 @@ namespace RealFlag.Flags
                         _calmNeeded = Math.Min(MaxCalmIntervals, _calmNeeded * 2);
                 }
             }
-            else if (r < Low && Scale > 1f)
+            else if (r < Low && (Scale > 1f || Share > 0f))
             {
+                // Back the other way: finer first, then fewer sharing.
                 if (r < SafeLow)
                     _calmNeeded = CalmIntervals;
                 if (++_calm >= _calmNeeded)
                 {
-                    Scale = Math.Max(1f, Scale / Lower);
-                    if (Scale < 1.001f)
-                        Scale = 1f;
+                    if (Scale > 1f)
+                    {
+                        Scale = Math.Max(1f, Scale / Lower);
+                        if (Scale < 1.001f)
+                            Scale = 1f;
+                    }
+                    else
+                    {
+                        Share /= ShareLower;
+                        if (Share < MinShare)
+                            Share = 0f;
+                    }
+
                     Lowerings++;
                     _sinceLower = 0f;
                     _calm = _calmNeeded / 2;
@@ -569,12 +612,134 @@ namespace RealFlag.Flags
                 _calm = 0;
             }
 
-            // Slow motion only for what the coarsest cannot take: while the scale still has room it
-            // is coming down by detail within a second or two.
-            float time = r > High && Scale >= MaxScale ? (float)Math.Max(MinTimeScale, 0.95 / r) : 1f;
-            bool changed = scale != Scale || time != TimeScale;
+            // Slow motion only for what the coarsest cannot take, and nothing more can share: while
+            // either still has room it is coming down within a second or two.
+            float time = r > High && Scale >= MaxScale && !(Sharing && MoreToShare()) ? (float)Math.Max(MinTimeScale, 0.95 / r) : 1f;
+            bool changed = scale != Scale || time != TimeScale || share != Share;
             TimeScale = time;
             return changed;
+        }
+
+        // ---- shared motion (MotionRecord) ----
+
+        /// <summary>Shared motion is on (the option): over the budget, flags share before any goes coarser.</summary>
+        public bool Sharing;
+
+        /// <summary>
+        /// Flags smaller on the screen than this, pixels, that can share (a group of two or more like
+        /// flags, nothing of the city in reach, not in the player's hand) follow their group's
+        /// source; 0 = none.
+        /// </summary>
+        public float Share;
+
+        /// <summary>Shares raised so far (for the log and the tests).</summary>
+        public int Shares;
+
+        /// <summary>After a raise of <see cref="Share"/>, no more raises for this long, seconds: its new sources run ahead to fill their records (~1 s) and its followers join.</summary>
+        public const float ShareHold = 2f;
+
+        /// <summary>A lowering of <see cref="Share"/>: this much smaller; under <see cref="MinShare"/> px, none.</summary>
+        public const float ShareLower = 1.25f, MinShare = 2f;
+
+        private float _hold;
+        private float[] _sharePixels = new float[64];
+        private double[] _shareSaving = new double[64];
+        private int[] _shareGroup = new int[64];
+        private double[] _groupExtra = new double[16];
+        private bool[] _groupSeen = new bool[16];
+        private int _shareCount, _groupCount;
+
+        /// <summary>
+        /// This frame's flags that could share, as the renderer found them: each one's size on the
+        /// screen, what it saves if it follows (its own cloth less its playback, ms of thread time a
+        /// second), its group (0..groups-1); and each group's cost to start (its source's cloth, 0
+        /// when it runs already). Copied in, sorted by size; read at the next decision.
+        /// </summary>
+        public void SetShareable(float[] pixels, double[] saving, int[] group, int count, double[] groupExtra, int groups)
+        {
+            if (_sharePixels.Length < count)
+            {
+                _sharePixels = new float[count * 2];
+                _shareSaving = new double[count * 2];
+                _shareGroup = new int[count * 2];
+            }
+
+            if (_groupExtra.Length < groups)
+            {
+                _groupExtra = new double[groups * 2];
+                _groupSeen = new bool[groups * 2];
+            }
+
+            // Insertion sort by size, smallest first (the renderer's order is biggest first, nearly).
+            for (int i = 0; i < count; i++)
+            {
+                float p = pixels[i];
+                double s = saving[i];
+                int g = group[i];
+                int j = i - 1;
+                while (j >= 0 && _sharePixels[j] > p)
+                {
+                    _sharePixels[j + 1] = _sharePixels[j];
+                    _shareSaving[j + 1] = _shareSaving[j];
+                    _shareGroup[j + 1] = _shareGroup[j];
+                    j--;
+                }
+
+                _sharePixels[j + 1] = p;
+                _shareSaving[j + 1] = s;
+                _shareGroup[j + 1] = g;
+            }
+
+            Array.Copy(groupExtra, _groupExtra, groups);
+            _shareCount = count;
+            _groupCount = groups;
+        }
+
+        /// <summary>Flags that can share and do not yet.</summary>
+        private bool MoreToShare()
+        {
+            return _shareCount > 0 && _sharePixels[_shareCount - 1] >= Share;
+        }
+
+        /// <summary>
+        /// <see cref="Share"/> raised over the smallest flags not yet sharing until what they save
+        /// (less their new groups' sources) covers <paramref name="need"/> ms a second; all of them
+        /// if they do not. False when none is left to share.
+        /// </summary>
+        private bool ShareMore(double need)
+        {
+            if (!MoreToShare())
+                return false;
+
+            for (int g = 0; g < _groupCount; g++)
+                _groupSeen[g] = false;
+
+            // The groups some flags follow already: started.
+            for (int i = 0; i < _shareCount && _sharePixels[i] < Share; i++)
+                _groupSeen[_shareGroup[i]] = true;
+
+            double saved = 0.0;
+            float top = Share;
+            for (int i = 0; i < _shareCount; i++)
+            {
+                if (_sharePixels[i] < Share)
+                    continue;
+
+                int g = _shareGroup[i];
+                saved += _shareSaving[i];
+                if (!_groupSeen[g])
+                {
+                    _groupSeen[g] = true;
+                    saved -= _groupExtra[g];
+                }
+
+                top = _sharePixels[i] * 1.02f + 0.01f;
+                if (saved >= need)
+                    break;
+            }
+
+            Share = Math.Max(Share, top);
+            return true;
         }
 
         /// <summary>Back to none (a new city).</summary>
@@ -591,6 +756,11 @@ namespace RealFlag.Flags
             _sinceLower = float.MaxValue;
             _calm = 0;
             _calmNeeded = CalmIntervals;
+            Share = 0f;
+            Shares = 0;
+            _hold = 0f;
+            _shareCount = 0;
+            _groupCount = 0;
         }
     }
 
@@ -929,6 +1099,12 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// A follower's playback counted as a step of this share of its particles (the work the
+        /// cost of a particle step is measured on): measured by test-cloth.
+        /// </summary>
+        public const int PlayShare = 16;
+
+        /// <summary>
         /// One job, on whatever thread calls it: the steps (each split by FlagCloth.SubStepsFor
         /// for the wind at the flag), a cloth that went wrong laid out again, then the mesh.
         /// Returns the work done, in particle steps.
@@ -937,6 +1113,15 @@ namespace RealFlag.Flags
         {
             FlagCloth cloth = job.Cloth;
             long work = 0;
+
+            // A follower: two of its source's steps, turned to it (counted as a share of a step's work).
+            if (job.Play != null)
+            {
+                job.Play.Play(cloth, job.PlayA, job.PlayB, job.PlaySpan, job.PlayCos, job.PlaySin, job.FromX, job.FromY, job.FromZ, job.PlayBlend);
+                if (job.Mesh != null)
+                    job.Mesh.Refresh(job.Alpha);
+                return Math.Max(1L, cloth.Count / PlayShare);
+            }
 
             if (job.Steps > 0)
             {
@@ -954,6 +1139,9 @@ namespace RealFlag.Flags
                                                    job.Time + s * job.Size + i * dt, job.AnchorX, job.AnchorZ, job.Roughness);
                         cloth.Step(dt, ref air);
                     }
+
+                    if (job.Record != null)
+                        job.Record.Add(cloth, job.Time + (s + 1) * job.Size);
                 }
 
                 cloth.EndDrag();
@@ -962,10 +1150,13 @@ namespace RealFlag.Flags
                 if (!cloth.IsFinite())
                 {
                     // Laid out again and let down, as every new cloth is (Invariant 9): dropped flat
-                    // into calm air it would whip through itself.
+                    // into calm air it would whip through itself. A source's record forgotten (its
+                    // followers read only steps of earlier batches: the slots stay as they were).
                     cloth.Reset(job.DirX, job.DirZ);
                     cloth.Calm(FlagCloth.CalmTime);
                     job.WentWrong = true;
+                    if (job.Record != null)
+                        job.Record.Clear();
                 }
             }
 

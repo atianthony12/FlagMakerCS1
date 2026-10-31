@@ -163,6 +163,54 @@ namespace RealFlag.Flags
         public float RoughnessAt;
         public bool RoughnessStale;
         public float RoughnessLogged;
+
+        /// <summary>
+        /// Shared motion (MotionRecord): the group whose source it follows, on which cloth of its
+        /// own (a cloth made since -- a new detail, a redesign -- has let it go), since when (real
+        /// time: the first half second blends from the shape it had, kept in From), and the time
+        /// of the source it last showed.
+        /// </summary>
+        public ShareGroup Follow;
+        public FlagCloth FollowCloth;
+        public float FollowSince;
+        public float FollowShown = float.NaN;
+        public float[] FromX, FromY, FromZ;
+
+        /// <summary>The props' and trees' capsules' highest top over the world (for CapsulesTopFor), read once a gathering.</summary>
+        public CapsuleSet CapsulesTopFor;
+        public float CapsulesTop;
+    }
+
+    /// <summary>
+    /// Shared motion's group (MotionRecord): like flags (one ShareKey) and the hidden cloth they
+    /// follow -- its SOURCE, made from the first that followed (its founder), stepped every frame
+    /// at the full rate in its founder's wind, each step kept in its record. A new source runs ahead
+    /// of time (WarmSteps a frame) until its record spans MotionRecord.ReadySpan; none follows it
+    /// before. Dropped after FlagRenderer.GroupIdle seconds with no follower.
+    /// </summary>
+    public sealed class ShareGroup
+    {
+        public ShareKey Key;
+        public FlagCloth Source;
+        public MotionRecord Record;
+
+        /// <summary>The source's heading (its founder's prop angle, radians) and its wind's direction (radians, as a heading); upright: turned by the wind, else by the heading.</summary>
+        public float Angle, WindAngle;
+        public bool Upright;
+
+        /// <summary>The source's wind as its founder had it this frame (the job's air): its speed at 10 m and at the flag, height, roughness, place, direction.</summary>
+        public float At10, Speed, Height, Roughness, AnchorX, AnchorZ, DirX, DirZ, Waviness, Length;
+        public uint Founder;
+        public int WindFrame = -1;
+
+        /// <summary>The source's clock (the time followers play back from), its time not yet stepped, and its last step's end.</summary>
+        public float Now, Pending, Stepped;
+        public bool Warm;
+
+        /// <summary>Followers this frame, seconds with none, and dropped (its followers let it go).</summary>
+        public int Members;
+        public float Idle;
+        public bool Dead;
     }
 
     /// <summary>A flag as the panel lists it.</summary>
@@ -350,6 +398,34 @@ namespace RealFlag.Flags
         private readonly ClothLoad _load = new ClothLoad();
         private double _demand;
         private bool _loadSaid;
+
+        /// <summary>
+        /// Shared motion (MotionRecord, ShareGroup; the option, on by default): the groups by key;
+        /// this frame's flags that could share (_sh*: size on the screen, what following saves, its
+        /// key's number this frame) and the keys with two or more of them last frame (a group is
+        /// made only for those: one flag alone saves nothing by a source of its own).
+        /// </summary>
+        private readonly Dictionary<ShareKey, ShareGroup> _groups = new Dictionary<ShareKey, ShareGroup>();
+        private readonly List<ShareGroup> _groupList = new List<ShareGroup>();
+        private readonly Dictionary<ShareKey, int> _frameKeys = new Dictionary<ShareKey, int>();
+        private readonly List<int> _frameKeyCount = new List<int>();
+        private readonly List<double> _frameKeyCost = new List<double>();
+        private readonly List<ShareKey> _frameKeyList = new List<ShareKey>();
+        private readonly Dictionary<ShareKey, bool> _pairedLast = new Dictionary<ShareKey, bool>();
+        private float[] _shPixels = new float[64], _outPixels = new float[64];
+        private double[] _shSaving = new double[64], _outSaving = new double[64], _outExtra = new double[16];
+        private int[] _shKey = new int[64], _outGroup = new int[64], _keyRemap = new int[16];
+        private int _shCount, _followers, _planFrame;
+        private bool _sharing = true, _groupsSaid;
+
+        /// <summary>A group with no follower this long, seconds, is dropped (its source with it).</summary>
+        private const float GroupIdle = 3f;
+
+        /// <summary>A flag that begins to follow blends from its own shape into the source's over this long, seconds.</summary>
+        private const float BlendTime = 0.5f;
+
+        /// <summary>At most this many groups (sources) at once.</summary>
+        private const int MaxGroups = 24;
 
         /// <summary>
         /// A drawn cell is kept to about this many pixels (FlagMesh.Refine: up to four drawn cells a
@@ -562,6 +638,8 @@ namespace RealFlag.Flags
             _selfCollision = Settings.SelfCollision == null || Settings.SelfCollision.value;
             _cityCollision = Settings.CityCollision == null || Settings.CityCollision.value;
             _threadsChosen = Settings.ClothThreads != null ? Settings.ClothThreads.value : Settings.Defaults.ClothThreads;
+            _sharing = Settings.SharedMotion == null || Settings.SharedMotion.value;
+            _load.Sharing = _sharing;
         }
 
         /// <summary>The "Cloth threads" option as read, and as the threads running were started with.</summary>
@@ -603,6 +681,9 @@ namespace RealFlag.Flags
 
             if (_ghost != null && _ghost.Cloth != null)
                 _ghost.Cloth.SelfCollision = _selfCollision;
+
+            // Sources keep their key's self-collision: under the new option no flag finds their
+            // key, and they go (GroupIdle); with shared motion off, none follows and they all go.
         }
 
         private void OnDestroy()
@@ -620,6 +701,8 @@ namespace RealFlag.Flags
                 Release(_ghost);
             _ghost = null;
             _stillShapes.Clear();
+            _groups.Clear();
+            _groupList.Clear();
 
             FlagSurroundings.Stop();
             FlagPicking.Clear();
@@ -805,6 +888,21 @@ namespace RealFlag.Flags
             for (int i = 0; i < count; i++)
             {
                 FlagInstance f = _batch[i];
+                if (f == null)
+                {
+                    // A shared motion's source (no flag of its own): a job that threw is dropped
+                    // with its group, whose followers take its last steps and step on their own.
+                    _stepsThisReport += jobs[i].Steps;
+                    if (jobs[i].Failure != null)
+                    {
+                        if (_failures++ == 0)
+                            Log.Error("flags: stepping a shared motion's source threw; dropped (further ones are counted in the detailed log)", jobs[i].Failure);
+                        DropGroup(jobs[i].Cloth);
+                    }
+
+                    continue;
+                }
+
                 bool pose = f.Pose != null && jobs[i].Cloth == f.Pose.Cloth;
                 if (jobs[i].Cloth != f.Cloth && !pose)
                     continue;
@@ -1204,6 +1302,10 @@ namespace RealFlag.Flags
             if (!f.Visible || (f.Cloth != null && (!f.Settled || f.Cloth.Calming)) || f.Spec.Motion != FlagMotion.Waves)
                 return;
 
+            // A follower keeps its group's detail (the key holds it) until it steps on its own.
+            if (f.Follow != null && !f.Follow.Dead)
+                return;
+
             float size = Mathf.Max(f.Spec.Length, f.Spec.Height);
             float pixels = size / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian;
             int finer = DetailFor(pixels / DetailBand), coarser = DetailFor(pixels * DetailBand);
@@ -1498,6 +1600,17 @@ namespace RealFlag.Flags
             _demand = 0.0;
             float now = Time.realtimeSinceStartup;
 
+            // Shared motion's sources first (they always step: each stands for several flags), on
+            // their followers' wind of last frame; then this frame's followers counted afresh.
+            _planFrame++;
+            _followers = 0;
+            _shCount = 0;
+            _frameKeys.Clear();
+            _frameKeyList.Clear();
+            _frameKeyCount.Clear();
+            _frameKeyCost.Clear();
+            PlanSources(dt * _load.TimeScale, realDt, wind, ref spent);
+
             if (_ghost != null)
             {
                 // The flag being placed is always in the player's hand: it moves while paused too.
@@ -1536,6 +1649,8 @@ namespace RealFlag.Flags
                 }
             }
 
+            ShareableToLoad();
+
             // What the flags in view wanted against what the threads have, both at real time (not
             // while frozen: the few flags handled then say nothing of the city's load).
             if (!frozen && _load.Add(_demand, Budget / Math.Max(_frameTime, 1e-3f), realDt))
@@ -1561,9 +1676,13 @@ namespace RealFlag.Flags
         /// <summary>For the log: what the load does now.</summary>
         private string LoadText()
         {
+            string shared = _load.Share > 0f
+                ? "like flags under " + _load.Share.ToString("F0") + " px on the screen share motion (" + _followers + " following " + _groupList.Count + " source(s))" +
+                  (_load.Scale > 1f || _load.TimeScale < 1f ? "; " : "")
+                : "";
             if (_load.Scale <= 1f && _load.TimeScale >= 1f)
-                return "every flag as fine as its size on the screen asks";
-            return "a cloth cell up to " + (PixelsPerCell * _load.Scale).ToString("F0") + " px, the full rate from " +
+                return shared.Length > 0 ? shared : "every flag as fine as its size on the screen asks";
+            return shared + "a cloth cell up to " + (PixelsPerCell * _load.Scale).ToString("F0") + " px, the full rate from " +
                    (FullRatePixels * _load.Scale).ToString("F0") + " px on the screen" +
                    (_load.TimeScale < 1f ? ", the flags at " + (_load.TimeScale * 100f).ToString("F0") + "% of real time" : "");
         }
@@ -1890,6 +2009,11 @@ namespace RealFlag.Flags
                 return;
             }
 
+            // Shared motion: one of the smallest of like flags while the threads are out of budget
+            // plays its group's source back (Follows); one that stops following steps on from there.
+            if (Follows(f, ghost, dir, at10, speed, height))
+                return;
+
             _moving++;
 
             // Full rate while FullRatePixels on the screen, half below, with a tenth's band either
@@ -1930,6 +2054,490 @@ namespace RealFlag.Flags
             job.Mesh = f.Mesh;
             job.Alpha = alpha;
             Queue(f, ref job);
+        }
+
+        // ---- shared motion ----------------------------------------------------------------------
+
+        /// <summary>
+        /// A waving flag in view, settled and moving: if it can share (CanShare: in no one's hand,
+        /// nothing of the city or the ground in its reach), it is counted for the load, and if
+        /// the load shares flags its size (ClothLoad.Share) and its group's source is ready, it
+        /// plays the source back this frame (true). Otherwise it steps on its own -- from where it
+        /// was shown, if it was following (Promote).
+        /// </summary>
+        private bool Follows(FlagInstance f, bool ghost, Vector3 dir, float at10, float speed, float height)
+        {
+            float now = Time.realtimeSinceStartup;
+            ShareGroup g = null;
+            if (CanShare(f, ghost, now))
+            {
+                ShareKey key = KeyFor(f, dir, speed);
+                Shareable(f, key, speed);
+                if (_sharing && f.Pixels < _load.Share)
+                {
+                    if (!_groups.TryGetValue(key, out g) && _pairedLast.ContainsKey(key) && _groupList.Count < MaxGroups)
+                        g = NewGroup(key, f, dir);
+                    if (g != null)
+                    {
+                        g.Members++;
+                        SourceWind(g, f, dir, at10, speed, height);
+                        if (!g.Warm || g.Record.Columns != f.Cloth.Columns || g.Record.Rows != f.Cloth.Rows)
+                            g = null;
+                    }
+                }
+            }
+
+            if (g == null || !Play(f, g, dir, now))
+            {
+                if (f.Follow != null)
+                    Promote(f);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The flags that may follow: waving, settled and let down, on a cloth of known pole, not
+        /// the ghost, not handled (awake) or selected, and with nothing to keep off -- the ground,
+        /// the surface's top (CanReachGround) and the props' and trees' capsules out of its reach,
+        /// the surface read (a source keeps off nothing).
+        /// </summary>
+        private bool CanShare(FlagInstance f, bool ghost, float now)
+        {
+            if (ghost || f.Prop == 0 || !f.Settled || f.Cloth == null || f.Cloth.Calming || f.AwakeUntil > now || f.Prop == FlagEditor.Selected)
+                return false;
+            if (f.Spec.HasPole && !f.PoleApplied)
+                return false;
+            if (_cityCollision && f.Surface == null)
+                return false;
+            if (CanReachGround(f))
+                return false;
+            return !CapsulesInReach(f);
+        }
+
+        private bool CapsulesInReach(FlagInstance f)
+        {
+            CapsuleSet set = f.Capsules;
+            if (!_cityCollision || set == null || set.Count == 0)
+                return false;
+
+            if (f.CapsulesTopFor != set)
+            {
+                float top = float.MinValue;
+                for (int i = 0; i < set.Count; i++)
+                    top = Mathf.Max(top, set.Top[i] + set.Radius[i]);
+                f.CapsulesTop = top;
+                f.CapsulesTopFor = set;
+            }
+
+            return f.CapsulesTop + f.CapsulesOrigin.y > f.Anchor.y - (1.02f * f.Spec.Length + f.Spec.Height + 0.5f);
+        }
+
+        /// <summary>
+        /// Its key (ShareKey.For): its design's cloth, its detail, its pole's collider, and the wind
+        /// at it against its heading. A follower stays with its group while its wind is within 15%
+        /// of the source's (a bucket's edge is not a reason to change source).
+        /// </summary>
+        private ShareKey KeyFor(FlagInstance f, Vector3 dir, float speed)
+        {
+            float off = 0f, radius = 0f;
+            if (f.Spec.HasPole)
+            {
+                off = f.PoleShape.Offset;
+                radius = f.PoleShape.RadiusAt(f.PoleShape.Length);
+            }
+
+            float rel = (WindAngleOf(dir) - f.Angle) * Mathf.Rad2Deg;
+            ShareKey key = ShareKey.For(f.Spec, f.Detail, speed, rel, off, radius, _selfCollision);
+            ShareGroup g = f.Follow;
+            if (g != null && !g.Dead)
+            {
+                ShareKey same = key;
+                same.Speed = g.Key.Speed;
+                if (same.Equals(g.Key) && Math.Abs(speed / Mathf.Max(g.Speed, 0.1f) - 1f) < 0.15f)
+                    key = g.Key;
+            }
+
+            return key;
+        }
+
+        private static float WindAngleOf(Vector3 dir)
+        {
+            return Mathf.Atan2(dir.z, dir.x);
+        }
+
+        /// <summary>A flag that may follow, for the load (ClothLoad.SetShareable): its size, what following saves, its key this frame.</summary>
+        private void Shareable(FlagInstance f, ShareKey key, float speed)
+        {
+            int id;
+            if (!_frameKeys.TryGetValue(key, out id))
+            {
+                id = _frameKeyList.Count;
+                _frameKeys[key] = id;
+                _frameKeyList.Add(key);
+                _frameKeyCount.Add(0);
+
+                // Its source, were one started: a flag like this one at the full rate.
+                _frameKeyCost.Add(f.Cloth.SubStepsFor(speed, Step) * f.Cloth.Count * _unitCost / Step);
+            }
+
+            _frameKeyCount[id]++;
+
+            if (_shCount == _shPixels.Length)
+            {
+                Array.Resize(ref _shPixels, _shCount * 2);
+                Array.Resize(ref _shSaving, _shCount * 2);
+                Array.Resize(ref _shKey, _shCount * 2);
+            }
+
+            double own = f.Cloth.SubStepsFor(speed, f.StepSize) * f.Cloth.Count * _unitCost / f.StepSize;
+            _shPixels[_shCount] = f.Pixels;
+            _shSaving[_shCount] = own - PlayCost(f);
+            _shKey[_shCount] = id;
+            _shCount++;
+        }
+
+        /// <summary>A follower's playback, ms of thread time a second (one a frame).</summary>
+        private double PlayCost(FlagInstance f)
+        {
+            return (double)f.Cloth.Count / ClothWorker.PlayShare * _unitCost / Math.Max(_frameTime, 1e-3f);
+        }
+
+        /// <summary>This frame's flags that may follow, in keys of two or more, to the load; the keys kept for the next frame's new groups.</summary>
+        private void ShareableToLoad()
+        {
+            int keys = _frameKeyList.Count;
+            if (_keyRemap.Length < keys)
+            {
+                _keyRemap = new int[keys * 2];
+                _outExtra = new double[keys * 2];
+            }
+
+            // Read by the next frame's Follows (a new group only for a key with two or more).
+            _pairedLast.Clear();
+
+            int groups = 0;
+            for (int k = 0; k < keys; k++)
+            {
+                _keyRemap[k] = -1;
+                if (_frameKeyCount[k] < 2)
+                    continue;
+
+                ShareKey key = _frameKeyList[k];
+                _pairedLast[key] = true;
+                _keyRemap[k] = groups;
+                _outExtra[groups] = _groups.ContainsKey(key) ? 0.0 : _frameKeyCost[k];
+                groups++;
+            }
+
+            if (_outPixels.Length < _shCount)
+            {
+                _outPixels = new float[_shCount * 2];
+                _outSaving = new double[_shCount * 2];
+                _outGroup = new int[_shCount * 2];
+            }
+
+            int m = 0;
+            for (int i = 0; i < _shCount; i++)
+            {
+                int g = _keyRemap[_shKey[i]];
+                if (g < 0)
+                    continue;
+                _outPixels[m] = _shPixels[i];
+                _outSaving[m] = _shSaving[i];
+                _outGroup[m] = g;
+                m++;
+            }
+
+            _load.SetShareable(_outPixels, _outSaving, _outGroup, m, _outExtra, groups);
+        }
+
+        /// <summary>A new group for <paramref name="key"/>: its source a copy of this flag's cloth (TakeShape, motion and all) where it heads, its pole's collider and halyard as the flag's.</summary>
+        private ShareGroup NewGroup(ShareKey key, FlagInstance f, Vector3 dir)
+        {
+            var source = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), dir.x, dir.z, f.Detail,
+                                       f.Hoist.x, f.Hoist.y, f.Hoist.z);
+            source.SelfCollision = key.SelfCollision;
+            if (f.Spec.HasPole)
+                f.PoleShape.ApplyTo(source, f.Fly.x, f.Fly.y, f.Fly.z);
+            source.TakeShape(f.Cloth, true);
+            if (source.Columns != f.Cloth.Columns || source.Rows != f.Cloth.Rows)
+                return null;
+
+            var g = new ShareGroup
+            {
+                Key = key,
+                Source = source,
+                Record = new MotionRecord(source.Columns, source.Rows),
+                Angle = f.Angle,
+                WindAngle = WindAngleOf(dir),
+                Upright = ShareKey.Upright(f.Spec),
+                Founder = f.Prop,
+                Waviness = f.Spec.Waviness,
+                Length = f.Spec.Length,
+                DirX = dir.x,
+                DirZ = dir.z,
+            };
+
+            _groups[key] = g;
+            _groupList.Add(g);
+            if (!_groupsSaid)
+            {
+                _groupsSaid = true;
+                Log.Msg("flags: shared motion begins -- like flags (" + f.Spec.Length.ToString("F1") + " m, " + UI.SettingsCatalog.DetailLogName(f.Detail) +
+                        ", " + _frameKeyCount[_frameKeys[key]] + " of them) play one cloth back, each at its own delay, while the cloth threads are out of budget");
+            }
+            else if (Log.Detailed)
+            {
+                Log.Detail("flags: a shared motion source made from flag #" + f.Prop + " (" + f.Spec.Length.ToString("F1") + " m, " +
+                           UI.SettingsCatalog.DetailLogName(f.Detail) + ", " + source.Columns + "x" + source.Rows + ", wind " + key.Speed + ")");
+            }
+
+            return g;
+        }
+
+        /// <summary>
+        /// The source's air this frame: the first follower's (its speed, height, roughness and place
+        /// for the gusts), the wind turned to the source's heading as it blows against the
+        /// follower's -- the source stands to its wind as its followers do to theirs.
+        /// </summary>
+        private void SourceWind(ShareGroup g, FlagInstance f, Vector3 dir, float at10, float speed, float height)
+        {
+            if (g.WindFrame == _planFrame)
+                return;
+
+            g.WindFrame = _planFrame;
+            g.At10 = at10;
+            g.Speed = speed;
+            g.Height = height;
+            g.Roughness = f.Roughness;
+            g.AnchorX = f.Anchor.x;
+            g.AnchorZ = f.Anchor.z;
+            float wind = g.Angle + (WindAngleOf(dir) - f.Angle);
+            g.WindAngle = wind;
+            g.DirX = Mathf.Cos(wind);
+            g.DirZ = Mathf.Sin(wind);
+        }
+
+        /// <summary>
+        /// The flag shows its group's source <see cref="MotionRecord.DelayFor"/> behind, turned to
+        /// it -- the first half second blended from the shape it had. False if the record has
+        /// nothing to show yet.
+        /// </summary>
+        private bool Play(FlagInstance f, ShareGroup g, Vector3 dir, float now)
+        {
+            float t = g.Now - MotionRecord.DelayFor(f.Prop);
+            int a, b;
+            float w, span;
+            if (!g.Record.Find(t, out a, out b, out w, out span))
+                return false;
+
+            if (f.Follow != g || f.FollowCloth != f.Cloth)
+            {
+                if (f.Follow != null)
+                    Promote(f);
+                Join(f, g, now);
+            }
+
+            float blend = Mathf.Clamp01((now - f.FollowSince) / BlendTime);
+            blend = blend * blend * (3f - 2f * blend);
+            f.Pending = 0f;
+            f.Waiting = false;
+            f.WindDir = dir;
+            _followers++;
+            _demand += PlayCost(f);
+
+            // Nothing new (the city paused): the same frame stays drawn.
+            if (blend >= 1f && t == f.FollowShown)
+                return true;
+
+            f.FollowShown = t;
+            float turn = Turn(f, g, dir);
+            var job = new ClothJob
+            {
+                Cloth = f.Cloth,
+                Mesh = f.Mesh,
+                Alpha = w,
+                Size = Step,
+                DirX = dir.x,
+                DirZ = dir.z,
+                Play = g.Record,
+                PlayA = a,
+                PlayB = b,
+                PlaySpan = span,
+                PlayCos = Mathf.Cos(turn),
+                PlaySin = Mathf.Sin(turn),
+                PlayBlend = blend,
+                FromX = blend < 1f ? f.FromX : null,
+                FromY = f.FromY,
+                FromZ = f.FromZ,
+            };
+            Queue(f, ref job);
+            return true;
+        }
+
+        /// <summary>The turn from the source to the flag: an upright hoist by the wind (the cloth flies with it), else by the heading (the hoist's line).</summary>
+        private static float Turn(FlagInstance f, ShareGroup g, Vector3 dir)
+        {
+            return g.Upright ? WindAngleOf(dir) - g.WindAngle : f.Angle - g.Angle;
+        }
+
+        /// <summary>The flag begins to follow: the shape it shows now kept, to blend from.</summary>
+        private void Join(FlagInstance f, ShareGroup g, float now)
+        {
+            FlagCloth c = f.Cloth;
+            int n = c.Count;
+            if (f.FromX == null || f.FromX.Length != n)
+            {
+                f.FromX = new float[n];
+                f.FromY = new float[n];
+                f.FromZ = new float[n];
+            }
+
+            float a = Mathf.Clamp01(f.ShownAlpha), b = 1f - a;
+            for (int k = 0; k < n; k++)
+            {
+                f.FromX[k] = c.PrevX[k] * b + c.X[k] * a;
+                f.FromY[k] = c.PrevY[k] * b + c.Y[k] * a;
+                f.FromZ[k] = c.PrevZ[k] * b + c.Z[k] * a;
+            }
+
+            f.Follow = g;
+            f.FollowCloth = c;
+            f.FollowSince = now;
+            f.FollowShown = float.NaN;
+        }
+
+        /// <summary>
+        /// The flag stops following and steps on its own from the source's steps it last showed
+        /// (their places and the velocity between them: FlagCloth.Resume) -- none of it if its
+        /// cloth was made anew since (a new detail, a redesign).
+        /// </summary>
+        private void Promote(FlagInstance f)
+        {
+            ShareGroup g = f.Follow;
+            f.Follow = null;
+            if (f.Cloth == null || f.FollowCloth != f.Cloth)
+            {
+                f.FollowCloth = null;
+                return;
+            }
+
+            int a, b;
+            float w, span;
+            float t = float.IsNaN(f.FollowShown) ? g.Now - MotionRecord.DelayFor(f.Prop) : f.FollowShown;
+            if (g.Record.Columns == f.Cloth.Columns && g.Record.Rows == f.Cloth.Rows && g.Record.Find(t, out a, out b, out w, out span))
+            {
+                float turn = Turn(f, g, f.WindDir);
+                g.Record.Play(f.Cloth, a, b, span, Mathf.Cos(turn), Mathf.Sin(turn), null, null, null, 1f);
+            }
+
+            f.Cloth.Resume();
+            f.FollowCloth = null;
+            f.FollowShown = float.NaN;
+            f.Pending = 0f;
+            f.MeshDirty = true;
+        }
+
+        /// <summary>
+        /// The sources: each group's clock run on (a warm one by the frame's time, a new one ahead
+        /// of time until its record is ready), its steps queued (they always step) on its
+        /// followers' air of last frame; a group with none for <see cref="GroupIdle"/> s, or every
+        /// one with shared motion off, dropped.
+        /// </summary>
+        private void PlanSources(float dt, float realDt, Wind wind, ref double spent)
+        {
+            for (int i = _groupList.Count - 1; i >= 0; i--)
+            {
+                ShareGroup g = _groupList[i];
+                int members = g.Members;
+                g.Members = 0;
+                if (members == 0 || !_sharing)
+                {
+                    g.Idle += realDt;
+                    if (g.Idle >= GroupIdle || !_sharing)
+                        RemoveGroupAt(i);
+                    continue;
+                }
+
+                g.Idle = 0f;
+                int steps;
+                if (!g.Warm && g.Record.Span >= MotionRecord.ReadySpan)
+                {
+                    g.Warm = true;
+                    g.Stepped = g.Record.Newest;
+                    g.Now = g.Stepped;
+                    g.Pending = 0f;
+                }
+
+                if (!g.Warm)
+                {
+                    // Ahead of time: a record's span in about a second at any frame rate.
+                    steps = Mathf.Clamp(2 * Mathf.CeilToInt(_frameTime / Step), 4, 16);
+                }
+                else
+                {
+                    g.Pending += dt;
+                    steps = Math.Min((int)((g.Pending + 1e-5f) / Step), MaxStepsPerFrame);
+                    g.Pending = Mathf.Clamp(g.Pending - steps * Step, 0f, Step);
+                }
+
+                if (steps == 0)
+                {
+                    g.Now = g.Stepped + g.Pending;
+                    continue;
+                }
+
+                FlagCloth source = g.Source;
+                int sub = source.SubStepsFor(g.Speed, Step);
+                var job = new ClothJob
+                {
+                    Cloth = source,
+                    Steps = steps,
+                    Size = Step,
+                    Time = g.Stepped,
+                    Speed = g.At10,
+                    Gusts = wind.Gusts,
+                    DirX = g.DirX,
+                    DirZ = g.DirZ,
+                    Height = Mathf.Max(g.Height, 0.5f),
+                    Waviness = g.Waviness,
+                    Length = g.Length,
+                    AnchorX = g.AnchorX,
+                    AnchorZ = g.AnchorZ,
+                    Roughness = g.Roughness,
+                    Record = g.Record,
+                };
+
+                g.Stepped += steps * Step;
+                if (g.Warm)
+                    g.Now = g.Stepped + g.Pending;
+                spent += steps * sub * source.Count * _unitCost;
+                _demand += sub * source.Count * _unitCost / Step;
+                Queue(null, ref job);
+            }
+        }
+
+        private void RemoveGroupAt(int i)
+        {
+            ShareGroup g = _groupList[i];
+            g.Dead = true;
+            _groups.Remove(g.Key);
+            _groupList.RemoveAt(i);
+            if (Log.Detailed)
+                Log.Detail("flags: a shared motion source dropped (" + g.Source.Columns + "x" + g.Source.Rows + ", no follower for " + GroupIdle.ToString("F0") +
+                           " s or shared motion off); " + _groupList.Count + " left");
+        }
+
+        /// <summary>The group whose source is this cloth, dropped (its job threw).</summary>
+        private void DropGroup(FlagCloth source)
+        {
+            for (int i = _groupList.Count - 1; i >= 0; i--)
+            {
+                if (_groupList[i].Source == source)
+                    RemoveGroupAt(i);
+            }
         }
 
         private void Queue(FlagInstance f, ref ClothJob job)

@@ -76,6 +76,13 @@ namespace RealFlag
         /// </summary>
         public static IntSetting ClothThreads { get; private set; }
 
+        /// <summary>
+        /// Shared motion (MotionRecord): with more flags in view than the cloth threads have time
+        /// for, like flags play back one cloth's motion, each at its own delay, before any goes
+        /// coarser. On by default (the author's choice, 2026-10-31); off, each flag its own cloth.
+        /// </summary>
+        public static BoolSetting SharedMotion { get; private set; }
+
         // ---- the wind (the panel's Settings tab) ----
 
         /// <summary>
@@ -252,6 +259,7 @@ namespace RealFlag
 
             /// <summary>Auto (the author's choice, 2026-10-31: players raise it themselves).</summary>
             public const int ClothThreads = 0;
+            public const bool SharedMotion = true;
 
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
@@ -355,6 +363,7 @@ namespace RealFlag
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
                 CityCollision = new BoolSetting("CityCollision", Defaults.CityCollision);
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
+                SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);

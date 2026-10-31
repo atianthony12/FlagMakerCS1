@@ -194,6 +194,13 @@ flags while it loads -- which the mod has never seen happen -- says so, and asks
   screen get the finest; the others as fine as their size there needs. Ultra and Extreme refine
   flags over about 3 m (smaller ones are at their finest already) and cost two to four times
   Very high's.
+- **Many flags in view**: when they want more of the cloth threads' time than there is, like
+  flags share motion first (**Shared motion**, on by default) -- one hidden cloth is simulated
+  and the smallest flags on the screen play its last few seconds back, each at its own delay and
+  turned to its heading, as crowds play one animation at their own time offsets -- and only then
+  do the smallest go coarser and to half rate, the screen's thresholds scaled to the budget as
+  dynamic resolution scales a frame's. Never the flag in your hand or one with the city in reach.
+  **Cloth threads** (Auto, or 1 to 16) gives the cloth more of the CPU.
 - **The drawn surface** is smooth: a flag big on the screen is drawn up to four times finer
   than its particles, on the Catmull-Rom surface through them (Catmull and Rom 1974), worked
   out on the GPU from the particles in a small texture, with its normals from the surface; its
@@ -303,6 +310,10 @@ Written from scratch after these, with thanks (no code from them is included):
   screen; U. Zölzer, *Digital Audio Signal Processing* (2008), dynamic range control's peak
   measurement (an instant attack, an exponential release) -- the pick target held over the
   flag's flutter; G. Fiedler, *Fix Your Timestep!* (2004).
+- Many flags: B. Dudash, *Animated Crowd Rendering* (GPU Gems 3, ch. 2, 2007) -- like flags
+  playing one cloth's motion back, each at its own time offset; D. Binks, *Dynamic Resolution
+  Rendering* (Intel, 2011) -- the work scaled to a measured budget, the smallest flags first;
+  H. Weyl's equidistribution (1916) -- the golden ratio's sequence spreading the delays.
 - The United States Flag Code, 4 U.S.C. § 7(i) -- a flag hung upright shows its union at the
   top, to the flag's own right: the design of a flag hoisted from its top.
 - Still flags: the Met Office's Beaufort wind force scale (force 3, "light flags extended") --

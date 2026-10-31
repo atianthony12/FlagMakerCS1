@@ -398,6 +398,8 @@
   <String key="ClothThreads.Tooltip">More: more flags move, more CPU.</String>
   <!-- {0}: how many threads Auto takes on this machine. -->
   <String key="ClothThreads.Auto">Auto ({0})</String>
+  <String key="SharedMotion.Label">Shared motion</String>
+  <String key="SharedMotion.Tooltip">Like flags share one cloth.</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>
   <String key="DetailedLogging.Label">Detailed logging</String>

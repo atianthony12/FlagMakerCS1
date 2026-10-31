@@ -1100,6 +1100,230 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// SHARED MOTION on the pool's four threads, as the renderer runs it: a 3 x 2 m source at 6
+    /// m/s, one step a frame for 400 frames (the ring of 192 wraps twice), its record written by
+    /// its job while six followers' jobs of the same batch play it back -- each a fixed number of
+    /// frames behind (18 + 25 i), turned 0.5 i rad. Each frame every follower's places must be the
+    /// source's own of that frame, turned (kept here from the source after each batch). Then
+    /// follower 3 stops following (Resume) and steps on its own for 3 s in its turned wind: its
+    /// first step against the source's usual (no jump), its worst stretch, its knots. Returns:
+    /// played right (all frames, all followers), worst error m, frames played, first own step /
+    /// the source's mean step, worst stretch, knots.
+    /// </summary>
+    public static string Shared()
+    {
+        float dt = 1f / 60f;
+        FlagCloth src = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 18);
+        src.GroundY = -12f;
+        MotionRecord rec = new MotionRecord(src.Columns, src.Rows);
+        int nf = 6;
+        FlagCloth[] fol = new FlagCloth[nf];
+        for (int i = 0; i < nf; i++) { fol[i] = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 18); fol[i].GroundY = -12f; }
+        List<float[]> hx = new List<float[]>(), hy = new List<float[]>(), hz = new List<float[]>();
+        List<float> times = new List<float>();
+        ClothWorker worker = new ClothWorker();
+        string problem;
+        if (!worker.Start(4, out problem)) return "no threads: " + problem;
+
+        float stepped = 0f;
+        bool right = true;
+        double worst = 0.0, moved = 0.0;
+        int played = 0, movedN = 0;
+        int[] want = new int[nf];
+        for (int frame = 0; frame < 400; frame++)
+        {
+            // Followers first in the batch, the source after: the order must not matter.
+            for (int i = 0; i < nf; i++)
+            {
+                want[i] = -1;
+                int back = 18 + 25 * i;
+                int idx = times.Count - 1 - back;
+                if (idx < 0) continue;
+                int a, b; float w, span;
+                if (!rec.Find(times[idx], out a, out b, out w, out span)) { right = false; continue; }
+                float turn = 0.5f * i;
+                ClothJob p = new ClothJob();
+                p.Cloth = fol[i]; p.Play = rec; p.PlayA = a; p.PlayB = b; p.PlaySpan = span;
+                p.PlayCos = (float)Math.Cos(turn); p.PlaySin = (float)Math.Sin(turn); p.PlayBlend = 1f;
+                worker.Add(ref p);
+                want[i] = idx;
+                if (w != 0f) right = false;
+            }
+            ClothJob j = Job(src, stepped, 1); j.Speed = 6f; j.Record = rec;
+            worker.Add(ref j);
+            worker.Run();
+            worker.Wait();
+            for (int k = 0; k < worker.Count; k++) if (worker.Jobs[k].Failure != null) return "threw: " + worker.Jobs[k].Failure.Message;
+            worker.Clear();
+            stepped += dt;
+
+            float[] x = (float[])src.X.Clone(), y = (float[])src.Y.Clone(), z = (float[])src.Z.Clone();
+            if (hx.Count > 0)
+            {
+                float[] px = hx[hx.Count - 1], pz = hz[hz.Count - 1];
+                for (int k = 0; k < src.Count; k++) { moved += Math.Sqrt((x[k] - px[k]) * (x[k] - px[k]) + (z[k] - pz[k]) * (z[k] - pz[k])); movedN++; }
+            }
+            hx.Add(x); hy.Add(y); hz.Add(z); times.Add(stepped);
+
+            for (int i = 0; i < nf; i++)
+            {
+                if (want[i] < 0) continue;
+                played++;
+                float turn = 0.5f * i, c = (float)Math.Cos(turn), s = (float)Math.Sin(turn);
+                float[] ax = hx[want[i]], ay = hy[want[i]], az = hz[want[i]], bx = hx[want[i] + 1], by = hy[want[i] + 1], bz = hz[want[i] + 1];
+                for (int k = 0; k < src.Count; k++)
+                {
+                    double e = Math.Abs(fol[i].X[k] - (bx[k] * c - bz[k] * s)) + Math.Abs(fol[i].Y[k] - by[k]) + Math.Abs(fol[i].Z[k] - (bx[k] * s + bz[k] * c)) +
+                               Math.Abs(fol[i].PrevX[k] - (ax[k] * c - az[k] * s)) + Math.Abs(fol[i].PrevY[k] - ay[k]) + Math.Abs(fol[i].PrevZ[k] - (ax[k] * s + az[k] * c));
+                    worst = Math.Max(worst, e);
+                }
+            }
+        }
+        worker.Stop();
+        if (worst > 1e-5) right = false;
+
+        // Follower 3 steps on its own from where it was shown, in its own (turned) wind.
+        FlagCloth f = fol[3];
+        f.Resume();
+        float t3 = 1.5f, ft = stepped;
+        float[] bx0 = (float[])f.X.Clone(), bz0 = (float[])f.Z.Clone();
+        int knots = FlagCloth.UnknottedAll;
+        float worstStretch = 0f;
+        double first = 0.0;
+        for (int s = 0; s < 180; s++)
+        {
+            ClothJob o = Job(f, ft, 1); o.Speed = 6f; o.DirX = (float)Math.Cos(t3); o.DirZ = (float)Math.Sin(t3);
+            ClothWorker.Execute(ref o);
+            ft += dt;
+            if (s == 0)
+            {
+                for (int k = 0; k < f.Count; k++) first += Math.Sqrt((f.X[k] - bx0[k]) * (f.X[k] - bx0[k]) + (f.Z[k] - bz0[k]) * (f.Z[k] - bz0[k]));
+                first /= f.Count;
+            }
+            worstStretch = Math.Max(worstStretch, f.MaxStretch());
+        }
+        knots = FlagCloth.UnknottedAll - knots;
+        double mean = moved / Math.Max(1, movedN);
+        return right + "," + worst.ToString("E1", CultureInfo.InvariantCulture) + "," + played + "," + (first / mean).ToString("F2", CultureInfo.InvariantCulture) + "," +
+               worstStretch.ToString("F3", CultureInfo.InvariantCulture) + "," + knots;
+    }
+
+    /// <summary>The ring's edges: none with fewer than two steps; before the oldest, the oldest pair at 0; past the newest, the newest pair at 1; between, the share.</summary>
+    public static string RecordEdges()
+    {
+        FlagCloth c = new FlagCloth(1f, 1f, FlagFabric.Standard(1f), 1f, 0f, 18);
+        MotionRecord r = new MotionRecord(c.Columns, c.Rows);
+        int a, b; float w, span;
+        bool none = !r.Find(1f, out a, out b, out w, out span);
+        r.Add(c, 1f);
+        none &= !r.Find(1f, out a, out b, out w, out span);
+        for (int i = 2; i <= 300; i++) r.Add(c, i);
+        // 300 added, 192 kept: 109 .. 300.
+        bool kept = r.Filled == MotionRecord.Capacity && r.Oldest == 109f && r.Newest == 300f;
+        r.Find(5f, out a, out b, out w, out span); bool before = w == 0f && span == 1f;
+        r.Find(400f, out a, out b, out w, out span); bool after = w == 1f;
+        r.Find(200.25f, out a, out b, out w, out span); bool mid = Math.Abs(w - 0.25f) < 1e-6f;
+        r.Clear();
+        bool cleared = !r.Find(200f, out a, out b, out w, out span) && r.Filled == 0;
+        return none + "," + kept + "," + before + "," + after + "," + mid + "," + cleared;
+    }
+
+    /// <summary>Followers' delays for props 1..2000: least, most, mean, and the share of props one apart that are under 0.3 s apart.</summary>
+    public static string Delays()
+    {
+        float least = float.MaxValue, most = 0f; double sum = 0.0; int close = 0;
+        for (uint p = 1; p <= 2000; p++)
+        {
+            float d = MotionRecord.DelayFor(p);
+            least = Math.Min(least, d); most = Math.Max(most, d); sum += d;
+            if (Math.Abs(d - MotionRecord.DelayFor(p + 1)) < 0.3f) close++;
+        }
+        return least.ToString("F3", CultureInfo.InvariantCulture) + "," + most.ToString("F3", CultureInfo.InvariantCulture) + "," +
+               (sum / 2000).ToString("F2", CultureInfo.InvariantCulture) + "," + (close / 2000.0).ToString("F2", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// ShareKey: another design or colours alike; another length, waviness, detail or a halyard
+    /// not; the wind within its 10% step alike, past it not; the angle round 360 alike (upright,
+    /// 15 deg steps); a tilted flag 10 deg off not (5 deg steps).
+    /// </summary>
+    public static string ShareKeys()
+    {
+        FlagSpec a = new FlagSpec(); a.Length = 2.6f; a.Proportion = 667; a.Waviness = 2f; a.Colour1 = 0xff0000u;
+        FlagSpec b = a; b.Colour1 = 0x00ff00u; b.Country = "gr";
+        FlagSpec longer = a; longer.Length = 2.7f;
+        FlagSpec calmer = a; calmer.Waviness = 1.5f;
+        FlagSpec tilted = a; tilted.Tilt = 30f;
+        ShareKey k = ShareKey.For(a, 24, 5f, 2f, 0f, 0f, true);
+        bool design = k.Equals(ShareKey.For(b, 24, 5f, 2f, 0f, 0f, true)) && k.GetHashCode() == ShareKey.For(b, 24, 5f, 2f, 0f, 0f, true).GetHashCode();
+        bool other = !k.Equals(ShareKey.For(longer, 24, 5f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(calmer, 24, 5f, 2f, 0f, 0f, true)) &&
+                     !k.Equals(ShareKey.For(a, 32, 5f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(a, 24, 5f, 2f, 0.05f, 0.04f, true)) &&
+                     !k.Equals(ShareKey.For(a, 24, 5f, 2f, 0f, 0f, false));
+        bool wind = k.Equals(ShareKey.For(a, 24, 5.2f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(a, 24, 6f, 2f, 0f, 0f, true));
+        bool round = k.Equals(ShareKey.For(a, 24, 5f, 358f, 0f, 0f, true)) && k.Equals(ShareKey.For(a, 24, 5f, -3f, 0f, 0f, true));
+        ShareKey t = ShareKey.For(tilted, 24, 5f, 2f, 0f, 0f, true);
+        bool turned = !t.Equals(ShareKey.For(tilted, 24, 5f, 12f, 0f, 0f, true)) && t.Equals(ShareKey.For(tilted, 24, 5f, 1f, 0f, 0f, true));
+        return design + "," + other + "," + wind + "," + round + "," + turned;
+    }
+
+    /// <summary>
+    /// ClothLoad with shared motion: 40 like flags (sizes 10..49 px), each 0.05 of the budget on
+    /// its own, a follower 1/16 of that, a source a flag's: 2x the budget at first. With sharing,
+    /// for 30 s, then the load gone (each 0.005) for 40 s more; without, 30 s. Returns, with:
+    /// the share at 5 s, the scale then, the share wanted then, the share and scale at the end;
+    /// without: share, scale.
+    /// </summary>
+    public static string LoadShared()
+    {
+        string with = RunShared(true, 30f, 40f), without = RunShared(false, 30f, 0f);
+        return with + "|" + without;
+    }
+
+    static string RunShared(bool sharing, float loaded, float after)
+    {
+        ClothLoad l = new ClothLoad(); l.Sharing = sharing;
+        int n = 40; float dt = 1f / 60f;
+        float[] px = new float[n]; double[] sv = new double[n]; int[] gr = new int[n]; double[] extra = new double[1];
+        for (int i = 0; i < n; i++) px[i] = 10f + i;
+        float at5Share = 0f, at5Scale = 0f; double at5Ratio = 0.0;
+        int frames = (int)((loaded + after) * 60f);
+        for (int f = 0; f < frames; f++)
+        {
+            double c = f * dt < loaded ? 50.0 : 5.0;
+            int followers = 0;
+            for (int i = 0; i < n; i++) if (px[i] < l.Share) followers++;
+            for (int i = 0; i < n; i++) { sv[i] = (c / (l.Scale * l.Scale)) * (1.0 - 1.0 / 16.0); gr[i] = 0; }
+            extra[0] = followers > 0 ? 0.0 : c;
+            l.SetShareable(px, sv, gr, n, extra, 1);
+            double want = (n - followers) * c / (l.Scale * l.Scale) + followers * c / 16.0 + (followers > 0 ? c : 0.0);
+            l.Add(want, 1000.0, dt);
+            if (f == 5 * 60) { at5Share = l.Share; at5Scale = l.Scale; at5Ratio = l.Ratio; }
+        }
+        return at5Share.ToString("F1", CultureInfo.InvariantCulture) + "," + at5Scale.ToString("F2", CultureInfo.InvariantCulture) + "," +
+               at5Ratio.ToString("F2", CultureInfo.InvariantCulture) + "," + l.Share.ToString("F1", CultureInfo.InvariantCulture) + "," +
+               l.Scale.ToString("F2", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>A follower's playback against a source's step, microseconds a particle, 3 x 2 m at High in 6 m/s (.NET; the mesh's refresh is common to both and left out).</summary>
+    public static string PlayCost()
+    {
+        FlagCloth src = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32); src.GroundY = -12f;
+        FlagCloth fol = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32);
+        MotionRecord rec = new MotionRecord(src.Columns, src.Rows);
+        float dt = 1f / 60f;
+        for (int s = 0; s < 240; s++) { ClothJob j = Job(src, s * dt, 1); j.Speed = 6f; j.Record = rec; ClothWorker.Execute(ref j); }
+        Stopwatch sw = Stopwatch.StartNew();
+        for (int s = 240; s < 840; s++) { ClothJob j = Job(src, s * dt, 1); j.Speed = 6f; j.Record = rec; ClothWorker.Execute(ref j); }
+        double step = sw.Elapsed.TotalMilliseconds * 1000.0 / 600 / src.Count;
+        int a, b; float w, span;
+        rec.Find(rec.Newest - 1f, out a, out b, out w, out span);
+        sw = Stopwatch.StartNew();
+        for (int s = 0; s < 6000; s++) { ClothJob p = new ClothJob(); p.Cloth = fol; p.Play = rec; p.PlayA = a; p.PlayB = b; p.PlaySpan = span; p.PlayCos = 0.8f; p.PlaySin = 0.6f; p.PlayBlend = 1f; ClothWorker.Execute(ref p); }
+        double play = sw.Elapsed.TotalMilliseconds * 1000.0 / 6000 / fol.Count;
+        return step.ToString("F3", CultureInfo.InvariantCulture) + "," + play.ToString("F4", CultureInfo.InvariantCulture) + "," + (step / play).ToString("F0", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
     /// ClothLoad at 60 fps for <paramref name="seconds"/>: the flags in view want d0 of the budget
     /// at no scale (d1 from <paramref name="dropAt"/> s), their cost going with the cells along
     /// squared -- 1 / scale^2 (model 0), or (model 1) a STEP: d0 under a scale of 1.2, half the
@@ -3365,6 +3589,23 @@ $ld = [ClothTests]::Load(100.0, 100.0, 999, 20, 19, 0) -split ","
 Check "too much even at the coarsest: every flag slowed evenly (95% of what fits)" ((N $ld[2]) -eq 8 -and [math]::Abs((N $ld[3]) - 0.61) -le 0.01) ("scale " + $ld[2] + ", time x" + $ld[3])
 $ld = [ClothTests]::Load(500.0, 500.0, 999, 20, 19, 0) -split ","
 Check "and never slower than a quarter (the turns below it)" ((N $ld[2]) -eq 8 -and (N $ld[3]) -eq 0.25) ("scale " + $ld[2] + ", time x" + $ld[3])
+# Shared motion (MotionRecord, ShareKey, ClothLoad.Share; 2026-10-31).
+$sh = [ClothTests]::Shared() -split ","
+Check "shared motion: six followers play their source back on four threads, each frame the source's own turned to them" ($sh[0] -eq "True" -and [int]$sh[2] -gt 1500) ("400 frames, the ring wrapped twice: right " + $sh[0] + ", worst " + $sh[1] + " m over " + $sh[2] + " playbacks")
+Check "a follower that steps on its own goes on from where it was shown: no jump, no tear, no knot" ((N $sh[3]) -le 2.0 -and (N $sh[4]) -le 1.15 -and [int]$sh[5] -eq 0) ("first own step " + $sh[3] + "x the source's mean, worst stretch " + $sh[4] + " in 3 s, " + $sh[5] + " knot(s)")
+$re = [ClothTests]::RecordEdges() -split ","
+Check "the record's edges: none under two steps, 192 kept, held to the oldest and newest, the share between, cleared" (($re -join ",") -eq "True,True,True,True,True,True") ($re -join ",")
+$dl = [ClothTests]::Delays() -split ","
+Check "followers' delays 0.3-2.7 s by prop, props one apart far apart in it" ((N $dl[0]) -ge 0.3 -and (N $dl[1]) -le 2.7 -and [math]::Abs((N $dl[2]) - 1.5) -le 0.05 -and (N $dl[3]) -le 0.05) ("least " + $dl[0] + ", most " + $dl[1] + ", mean " + $dl[2] + "; one apart within 0.3 s: " + $dl[3])
+$ky = [ClothTests]::ShareKeys() -split ","
+Check "the share key: designs and colours alike; length, waviness, detail, pole, self-collision not; wind in 10% steps; angles round 360; a tilted flag's 5 deg" (($ky -join ",") -eq "True,True,True,True,True") ($ky -join ",")
+$ls = [ClothTests]::LoadShared() -split "\|"
+$lw = $ls[0] -split ","; $lo = $ls[1] -split ","
+Check "40 like flags at 2x the budget: they share before any goes coarser, and fit" ((N $lw[0]) -gt 10 -and (N $lw[1]) -eq 1 -and (N $lw[2]) -le 1.0) ("at 5 s the smallest under " + $lw[0] + " px follow, scale " + $lw[1] + ", " + $lw[2] + " of the budget")
+Check "the load gone: none shares, all fine" ((N $lw[3]) -eq 0 -and (N $lw[4]) -eq 1) ("share " + $lw[3] + " px, scale " + $lw[4] + " 40 s after")
+Check "shared motion off: none shares, they go coarser instead" ((N $lo[3]) -eq 0 -and (N $lo[4]) -gt 1.2) ("share " + $lo[3] + " px, scale " + $lo[4])
+$pc = [ClothTests]::PlayCost() -split ","
+Check "a follower's playback costs a fraction of a step (ClothWorker.PlayShare 16 counts it so)" ((N $pc[2]) -ge 8) ("a step " + $pc[0] + " us a particle, a playback " + $pc[1] + ": " + $pc[2] + "x cheaper (.NET, 3 x 2 m at High, 6 m/s)")
 $ld = [ClothTests]::Load(1.1, 1.1, 999, 120, 60, 1) -split ","
 Check "a notch of detail that tips the load either way: it settles (back-off), not see-saws" ([int]$ld[7] -le 3) ($ld[5] + " raise(s) and " + $ld[6] + " lowering(s) in 120 s, " + $ld[7] + " raise(s) in the last 60; scale " + $ld[2])
 

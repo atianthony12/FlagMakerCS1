@@ -10,7 +10,7 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $simDir = Join-Path $root "UnityProject\Assets\Sim"
 New-Item -ItemType Directory -Force $simDir | Out-Null
 
-$files = "Flags\FlagNoise.cs", "Flags\FlagWind.cs", "Flags\FlagCloth.cs", "Flags\FlagDesign.cs", "Flags\FlagMesh.cs", "Flags\ClothWorker.cs",
+$files = "Flags\FlagNoise.cs", "Flags\FlagWind.cs", "Flags\FlagCloth.cs", "Flags\FlagDesign.cs", "Flags\FlagMesh.cs", "Flags\ClothWorker.cs", "Flags\ClothShare.cs",
          "Flags\FlagCountry.cs", "Flags\FlagCountries.cs", "Flags\FlagImages.cs", "Flags\ClothSurface.cs", "Flags\FlagPole.cs",
          "Flags\FlagPoleMesh.cs", "Flags\FlagPicture.cs", "Flags\ClothColliders.cs"
 $names = @()

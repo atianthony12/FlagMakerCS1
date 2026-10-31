@@ -103,6 +103,13 @@ techniques were written from scratch after them, and they are credited here with
       Geometric Design (1974).
     G. Taubin, "A Signal Processing Approach to Fair Surface Design", SIGGRAPH 1995 --
       the edges' smoothing.
+  Many flags:
+    B. Dudash, "Animated Crowd Rendering", GPU Gems 3, ch. 2 (2007) -- instances playing one
+      animation at their own time offsets: like flags playing one cloth's motion back.
+    D. Binks, "Dynamic Resolution Rendering", Intel (2011) -- the work scaled to a measured
+      budget: the smallest flags made coarser first.
+    H. Weyl, "Ueber die Gleichverteilung von Zahlen mod. Eins", Math. Ann. 77 (1916) -- the
+      golden ratio's sequence spreading the followers' delays.
   The gizmo:
     the idea of Procedural Objects' 3-axis gizmos (a Cities: Skylines mod) and of 3-D
       editors' transform handles -- the idea only; none of their code.
