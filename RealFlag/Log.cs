@@ -55,6 +55,12 @@ namespace RealFlag
             }
         }
 
+        /// <summary>The last session's log, kept by <see cref="Start"/>: RealFlag.prev.log beside this one.</summary>
+        public static string PreviousPath
+        {
+            get { return System.IO.Path.ChangeExtension(Path, ".prev.log"); }
+        }
+
         /// <summary>
         /// Its own method so that a missing ColossalManaged.dll (offline) surfaces as an
         /// exception at the call, inside the try above, rather than when the caller is
@@ -77,6 +83,22 @@ namespace RealFlag
                     string dir = System.IO.Path.GetDirectoryName(Path);
                     if (!string.IsNullOrEmpty(dir))
                         Directory.CreateDirectory(dir);
+
+                    // The last session's log kept beside it (one back): a run is not lost to the next start.
+                    try
+                    {
+                        if (File.Exists(Path))
+                        {
+                            string previous = PreviousPath;
+                            if (File.Exists(previous))
+                                File.Delete(previous);
+                            File.Move(Path, previous);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning("[RealFlag] Could not keep the last session's log: " + e.Message);
+                    }
 
                     File.WriteAllText(Path,
                         Mod.DisplayName + " " + Mod.Version + " (build " +

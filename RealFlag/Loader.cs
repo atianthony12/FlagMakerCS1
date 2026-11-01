@@ -45,6 +45,10 @@ namespace RealFlag
                 return;
             }
 
+            // Flags of a city saved before their heights were kept loaded at 0, under the map: stood
+            // on the ground before anything reads where they are (FlagSaveData).
+            FlagSaveData.StandUnplaced();
+
             if (!CanDraw())
             {
                 StandDown();
@@ -145,7 +149,7 @@ namespace RealFlag
         /// its IL -- the same test Find It, BOB and Picker run): an enabled plugin with an assembly
         /// named "EManagersLib".
         /// </summary>
-        private static bool EmlEnabled()
+        internal static bool EmlEnabled()
         {
             try
             {

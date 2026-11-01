@@ -64,6 +64,46 @@ namespace RealFlag.Flags
             return true;
         }
 
+        /// <summary>
+        /// A flag prop held at its height (FixedHeight): its m_posY (1/64 m), which the game does not
+        /// save (FlagHeightCodec) -- FlagSaveData does.
+        /// </summary>
+        public static bool TryGetHeight(uint prop, out ushort posY)
+        {
+            posY = 0;
+            if (!IsFlagProp(prop))
+                return false;
+
+            PropInstance[] buffer = Singleton<PropManager>.instance.m_props.m_buffer;
+            if (!buffer[prop].FixedHeight)
+                return false;
+
+            posY = buffer[prop].m_posY;
+            return true;
+        }
+
+        /// <summary>
+        /// A flag prop's height as it loads (m_posY, 1/64 m), written straight into the buffer: only
+        /// while the city loads (FlagSaveData.OnLoadData, Loader.OnLevelLoaded), before anything has
+        /// read where the flag is. A flag has no renderer and nothing of the game follows its height.
+        /// </summary>
+        public static bool SetLoadedHeight(uint prop, ushort posY)
+        {
+            if (!IsFlagProp(prop))
+                return false;
+
+            PropInstance[] buffer = Singleton<PropManager>.instance.m_props.m_buffer;
+            buffer[prop].FixedHeight = true;
+            buffer[prop].m_posY = posY;
+            return true;
+        }
+
+        /// <summary>Metres to m_posY's 1/64 m, held to its range (0 to 1024 m) as PropInstance.CalculateProp holds it.</summary>
+        public static ushort PosY(float metres)
+        {
+            return (ushort)Mathf.Clamp(Mathf.RoundToInt(metres * 64f), 0, 65535);
+        }
+
         /// <summary>The ground or water under a point, world metres (the Vector3 overload: world units in, metres out).</summary>
         public static float GroundAt(Vector3 at)
         {

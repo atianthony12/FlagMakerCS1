@@ -3066,15 +3066,19 @@ namespace RealFlag.Flags
                 int frames = Math.Max(1, _costFrames);
                 float seconds = now - _nextReport + 5f;
                 Wind w = Wind.Current();
-                int still = 0;
+                int still = 0, unshown = 0;
                 foreach (FlagInstance f in _flags)
                 {
                     if (f.Spec.Motion != FlagMotion.Waves)
                         still++;
+
+                    // In view but not drawn yet: no cloth or mesh, or still settling (Draw skips them).
+                    if (f.Visible && (f.Mesh == null || !f.Settled))
+                        unshown++;
                 }
 
                 Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept), " +
-                           VisibleCount + " in view, " + _moving + " moving, " + _waiting +
+                           VisibleCount + " in view (" + unshown + " not drawn yet: settling), " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
                            (_costMs / frames).ToString("F3") + " ms a frame (" + (_waitMs / frames).ToString("F3") +
                            " of it waiting for the cloth), cloth " + (_batchMs / frames).ToString("F3") + " ms a frame (room for " +

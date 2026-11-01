@@ -1246,4 +1246,81 @@ namespace RealFlag.Flags
             return list;
         }
     }
+
+    /// <summary>
+    /// The flags' heights in the city: each flag prop's PropInstance.m_posY (1/64 m) by prop index,
+    /// saved by FlagSaveData beside the designs. The game does not save a prop's height
+    /// (PropManager.Data.Serialize writes flags, prefab, x, z and angle; Deserialize sets m_posY to
+    /// 0, and only a prop WITHOUT FixedHeight is put back on the terrain -- CalculateProp, its IL):
+    /// every flag is FixedHeight, so without this a city loads its flags at height 0, under the map
+    /// (VolTest3, 2026-11-01). Kept apart from FlagCodec so Move It's clipboard and the design
+    /// format stay as they are. Versioned like it; anything unreadable is refused whole. PURE.
+    /// </summary>
+    public static class FlagHeightCodec
+    {
+        /// <summary>1 (2026-11-01): a count, then each flag's prop index (uint) and m_posY (ushort).</summary>
+        public const byte Version = 1;
+
+        public static byte[] Encode(IList<KeyValuePair<uint, ushort>> heights)
+        {
+            using (var stream = new MemoryStream())
+            using (var w = new BinaryWriter(stream))
+            {
+                w.Write(Version);
+                w.Write(heights.Count);
+                foreach (KeyValuePair<uint, ushort> h in heights)
+                {
+                    w.Write(h.Key);
+                    w.Write(h.Value);
+                }
+
+                return stream.ToArray();
+            }
+        }
+
+        /// <summary>Null (and why) when the bytes are not heights this version can read; empty for none.</summary>
+        public static Dictionary<uint, ushort> Decode(byte[] data, out string problem)
+        {
+            problem = null;
+            var heights = new Dictionary<uint, ushort>();
+            if (data == null || data.Length == 0)
+                return heights;
+
+            try
+            {
+                using (var stream = new MemoryStream(data))
+                using (var r = new BinaryReader(stream))
+                {
+                    byte version = r.ReadByte();
+                    if (version != Version)
+                    {
+                        problem = version > Version
+                            ? "saved by a newer version of the mod (heights format " + version + ")"
+                            : "not a heights format this mod ever wrote (" + version + ")";
+                        return null;
+                    }
+
+                    int count = r.ReadInt32();
+                    if (count < 0 || count > 1 << 20)
+                    {
+                        problem = "a count of " + count;
+                        return null;
+                    }
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        uint prop = r.ReadUInt32();
+                        heights[prop] = r.ReadUInt16();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                problem = e.GetType().Name + ": " + e.Message;
+                return null;
+            }
+
+            return heights;
+        }
+    }
 }

@@ -1398,6 +1398,26 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The flags' heights (the game saves none: FlagHeightCodec): exact m_posY by prop, up to the
+    /// top of its range; none is empty, garbage and a newer format refused whole.
+    /// </summary>
+    public static string HeightCodec()
+    {
+        var list = new List<KeyValuePair<uint, ushort>>();
+        list.Add(new KeyValuePair<uint, ushort>(12, 2731));
+        list.Add(new KeyValuePair<uint, ushort>(65535, 65535));
+        list.Add(new KeyValuePair<uint, ushort>(300, 0));
+        string problem;
+        var back = FlagHeightCodec.Decode(FlagHeightCodec.Encode(list), out problem);
+        bool all = back != null && back.Count == 3 && back[12] == 2731 && back[65535] == 65535 && back[300] == 0;
+        var empty = FlagHeightCodec.Decode(null, out problem);
+        var none = FlagHeightCodec.Decode(new byte[] { 1, 255, 255, 255, 127 }, out problem);
+        string futureProblem;
+        var later = FlagHeightCodec.Decode(new byte[] { 2, 0, 0, 0, 0 }, out futureProblem);
+        return all + "," + (empty != null && empty.Count == 0) + "," + (none == null) + "," + (later == null && futureProblem.Contains("newer"));
+    }
+
+    /// <summary>
     /// Format 2 (a country's code at the end): a country's flag round trips with its code and
     /// its own proportions (whatever the spec said); a format-1 save -- written here byte by
     /// byte as the first version wrote it -- still reads, as a pattern flag; a code this version
@@ -3656,6 +3676,11 @@ Check "the city's flags survive the save" ($codec[0] -eq "True") "two specs, nam
 Check "Move It's copy survives its clipboard" ($codec[1] -eq "True") "EncodeOne / TryDecodeOne"
 Check "garbage is refused whole" ($codec[2] -eq "True") "a count past the data"
 Check "a newer format is refused, and says so" ($codec[3] -eq "True") "version 9"
+$hc = [ClothTests]::HeightCodec() -split ","
+Check "the flags' heights survive the save, exact (the game saves none)" ($hc[0] -eq "True") "m_posY 2731 / 65535 / 0 by prop"
+Check "a city with no heights reads as none" ($hc[1] -eq "True") "no key: empty, not refused"
+Check "garbage heights are refused whole" ($hc[2] -eq "True") "a count past the data"
+Check "a newer heights format is refused, and says so" ($hc[3] -eq "True") "version 2"
 $cc = [ClothTests]::CodecCountries() -split ","
 Check "a country's flag survives the save, at its own proportions" ($cc[0] -eq "True") ("format " + $cc[3] + ": 'US' -> us, 10:19 whatever the spec said, name and size kept")
 Check "a save of the first format still reads" ($cc[1] -eq "True") "format 1, byte by byte: a saltire, no country"
