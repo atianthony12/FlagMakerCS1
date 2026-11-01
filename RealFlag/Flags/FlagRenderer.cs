@@ -320,18 +320,71 @@ namespace RealFlag.Flags
         private const int MaxStepsPerFrame = 8;
 
         /// <summary>
-        /// A new cloth is run this long before it is first shown, to settle, in 1/30 s steps:
-        /// <see cref="SettleSteps"/> of them a frame (fewer sub-steps' worth in a strong wind), on
-        /// at most <see cref="MaxSettlesPerFrame"/> flags a frame.
+        /// A new cloth is run this long before it is first shown, to settle, in 1/30 s steps: as
+        /// many a frame as one thread's share of the budget holds (ClothPlan.SettleSteps), on as
+        /// many flags as the budget has room for -- at least <see cref="MinSettlesPerFrame"/>
+        /// whatever it holds, at most <see cref="MaxSettlesPerFrame"/>. Until 2026-11-01 six steps
+        /// a frame on two flags a frame: the author's 58 flags in view at a load (and again after a
+        /// Move It paste) were hidden 10-15 s, popping in two by two, while the threads ran at 0-6%
+        /// of their budget. A settle costs ~31 ms of a thread (a 2.6 m flag at 18 cells, 45 steps
+        /// of two sub-steps at 1.8 us a particle step): the 58 together, about half a second on four.
         /// </summary>
         private const float SettleTime = 1.5f;
-        private const int SettleSteps = 6;
-        private const int MaxSettlesPerFrame = 2;
+        private const int MinSettlesPerFrame = 2;
+        private const int MaxSettlesPerFrame = 32;
+
+        /// <summary>
+        /// A flag that settles from a like one's shape (the same ShareKey, settled at 18 cells, with
+        /// nothing of the city in reach: <see cref="TryCopySettled"/>) runs only this long of its
+        /// own first -- its own wind at its own place -- before it is shown.
+        /// </summary>
+        private const float CopiedSettleTime = 0.3f;
+
+        /// <summary>
+        /// Settled flags whose shapes a new like flag may take, by key; dropped whole at
+        /// <see cref="MaxSettledLike"/> and when the city unloads. A donor is used only while its
+        /// cloth is still the one it settled (not made finer since) and nothing of the city is in
+        /// its reach.
+        /// </summary>
+        private readonly Dictionary<ShareKey, SettledLike> _settledLike = new Dictionary<ShareKey, SettledLike>();
+        private const int MaxSettledLike = 256;
+
+        private struct SettledLike
+        {
+            public FlagInstance Flag;
+            public FlagCloth Cloth;
+        }
+
+        /// <summary>
+        /// The surfaces gathered at once for flags about to settle (FlagSurroundings.Surface: a few
+        /// tenths of a millisecond in open ground, a few ms beside a detailed building) stop for the
+        /// frame once they have taken this much of the main thread, milliseconds -- the first
+        /// <see cref="MinSettlesPerFrame"/> whatever they take.
+        /// </summary>
+        private const double SettleGatherMs = 2.0;
+        private double _settleGatherMs;
+
+        /// <summary>
+        /// Flags out of view that settle with the budget left over, nearest first, at most this
+        /// many a frame: turned to, they are there already (until 2026-11-01 only flags in view
+        /// settled, so a turn of the camera made more pop in).
+        /// </summary>
+        private const int UnseenPerFrame = 8;
+        private readonly FlagInstance[] _unseen = new FlagInstance[UnseenPerFrame];
+        private bool _unseenPass;
+
+        /// <summary>For the log: settles finished in view, out of view, and from a like flag's shape, since the last report; a burst of them timed.</summary>
+        private int _settledSeen, _settledUnseen, _settleCopies;
+        private float _burstSince = -1f, _burstLast;
+        private int _burstSettled, _burstCopies, _frameSettled, _frameCopies;
+
+        /// <summary>A burst ends this long after its last flag waiting or settled, seconds (a paste's flags are found over several frames: Scan).</summary>
+        private const float BurstQuiet = 0.5f;
 
         /// <summary>
         /// A still flag's shape (StillPose, 2.5-7 s of its breeze) is made this many 1/32 s steps a
         /// frame (fewer sub-steps' worth, more in a longer frame: ClothPlan.BudgetFor's one to
-        /// three), sharing <see cref="MaxSettlesPerFrame"/> with the new cloths: a 3 x 2 m flag's in
+        /// three), sharing the settles' room (<see cref="SettleRoom"/>) with the new cloths: a 3 x 2 m flag's in
         /// about 24 frames at 60 fps, 8 at 10 fps. Its steps cost ~7 ms of a thread a frame.
         /// </summary>
         private const int PoseStepsPerFrame = 12;
@@ -701,6 +754,7 @@ namespace RealFlag.Flags
                 Release(_ghost);
             _ghost = null;
             _stillShapes.Clear();
+            _settledLike.Clear();
             _groups.Clear();
             _groupList.Clear();
 
@@ -829,6 +883,7 @@ namespace RealFlag.Flags
                 _surfacesThisFrame = 0;
                 _capsulesThisFrame = 0;
                 _roughnessThisFrame = 0;
+                _settleGatherMs = 0.0;
                 _touching = 0;
                 _blocked = 0;
                 MarkChanges();
@@ -1649,6 +1704,11 @@ namespace RealFlag.Flags
                 }
             }
 
+            // With the budget the flags in view left: the nearest out of view settle, so a turn
+            // of the camera finds them flying.
+            PlanUnseen(wind, ref spent, ref settles);
+            TimeBurst(n);
+
             ShareableToLoad();
 
             // What the flags in view wanted against what the threads have, both at real time (not
@@ -1656,6 +1716,147 @@ namespace RealFlag.Flags
             if (!frozen && _load.Add(_demand, Budget / Math.Max(_frameTime, 1e-3f), realDt))
                 SayLoad();
         }
+
+        /// <summary>
+        /// The flags out of view still to settle (no cloth yet, or settling; a still flag's shape
+        /// not made), at least <see cref="MovePixels"/> on the screen were they turned to: the
+        /// <see cref="UnseenPerFrame"/> nearest planned with the budget left -- never past it, and
+        /// none of the settles' minimum (that is the flags in view's).
+        /// </summary>
+        private void PlanUnseen(Wind wind, ref double spent, ref int settles)
+        {
+            if (spent >= Budget || settles >= MaxSettlesPerFrame)
+                return;
+
+            int n = 0;
+            foreach (FlagInstance f in _flags)
+            {
+                if (!f.HasAnchor || f.Visible || f.Pixels < MovePixels)
+                    continue;
+
+                bool due = f.Spec.Motion == FlagMotion.Waves ? f.Cloth == null || !f.Settled : f.Cloth == null || f.Pose != null;
+                if (!due)
+                    continue;
+
+                // The nearest few, kept in order (no sort of them all: a city may hold thousands).
+                if (n == UnseenPerFrame && f.Distance >= _unseen[n - 1].Distance)
+                    continue;
+
+                int i = n < UnseenPerFrame ? n++ : n - 1;
+                while (i > 0 && _unseen[i - 1].Distance > f.Distance)
+                {
+                    _unseen[i] = _unseen[i - 1];
+                    i--;
+                }
+
+                _unseen[i] = f;
+            }
+
+            _unseenPass = true;
+            try
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    if (spent >= Budget || settles >= MaxSettlesPerFrame)
+                        break;
+                    PlanFlag(_unseen[i], 0f, wind, false, false, ref spent, ref settles);
+                }
+            }
+            finally
+            {
+                _unseenPass = false;
+                for (int i = 0; i < n; i++)
+                    _unseen[i] = null;
+            }
+        }
+
+        /// <summary>
+        /// The settles' room for one more flag this frame at <paramref name="cost"/> ms: the ghost
+        /// always; out of view (<see cref="PlanUnseen"/>) only within the budget; in view the first
+        /// <see cref="MinSettlesPerFrame"/> whatever it holds, then as the budget has room.
+        /// </summary>
+        private bool SettleRoom(bool ghost, int settles, double cost, double spent)
+        {
+            if (ghost)
+                return true;
+            if (settles >= MaxSettlesPerFrame)
+                return false;
+            if (!_unseenPass && settles < MinSettlesPerFrame)
+                return true;
+            return spent + cost <= Budget;
+        }
+
+        /// <summary>
+        /// A flag about to settle may have the city round it read at once: the ghost always; the
+        /// rest while the settles have room and the frame's reads for them are under
+        /// <see cref="SettleGatherMs"/> (the first <see cref="MinSettlesPerFrame"/> in view whatever).
+        /// </summary>
+        private bool SettleGatherRoom(bool ghost, int settles, double spent)
+        {
+            if (ghost)
+                return true;
+            if (settles >= MaxSettlesPerFrame || (_unseenPass && spent >= Budget))
+                return false;
+            return (!_unseenPass && settles < MinSettlesPerFrame) || _settleGatherMs < SettleGatherMs;
+        }
+
+        /// <summary>
+        /// A burst of settling in view (a city loaded, a paste of many flags) timed from its first
+        /// frame -- a flag waiting to settle, or one settled -- to the last such frame, once
+        /// <see cref="BurstQuiet"/> has passed with none: said once at INFO when it held 8 or more,
+        /// in the detailed log otherwise. (The first version began a burst only on a flag seen
+        /// waiting: a flag settled from a like one's shape settles in the frame it is first planned,
+        /// so the author's 88 flags pasted back, 73 of them copied, were never timed.)
+        /// </summary>
+        private void TimeBurst(int inView)
+        {
+            int waiting = 0;
+            for (int i = 0; i < inView; i++)
+            {
+                FlagInstance f = _order[i];
+                if (f.Spec.Motion == FlagMotion.Waves ? f.Cloth == null || !f.Settled : f.Cloth == null)
+                    waiting++;
+            }
+
+            // This frame's settles in view (PlanFlag counts them), into the burst if there is one.
+            int settled = _frameSettled, copies = _frameCopies;
+            _frameSettled = 0;
+            _frameCopies = 0;
+            float now = Time.realtimeSinceStartup;
+            if (waiting > 0 || settled > 0)
+            {
+                if (_burstSince < 0f)
+                {
+                    _burstSince = now - _frameTime;
+                    _burstSettled = 0;
+                    _burstCopies = 0;
+                }
+
+                _burstSettled += settled;
+                _burstCopies += copies;
+                _burstLast = now;
+                return;
+            }
+
+            if (_burstSince < 0f || now - _burstLast < BurstQuiet)
+                return;
+
+            string line = "flags: " + _burstSettled + " flag(s) settled and shown in " + (_burstLast - _burstSince).ToString("F1") + " s (" +
+                          _burstCopies + " of them from a like flag's shape)";
+            if (_burstSettled >= 8 && !_burstSaid)
+            {
+                _burstSaid = true;
+                Log.Msg(line);
+            }
+            else if (Log.Detailed && _burstSettled > 0)
+            {
+                Log.Detail(line);
+            }
+
+            _burstSince = -1f;
+        }
+
+        private bool _burstSaid;
 
         /// <summary>The load's scale changed: said once at INFO the first time it is not none, then in the detailed log.</summary>
         private void SayLoad()
@@ -1772,12 +1973,12 @@ namespace RealFlag.Flags
                 return;
 
             // The flag being placed always gets its steps (the player is watching for it).
-            if (settles >= MaxSettlesPerFrame && !ghost)
+            int sub = f.Pose.SubSteps;
+            int steps = (int)Math.Max(1.0, ClothPlan.BudgetFor(_frameTime, Step, MaxStepsPerFrame, PoseStepsPerFrame) / sub);
+            if (!SettleRoom(ghost, settles, steps * sub * f.Pose.Cloth.Count * _unitCost, spent))
                 return;
 
             settles++;
-            int sub = f.Pose.SubSteps;
-            int steps = (int)Math.Max(1.0, ClothPlan.BudgetFor(_frameTime, Step, MaxStepsPerFrame, PoseStepsPerFrame) / sub);
             ClothJob job = f.Pose.Next(steps);
             spent += job.Steps * sub * f.Pose.Cloth.Count * _unitCost;
             Queue(f, ref job);
@@ -1926,8 +2127,13 @@ namespace RealFlag.Flags
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
 
             // The city round it: at once for a flag about to settle (it must not settle through a
-            // roof); a new cloth laid out the first way free of it, not into a wall.
-            KeepOffCity(f, ghost, !f.Settled && (settles < MaxSettlesPerFrame || ghost));
+            // roof), while the frame has room for those reads; a new cloth laid out the first way
+            // free of it, not into a wall.
+            bool gatherNow = !f.Settled && SettleGatherRoom(ghost, settles, spent);
+            double gathered = _gatherMs;
+            KeepOffCity(f, ghost, gatherNow);
+            if (gatherNow)
+                _settleGatherMs += _gatherMs - gathered;
             if (!f.Settled && !f.LaidOut && f.Surface != null && _cityCollision)
             {
                 f.Cloth.LayOutClear(start.x, start.z);
@@ -1977,13 +2183,31 @@ namespace RealFlag.Flags
             {
                 // Run it a moment first, a little each frame, so a flag appears hanging or flying,
                 // not flat as a board. The ghost always gets its moment (the player is watching it).
-                if (settles >= MaxSettlesPerFrame && !ghost)
+                // Its city not read yet (no room this frame for the read): it waits, rather than
+                // settle through a roof.
+                if (!ghost && _cityCollision && f.SurfaceAt == 0f)
                     return;
 
-                settles++;
                 int settleSub = f.Cloth.SubStepsFor(speed, 2f * Step);
-                int steps = Math.Max(1, SettleSteps / settleSub);
-                job.Steps = Math.Min(steps, Math.Max(1, Mathf.CeilToInt(f.SettleLeft / (2f * Step))));
+                double stepCost = settleSub * f.Cloth.Count * _unitCost;
+                if (!SettleRoom(ghost, settles, stepCost, spent))
+                    return;
+
+                // Not begun yet: from a like flag's shape, if one has settled, and only a moment of its own.
+                if (!ghost && f.SettleLeft >= SettleTime - 1e-4f && TryCopySettled(f, dir, speed))
+                {
+                    f.SettleLeft = CopiedSettleTime;
+                    f.SettleClock = _clock - CopiedSettleTime;
+                    _settleCopies++;
+                    if (!_unseenPass)
+                        _frameCopies++;
+                }
+
+                settles++;
+                int left = Math.Max(1, Mathf.CeilToInt(f.SettleLeft / (2f * Step) - 1e-3f));
+                job.Steps = ghost
+                    ? Math.Min(left, Math.Max(1, 6 / settleSub))
+                    : ClothPlan.SettleSteps(stepCost, Budget / Math.Max(1, _worker.Threads), Budget - spent, left);
                 job.Size = 2f * Step;
                 job.Time = f.SettleClock;
                 f.SettleClock += job.Steps * job.Size;
@@ -1996,9 +2220,21 @@ namespace RealFlag.Flags
                     f.Pending = 0f;
                     job.Mesh = f.Mesh;
                     job.Alpha = 1f;
+                    if (!ghost && _unseenPass)
+                    {
+                        _settledUnseen++;
+                    }
+                    else if (!ghost)
+                    {
+                        _settledSeen++;
+                        _frameSettled++;
+                    }
+
+                    if (!ghost)
+                        KeepSettled(f, dir, speed);
                 }
 
-                spent += job.Steps * settleSub * f.Cloth.Count * _unitCost;
+                spent += job.Steps * stepCost;
                 Queue(f, ref job);
                 return;
             }
@@ -2114,6 +2350,77 @@ namespace RealFlag.Flags
             if (CanReachGround(f))
                 return false;
             return !CapsulesInReach(f);
+        }
+
+        // ---- settling from a like flag ----------------------------------------------------------
+
+        /// <summary>
+        /// A flag whose shape a like one may take, or that may take one (2026-11-01): a placed flag,
+        /// waving, at the detail it settles at (18 cells: the copy is particle for particle), its
+        /// pole's collider on, and nothing of the city in its reach -- the ground, the surface's top,
+        /// the props' and trees' capsules (CanShare's test: a shape made against a wall is that
+        /// wall's alone). Neither handled nor selected.
+        /// </summary>
+        private bool CopyFit(FlagInstance f)
+        {
+            if (f.Prop == 0 || f.Cloth == null || f.Spec.Motion != FlagMotion.Waves || f.Cloth.Detail != FlagCloth.CellsAlong)
+                return false;
+            if (f.Prop == FlagEditor.Selected || f.AwakeUntil > Time.realtimeSinceStartup)
+                return false;
+            if (f.Spec.HasPole && !f.PoleApplied)
+                return false;
+            if (_cityCollision && f.Surface == null)
+                return false;
+            if (CanReachGround(f))
+                return false;
+            return !CapsulesInReach(f);
+        }
+
+        /// <summary>A flag has settled: its shape is the one a new like flag takes, while it keeps that cloth.</summary>
+        private void KeepSettled(FlagInstance f, Vector3 dir, float speed)
+        {
+            if (!CopyFit(f))
+                return;
+
+            if (_settledLike.Count >= MaxSettledLike)
+                _settledLike.Clear();
+            _settledLike[KeyFor(f, dir, speed)] = new SettledLike { Flag = f, Cloth = f.Cloth };
+        }
+
+        /// <summary>
+        /// A new flag takes the shape and motion of a like flag that has settled (the same
+        /// ShareKey: its design's cloth, pole, wind at it against its heading), turned to it as a
+        /// follower is turned to its source -- an upright hoist by the wind, else by the heading
+        /// (FlagCloth.CopyMotion). A row of like flags settles once, not once each. False (it
+        /// settles on its own) when none is kept, the one kept has gone or been made finer, or
+        /// either has the city in reach.
+        /// </summary>
+        private bool TryCopySettled(FlagInstance f, Vector3 dir, float speed)
+        {
+            if (_settledLike.Count == 0 || !CopyFit(f))
+                return false;
+
+            ShareKey key = KeyFor(f, dir, speed);
+            SettledLike like;
+            if (!_settledLike.TryGetValue(key, out like))
+                return false;
+
+            FlagInstance d = like.Flag;
+            FlagInstance alive;
+            bool usable = d != f && d.Cloth == like.Cloth && d.Settled && _byProp.TryGetValue(d.Prop, out alive) && alive == d && CopyFit(d);
+            if (!usable)
+            {
+                _settledLike.Remove(key);
+                return false;
+            }
+
+            float turn = ShareKey.Upright(f.Spec) ? WindAngleOf(dir) - WindAngleOf(d.WindDir) : f.Angle - d.Angle;
+            if (!f.Cloth.CopyMotion(d.Cloth, turn))
+                return false;
+
+            f.MeshDirty = true;
+            f.Hold.Clear();
+            return true;
         }
 
         private bool CapsulesInReach(FlagInstance f)
@@ -3078,7 +3385,8 @@ namespace RealFlag.Flags
                 }
 
                 Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept), " +
-                           VisibleCount + " in view (" + unshown + " not drawn yet: settling), " + _moving + " moving, " + _waiting +
+                           VisibleCount + " in view (" + unshown + " not drawn yet: settling), settled in " + seconds.ToString("F0") + " s: " +
+                           _settledSeen + " in view, " + _settledUnseen + " out of view, " + _settleCopies + " from a like flag's shape; " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
                            (_costMs / frames).ToString("F3") + " ms a frame (" + (_waitMs / frames).ToString("F3") +
                            " of it waiting for the cloth), cloth " + (_batchMs / frames).ToString("F3") + " ms a frame (room for " +
@@ -3106,6 +3414,9 @@ namespace RealFlag.Flags
             _batchWallMs = 0.0;
             _costFrames = 0;
             _stepsThisReport = 0;
+            _settledSeen = 0;
+            _settledUnseen = 0;
+            _settleCopies = 0;
             _nextReport = now + 5f;
         }
 

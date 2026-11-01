@@ -437,6 +437,24 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// A settling cloth's steps this frame (2026-11-01: by cost, where six a frame on two flags
+        /// a frame left 58 flags hidden 10-15 s at the author's 24-37 fps while the threads sat
+        /// idle): as many as one thread's share of the frame (<paramref name="perThread"/> ms) holds
+        /// at <paramref name="stepCost"/> ms each, within what is left of the budget
+        /// (<paramref name="room"/> ms; none left: one, for a flag admitted whatever the budget),
+        /// at least one, at most the <paramref name="left"/> it still has to run.
+        /// </summary>
+        public static int SettleSteps(double stepCost, double perThread, double room, int left)
+        {
+            if (left <= 0)
+                return 0;
+
+            double fits = Math.Min(perThread, room);
+            int steps = stepCost > 0.0 ? (int)(fits / stepCost) : left;
+            return Math.Max(1, Math.Min(left, steps));
+        }
+
+        /// <summary>
         /// The frame time the budget is planned on: down to a shorter frame at once, up a tenth of
         /// the way a frame to a longer one -- one slow frame (a save, a hitch) does not plan the
         /// next batch as if the frames that follow were as long.

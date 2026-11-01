@@ -1228,6 +1228,116 @@ public static class ClothTests
         return none + "," + kept + "," + before + "," + after + "," + mid + "," + cleared;
     }
 
+    /// <summary>
+    /// SETTLED FROM A LIKE FLAG (FlagCloth.CopyMotion, 2026-11-01): a 2.6 m flag on a ball-top
+    /// pole with its ropes settles as the renderer settles one (calmed, 45 steps of 1/30 s in 6
+    /// m/s at 10 m), heading 0, the wind along it. A like flag heading 1.2 rad, its wind turned as
+    /// much, takes its motion, runs the renderer's 0.3 s of its own (9 steps of 1/30 s), then flies
+    /// 3 s in 1/60 s steps. Against it, the same like flag settled on its own (45 steps). Returns:
+    /// the copy's worst error against the donor turned (places and places before, m); its first
+    /// 1/60 s step over the donor's own mean step then; worst stretch in the 3 s; knots; the fly
+    /// end's mean reach from the hoist, the copy's over the one settled on its own; another grid
+    /// refused, and a halyard against none refused.
+    /// </summary>
+    public static string SettledCopy()
+    {
+        FlagSpec spec = new FlagSpec(); spec.Length = 2.6f; spec.Proportion = 667; spec.Waviness = 1f;
+        spec.Pole = FlagPoleStyle.Ball; spec.Ropes = 2;
+        FlagPoleShape pole = FlagPoleShape.For(spec, 10f);
+        float turn = 1.2f, tc = (float)Math.Cos(turn), ts = (float)Math.Sin(turn);
+
+        FlagCloth donor = SettleCopyCloth(spec, pole, 1f, 0f);
+        Settle(donor, 0f, 45, 1f, 0f);
+
+        FlagCloth copy = SettleCopyCloth(spec, pole, tc, ts);
+        bool took = copy.CopyMotion(donor, turn);
+        double worst = 0.0;
+        for (int k = 0; k < donor.Count; k++)
+        {
+            double e = Math.Abs(copy.X[k] - (donor.X[k] * tc - donor.Z[k] * ts)) + Math.Abs(copy.Y[k] - donor.Y[k]) + Math.Abs(copy.Z[k] - (donor.X[k] * ts + donor.Z[k] * tc)) +
+                       Math.Abs(copy.PrevX[k] - (donor.PrevX[k] * tc - donor.PrevZ[k] * ts)) + Math.Abs(copy.PrevY[k] - donor.PrevY[k]) +
+                       Math.Abs(copy.PrevZ[k] - (donor.PrevX[k] * ts + donor.PrevZ[k] * tc));
+            worst = Math.Max(worst, e);
+        }
+
+        // The donor's own pace from there: its mean particle move a 1/60 s step over 1 s.
+        FlagCloth pace = SettleCopyCloth(spec, pole, 1f, 0f);
+        pace.CopyMotion(donor, 0f);
+        double moved = 0.0; int movedN = 0;
+        for (int s = 0; s < 60; s++)
+        {
+            float[] px = (float[])pace.X.Clone(), py = (float[])pace.Y.Clone(), pz = (float[])pace.Z.Clone();
+            Fly(pace, 1.5f + s / 60f, 1, 1f, 0f);
+            for (int k = 0; k < pace.Count; k++) { moved += Dist(pace, k, px, py, pz); movedN++; }
+        }
+
+        int knots = FlagCloth.UnknottedAll;
+        Settle(copy, 1.2f, 9, tc, ts);
+        float[] bx = (float[])copy.X.Clone(), by = (float[])copy.Y.Clone(), bz = (float[])copy.Z.Clone();
+        Fly(copy, 1.5f, 1, tc, ts);
+        double first = 0.0;
+        for (int k = 0; k < copy.Count; k++) first += Dist(copy, k, bx, by, bz);
+        first /= copy.Count;
+        float stretch = copy.MaxStretch();
+        double reachCopy = 0.0;
+        for (int s = 1; s < 180; s++)
+        {
+            Fly(copy, 1.5f + s / 60f, 1, tc, ts);
+            stretch = Math.Max(stretch, copy.MaxStretch());
+            reachCopy += Reach(copy);
+        }
+        knots = FlagCloth.UnknottedAll - knots;
+
+        FlagCloth own = SettleCopyCloth(spec, pole, tc, ts);
+        Settle(own, 0f, 45, tc, ts);
+        double reachOwn = 0.0;
+        for (int s = 1; s < 180; s++) { Fly(own, 1.5f + s / 60f, 1, tc, ts); reachOwn += Reach(own); }
+
+        FlagCloth finer = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(1f), 1f, 0f, 24);
+        pole.ApplyTo(finer, 1f, 0f, 0f);
+        FlagCloth sewn = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(1f), 1f, 0f, 18);
+        bool refused = !finer.CopyMotion(donor, 0f) && !sewn.CopyMotion(donor, 0f) && !donor.CopyMotion(donor, 0f);
+
+        var inv = CultureInfo.InvariantCulture;
+        return took + "," + worst.ToString("E1", inv) + "," + (first / (moved / Math.Max(1, movedN))).ToString("F2", inv) + "," + stretch.ToString("F3", inv) + "," +
+               knots + "," + (reachCopy / reachOwn).ToString("F3", inv) + "," + refused;
+    }
+
+    /// <summary>A new cloth as the renderer makes one: heading (fx, 0, fz), calmed, its pole's collider and ropes on, 10 m up.</summary>
+    static FlagCloth SettleCopyCloth(FlagSpec spec, FlagPoleShape pole, float fx, float fz)
+    {
+        FlagCloth c = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, 18);
+        c.Calm(FlagCloth.CalmTime);
+        pole.ApplyTo(c, fx, 0f, fz);
+        c.GroundY = -10f;
+        return c;
+    }
+
+    static void Settle(FlagCloth c, float t, int steps, float dx, float dz)
+    {
+        ClothJob j = Job(c, t, steps); j.Size = 2f / 60f; j.Speed = 6f; j.Height = 10f; j.Length = 2.6f; j.DirX = dx; j.DirZ = dz;
+        ClothWorker.Execute(ref j);
+    }
+
+    static void Fly(FlagCloth c, float t, int steps, float dx, float dz)
+    {
+        ClothJob j = Job(c, t, steps); j.Speed = 6f; j.Height = 10f; j.Length = 2.6f; j.DirX = dx; j.DirZ = dz;
+        ClothWorker.Execute(ref j);
+    }
+
+    static double Dist(FlagCloth c, int k, float[] x, float[] y, float[] z)
+    {
+        double dx = c.X[k] - x[k], dy = c.Y[k] - y[k], dz = c.Z[k] - z[k];
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /// <summary>ClothPlan.SettleSteps: a thread's share at the step's cost; held to the budget's room (one when none); never past what is left; none when nothing is.</summary>
+    public static string SettleStepRule()
+    {
+        return ClothPlan.SettleSteps(0.68, 8.0, 64.0, 45) + "," + ClothPlan.SettleSteps(0.68, 8.0, 2.0, 45) + "," + ClothPlan.SettleSteps(0.68, 8.0, -1.0, 45) + "," +
+               ClothPlan.SettleSteps(0.68, 8.0, 64.0, 3) + "," + ClothPlan.SettleSteps(0.68, 8.0, 64.0, 0) + "," + ClothPlan.SettleSteps(50.0, 8.0, 64.0, 45);
+    }
+
     /// <summary>Followers' delays for props 1..2000: least, most, mean, and the share of props one apart that are under 0.3 s apart.</summary>
     public static string Delays()
     {
@@ -3617,6 +3727,12 @@ $re = [ClothTests]::RecordEdges() -split ","
 Check "the record's edges: none under two steps, 192 kept, held to the oldest and newest, the share between, cleared" (($re -join ",") -eq "True,True,True,True,True,True") ($re -join ",")
 $dl = [ClothTests]::Delays() -split ","
 Check "followers' delays 0.3-2.7 s by prop, props one apart far apart in it" ((N $dl[0]) -ge 0.3 -and (N $dl[1]) -le 2.7 -and [math]::Abs((N $dl[2]) - 1.5) -le 0.05 -and (N $dl[3]) -le 0.05) ("least " + $dl[0] + ", most " + $dl[1] + ", mean " + $dl[2] + "; one apart within 0.3 s: " + $dl[3])
+# Settling by cost and from a like flag (2026-11-01: 58 flags hidden 10-15 s at a load, two by two).
+$sc = [ClothTests]::SettledCopy() -split ","
+Check "a like flag takes a settled one's motion turned to it, exactly; the other grid, the other hoist and itself refused" ($sc[0] -eq "True" -and (N $sc[1]) -le 1e-5 -and $sc[6] -eq "True") ("took " + $sc[0] + ", worst " + $sc[1] + " m; refused " + $sc[6])
+Check "and flies on from it: no jump, no tear, no knot, as far out as one settled on its own" ((N $sc[2]) -le 2.0 -and (N $sc[3]) -le 1.15 -and [int]$sc[4] -eq 0 -and [math]::Abs((N $sc[5]) - 1) -le 0.1) ("first own step " + $sc[2] + "x the donor's mean, worst stretch " + $sc[3] + " in 3 s, " + $sc[4] + " knot(s), reach " + $sc[5] + "x the own-settled one's")
+$ss = [ClothTests]::SettleStepRule()
+Check "a settle's steps: a thread's share at its cost, within the budget's room, one at least, never past what is left" ($ss -eq "11,2,1,3,0,1") $ss
 $ky = [ClothTests]::ShareKeys() -split ","
 Check "the share key: designs and colours alike; length, waviness, detail, pole, self-collision not; wind in 10% steps; angles round 360; a tilted flag's 5 deg" (($ky -join ",") -eq "True,True,True,True,True") ($ky -join ",")
 $ls = [ClothTests]::LoadShared() -split "\|"

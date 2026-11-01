@@ -1093,6 +1093,37 @@ namespace RealFlag.Flags
             _laid = false;
         }
 
+        /// <summary>
+        /// The cloth takes the motion of <paramref name="from"/>, a like flag's cloth of the same grid
+        /// and hoist (the same ShareKey: a new flag settled from one like it, FlagRenderer's settle
+        /// by copy, 2026-11-01): its places, places before and velocities turned
+        /// <paramref name="radians"/> about the vertical through the anchor, as MotionRecord.Play
+        /// gives a follower its source's. Its own hoist's line, pole and halyard are kept (the turn
+        /// takes the like flag's line onto this one's: the key holds the hoist), the held particles
+        /// put back on that line, and it steps on from there (<see cref="Resume"/>). False, and
+        /// nothing changed, for another grid or another way of hoisting.
+        /// </summary>
+        public bool CopyMotion(FlagCloth from, float radians)
+        {
+            if (from == null || from == this || from.Columns != Columns || from.Rows != Rows || from._clipped != _clipped)
+                return false;
+
+            float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
+            for (int k = 0; k < Count; k++)
+            {
+                float x = from.X[k], z = from.Z[k];
+                X[k] = x * c - z * s; Y[k] = from.Y[k]; Z[k] = x * s + z * c;
+                x = from.PrevX[k]; z = from.PrevZ[k];
+                PrevX[k] = x * c - z * s; PrevY[k] = from.PrevY[k]; PrevZ[k] = x * s + z * c;
+                x = from.Vx[k]; z = from.Vz[k];
+                Vx[k] = x * c - z * s; Vy[k] = from.Vy[k]; Vz[k] = x * s + z * c;
+            }
+
+            _knotted = 0f;
+            Resume();
+            return true;
+        }
+
         /// <summary>v cos + (k x v) sin + k (k . v)(1 - cos), for every vector of the three arrays.</summary>
         private void Rotate(float[] vx, float[] vy, float[] vz, float kx, float ky, float kz, float c, float s)
         {
