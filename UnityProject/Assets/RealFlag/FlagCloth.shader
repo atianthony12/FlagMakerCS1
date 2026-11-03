@@ -46,7 +46,9 @@
 //   never stretched, turned, upright on a banner), which a country's flag has as (u, 1 - v).
 //   Where the picture is smaller than the flag (zoomed out) the pattern shows round it, its
 //   edge anti-aliased over a pixel (fwidth, as the patterns' are); its see-through parts are cut
-//   out as a country's are, or (_RFImageThrough 1) the pattern shows through them.
+//   out as a country's are, or (_RFImageThrough 1) the pattern shows through them;
+// - worn, dirty, holed (FlagWear.cginc, _RFWear and _RFWearSeed): faded dyes and a frayed fly,
+//   grime and rain's streaks, bullet holes, burns and tears cut out by the same alphatest.
 //
 // A flag drawn finer than its particles (_RFUseGrid 1: the flags big on the screen) takes its
 // SHAPE from the particles, not the mesh: FlagMesh hands them over as a float texture (_RFGrid, a
@@ -60,8 +62,8 @@
 //
 // Per flag, in a MaterialPropertyBlock: _RFColor1..3 (LINEAR), _RFPattern, _RFAspect (height /
 // length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage,
-// _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFGrid and
-// _RFGridSize.
+// _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFWear, _RFWearSeed,
+// _RFGrid and _RFGridSize.
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagCloth"
 {
@@ -81,6 +83,8 @@ Shader "RealFlag/FlagCloth"
         _RFImageThrough ("Image: see-through parts show the pattern (1) or are cut out (0)", Float) = 0
         _RFCutoff ("Image cut-out", Float) = 0.5
         _RFBrightness ("Brightness (linear, 1 as designed)", Float) = 1
+        _RFWear ("Wear, dirt, holes (0..1); 1 hoisted from its top", Vector) = (0, 0, 0, 0)
+        _RFWearSeed ("Wear's scatter (0..255)", Float) = 0
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
         _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
         _RFUseGrid ("Shape from the particles' texture", Float) = 0
@@ -97,6 +101,7 @@ Shader "RealFlag/FlagCloth"
         #pragma target 3.5
 
         #include "FlagPattern.cginc"
+        #include "FlagWear.cginc"
 
         float4 _RFColor1;
         float4 _RFColor2;
@@ -111,6 +116,8 @@ Shader "RealFlag/FlagCloth"
         float4 _RFImageMap2;
         float _RFImageThrough;
         float _RFBrightness;
+        float4 _RFWear;
+        float _RFWearSeed;
         sampler2D _RFGrid;
         float4 _RFGridSize;
         float _RFUseGrid;
@@ -282,7 +289,17 @@ Shader "RealFlag/FlagCloth"
             // Its see-through parts: cut out (below, by the alpha), or the pattern through them.
             float over = lerp(1.0, image.a, _RFImageThrough);
             float3 albedo = lerp(pattern, image.rgb, useImage * over);
-            albedo = Make(IN.flagUV, albedo) * saturate(_RFBrightness);
+            albedo = Make(IN.flagUV, albedo);
+
+            // Worn, dirty, holed (FlagWear.cginc): in metres on the cloth, a pixel's size there
+            // from the derivatives taken here, outside its branches.
+            float2 size = float2(max(_RFLength, 0.1), max(_RFLength, 0.1) * max(_RFAspect, 0.05));
+            float2 metres = IN.flagUV * size;
+            float2 mw = fwidth(metres);
+            float px = max(max(mw.x, mw.y), 1e-4);
+            float sheenLeft = 1.0;
+            float kept = RFWeather(metres, size, px, _RFWear, _RFWearSeed, albedo, sheenLeft);
+            albedo *= saturate(_RFBrightness);
 
             // Wet: darker (Lagarde's diffuse factor), and the water's film on it reflects -- as
             // much of it as the cloth is wet, the film's own lobe always (a broad lobe at part
@@ -294,11 +311,11 @@ Shader "RealFlag/FlagCloth"
             o.Normal = float3(0.0, 0.0, face);
             o.Specular = FILM_POWER / 128.0;
             o.Gloss = wet * WATER_F0 * (FILM_POWER + 8.0) / 8.0;
-            o.Alpha = lerp(1.0, lerp(image.a, 1.0, _RFImageThrough), useImage);
+            o.Alpha = min(lerp(1.0, lerp(image.a, 1.0, _RFImageThrough), useImage), kept);
 
             // Seen side's cosine to the eye (viewDir is in tangent space once o.Normal is written).
             float nv = saturate(abs(normalize(IN.viewDir).z));
-            o.Sheen = SHEEN * pow(1.0 - nv, 3.0) * (1.0 - wet);
+            o.Sheen = SHEEN * pow(1.0 - nv, 3.0) * (1.0 - wet) * sheenLeft;
 
             o.Emission = _RFHighlight.rgb * _RFHighlight.a;
 

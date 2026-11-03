@@ -69,6 +69,33 @@ city (Davenport, ASCE 7) and its roughness from the buildings (Lettau), the "Cha
 animation's time offsets (shared motion) and dynamic resolution scaling (the load) -- listed with
 full references in `LICENSE` and `README.md`. The implementations were written for this mod.
 
+One exception, a few lines: the hash functions of `UnityProject/Assets/RealFlag/FlagWear.cginc`
+(`RFHash11`, `RFHash12`, `RFHash42`, compiled into the shipped shader bundles), which scatter a
+worn flag's holes, tatters and grime, are adapted from David Hoskins' "Hash without Sine"
+(Shadertoy 4djSRW, 2014), MIT:
+
+```
+Copyright (c) 2014 David Hoskins.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 Other mods were read to understand the game's behaviour and to stay compatible with them --
 Move It (how it copies, pastes and restores props, and how it picks and outlines them) and
 Volumetric Weather and Volumetric Explosions (this mod's foundations are theirs). Where another

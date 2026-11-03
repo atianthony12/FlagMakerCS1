@@ -166,6 +166,19 @@
   <String key="NewDarkness.Tooltip">Tones down bright colours.</String>
   <String key="SelDarkness.Label">Darkness</String>
   <String key="SelDarkness.Tooltip">Tones down bright colours.</String>
+  <String key="Group.Wear">Wear and tear</String>
+  <String key="NewWear.Label">Worn</String>
+  <String key="NewWear.Tooltip">Faded, frayed fly end.</String>
+  <String key="SelWear.Label">Worn</String>
+  <String key="SelWear.Tooltip">Faded, frayed fly end.</String>
+  <String key="NewDirt.Label">Dirt</String>
+  <String key="NewDirt.Tooltip">Grime and rain streaks.</String>
+  <String key="SelDirt.Label">Dirt</String>
+  <String key="SelDirt.Tooltip">Grime and rain streaks.</String>
+  <String key="NewHoles.Label">Holes</String>
+  <String key="NewHoles.Tooltip">Bullet holes, burns, tears.</String>
+  <String key="SelHoles.Label">Holes</String>
+  <String key="SelHoles.Tooltip">Bullet holes, burns, tears.</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Flagpole</String>

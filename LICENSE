@@ -138,6 +138,15 @@ techniques were written from scratch after them, and they are credited here with
       1996 -- the pull-push: a picture's see-through pixels given its visible colours.
     The PNG specification (W3C Recommendation / ISO/IEC 15948) and ITU-T T.81 (JPEG) -- a
       picture's size read from its header.
+  Wear and tear:
+    D. Hoskins, "Hash without Sine" (Shadertoy 4djSRW, 2014, MIT; its notice in
+      THIRD-PARTY-NOTICES.md) -- the shader's hashes, adapted.
+    S. Worley, "A Cellular Texture Basis Function", SIGGRAPH 1996 -- holes scattered one per
+      jittered cell, the cells round a point searched.
+    F. K. Musgrave et al., "Texturing and Modeling: A Procedural Approach" (1994) -- fractal
+      sums of noise: the fly's frayed edge, the grime's blotches.
+    I. Quilez, 2-D signed distance functions -- the holes' and tears' shapes.
+    Forensic science's "bullet wipe" -- the dark ring a bullet leaves round its hole in cloth.
   And:
     K. Perlin, "Improving Noise", SIGGRAPH 2002 -- the quintic fade.
     C. Wellons, the lowbias32 integer hash.

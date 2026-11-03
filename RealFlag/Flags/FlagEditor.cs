@@ -133,6 +133,9 @@ namespace RealFlag.Flags
                     Settings.SelMotion.value = e.Spec.Motion;
                     Settings.SelWaviness.value = e.Spec.Waviness;
                     Settings.SelDarkness.value = e.Spec.Darkness;
+                    Settings.SelWear.value = e.Spec.Wear;
+                    Settings.SelDirt.value = e.Spec.Dirt;
+                    Settings.SelHoles.value = e.Spec.Holes;
                     Settings.SelPole.value = e.Spec.Pole;
                     Settings.SelRopes.value = e.Spec.Ropes;
                     Settings.SelPoleColour.value = (int)e.Spec.PoleColour;
@@ -194,6 +197,9 @@ namespace RealFlag.Flags
             spec.Motion = Settings.SelMotion.value;
             spec.Waviness = Settings.SelWaviness.value;
             spec.Darkness = Settings.SelDarkness.value;
+            spec.Wear = Settings.SelWear.value;
+            spec.Dirt = Settings.SelDirt.value;
+            spec.Holes = Settings.SelHoles.value;
             spec.Pole = Settings.SelPole.value;
             spec.Ropes = Settings.SelRopes.value;
             spec.PoleColour = (uint)Settings.SelPoleColour.value;
@@ -494,6 +500,9 @@ namespace RealFlag.Flags
             Settings.NewMotion.value = e.Spec.Motion;
             Settings.NewWaviness.value = e.Spec.Waviness;
             Settings.NewDarkness.value = e.Spec.Darkness;
+            Settings.NewWear.value = e.Spec.Wear;
+            Settings.NewDirt.value = e.Spec.Dirt;
+            Settings.NewHoles.value = e.Spec.Holes;
             Settings.NewPole.value = e.Spec.Pole;
             Settings.NewRopes.value = e.Spec.Ropes;
             Settings.NewPoleColour.value = (int)e.Spec.PoleColour;

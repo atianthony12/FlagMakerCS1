@@ -153,6 +153,11 @@ namespace RealFlag
         /// <summary>How much darker the cloth is than its design, 0..0.8 (FlagSpec.Darkness; shown as a percentage).</summary>
         public static FloatSetting NewDarkness { get; private set; }
 
+        /// <summary>The cloth's wear and tear, dirt and holes, 0..1 each (FlagSpec.Wear, Dirt, Holes; shown as percentages).</summary>
+        public static FloatSetting NewWear { get; private set; }
+        public static FloatSetting NewDirt { get; private set; }
+        public static FloatSetting NewHoles { get; private set; }
+
         /// <summary>The way the flag points (its prop's rotation), degrees.</summary>
         public static FloatSetting NewRotation { get; private set; }
 
@@ -207,6 +212,9 @@ namespace RealFlag
         public static IntSetting SelMotion { get; private set; }
         public static FloatSetting SelWaviness { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
+        public static FloatSetting SelWear { get; private set; }
+        public static FloatSetting SelDirt { get; private set; }
+        public static FloatSetting SelHoles { get; private set; }
         public static FloatSetting SelRotation { get; private set; }
 
         /// <summary>The selected flag's pole height (FlagSpec.PoleLength): changed, its foot stays and the flag goes up or down with the pole's top.</summary>
@@ -303,6 +311,11 @@ namespace RealFlag
 
             /// <summary>The colours as designed.</summary>
             public const float Darkness = 0f;
+
+            /// <summary>As new: no wear, dirt or holes.</summary>
+            public const float Wear = 0f;
+            public const float Dirt = 0f;
+            public const float Holes = 0f;
             public const float Rotation = 0f;
 
             /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
@@ -389,6 +402,9 @@ namespace RealFlag
                 NewMotion = new IntSetting("NewMotion", Defaults.Motion);
                 NewWaviness = new FloatSetting("NewWaviness", Defaults.Waviness);
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
+                NewWear = new FloatSetting("NewWear", Defaults.Wear);
+                NewDirt = new FloatSetting("NewDirt", Defaults.Dirt);
+                NewHoles = new FloatSetting("NewHoles", Defaults.Holes);
                 NewRotation = new FloatSetting("NewRotation", Defaults.Rotation);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
                 UnlockPoleHeight = new BoolSetting("UnlockPoleHeight", Defaults.UnlockPoleHeight);
@@ -418,6 +434,9 @@ namespace RealFlag
                 SelMotion = new IntSetting("SelMotion", Defaults.Motion, true);
                 SelWaviness = new FloatSetting("SelWaviness", Defaults.Waviness, true);
                 SelDarkness = new FloatSetting("SelDarkness", Defaults.Darkness, true);
+                SelWear = new FloatSetting("SelWear", Defaults.Wear, true);
+                SelDirt = new FloatSetting("SelDirt", Defaults.Dirt, true);
+                SelHoles = new FloatSetting("SelHoles", Defaults.Holes, true);
                 SelRotation = new FloatSetting("SelRotation", Defaults.Rotation, true);
                 SelHeight = new FloatSetting("SelHeight", Defaults.Height, true);
                 SelPole = new IntSetting("SelPole", Defaults.Pole, true);
@@ -474,6 +493,9 @@ namespace RealFlag
             spec.Motion = NewMotion.value;
             spec.Waviness = NewWaviness.value;
             spec.Darkness = NewDarkness.value;
+            spec.Wear = NewWear.value;
+            spec.Dirt = NewDirt.value;
+            spec.Holes = NewHoles.value;
             spec.Pole = NewPole.value;
             spec.Ropes = NewRopes.value;
             spec.PoleColour = (uint)NewPoleColour.value;

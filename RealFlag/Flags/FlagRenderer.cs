@@ -1492,7 +1492,7 @@ namespace RealFlag.Flags
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
                    a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Motion == b.Motion && a.Name == b.Name &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
-                   Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b);
+                   Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b) && a.SameWeather(b);
         }
 
         private static void SetSpec(FlagInstance f, FlagSpec spec)
@@ -3137,7 +3137,7 @@ namespace RealFlag.Flags
             bool hovered = IsHovered(f);
             if (!f.BlockReady || hovered || f.Highlighted || (f.Spec.HasImage && f.ImageVersion != FlagImages.UserVersion))
             {
-                FlagLook.Apply(f.Block, f.Spec, hovered ? HoverGlow : Vector4.zero);
+                FlagLook.Apply(f.Block, f.Spec, hovered ? HoverGlow : Vector4.zero, FlagWear.SeedFor(f.Prop));
                 f.BlockReady = true;
                 f.Highlighted = hovered;
                 f.ImageVersion = FlagImages.UserVersion;

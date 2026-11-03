@@ -348,6 +348,8 @@ namespace RealFlag.Flags
         public static readonly int IdImageMap2 = Shader.PropertyToID("_RFImageMap2");
         public static readonly int IdImageThrough = Shader.PropertyToID("_RFImageThrough");
         public static readonly int IdBrightness = Shader.PropertyToID("_RFBrightness");
+        public static readonly int IdWear = Shader.PropertyToID("_RFWear");
+        public static readonly int IdWearSeed = Shader.PropertyToID("_RFWearSeed");
 
         /// <summary>
         /// The colours go in as LINEAR vectors, converted here: the game renders in linear
@@ -356,10 +358,19 @@ namespace RealFlag.Flags
         /// of the player's, with where it lies on the cloth (FlagCrop's map: _RFImageMap and
         /// _RFImageMap2) and what its see-through parts do (_RFImageThrough). Without its image a
         /// flag falls back to its pattern. The cloth's darkness goes in as FlagSpec.Brightness, a
-        /// multiplier on all of it.
+        /// multiplier on all of it. Its wear, dirt and holes go in as _RFWear (x, y, z; w 1 for a
+        /// flag hoisted from its top, whose "down" runs along the fly) with the scatter's seed
+        /// (FlagWear.SeedFor its prop).
         /// </summary>
         public static void Apply(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight)
         {
+            Apply(block, spec, highlight, 0f);
+        }
+
+        public static void Apply(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight, float wearSeed)
+        {
+            block.SetVector(IdWear, new Vector4(spec.Wear, spec.Dirt, spec.Holes, spec.HoistedFrom == FlagHoist.Top ? 1f : 0f));
+            block.SetFloat(IdWearSeed, wearSeed);
             block.SetVector(IdColour1, Linear(spec.Colour1));
             block.SetVector(IdColour2, Linear(spec.Colour2));
             block.SetVector(IdColour3, Linear(spec.Colour3));

@@ -39,7 +39,8 @@ using Debug = UnityEngine.Debug;
 ///   RF_COLLIDE "0"      self-collision off (on, as in the game, by default)
 ///   RF_COUNTRIES "fr,us,np"  countries' flags instead of RF_PATTERNS (images from RealFlag\Resources\Flags)
 ///   RF_DARKNESS "0,20,40"    the cloth's darkness, percent (FlagSpec.Darkness): each design once per value
-///   RF_SUN 1.3               the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
+///   RF_WORN "0,0,0|60,40,30" each design once per wear,dirt,holes (percent: FlagSpec.Wear, Dirt, Holes); RF_WEARSEED 0..255
+///   RF_SUN 1.3            the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
 ///   RF_WET 0..1              the game's ground wetness (_WeatherParams.w): the cloth wet in the rain
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
@@ -82,6 +83,9 @@ public static class FlagPreview
 
     /// <summary>RF_LOOK: metres added to the point the camera looks at.</summary>
     private static Vector3 _look;
+
+    // RF_WEARSEED: the scatter of holes, tatters and grime (FlagWear.SeedFor a prop in the game).
+    private static float _wearSeed;
 
     /// <summary>The hoist's line and the fly at rest (FlagOrientation): the camera looks at the flag's middle along them.</summary>
     private static Vector3 _hoist = Vector3.down, _fly = Vector3.right;
@@ -304,6 +308,29 @@ public static class FlagPreview
             }
         }
 
+        // RF_WORN "wear,dirt,holes|...": each design once per entry (percent, as the panel's).
+        string[] worns = Env("RF_WORN", "0,0,0").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+        if (worns.Length > 1 || (worns.Length == 1 && worns[0].Trim() != "0,0,0"))
+        {
+            var weathered = new List<FlagSpec>();
+            foreach (FlagSpec d in designs)
+            {
+                foreach (string worn in worns)
+                {
+                    float[] w3 = ParseFloats(worn);
+                    FlagSpec flag = d;
+                    flag.Wear = w3.Length > 0 ? w3[0] / 100f : 0f;
+                    flag.Dirt = w3.Length > 1 ? w3[1] / 100f : 0f;
+                    flag.Holes = w3.Length > 2 ? w3[2] / 100f : 0f;
+                    weathered.Add(flag.Sanitised());
+                }
+            }
+
+            designs = weathered;
+        }
+
+        _wearSeed = float.Parse(Env("RF_WEARSEED", "0"), CultureInfo.InvariantCulture);
+
         // The hoist's line and the fly at rest, for a flag heading along +x.
         float hx, hy, hz, fx, fy, fz;
         FlagOrientation.Frame(0f, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
@@ -421,6 +448,9 @@ public static class FlagPreview
                                                flag.ImageZoom.ToString("0.##", CultureInfo.InvariantCulture) + " turn " + flag.ImageTurn +
                                                (flag.ImageAlpha == FlagImageAlpha.Through ? " through" : "") : "") +
                               (flag.Darkness > 0f ? ", darkness " + (flag.Darkness * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
+                              (flag.IsWeathered ? ", wear/dirt/holes " + (flag.Wear * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
+                                                  (flag.Dirt * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
+                                                  (flag.Holes * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
                               (city.Length > 0 ? " | " + city + ", " + CityProbe(cloth, anchor) : "") +
                               " | " + info);
                     col++;
@@ -710,7 +740,7 @@ public static class FlagPreview
         s.Camera.transform.position = centre - fwd * range;
         s.Camera.transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
 
-        FlagLook.Apply(s.Block, flag, Vector4.zero);
+        FlagLook.Apply(s.Block, flag, Vector4.zero, _wearSeed);
         mesh.Bind(s.Block);
 
         // The flag alone first, on black (with no ground or pole in view), to measure it.

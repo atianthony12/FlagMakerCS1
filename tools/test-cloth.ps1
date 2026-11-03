@@ -1501,7 +1501,7 @@ public static class ClothTests
         bool single = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(b), out one) && one.Name == "Town hall" && one.Pattern == b.Pattern;
         byte[] garbage = { 1, 255, 255, 255, 127 };
         var none = FlagCodec.DecodeAll(garbage, out problem);
-        byte[] future = { 9, 0, 0, 0, 0 };
+        byte[] future = { (byte)(FlagCodec.Version + 1), 0, 0, 0, 0 };
         string futureProblem;
         var later = FlagCodec.DecodeAll(future, out futureProblem);
         return all + "," + single + "," + (none == null) + "," + (later == null && futureProblem.Contains("newer"));
@@ -2280,6 +2280,64 @@ public static class ClothTests
         FlagSpec sewn = p; sewn.Ropes = 0;
         bool pose = p.SamePose(q) && !p.SamePose(wavier) && !p.SamePose(flat) && !p.SamePose(sewn) && p.OnHalyard && !sewn.OnHalyard;
         return round + "," + v7 + "," + pulled + "," + pose + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
+    /// Wear and tear (format 9): the three shares survive the save and Move It's clipboard; a format 8
+    /// save reads as new; out of range is pulled in; they shape no still pose; the seeds by prop
+    /// spread over 0..255 (distinct values among the first 1000 props, the most and least).
+    /// </summary>
+    public static string CodecWear()
+    {
+        FlagSpec a = FlagSpec.Default; a.Wear = 0.35f; a.Dirt = 0.6f; a.Holes = 1f; a.Country = "us";
+        FlagSpec b;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && Math.Abs(b.Wear - 0.35f) < 1e-6f &&
+                     Math.Abs(b.Dirt - 0.6f) < 1e-6f && b.Holes == 1f && b.Country == "us" && b.IsWeathered && b.SameWeather(a);
+
+        var all = new List<KeyValuePair<uint, FlagSpec>> { new KeyValuePair<uint, FlagSpec>(7u, a) };
+        string problem;
+        List<KeyValuePair<uint, FlagSpec>> back = FlagCodec.DecodeAll(FlagCodec.EncodeAll(all), out problem);
+        bool city = back != null && back.Count == 1 && back[0].Value.SameWeather(a);
+
+        var old = new System.IO.MemoryStream();
+        var w = new System.IO.BinaryWriter(old);
+        w.Write((byte)8);
+        w.Write((byte)FlagPattern.Cross); w.Write(0xC8102Eu); w.Write(0xFFFFFFu); w.Write(0xFFFFFFu);
+        w.Write(3f); w.Write((short)667); w.Write(1f);
+        w.Write((byte)0);
+        w.Write((byte)0);
+        w.Write((byte)FlagPoleStyle.Ball); w.Write((byte)2);
+        w.Write(0xE4E5E2u); w.Write(0xD4AF37u); w.Write(0xF2EFE6u);
+        w.Write(1f); w.Write(0f); w.Write(0f);
+        w.Write(0.1f);
+        w.Write((byte)FlagHoist.Side);
+        w.Write(12.5f);
+        w.Write((ushort)0); w.Write(0.5f); w.Write(0.5f); w.Write(1f); w.Write((byte)0); w.Write((byte)0);
+        w.Write((byte)FlagMotion.Still);
+        w.Flush();
+        FlagSpec c;
+        bool v8 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Motion == FlagMotion.Still && c.Wear == 0f && c.Dirt == 0f &&
+                  c.Holes == 0f && !c.IsWeathered && Math.Abs(c.PoleLength - 12.5f) < 1e-6f;
+
+        FlagSpec bad = FlagSpec.Default; bad.Wear = 3f; bad.Dirt = float.NaN; bad.Holes = -1f;
+        FlagSpec s = bad.Sanitised();
+        bool pulled = s.Wear == 1f && s.Dirt == 0f && s.Holes == 0f;
+
+        FlagSpec plain = FlagSpec.Default;
+        FlagSpec worn = plain; worn.Wear = 1f; worn.Dirt = 1f; worn.Holes = 1f;
+        bool pose = plain.SamePose(worn) && !plain.SameWeather(worn) && !plain.IsWeathered;
+
+        var seen = new HashSet<float>();
+        float lo = 999f, hi = -1f;
+        for (uint p = 0; p < 1000; p++)
+        {
+            float seed = FlagWear.SeedFor(p);
+            seen.Add(seed);
+            lo = Math.Min(lo, seed);
+            hi = Math.Max(hi, seed);
+        }
+
+        return round + "," + city + "," + v8 + "," + pulled + "," + pose + "," + seen.Count + "," + lo + "," + hi + "," + FlagCodec.Version;
     }
 
     /// <summary>A still flag's cloth as the renderer makes one, at heading 0 (the flag's own frame).</summary>
@@ -3791,7 +3849,7 @@ $codec = [ClothTests]::Codec() -split ","
 Check "the city's flags survive the save" ($codec[0] -eq "True") "two specs, name and colours"
 Check "Move It's copy survives its clipboard" ($codec[1] -eq "True") "EncodeOne / TryDecodeOne"
 Check "garbage is refused whole" ($codec[2] -eq "True") "a count past the data"
-Check "a newer format is refused, and says so" ($codec[3] -eq "True") "version 9"
+Check "a newer format is refused, and says so" ($codec[3] -eq "True") "the version after the current one"
 $hc = [ClothTests]::HeightCodec() -split ","
 Check "the flags' heights survive the save, exact (the game saves none)" ($hc[0] -eq "True") "m_posY 2731 / 65535 / 0 by prop"
 Check "a city with no heights reads as none" ($hc[1] -eq "True") "no key: empty, not refused"
@@ -3825,6 +3883,11 @@ Check "a country's flag goes before a picture; a paste's picture pulled into ran
 $cm = [ClothTests]::CodecMotion() -split ","
 Check "a still or flat flag stays so through the save; a format 7 save reads as waving; an unknown motion waves" ($cm[0] -eq "True" -and $cm[1] -eq "True" -and $cm[2] -eq "True") ("format " + $cm[4])
 Check "a still flag's shape is its size, hoist, waviness, motion and halyard's: not its pole's length or thickness, nor its colours" ($cm[3] -eq "True") $cm[3]
+$cw = [ClothTests]::CodecWear() -split ","
+Check "wear, dirt and holes survive the save and Move It's clipboard" ($cw[0] -eq "True" -and $cw[1] -eq "True") ("format " + $cw[8] + ": 35% / 60% / 100% on the US flag")
+Check "a save of format 8 still reads: as new" ($cw[2] -eq "True") "format 8, byte by byte: a still cross on a ball-topped pole"
+Check "wear, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%"
+Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop" ([int]$cw[5] -ge 250 -and $cw[6] -eq "0" -and $cw[7] -eq "255") ($cw[5] + " distinct seeds over props 0..999, " + $cw[6] + ".." + $cw[7])
 
 # ---- still and flat flags (FlagMotion, StillPose) ------------------------------------------
 

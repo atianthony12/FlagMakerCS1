@@ -19,6 +19,7 @@
 #   ... -NoCollide                 self-collision off (on in the game by default)
 #   ... -Countries "fr,us,np"      countries' flags (their images) instead of -Patterns
 #   ... -Darkness "0,20,40"        each design once per cloth darkness (percent, the panel's)
+#   ... -Worn "0,0,0|60,40,30"     each design once per wear,dirt,holes (percent, the panel's); -WearSeed 0..255
 #   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
@@ -64,6 +65,8 @@ param(
     [switch]$NoCollide,
     [string]$Countries = "",
     [string]$Darkness = "0",
+    [string]$Worn = "0,0,0",
+    [int]$WearSeed = 0,
     [double]$Sun = 1.3,
     [double]$Wet = 0,
     [int]$Pole = 0,
@@ -136,6 +139,8 @@ $env:RF_SMOOTH = if ($NoSmooth) { "0" } else { "1" }
 $env:RF_COLLIDE = if ($NoCollide) { "0" } else { "1" }
 $env:RF_COUNTRIES = $Countries
 $env:RF_DARKNESS = $Darkness
+$env:RF_WORN = $Worn
+$env:RF_WEARSEED = "$WearSeed"
 $env:RF_SUN = $Sun.ToString($inv)
 $env:RF_WET = $Wet.ToString($inv)
 $env:RF_POLE = "$Pole"

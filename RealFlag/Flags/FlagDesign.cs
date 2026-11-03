@@ -654,6 +654,22 @@ namespace RealFlag.Flags
         /// </summary>
         public int ImageAlpha;
 
+        /// <summary>
+        /// How worn the cloth is, 0..1 (0: new): its dyes faded by the sun and its fly end frayed,
+        /// torn into strips at the most (FlagWear.cginc). Its look only: the cloth moves as a new one.
+        /// </summary>
+        public float Wear;
+
+        /// <summary>How dirty, 0..1: grime over it, darker at the hoist and the lower edge, rain's streaks down it.</summary>
+        public float Dirt;
+
+        /// <summary>
+        /// How holed, 0..1: bullet holes, burns and tears scattered over it, more of them the higher
+        /// (each flag its own scatter: FlagWear.SeedFor its prop). Cut out as a picture's
+        /// see-through parts are, in its shadow too.
+        /// </summary>
+        public float Holes;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -732,6 +748,9 @@ namespace RealFlag.Flags
                     ImageZoom = 1f,
                     ImageTurn = 0,
                     ImageAlpha = FlagImageAlpha.Cut,
+                    Wear = 0f,
+                    Dirt = 0f,
+                    Holes = 0f,
                 };
             }
         }
@@ -821,7 +840,30 @@ namespace RealFlag.Flags
             s.ImageTurn &= 3;
             if (!FlagImageAlpha.IsKnown(s.ImageAlpha))
                 s.ImageAlpha = FlagImageAlpha.Cut;
+            s.Wear = Share(s.Wear);
+            s.Dirt = Share(s.Dirt);
+            s.Holes = Share(s.Holes);
             return s;
+        }
+
+        /// <summary>A share 0..1 (NaN and the infinities none).</summary>
+        private static float Share(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0f;
+            return Math.Max(0f, Math.Min(value, 1f));
+        }
+
+        /// <summary>Worn, dirty or holed at all (the shader's weathering runs).</summary>
+        public bool IsWeathered
+        {
+            get { return Wear > 0f || Dirt > 0f || Holes > 0f; }
+        }
+
+        /// <summary>The same wear, dirt and holes (only the property block changes when not).</summary>
+        public bool SameWeather(FlagSpec other)
+        {
+            return Math.Abs(Wear - other.Wear) < 1e-5f && Math.Abs(Dirt - other.Dirt) < 1e-5f && Math.Abs(Holes - other.Holes) < 1e-5f;
         }
 
         /// <summary>A place on a picture: finite, and near it (FlagCrop.ClampCentre holds it to the window's own range when it is used).</summary>
@@ -912,6 +954,9 @@ namespace RealFlag.Flags
                 text += ", " + FlagMotion.LogName(Motion);
             if (Darkness > 0f)
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
+            if (IsWeathered)
+                text += ", wear " + (Wear * 100f).ToString("F0", inv) + "% dirt " + (Dirt * 100f).ToString("F0", inv) + "% holes " +
+                        (Holes * 100f).ToString("F0", inv) + "%";
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
@@ -968,6 +1013,21 @@ namespace RealFlag.Flags
         }
     }
 
+    /// <summary>
+    /// Which scatter of holes, tatters and grime a flag gets (FlagWear.cginc's _RFWearSeed): from its
+    /// prop's number, so like flags side by side are not worn alike, and a flag keeps its own through
+    /// moves, saves and loads. A whole number 0..255 (the shader's hashes stay exact on small
+    /// lattice coordinates). PURE.
+    /// </summary>
+    public static class FlagWear
+    {
+        public static float SeedFor(uint prop)
+        {
+            // Knuth's multiplicative hash (TAOCP 6.4): the top byte of prop x 2654435761.
+            return (float)((prop * 2654435761u) >> 24);
+        }
+    }
+
     /// <summary>The halyard lines a drawn pole shows: the panel's choices.</summary>
     public static class FlagRopes
     {
@@ -992,9 +1052,10 @@ namespace RealFlag.Flags
         /// the same, then the player's picture -- its file name (a ushort of length, UTF-8), where
         /// the flag's middle is on it and its zoom (three floats), its turn and what its see-through
         /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
-        /// FlagMotion). Every older one is still read.
+        /// FlagMotion). 9 (2026-11-03): the same, then its wear, dirt and holes (three floats,
+        /// 0..1). Every older one is still read.
         /// </summary>
-        public const byte Version = 8;
+        public const byte Version = 9;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1028,6 +1089,9 @@ namespace RealFlag.Flags
             w.Write((byte)s.ImageTurn);
             w.Write((byte)s.ImageAlpha);
             w.Write((byte)s.Motion);
+            w.Write(s.Wear);
+            w.Write(s.Dirt);
+            w.Write(s.Holes);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1137,6 +1201,14 @@ namespace RealFlag.Flags
 
             // Before still flags: every flag waves.
             s.Motion = version >= 8 ? r.ReadByte() : FlagMotion.Waves;
+
+            // Before wear and tear: as new.
+            if (version >= 9)
+            {
+                s.Wear = r.ReadSingle();
+                s.Dirt = r.ReadSingle();
+                s.Holes = r.ReadSingle();
+            }
 
             return s.Sanitised();
         }

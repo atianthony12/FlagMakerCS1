@@ -326,6 +326,11 @@ Written from scratch after these, with thanks (no code from them is included):
   the pull-push that fills a picture's see-through pixels with its visible colours; the PNG
   specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81) -- a picture's size read from its
   header.
+- Wear and tear: D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) -- the shader's hashes;
+  S. Worley, *A Cellular Texture Basis Function* (SIGGRAPH 1996) -- the holes' scatter;
+  F. K. Musgrave et al., *Texturing and Modeling: A Procedural Approach* (1994) -- fractal noise
+  for the frayed fly and the grime; I. Quilez's 2-D signed distance functions -- the holes' and
+  tears' shapes; forensic science's "bullet wipe" -- the dark ring round a bullet hole in cloth.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
 - The panel's icons: drawn from [Lucide](https://lucide.dev)'s, ISC.
