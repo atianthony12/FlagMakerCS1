@@ -896,6 +896,12 @@ namespace RealFlag.Flags
         /// </summary>
         public int Relaid { get; private set; }
 
+        /// <summary>
+        /// Where the cloth's air has carried its gusts and eddies (FlagWind.Air moves it on each
+        /// sub-step; a field, so it goes by ref). Taken on by <see cref="TakeShape"/> (the same flag).
+        /// </summary>
+        public AirDrift Air;
+
         /// <summary>A quarter of the particles carried back out of the surface in a step (<see cref="Retreat"/>): the cloth is laid out afresh.</summary>
         private const float BuriedShare = 0.25f;
 
@@ -1246,6 +1252,9 @@ namespace RealFlag.Flags
             float hx = old._hx, hy = old._hy, hz = old._hz;
             _hx = hx; _hy = hy; _hz = hz;
             SetHalyard(old._clipped);
+
+            // The same air goes on blowing on it: its gusts and eddies where they were.
+            Air = old.Air;
 
             for (int j = 0; j < Rows; j++)
             {

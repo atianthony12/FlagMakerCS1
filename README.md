@@ -289,7 +289,9 @@ Written from scratch after these, with thanks (no code from them is included):
   S. F. Hoerner, *Fluid-Dynamic Drag* (1965); L. Prandtl's turbulent flat-plate friction, in
   H. Schlichting, *Boundary-Layer Theory* -- the air on the cloth.
 - EN 1991-1-4, Eurocode 1: wind actions; H. A. Panofsky and J. A. Dutton, *Atmospheric
-  Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941) -- the wind.
+  Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941) -- the wind; WMO-No. 8,
+  *Guide to Instruments and Methods of Observation*, ch. 5 (the 3 s gust) -- how quickly the
+  flags follow the wind's speed of the moment.
 - A. G. Davenport, *Rationale for determining design wind velocities* (1960) and ASCE 7-95's
   exposures -- the wind's growth with height over each terrain; H. Lettau (1969) and C. S. B.
   Grimmond and T. R. Oke, *Aerodynamic properties of urban areas derived from analysis of

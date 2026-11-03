@@ -86,6 +86,14 @@ namespace RealFlag.Flags
         /// <summary>The way the wind blows at the flag (as its last job had it): the pick volume's axis out along the fly.</summary>
         public Vector3 WindDir = Vector3.right;
 
+        /// <summary>
+        /// The wind at 10 m the flag flies in, following the speed of the moment where it stands
+        /// (FlagWind.Follow: Volumetric Weather's gusts come and go smoothly), and the clock it was
+        /// last followed at; negative until its first.
+        /// </summary>
+        public float WindAt10 = -1f;
+        public float WindClock;
+
         /// <summary>The hoist's line and the fly at rest (FlagOrientation), from the prop's angle and the spec's hoisted edge, tilt and lean.</summary>
         public Vector3 Hoist = Vector3.down;
         public Vector3 Fly = Vector3.right;
@@ -618,6 +626,14 @@ namespace RealFlag.Flags
 
         private float _clock;
 
+        /// <summary>
+        /// The wind's direction as the flags follow it (TurnWind), degrees in the game's convention,
+        /// and where it is turning to; this frame's wind (for the report); a turn said once.
+        /// </summary>
+        private float _windAngle, _windTarget;
+        private bool _windTurnSet, _windTurnSaid;
+        private Wind _wind;
+
         /// <summary>The real frame time the budget is planned on (ClothPlan.SmoothFrame), seconds.</summary>
         private float _frameTime;
 
@@ -864,7 +880,8 @@ namespace RealFlag.Flags
 
                 Plane[] planes = GeometryUtility.CalculateFrustumPlanes(_camera);
                 Vector3 eye = _camera.transform.position;
-                Wind wind = Wind.Current();
+                Wind wind = TurnWind(Wind.Current(), dt);
+                _wind = wind;
                 _pixelsPerRadian = _camera.pixelHeight / (2f * Mathf.Tan(0.5f * Mathf.Clamp(_camera.fieldOfView, 1f, 170f) * Mathf.Deg2Rad));
                 Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, 0.6f / Mathf.Max(_pixelsPerRadian, 1f));
                 _detailChanges = 0;
@@ -2081,6 +2098,77 @@ namespace RealFlag.Flags
         }
 
         /// <summary>One flag into the batch: its cloth made if needed, then a moment of settling, or this frame's steps.</summary>
+        /// <summary>
+        /// The wind at 10 m the flag flies in: the speed of the moment where it stands, followed
+        /// over FlagWind.FollowSeconds of its own clock -- taken at once the first time, and after a
+        /// long while unplanned (out of view, it was never followed).
+        /// </summary>
+        private float FollowWind(FlagInstance f, float now10)
+        {
+            float clock = _clock + f.OwnTime;
+            float gap = clock - f.WindClock;
+            f.WindClock = clock;
+            if (f.WindAt10 < 0f || gap < 0f || gap > 4f * FlagWind.FollowSeconds)
+                f.WindAt10 = now10;
+            else
+                f.WindAt10 = FlagWind.Follow(f.WindAt10, now10, gap);
+            return f.WindAt10;
+        }
+
+        /// <summary>
+        /// The city's wind turned as the flags follow it (FlagWind.Turn, real time on the flags'
+        /// clock): Volumetric Weather's or the game's direction, or the player's fixed one. Along
+        /// each flag (the first mode) is each flag's own heading, never turned here. Taken at once
+        /// in a new city.
+        /// </summary>
+        private Wind TurnWind(Wind wind, float dt)
+        {
+            if (wind.Mode == Settings.WindModes.EachFlag)
+            {
+                _windTurnSet = false;
+                return wind;
+            }
+
+            float target = Mathf.Repeat(Mathf.Atan2(wind.Fixed.x, wind.Fixed.z) * Mathf.Rad2Deg, 360f);
+            if (!_windTurnSet)
+            {
+                _windTurnSet = true;
+                _windAngle = target;
+            }
+            else
+            {
+                _windAngle = FlagWind.Turn(_windAngle, target, dt);
+            }
+
+            // A turn of the wind is said once as it begins (the detailed log), not while it goes on.
+            float left = Mathf.Abs(Mathf.DeltaAngle(_windAngle, target));
+            if (left > 20f && !_windTurnSaid)
+            {
+                _windTurnSaid = true;
+                Log.Detail("wind: turning from " + _windAngle.ToString("F0") + " to " + target.ToString("F0") + " deg (" + left.ToString("F0") +
+                           " deg): the flags follow most of the way in " + FlagWind.TurnSeconds.ToString("F0") + " s, at most " +
+                           FlagWind.TurnMost.ToString("F0") + " deg a second");
+            }
+            else if (left < 2f)
+            {
+                _windTurnSaid = false;
+            }
+
+            _windTarget = target;
+            float a = _windAngle * Mathf.Deg2Rad;
+            wind.Fixed = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+            return wind;
+        }
+
+        /// <summary>For the 5 s line: ", toward 274 deg" or ", toward 274 deg (turning to 300)"; nothing along each flag.</summary>
+        private string WindTurnText()
+        {
+            if (!_windTurnSet)
+                return "";
+            bool turning = Mathf.Abs(Mathf.DeltaAngle(_windAngle, _windTarget)) >= 1f;
+            return ", toward " + _windAngle.ToString("F0") + " deg" + (turning ? " (turning to " + _windTarget.ToString("F0") + ")" : "");
+        }
+
         private void PlanFlag(FlagInstance f, float dt, Wind wind, bool moving, bool ghost, ref double spent, ref int settles)
         {
             f.Waiting = false;
@@ -2146,9 +2234,9 @@ namespace RealFlag.Flags
             Vector3 dir = wind.DirectionFor(f.Angle);
             f.WindDir = dir;
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
-            float at10 = wind.SpeedFor(f.Anchor, f.Ground);
+            float at10 = FollowWind(f, wind.SpeedFor(f.Anchor, f.Ground));
             WindTerrain(f, ghost, height);
-            float speed = FlagWind.SpeedAt(at10, height, f.Roughness);
+            float speed = FlagWind.ClothSpeed(at10, height, f.Roughness);
 
             // Knotted (FlagCloth.KnotStretch): said while there are few, with where its worst link
             // was and the wind at the flag, counted in the report after.
@@ -2169,6 +2257,7 @@ namespace RealFlag.Flags
                 Cloth = f.Cloth,
                 Speed = at10,
                 Gusts = wind.Gusts,
+                GustInSpeed = wind.FromWeatherMod,
                 DirX = dir.x,
                 DirZ = dir.z,
                 Height = height,
@@ -2806,6 +2895,7 @@ namespace RealFlag.Flags
                     Time = g.Stepped,
                     Speed = g.At10,
                     Gusts = wind.Gusts,
+                    GustInSpeed = wind.FromWeatherMod,
                     DirX = g.DirX,
                     DirZ = g.DirZ,
                     Height = Mathf.Max(g.Height, 0.5f),
@@ -3372,7 +3462,7 @@ namespace RealFlag.Flags
             {
                 int frames = Math.Max(1, _costFrames);
                 float seconds = now - _nextReport + 5f;
-                Wind w = Wind.Current();
+                Wind w = _wind;
                 int still = 0, unshown = 0;
                 foreach (FlagInstance f in _flags)
                 {
@@ -3398,7 +3488,7 @@ namespace RealFlag.Flags
                            (_frameFailures > 0 ? ", " + _frameFailures + " frame(s) threw" : "") +
                            (_unknots > 0 ? ", " + _unknots + " knotted and laid out afresh in this city" : "") + " | in view by detail " +
                            DetailsInView() + " | load " + (_load.Ratio * 100.0).ToString("F0") + "% of the budget: " + LoadText() + " | wind " + w.Speed.ToString("F1") + " m/s, gusts " + (w.Gusts * 100f).ToString("F0") + "%, " +
-                           w.Describe() + " | the city: " +
+                           w.Describe() + WindTurnText() + " | the city: " +
                            (_cityCollision
                                 ? _touching + " touching it, " + _blocked + " under a roof; " + _surfaceGathers + " surface(s) and " +
                                   _capsuleGathers + " capsule set(s) read in " + _gatherMs.ToString("F1") + " ms"

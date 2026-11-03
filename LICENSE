@@ -89,6 +89,8 @@ techniques were written from scratch after them, and they are credited here with
       roughness from its buildings.
     H. A. Panofsky and J. A. Dutton, "Atmospheric Turbulence" (1984).
     G. I. Taylor, "The spectrum of turbulence" (1938); A. N. Kolmogorov (1941).
+    WMO-No. 8, "Guide to Instruments and Methods of Observation", ch. 5 (the 3 s gust) -- how
+      quickly the flags follow the wind's speed of the moment.
   The fabric:
     A. C. Estevez and C. Kulla, "Production Friendly Microfacet Sheen BRDF" (2017).
     D. Neubelt and M. Pettineo, "Crafting a Next-Gen Material Pipeline for The Order:

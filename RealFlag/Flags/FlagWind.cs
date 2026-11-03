@@ -28,11 +28,11 @@ namespace RealFlag.Flags
         /// <summary>One over the eddies' size, 1/m.</summary>
         public float InvScale;
 
-        /// <summary>The flag's clock, seconds, and how fast the eddies change while they pass (noise units per second).</summary>
-        public float Time, Evolution;
-
-        /// <summary>Where the flag's anchor is along and across the wind, metres (world): flags share one field.</summary>
-        public float OriginAlong, OriginAcross;
+        /// <summary>
+        /// Where the anchor is in the eddies' field this step, noise units: along the wind (less
+        /// how far the wind has carried the field), across it, and how far the field has changed.
+        /// </summary>
+        public float EddyAlong, EddyAcross, EddyChange;
 
         /// <summary>
         /// The wind at a point of the cloth, given relative to the anchor (world axes, metres),
@@ -40,10 +40,9 @@ namespace RealFlag.Flags
         /// </summary>
         public void At(float x, float y, float z, out float ux, out float uy, out float uz)
         {
-            float along = OriginAlong + x * DirX + z * DirZ;
-            float a = (along - Carry * Time) * InvScale;
-            float b = (y + OriginAcross * 0.37f) * InvScale;
-            float c = Time * Evolution;
+            float a = EddyAlong + (x * DirX + z * DirZ) * InvScale;
+            float b = EddyAcross + y * InvScale;
+            float c = EddyChange;
 
             float n1 = FlagNoise.Value3(a, b, c, 17);
             float n2 = FlagNoise.Value3(a, b, c + 41.3f, 59);
@@ -141,6 +140,87 @@ namespace RealFlag.Flags
             return Math.Min(Math.Max(roughness, RoughnessLength), CityCentre);
         }
 
+        /// <summary>
+        /// The cloth's wind is the wind as it is up to this, m/s (Beaufort 7, "near gale", begins at
+        /// 13.9); above it, it grows ever more slowly towards <see cref="ClothMost"/> (2026-11-03,
+        /// the author: "we need to limit how much a flag cloth can move. At extreme winds it's super
+        /// fast the way the cloth behaves" -- Volumetric Weather's storms and its Now tab reach 24 m/s
+        /// at 10 m, 40 at a tower's flag in a gust). The look's limit, not the air's: the log's speeds
+        /// and the wind's profile stay as they are.
+        /// </summary>
+        public const float ClothKnee = 14f;
+
+        /// <summary>The most wind a cloth flies in, m/s (Beaufort 9, "strong gale", ends at 24.4).</summary>
+        public const float ClothMost = 24f;
+
+        /// <summary>
+        /// The wind the cloth is given for a mean speed at the flag: itself up to <see
+        /// cref="ClothKnee"/>, then softly limited (tanh: the slope stays 1 at the knee) below
+        /// <see cref="ClothMost"/>. A gust over a strong wind still lifts the flag, ever less.
+        /// </summary>
+        public static float OnCloth(float speed)
+        {
+            if (!(speed > ClothKnee))
+                return speed;
+            float room = ClothMost - ClothKnee;
+            return ClothKnee + room * (float)Math.Tanh((speed - ClothKnee) / room);
+        }
+
+        /// <summary>The cloth's mean speed at its height over its terrain: <see cref="SpeedAt(float, float, float)"/> softly limited (<see cref="OnCloth"/>).</summary>
+        public static float ClothSpeed(float speed10, float height, float roughness)
+        {
+            return OnCloth(SpeedAt(speed10, height, roughness));
+        }
+
+        /// <summary>The same in a town.</summary>
+        public static float ClothSpeed(float speed10, float height)
+        {
+            return OnCloth(SpeedAt(speed10, height));
+        }
+
+        /// <summary>
+        /// How the flags follow a change of the wind's direction, in real seconds: most of the way
+        /// in <see cref="TurnSeconds"/>, never faster than <see cref="TurnMost"/> degrees a second
+        /// (2026-11-03, the author: "the wind direction changing mid way is too fast"). Volumetric
+        /// Weather's trees turn so (TreeWind.Turn: 8 s, 12 deg/s) but on the city's clock -- four
+        /// times as fast at the game's third speed -- while the flags' cloth runs on real time.
+        /// </summary>
+        public const float TurnSeconds = 10f;
+        public const float TurnMost = 4f;
+
+        /// <summary>
+        /// How long the flags' wind takes to follow the speed of the moment, seconds: a first-order
+        /// lag of 1.5 s passes what a 3 s running mean does (equal noise bandwidths, 1/(4 tau) =
+        /// 1/(2 T)) -- the WMO's gust is the 3 s mean (WMO-No. 8, Guide to Instruments and Methods
+        /// of Observation, ch. 5): shorter swings the cloth does not feel as one push.
+        /// </summary>
+        public const float FollowSeconds = 1.5f;
+
+        /// <summary>
+        /// The wind's direction (degrees, (sin a, 0, cos a), the game's convention) turned from
+        /// <paramref name="from"/> towards <paramref name="to"/> over <paramref name="seconds"/>, the
+        /// short way round (<see cref="TurnSeconds"/>, <see cref="TurnMost"/>), in 0..360.
+        /// </summary>
+        public static float Turn(float from, float to, float seconds)
+        {
+            if (!(seconds > 0f))
+                return from;
+            float diff = to - from;
+            diff -= 360f * (float)Math.Floor((diff + 180f) / 360f);
+            float turn = diff * (1f - (float)Math.Exp(-seconds / TurnSeconds));
+            float most = TurnMost * seconds;
+            float angle = from + Math.Max(-most, Math.Min(most, turn));
+            return angle - 360f * (float)Math.Floor(angle / 360f);
+        }
+
+        /// <summary>A speed followed from <paramref name="from"/> towards <paramref name="to"/> over <paramref name="seconds"/> (<see cref="FollowSeconds"/>).</summary>
+        public static float Follow(float from, float to, float seconds)
+        {
+            if (!(seconds > 0f))
+                return from;
+            return from + (to - from) * (1f - (float)Math.Exp(-seconds / FollowSeconds));
+        }
+
         /// <summary>The mean speed's power-law exponent over a terrain (its roughness length, metres).</summary>
         public static float Exponent(float roughness)
         {
@@ -231,57 +311,131 @@ namespace RealFlag.Flags
             return Air(speed10, gusts, dirX, dirZ, height, waviness, flagLength, time, anchorX, anchorZ, RoughnessLength);
         }
 
-        /// <summary>The same over a terrain of <paramref name="roughness"/> metres (the buildings round the flag: <see cref="CityRoughness"/>).</summary>
+        /// <summary>
+        /// The same over a terrain of <paramref name="roughness"/> metres (the buildings round the
+        /// flag: <see cref="CityRoughness"/>), at <paramref name="time"/> of a wind that has blown
+        /// the same since 0: where the field is, is the time times its speed. For a wind that does
+        /// not change (the tests, the preview); a flag in the city's wind takes the one with an
+        /// <see cref="AirDrift"/>.
+        /// </summary>
         public static FlagAir Air(float speed10, float gusts, float dirX, float dirZ, float height, float waviness,
                                   float flagLength, float time, float anchorX, float anchorZ, float roughness)
         {
-            float speed = SpeedAt(Math.Max(speed10, 0f), height, roughness);
-            float turbulence = Intensity(height, roughness) * speed;
-            float sigma = turbulence * Math.Max(gusts, 0f);
-            float scale = LengthScale(height, roughness);
-
+            Field f = Field.Of(speed10, gusts, height, waviness, flagLength, roughness);
             float along = anchorX * dirX + anchorZ * dirZ;
             float across = -anchorX * dirZ + anchorZ * dirX;
+            float carried = along - f.Speed * time;
+            return f.Air(dirX, dirZ, 1f, carried / f.Scale, across / f.Scale, time * f.GustRate,
+                         carried * f.InvEddy, across * 0.37f * f.InvEddy, time * f.Evolution);
+        }
 
-            // The big gusts: one value over the whole flag, carried at the mean speed, changing
-            // as they pass (a quarter of the rate at which they are carried past).
-            float a = (along - speed * time) / scale;
-            float b = across / scale;
-            float c = time * Math.Max(0.25f * speed / scale, 0.02f);
-            float gustAlong = FlagNoise.Value3(a, b, c, 3) * sigma;
-            float gustAcross = FlagNoise.Value3(a, b, c + 19.1f, 7) * sigma * AcrossRatio;
-            float gustUp = FlagNoise.Value3(a, b, c + 37.9f, 13) * sigma * UpRatio;
-
-            // A gust that turns the wind round would not: the along-wind speed is kept forward.
-            float forward = Math.Max(speed + gustAlong, 0.05f * speed);
-
-            var air = new FlagAir
+        /// <summary>
+        /// The air round one flag for its next sub-step of <paramref name="step"/> seconds, from
+        /// where its field has been carried to (<paramref name="drift"/>, then moved on by this
+        /// sub-step's wind). The field moves at the wind of each moment, so a wind that changes
+        /// -- Volumetric Weather's gusts passing, the weather, a turn of its direction -- carries
+        /// it on smoothly (until 2026-11-03 the place was the clock times the speed of the moment:
+        /// with Volumetric Weather's gusts changing the speed every frame, twenty minutes into a
+        /// city a 0.05 m/s change threw the field 60 m, every eddy and gust a new one each frame).
+        /// <paramref name="alongGusts"/>: the share of the big gusts along the wind kept (0 when the
+        /// speed of the moment has its own gust in it: Volumetric Weather's).
+        /// </summary>
+        public static FlagAir Air(ref AirDrift drift, float step, float speed10, float gusts, float alongGusts, float dirX, float dirZ,
+                                  float height, float waviness, float flagLength, float anchorX, float anchorZ, float roughness)
+        {
+            Field f = Field.Of(speed10, gusts, height, waviness, flagLength, roughness);
+            if (!drift.Started)
             {
-                MeanX = forward * dirX - gustAcross * dirZ,
-                MeanY = gustUp,
-                MeanZ = forward * dirZ + gustAcross * dirX,
-                DirX = dirX,
-                DirZ = dirZ,
-                Carry = speed,
-                Time = time,
-                OriginAlong = along,
-                OriginAcross = across,
-            };
+                // Where the anchor stands in the field: flags start in one field, by place.
+                float along = anchorX * dirX + anchorZ * dirZ;
+                float across = -anchorX * dirZ + anchorZ * dirX;
+                drift.Started = true;
+                drift.GustAlong = along / f.Scale;
+                drift.GustAcross = across / f.Scale;
+                drift.GustChange = 0.0;
+                drift.EddyAlong = along * f.InvEddy;
+                drift.EddyAcross = across * 0.37f * f.InvEddy;
+                drift.EddyChange = 0.0;
+            }
 
-            // The eddies the size of the flag: the inertial range's r^(1/3) of the whole
-            // turbulence (not of the Gusts setting, which is about the big slow ones), scaled by
-            // the flag's own waviness.
-            float eddy = Math.Max(flagLength, 0.5f);
-            float small = turbulence * (float)Math.Pow(Math.Min(eddy / scale, 1f), 1.0 / 3.0);
-            small = Math.Max(small, CalmStir) * Math.Max(waviness, 0f);
+            FlagAir air = f.Air(dirX, dirZ, alongGusts, (float)drift.GustAlong, drift.GustAcross, (float)drift.GustChange,
+                                (float)drift.EddyAlong, drift.EddyAcross, (float)drift.EddyChange);
 
-            air.SigmaAlong = small;
-            air.SigmaAcross = small * AcrossRatio;
-            air.SigmaUp = small * UpRatio;
-            air.InvScale = 1f / eddy;
-            air.Evolution = Math.Max(0.35f * speed / eddy, 0.25f);
+            drift.GustAlong -= (double)f.Speed / f.Scale * step;
+            drift.GustChange += (double)f.GustRate * step;
+            drift.EddyAlong -= (double)f.Speed * f.InvEddy * step;
+            drift.EddyChange += (double)f.Evolution * step;
             return air;
         }
+
+        /// <summary>The air's numbers at a flag for a wind of the moment: its speed, turbulence, scales and rates.</summary>
+        private struct Field
+        {
+            public float Speed, Turbulence, Sigma, Scale, GustRate, Small, InvEddy, Evolution;
+
+            public static Field Of(float speed10, float gusts, float height, float waviness, float flagLength, float roughness)
+            {
+                var f = new Field();
+                f.Speed = ClothSpeed(Math.Max(speed10, 0f), height, roughness);
+                f.Turbulence = Intensity(height, roughness) * f.Speed;
+                f.Sigma = f.Turbulence * Math.Max(gusts, 0f);
+                f.Scale = LengthScale(height, roughness);
+
+                // The big gusts change as they pass at a quarter of the rate they are carried past.
+                f.GustRate = Math.Max(0.25f * f.Speed / f.Scale, 0.02f);
+
+                // The eddies the size of the flag: the inertial range's r^(1/3) of the whole
+                // turbulence (not of the Gusts setting, which is about the big slow ones), scaled by
+                // the flag's own waviness.
+                float eddy = Math.Max(flagLength, 0.5f);
+                float small = f.Turbulence * (float)Math.Pow(Math.Min(eddy / f.Scale, 1f), 1.0 / 3.0);
+                f.Small = Math.Max(small, CalmStir) * Math.Max(waviness, 0f);
+                f.InvEddy = 1f / eddy;
+                f.Evolution = Math.Max(0.35f * f.Speed / eddy, 0.25f);
+                return f;
+            }
+
+            /// <summary>The air with the big gusts at (a, b, c) of their field and the anchor at (ea, eb, ec) of the eddies'.</summary>
+            public FlagAir Air(float dirX, float dirZ, float alongGusts, float a, float b, float c, float ea, float eb, float ec)
+            {
+                // The big gusts: one value over the whole flag.
+                float gustAlong = FlagNoise.Value3(a, b, c, 3) * Sigma * Math.Max(alongGusts, 0f);
+                float gustAcross = FlagNoise.Value3(a, b, c + 19.1f, 7) * Sigma * AcrossRatio;
+                float gustUp = FlagNoise.Value3(a, b, c + 37.9f, 13) * Sigma * UpRatio;
+
+                // A gust that turns the wind round would not: the along-wind speed is kept forward.
+                float forward = Math.Max(Speed + gustAlong, 0.05f * Speed);
+
+                return new FlagAir
+                {
+                    MeanX = forward * dirX - gustAcross * dirZ,
+                    MeanY = gustUp,
+                    MeanZ = forward * dirZ + gustAcross * dirX,
+                    DirX = dirX,
+                    DirZ = dirZ,
+                    Carry = Speed,
+                    SigmaAlong = Small,
+                    SigmaAcross = Small * AcrossRatio,
+                    SigmaUp = Small * UpRatio,
+                    InvScale = InvEddy,
+                    EddyAlong = ea,
+                    EddyAcross = eb,
+                    EddyChange = ec,
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where one cloth's air has carried its field of gusts and eddies to (FlagWind.Air), noise
+    /// units, kept with the cloth and moved on each sub-step by the wind of that sub-step. Unset,
+    /// the next sub-step starts it where the anchor stands. PURE.
+    /// </summary>
+    public struct AirDrift
+    {
+        public bool Started;
+        public double GustAlong, GustChange, EddyAlong, EddyChange;
+        public float GustAcross, EddyAcross;
     }
 
     /// <summary>

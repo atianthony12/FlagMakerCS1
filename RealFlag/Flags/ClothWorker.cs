@@ -27,6 +27,12 @@ namespace RealFlag.Flags
         /// <summary>The terrain's roughness length round the flag, metres (CityRoughness); 0 = a town's (FlagWind.RoughnessLength).</summary>
         public float Roughness;
 
+        /// <summary>
+        /// The speed has its own gust in it (Volumetric Weather's, passing the flag): the big gusts
+        /// along the wind are left out (FlagWind.Air's alongGusts 0), not given twice.
+        /// </summary>
+        public bool GustInSpeed;
+
         /// <summary>A shared motion's source: each step's places kept in it (MotionRecord.Add), at the step's end on the job's clock.</summary>
         public MotionRecord Record;
 
@@ -155,7 +161,7 @@ namespace RealFlag.Flags
         {
             float dirX, dirZ, speed;
             Wind(flyX, flyY, flyZ, cloth.Length, out dirX, out dirZ, out speed);
-            return cloth.SubStepsFor(FlagWind.SpeedAt(speed, Height), StepSize);
+            return cloth.SubStepsFor(FlagWind.ClothSpeed(speed, Height), StepSize);
         }
 
         /// <summary>A step after which the shape is weighed: one of every <see cref="CandidateEvery"/> in the last <see cref="Window"/> of <paramref name="total"/>.</summary>
@@ -1143,8 +1149,9 @@ namespace RealFlag.Flags
 
             if (job.Steps > 0)
             {
-                int sub = cloth.SubStepsFor(FlagWind.SpeedAt(job.Speed, job.Height, job.Roughness), job.Size);
+                int sub = cloth.SubStepsFor(FlagWind.ClothSpeed(job.Speed, job.Height, job.Roughness), job.Size);
                 float dt = job.Size / sub;
+                float alongGusts = job.GustInSpeed ? 0f : 1f;
 
                 // The anchor's moves since the last steps: as much as the cloth follows in these, the rest carried.
                 cloth.PlanDrag(job.Steps * job.Size, job.Steps * sub);
@@ -1153,8 +1160,10 @@ namespace RealFlag.Flags
                 {
                     for (int i = 0; i < sub; i++)
                     {
-                        FlagAir air = FlagWind.Air(job.Speed, job.Gusts, job.DirX, job.DirZ, job.Height, job.Waviness, job.Length,
-                                                   job.Time + s * job.Size + i * dt, job.AnchorX, job.AnchorZ, job.Roughness);
+                        // The field carried on by each sub-step's wind (FlagWind.Air, AirDrift): the
+                        // clock is only for the record (a still pose's shape is the same either way).
+                        FlagAir air = FlagWind.Air(ref cloth.Air, dt, job.Speed, job.Gusts, alongGusts, job.DirX, job.DirZ, job.Height,
+                                                   job.Waviness, job.Length, job.AnchorX, job.AnchorZ, job.Roughness);
                         cloth.Step(dt, ref air);
                     }
 
