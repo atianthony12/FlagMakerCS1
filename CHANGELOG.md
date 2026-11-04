@@ -22,8 +22,9 @@ The first release.
   pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
   stretched); width and height from 0.5 to 30 m, any shape from 1:5 to 5:1; hoisted from its side
   or its top; waving, still or flat; how wavy, how dark.
-- **Wear and tear**: any flag worn (faded, its fly frayed and torn into strips), dirty (grime, rain
-  streaks) or holed (bullet holes, burns, tears; through its shadow too), each flag its own.
+- **Wear and tear**: any flag worn (faded, its fly frayed), torn (its fly ripped to tatters like a
+  pirate's flag, pieces missing), dirty (grime, rain streaks) or holed (bullet holes, burns, tears;
+  through its shadow too), each flag its own.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
   Unlock range). The cloth keeps off its pole. A banner hoisted from its top has no pole.

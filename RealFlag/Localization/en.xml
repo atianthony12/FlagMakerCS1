@@ -171,6 +171,10 @@
   <String key="NewWear.Tooltip">Faded, frayed fly end.</String>
   <String key="SelWear.Label">Worn</String>
   <String key="SelWear.Tooltip">Faded, frayed fly end.</String>
+  <String key="NewTear.Label">Torn</String>
+  <String key="NewTear.Tooltip">Fly ripped to tatters.</String>
+  <String key="SelTear.Label">Torn</String>
+  <String key="SelTear.Tooltip">Fly ripped to tatters.</String>
   <String key="NewDirt.Label">Dirt</String>
   <String key="NewDirt.Tooltip">Grime and rain streaks.</String>
   <String key="SelDirt.Label">Dirt</String>

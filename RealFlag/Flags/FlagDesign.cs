@@ -670,6 +670,13 @@ namespace RealFlag.Flags
         /// </summary>
         public float Holes;
 
+        /// <summary>
+        /// How torn, 0..1: the fly end ripped away in ragged tongues with V-shaped gaps between them
+        /// (a pirate's flag), the fly corners bitten off, and past half, pieces missing from the cloth
+        /// itself. The hoist's end always stays. Its look only, as <see cref="Wear"/>.
+        /// </summary>
+        public float Tear;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -751,6 +758,7 @@ namespace RealFlag.Flags
                     Wear = 0f,
                     Dirt = 0f,
                     Holes = 0f,
+                    Tear = 0f,
                 };
             }
         }
@@ -843,6 +851,7 @@ namespace RealFlag.Flags
             s.Wear = Share(s.Wear);
             s.Dirt = Share(s.Dirt);
             s.Holes = Share(s.Holes);
+            s.Tear = Share(s.Tear);
             return s;
         }
 
@@ -857,13 +866,14 @@ namespace RealFlag.Flags
         /// <summary>Worn, dirty or holed at all (the shader's weathering runs).</summary>
         public bool IsWeathered
         {
-            get { return Wear > 0f || Dirt > 0f || Holes > 0f; }
+            get { return Wear > 0f || Dirt > 0f || Holes > 0f || Tear > 0f; }
         }
 
-        /// <summary>The same wear, dirt and holes (only the property block changes when not).</summary>
+        /// <summary>The same wear, tear, dirt and holes (only the property block changes when not).</summary>
         public bool SameWeather(FlagSpec other)
         {
-            return Math.Abs(Wear - other.Wear) < 1e-5f && Math.Abs(Dirt - other.Dirt) < 1e-5f && Math.Abs(Holes - other.Holes) < 1e-5f;
+            return Math.Abs(Wear - other.Wear) < 1e-5f && Math.Abs(Dirt - other.Dirt) < 1e-5f && Math.Abs(Holes - other.Holes) < 1e-5f &&
+                   Math.Abs(Tear - other.Tear) < 1e-5f;
         }
 
         /// <summary>A place on a picture: finite, and near it (FlagCrop.ClampCentre holds it to the window's own range when it is used).</summary>
@@ -956,7 +966,7 @@ namespace RealFlag.Flags
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (IsWeathered)
                 text += ", wear " + (Wear * 100f).ToString("F0", inv) + "% dirt " + (Dirt * 100f).ToString("F0", inv) + "% holes " +
-                        (Holes * 100f).ToString("F0", inv) + "%";
+                        (Holes * 100f).ToString("F0", inv) + "% torn " + (Tear * 100f).ToString("F0", inv) + "%";
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
@@ -1053,9 +1063,10 @@ namespace RealFlag.Flags
         /// the flag's middle is on it and its zoom (three floats), its turn and what its see-through
         /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
         /// FlagMotion). 9 (2026-11-03): the same, then its wear, dirt and holes (three floats,
-        /// 0..1). Every older one is still read.
+        /// 0..1). 10 (2026-11-04): the same, then how torn (a float, 0..1). Every older one is still
+        /// read.
         /// </summary>
-        public const byte Version = 9;
+        public const byte Version = 10;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1092,6 +1103,7 @@ namespace RealFlag.Flags
             w.Write(s.Wear);
             w.Write(s.Dirt);
             w.Write(s.Holes);
+            w.Write(s.Tear);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1209,6 +1221,9 @@ namespace RealFlag.Flags
                 s.Dirt = r.ReadSingle();
                 s.Holes = r.ReadSingle();
             }
+
+            // Before torn flags: whole.
+            s.Tear = version >= 10 ? r.ReadSingle() : 0f;
 
             return s.Sanitised();
         }

@@ -350,6 +350,7 @@ namespace RealFlag.Flags
         public static readonly int IdBrightness = Shader.PropertyToID("_RFBrightness");
         public static readonly int IdWear = Shader.PropertyToID("_RFWear");
         public static readonly int IdWearSeed = Shader.PropertyToID("_RFWearSeed");
+        public static readonly int IdTear = Shader.PropertyToID("_RFTear");
 
         /// <summary>
         /// The colours go in as LINEAR vectors, converted here: the game renders in linear
@@ -371,6 +372,7 @@ namespace RealFlag.Flags
         {
             block.SetVector(IdWear, new Vector4(spec.Wear, spec.Dirt, spec.Holes, spec.HoistedFrom == FlagHoist.Top ? 1f : 0f));
             block.SetFloat(IdWearSeed, wearSeed);
+            block.SetFloat(IdTear, spec.Tear);
             block.SetVector(IdColour1, Linear(spec.Colour1));
             block.SetVector(IdColour2, Linear(spec.Colour2));
             block.SetVector(IdColour3, Linear(spec.Colour3));

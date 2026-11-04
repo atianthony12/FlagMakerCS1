@@ -2386,10 +2386,13 @@ public static class ClothTests
     /// </summary>
     public static string CodecWear()
     {
-        FlagSpec a = FlagSpec.Default; a.Wear = 0.35f; a.Dirt = 0.6f; a.Holes = 1f; a.Country = "us";
+        FlagSpec a = FlagSpec.Default; a.Wear = 0.35f; a.Dirt = 0.6f; a.Holes = 1f; a.Tear = 0.8f; a.Country = "us";
         FlagSpec b;
         bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && Math.Abs(b.Wear - 0.35f) < 1e-6f &&
-                     Math.Abs(b.Dirt - 0.6f) < 1e-6f && b.Holes == 1f && b.Country == "us" && b.IsWeathered && b.SameWeather(a);
+                     Math.Abs(b.Dirt - 0.6f) < 1e-6f && b.Holes == 1f && Math.Abs(b.Tear - 0.8f) < 1e-6f && b.Country == "us" &&
+                     b.IsWeathered && b.SameWeather(a);
+        FlagSpec onlyTorn = FlagSpec.Default; onlyTorn.Tear = 0.5f;
+        round = round && onlyTorn.IsWeathered && !onlyTorn.SameWeather(FlagSpec.Default);
 
         var all = new List<KeyValuePair<uint, FlagSpec>> { new KeyValuePair<uint, FlagSpec>(7u, a) };
         string problem;
@@ -2414,14 +2417,27 @@ public static class ClothTests
         w.Flush();
         FlagSpec c;
         bool v8 = FlagCodec.TryDecodeOne(old.ToArray(), out c) && c.Motion == FlagMotion.Still && c.Wear == 0f && c.Dirt == 0f &&
-                  c.Holes == 0f && !c.IsWeathered && Math.Abs(c.PoleLength - 12.5f) < 1e-6f;
+                  c.Holes == 0f && c.Tear == 0f && !c.IsWeathered && Math.Abs(c.PoleLength - 12.5f) < 1e-6f;
 
-        FlagSpec bad = FlagSpec.Default; bad.Wear = 3f; bad.Dirt = float.NaN; bad.Holes = -1f;
+        // Format 9: the same bytes, its version, then wear, dirt, holes -- and no tear.
+        byte[] nine = old.ToArray();
+        nine[0] = 9;
+        var w9 = new System.IO.MemoryStream();
+        w9.Write(nine, 0, nine.Length);
+        var b9 = new System.IO.BinaryWriter(w9);
+        b9.Write(0.25f); b9.Write(0.5f); b9.Write(0.75f);
+        b9.Flush();
+        FlagSpec c9;
+        bool v9 = FlagCodec.TryDecodeOne(w9.ToArray(), out c9) && Math.Abs(c9.Wear - 0.25f) < 1e-6f && Math.Abs(c9.Dirt - 0.5f) < 1e-6f &&
+                  Math.Abs(c9.Holes - 0.75f) < 1e-6f && c9.Tear == 0f && c9.Motion == FlagMotion.Still;
+        v8 = v8 && v9;
+
+        FlagSpec bad = FlagSpec.Default; bad.Wear = 3f; bad.Dirt = float.NaN; bad.Holes = -1f; bad.Tear = float.PositiveInfinity;
         FlagSpec s = bad.Sanitised();
-        bool pulled = s.Wear == 1f && s.Dirt == 0f && s.Holes == 0f;
+        bool pulled = s.Wear == 1f && s.Dirt == 0f && s.Holes == 0f && s.Tear == 0f;
 
         FlagSpec plain = FlagSpec.Default;
-        FlagSpec worn = plain; worn.Wear = 1f; worn.Dirt = 1f; worn.Holes = 1f;
+        FlagSpec worn = plain; worn.Wear = 1f; worn.Dirt = 1f; worn.Holes = 1f; worn.Tear = 1f;
         bool pose = plain.SamePose(worn) && !plain.SameWeather(worn) && !plain.IsWeathered;
 
         var seen = new HashSet<float>();
@@ -3999,9 +4015,9 @@ $cm = [ClothTests]::CodecMotion() -split ","
 Check "a still or flat flag stays so through the save; a format 7 save reads as waving; an unknown motion waves" ($cm[0] -eq "True" -and $cm[1] -eq "True" -and $cm[2] -eq "True") ("format " + $cm[4])
 Check "a still flag's shape is its size, hoist, waviness, motion and halyard's: not its pole's length or thickness, nor its colours" ($cm[3] -eq "True") $cm[3]
 $cw = [ClothTests]::CodecWear() -split ","
-Check "wear, dirt and holes survive the save and Move It's clipboard" ($cw[0] -eq "True" -and $cw[1] -eq "True") ("format " + $cw[8] + ": 35% / 60% / 100% on the US flag")
-Check "a save of format 8 still reads: as new" ($cw[2] -eq "True") "format 8, byte by byte: a still cross on a ball-topped pole"
-Check "wear, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%"
+Check "wear, torn, dirt and holes survive the save and Move It's clipboard" ($cw[0] -eq "True" -and $cw[1] -eq "True") ("format " + $cw[8] + ": 35% / 80% / 60% / 100% on the US flag")
+Check "a save of format 8 still reads as new; of format 9, worn but not torn" ($cw[2] -eq "True") "formats 8 and 9, byte by byte: a still cross on a ball-topped pole"
+Check "wear, torn, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%, infinity"
 Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop" ([int]$cw[5] -ge 250 -and $cw[6] -eq "0" -and $cw[7] -eq "255") ($cw[5] + " distinct seeds over props 0..999, " + $cw[6] + ".." + $cw[7])
 
 # ---- still and flat flags (FlagMotion, StillPose) ------------------------------------------

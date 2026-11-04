@@ -18,6 +18,9 @@
 // - WORN: the dyes faded towards a pale grey (more at the fly, unevenly), the fly end frayed back
 //   (deeper at its corners) with loose threads hanging from it while they are bigger than a
 //   pixel, and past 35% strips torn in from it;
+// - TORN: the fly ripped away to a wandering line with ragged tongues hanging from it and V gaps
+//   between (a pirate's flag), the fly corners bitten off, past half pieces gone from the cloth;
+//   threads hang from the torn edges; the hoist's end always stays;
 // - DIRTY: a film of grime, thicker in blotches, darker at the hoist (hands, the pole, the
 //   halyard) and the lower edge (splashes, where water drips off), and streaks run down the cloth
 //   as it hangs (a banner hoisted from its top hangs along its fly);
@@ -152,13 +155,14 @@ void RFHoleCell(float2 cell, float2 m, float2 o, float size, float k, float hole
 // What wear, dirt and holes do at m (metres along the fly, down the hoist) on a cloth size.x long
 // and size.y high, px a pixel's size there (metres): albedo (linear) changed in place, sheen
 // scaled; the alpha returned (1 cloth, 0 a hole or torn away; the alphatest cuts at 0.5).
-// worn: wear, dirt, holes (0..1), and 1 for a flag hoisted from its top. seed: 0..255.
-float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, inout float3 albedo, inout float sheen)
+// worn: wear, dirt, holes (0..1), and 1 for a flag hoisted from its top. seed: 0..255. tear: 0..1.
+float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, float tear, inout float3 albedo, inout float sheen)
 {
     float len = size.x;
     float height = size.y;
     float2 o = seed * float2(7.31, 3.17);
     float alpha = 1.0;
+    float k = max(1.0, sqrt(len / 3.0));
 
     float wear = worn.x;
     if (wear > 0.0)
@@ -207,6 +211,62 @@ float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, inout 
         alpha = min(alpha, saturate(0.5 + dCloth / px));
     }
 
+    // TORN (a pirate's flag): the fly ripped away to a wandering line, ragged tongues hanging
+    // from it with V-shaped gaps between them, the fly corners bitten off, and past half, pieces
+    // gone from the cloth itself. The hoist's end always stays.
+    if (tear > 0.0)
+    {
+        float e = len - m.x;
+
+        // The torn line: up to ~0.7 L in at the most, wandering along the hoist, ragged.
+        float deep = tear * (0.12 + 0.43 * tear) * len;
+        float tornLine = deep * (0.75 + 0.5 * RFFbm1(m.y / (0.3 * height) + o.x + 3.0));
+
+        // Tongues: bands down the hoist of uneven width (the band coordinate warped by a slow
+        // noise), each its own length, pointed or blunt at its end; a few torn off short.
+        float band = max(0.09 * height, 0.06);
+        float ty = m.y / band + 1.5 * RFValue1(m.y / (0.5 * height) + o.y);
+        float ti = floor(ty);
+        float tt = ty - ti;
+        float4 th = RFHash42(float2(ti, 23.0) + o);
+        float reach = deep * (0.35 + 0.65 * th.x) * (th.z < 0.25 * tear ? 0.2 : 1.0);
+        float tip = 1.0 - pow(abs(2.0 * tt - 1.0), 1.0 + 2.0 * th.y);
+        float dTorn = e - (tornLine - reach * tip);
+
+        // The fly corners bitten off, deeper towards the fly.
+        float across = min(m.y, height - m.y);
+        float bite = tear * 0.25 * height * smoothstep(0.3 * len, len, m.x) * (0.4 + 0.6 * RFFbm1(m.x / (0.15 * len) + o.y + 7.0));
+        dTorn = min(dTorn, across - bite);
+
+        // Pieces gone from the cloth past half: where a broad noise runs high (its distance steep,
+        // so the ragged noise below does not break its edge into specks), never near the hoist nor
+        // across the tongues' roots (a tongue never left hanging in the air).
+        float chunk = RFFbm2(m / (0.3 * height) + o + 31.0);
+        float level = 0.88 - 0.16 * saturate((tear - 0.45) / 0.55);
+        float dChunk = (level - chunk) * height;
+        dChunk = max(dChunk, 0.3 * len - m.x);
+        dChunk = max(dChunk, tornLine + 0.12 * height - e);
+        dTorn = min(dTorn, tear > 0.45 ? dChunk : 1e3);
+
+        // Every torn edge ragged at a few centimetres, and never into the hoist's end.
+        dTorn += (RFValue2(m / (0.015 * k) + o + 13.0) - 0.5) * 0.025 * k;
+        dTorn = max(dTorn, 0.15 * len - m.x);
+
+        // Loose threads (the warp, along the fly) hanging from the torn edges, while a pixel holds them.
+        float pitch = 0.004 * max(1.0, len / 3.0);
+        float thread = m.y / pitch;
+        float hang = 0.05 * k * RFHash12(float2(floor(thread), 29.0) + o);
+        float dThread = min(dTorn + hang, (0.25 - abs(frac(thread) - 0.5)) * pitch);
+        if (pitch > 2.0 * px)
+            dTorn = max(dTorn, dThread);
+
+        // The torn edges a little darker: frayed fibres and the grime they catch.
+        float edge = saturate(1.0 - max(dTorn, 0.0) / (0.012 * k));
+        albedo *= 1.0 - 0.25 * edge;
+
+        alpha = min(alpha, saturate(0.5 + dTorn / px));
+    }
+
     float dirt = worn.y;
     if (dirt > 0.0)
     {
@@ -236,7 +296,6 @@ float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, inout 
     float holes = worn.z;
     if (holes > 0.0)
     {
-        float k = max(1.0, sqrt(len / 3.0));
         float size3 = 0.3 * k;
         float2 base = floor(m / size3);
         float dHole = 1e3;

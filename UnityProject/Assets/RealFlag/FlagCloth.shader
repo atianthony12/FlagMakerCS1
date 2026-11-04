@@ -85,6 +85,7 @@ Shader "RealFlag/FlagCloth"
         _RFBrightness ("Brightness (linear, 1 as designed)", Float) = 1
         _RFWear ("Wear, dirt, holes (0..1); 1 hoisted from its top", Vector) = (0, 0, 0, 0)
         _RFWearSeed ("Wear's scatter (0..255)", Float) = 0
+        _RFTear ("Torn (0..1)", Float) = 0
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
         _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
         _RFUseGrid ("Shape from the particles' texture", Float) = 0
@@ -118,6 +119,7 @@ Shader "RealFlag/FlagCloth"
         float _RFBrightness;
         float4 _RFWear;
         float _RFWearSeed;
+        float _RFTear;
         sampler2D _RFGrid;
         float4 _RFGridSize;
         float _RFUseGrid;
@@ -298,7 +300,7 @@ Shader "RealFlag/FlagCloth"
             float2 mw = fwidth(metres);
             float px = max(max(mw.x, mw.y), 1e-4);
             float sheenLeft = 1.0;
-            float kept = RFWeather(metres, size, px, _RFWear, _RFWearSeed, albedo, sheenLeft);
+            float kept = RFWeather(metres, size, px, _RFWear, _RFWearSeed, _RFTear, albedo, sheenLeft);
             albedo *= saturate(_RFBrightness);
 
             // Wet: darker (Lagarde's diffuse factor), and the water's film on it reflects -- as
