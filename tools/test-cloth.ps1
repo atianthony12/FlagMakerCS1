@@ -2829,6 +2829,151 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The Pattern window's picture (FlagPatternView, the C# copy of FlagPattern.cginc): colours
+    /// 1, 2, 3 where each of the 15 patterns has them at 3:2, probed clear of every edge; an edge
+    /// blended, not stair-stepped; hoisted from its top, the same flag with its axes swapped
+    /// (u down, v across: FlagCrop's map); and the cost of the preview at the UI's pixels and twice.
+    /// </summary>
+    public static string PatternView()
+    {
+        uint c1 = 0xFF0000, c2 = 0x00FF00, c3 = 0x0000FF;
+        const int vw = 300, vh = 200;
+        var view = new UnityEngine.Color32[vw * vh];
+        var back = new UnityEngine.Color32(0, 0, 0, 255);
+
+        // pattern, then (x, y, colour) probes, as fractions of the flag.
+        float[][] probes =
+        {
+            new float[] { 0, .5f,.5f,1 },
+            new float[] { 1, .5f,.25f,1, .5f,.75f,2 },
+            new float[] { 2, .5f,.16f,1, .5f,.5f,2, .5f,.84f,3 },
+            new float[] { 3, .16f,.5f,1, .5f,.5f,2, .84f,.5f,3 },
+            new float[] { 4, .25f,.5f,1, .75f,.5f,2 },
+            new float[] { 5, .375f,.5f,3, .422f,.1f,2, .1f,.1f,1, .8f,.8f,1 },
+            new float[] { 6, .5f,.5f,3, .547f,.1f,2, .1f,.1f,1 },
+            new float[] { 7, .5f,.5f,3, .5f,.57f,2, .03f,.5f,1 },
+            new float[] { 8, .25f,.25f,2, .25f,.515f,3, .7f,.7f,1 },
+            new float[] { 9, .7f,.03f,1, .7f,.11f,2, .1f,.1f,3 },
+            new float[] { 10, .5f,.5f,2, .71f,.5f,3, .05f,.05f,1 },
+            new float[] { 11, .1f,.5f,3, .8f,.2f,1, .8f,.8f,2 },
+            new float[] { 12, .5f,.1f,1, .5f,.5f,2, .5f,.9f,3 },
+            new float[] { 13, .5f,.5f,3, .1f,.1f,1, .9f,.9f,2 },
+            new float[] { 14, .5f,.5f,1, .5f,.02f,2, .5f,.115f,3 },
+        };
+
+        var wrong = new List<string>();
+        foreach (float[] p in probes)
+        {
+            int pattern = (int)p[0];
+            FlagPatternView.Render(view, vw, vh, 0f, 0f, vw, vh, pattern, 0.667f, false, c1, c2, c3, back);
+            for (int i = 1; i + 2 < p.Length; i += 3)
+            {
+                int x = (int)(p[i] * vw), yTop = (int)(p[i + 1] * vh);
+                UnityEngine.Color32 c = view[(vh - 1 - yTop) * vw + x];
+                int got = c.r == 255 && c.g == 0 && c.b == 0 ? 1 : c.g == 255 && c.r == 0 && c.b == 0 ? 2 : c.b == 255 && c.r == 0 && c.g == 0 ? 3 : 0;
+                if (got != (int)p[i + 2])
+                    wrong.Add(pattern + "@" + p[i] + "/" + p[i + 1] + "=" + got);
+            }
+        }
+
+        // An edge's pixels between the two colours: two bands, down the middle column.
+        FlagPatternView.Render(view, vw, vh, 0f, 0f, vw, vh, FlagPattern.HorizontalBicolour, 0.667f, false, c1, c2, c3, back);
+        int blended = 0;
+        for (int row = 0; row < vh; row++)
+        {
+            UnityEngine.Color32 c = view[row * vw + vw / 2];
+            if (c.r != 0 && c.g != 0)
+                blended++;
+        }
+
+        // Hoisted from the top, w x h, is the side-hoisted flag's h x w with its axes swapped.
+        int sw = 120, sh = 180;
+        var top = new UnityEngine.Color32[sw * sh];
+        var side = new UnityEngine.Color32[sh * sw];
+        bool swapped = true;
+        foreach (int pattern in FlagPattern.Values)
+        {
+            FlagPatternView.Render(top, sw, sh, 0f, 0f, sw, sh, pattern, 0.667f, true, c1, c2, c3, back);
+            FlagPatternView.Render(side, sh, sw, 0f, 0f, sh, sw, pattern, 0.667f, false, c1, c2, c3, back);
+            for (int y = 0; y < sh && swapped; y++)
+            {
+                for (int x = 0; x < sw && swapped; x++)
+                {
+                    UnityEngine.Color32 a = top[(sh - 1 - y) * sw + x], b = side[(sw - 1 - x) * sh + y];
+                    swapped = a.r == b.r && a.g == b.g && a.b == b.b;
+                }
+            }
+        }
+
+        // Inside the frame only: the dark round it.
+        FlagPatternView.Render(view, vw, vh, 50f, 40f, 200f, 120f, FlagPattern.Plain, 0.6f, false, c1, c2, c3, back);
+        bool framed = view[0].r == 0 && view[(vh - 1 - 39) * vw + 100].r == 0 && view[(vh - 1 - 40) * vw + 100].r == 255;
+
+        var saltire = new UnityEngine.Color32[316 * 124];
+        var clock = Stopwatch.StartNew();
+        FlagPatternView.Render(saltire, 316, 124, 0f, 0f, 316f, 124f, FlagPattern.Saltire, 0.4f, false, c1, c2, c3, back);
+        double one = clock.Elapsed.TotalMilliseconds;
+        var sharp = new UnityEngine.Color32[632 * 248];
+        clock.Restart();
+        FlagPatternView.Render(sharp, 632, 248, 0f, 0f, 632f, 248f, FlagPattern.Saltire, 0.4f, false, c1, c2, c3, back);
+        double two = clock.Elapsed.TotalMilliseconds;
+
+        return string.Join(" ", wrong.ToArray()) + "," + blended + "," + swapped + "," + framed + "," + one.ToString("F1", Inv) + "," + two.ToString("F1", Inv);
+    }
+
+    /// <summary>
+    /// Patterns.xml's text (SavedPatternFile): a name of awkward characters and every value come
+    /// back whole; names are cleaned and cut; what is not such a file is null; an entry this copy
+    /// cannot use is left out and counted, the others kept; colours a pattern does not show do not
+    /// make it another look.
+    /// </summary>
+    public static string SavedFile()
+    {
+        var list = new List<SavedPattern>
+        {
+            new SavedPattern { Name = "a&b <\"quoted\"> é 国 'x'", Pattern = FlagPattern.Saltire, Colour1 = 0x1D4F91, Colour2 = 0xFFFFFF, Colour3 = 0xD00000 },
+            new SavedPattern { Name = "Plain one", Pattern = FlagPattern.Plain, Colour1 = 0x000000, Colour2 = 0x010203, Colour3 = 0xFEFDFC },
+        };
+
+        int skipped;
+        List<SavedPattern> back = SavedPatternFile.Read(SavedPatternFile.Write(list), out skipped);
+        bool whole = back != null && back.Count == 2 && skipped == 0;
+        for (int i = 0; whole && i < 2; i++)
+        {
+            whole = back[i].Name == list[i].Name && back[i].Pattern == list[i].Pattern && back[i].Colour1 == list[i].Colour1 &&
+                    back[i].Colour2 == list[i].Colour2 && back[i].Colour3 == list[i].Colour3;
+        }
+
+        string cleaned = SavedPatternFile.Sanitise("  a\tb\n c \u0007 ");
+        int cut = SavedPatternFile.Sanitise(new string('x', 100)).Length;
+
+        int ignored;
+        bool garbage = SavedPatternFile.Read("not xml at all <", out ignored) == null && SavedPatternFile.Read("<Other />", out ignored) == null;
+
+        string mixed = "<Patterns>" +
+                       "<Pattern name=\"good\" pattern=\"5\" colour1=\"#112233\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "<Pattern name=\"GOOD\" pattern=\"6\" colour1=\"#112233\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "<Pattern name=\"future\" pattern=\"99\" colour1=\"#112233\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "<Pattern name=\"colour\" pattern=\"5\" colour1=\"red\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "<Pattern pattern=\"5\" colour1=\"#112233\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "<Other />" +
+                       "<Pattern name=\"second\" pattern=\"0\" colour1=\"#112233\" colour2=\"#445566\" colour3=\"#778899\" />" +
+                       "</Patterns>";
+        int left;
+        List<SavedPattern> kept = SavedPatternFile.Read(mixed, out left);
+        string keptNames = kept[0].Name + "+" + kept[1].Name + "/" + kept.Count + "/" + left;
+
+        var plain = new SavedPattern { Pattern = FlagPattern.Plain, Colour1 = 1, Colour2 = 2, Colour3 = 3 };
+        var two = new SavedPattern { Pattern = FlagPattern.VerticalBicolour, Colour1 = 1, Colour2 = 2, Colour3 = 3 };
+        var three = new SavedPattern { Pattern = FlagPattern.Disc, Colour1 = 1, Colour2 = 2, Colour3 = 3 };
+        bool looks = plain.SameLook(FlagPattern.Plain, 1, 9, 9) && !plain.SameLook(FlagPattern.Plain, 9, 2, 3) && !plain.SameLook(FlagPattern.Disc, 1, 2, 3) &&
+                     two.SameLook(FlagPattern.VerticalBicolour, 1, 2, 9) && !two.SameLook(FlagPattern.VerticalBicolour, 1, 9, 3) &&
+                     three.SameLook(FlagPattern.Disc, 1, 2, 3) && !three.SameLook(FlagPattern.Disc, 1, 2, 9);
+
+        return whole + "|" + cleaned + "|" + cut + "|" + garbage + "|" + keptNames + "|" + looks;
+    }
+
+    /// <summary>
     /// The crop view (FlagCropView): a picture of four quarters (red, green / blue, yellow) fills
     /// a 3:2 frame -- each quarter where it belongs, turned a quarter clockwise too; outside the
     /// frame the dark, the frame's edge a line; zoomed out, the flag's own colour round the
@@ -4092,6 +4237,10 @@ $fl = [ClothTests]::Fill() -split ","
 Check "see-through pixels take their visible neighbours' colours (Gortler et al.'s pull-push), their alpha kept; nothing to do without them" ($fl[0] -eq "True" -and $fl[1] -eq "True" -and $fl[2] -eq "True" -and $fl[3] -eq "True") ("half red: " + $fl[1] + "; among blue and green: " + $fl[2] + "; opaque or all hidden, untouched: " + $fl[3] + "; 2048 x 2048 half hidden in " + $fl[4] + " ms in .NET")
 $cv = [ClothTests]::CropView() -split ","
 Check "the crop view: the picture's quarters in their places, turned a quarter clockwise too; the dark and the frame's line round it; the flag's colour round a picture zoomed out" ($cv[0] -eq "rgby" -and $cv[1] -eq "True" -and $cv[2] -eq "bryg" -and $cv[3] -eq "True") ($cv[0] + " / " + $cv[2] + ", outside " + $cv[1] + ", zoomed out " + $cv[3] + "; drawn in " + $cv[4] + " ms at 296 x 176, " + $cv[5] + " ms at twice that, in .NET")
+$pv = [ClothTests]::PatternView() -split ","
+Check "the Pattern window's picture: every pattern's colours where FlagPattern.cginc puts them, edges blended, hoisted from the top the same flag with its axes swapped, the dark round its frame" ($pv[0] -eq "" -and (N $pv[1]) -ge 1 -and (N $pv[1]) -le 3 -and $pv[2] -eq "True" -and $pv[3] -eq "True") ("wrong: [" + $pv[0] + "], " + $pv[1] + " pixel(s) of blended edge, swapped " + $pv[2] + ", framed " + $pv[3] + "; drawn in " + $pv[4] + " ms at 316 x 124, " + $pv[5] + " ms at twice that, in .NET")
+$sf = [ClothTests]::SavedFile()
+Check "saved patterns' text: awkward names and every value come back; names cleaned and cut at 40; not such a file: null; unusable entries left out and counted; a colour the pattern does not show is not another look" ($sf -eq "True|a b  c|40|True|good+second/2/5|True" -or $sf -eq "True|ab c|40|True|good+second/2/5|True") $sf
 $sizes = [ClothTests]::Sizes()
 $sizesWanted = "3x2 2x3|4.5x3@667 4.5x3@667 15x30@2000 4x6@667|3x2.5@833 4x20@5000 2.5x3@833|2x3@1500 3x1.5@2000 0.5x1.5@3000|1499 True False|3:2 2:1 3:1 1.22:1 1:1.36 1:2.55 2:3"
 Check "width and height as seen: linked, the whole flag; unlinked, a side (the other pushed past 1:5..5:1); a shape keeps the longer side; the shapes' names" ($sizes -eq $sizesWanted) $sizes

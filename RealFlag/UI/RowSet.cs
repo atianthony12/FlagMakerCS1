@@ -10,9 +10,10 @@ namespace RealFlag.UI
     /// A panel's rows, drawn from the catalog (SettingsCatalog), and kept up to date: the in-game
     /// panel's two tabs, the New flag window, and the Flagpole popup's two pages each hold one. A
     /// colour row is a swatch that opens the ColourPicker, a country row a button that opens the
-    /// CountryPicker, an image row a button that opens the ImagePanel and a folder button, all
-    /// beside the owner; up to three colour rows share a line; a shape row is a little flag of
-    /// each shape, a segmented row a button a choice, the one that holds lit.
+    /// CountryPicker, an image row a button that opens the ImagePanel and a folder button, a
+    /// pattern row a button that opens the PatternPanel, all beside the owner; up to three colour
+    /// rows share a line; a shape row is a little flag of each shape, a segmented row a button a
+    /// choice, the one that holds lit.
     /// </summary>
     /// <remarks>
     /// What FlagsPanel did itself before the popup needed the same (Volumetric Explosions'
@@ -76,6 +77,10 @@ namespace RealFlag.UI
             public UIButton Image;
             public UITextureSprite ImageThumb;
             public int ImageShown = -1, ImageVersion = -1, ImageFolderVersion = -1;
+
+            /// <summary>A pattern row: its button (the pattern's name) and its little picture.</summary>
+            public UIButton Pattern;
+            public PatternThumb PatternImage;
 
             /// <summary>A shape or segmented row: a button per preset or choice, the little flag drawn on each, and which is lit (1), not (0), or not yet shown (-1).</summary>
             public readonly List<UIButton> Options = new List<UIButton>();
@@ -199,6 +204,9 @@ namespace RealFlag.UI
                         (control.ImageShown != row.Int.value || control.ImageVersion != FlagImages.UserVersion ||
                          control.ImageFolderVersion != FlagImageFolder.Version || (row.Int.value != 0 && control.ImageThumb.texture == null)))
                         ShowImage(control);
+
+                    if (control.Pattern != null)
+                        ShowPattern(control);
 
                     // Not while its confirmation is open: the value is still the old one.
                     if (control.Toggle != null && row.Bool != null && !row.Pending && control.Toggle.Check.isChecked != row.Bool.value)
@@ -444,6 +452,34 @@ namespace RealFlag.UI
                     break;
                 }
 
+                case RowKind.Pattern:
+                {
+                    // "Pattern   [ Nordic cross    ] [flag]": a button that opens the Pattern window.
+                    AddRowLabel(page, row, y, control);
+
+                    const float imageWidth = 42f;
+                    float width = page.width - column - imageWidth - 8f;
+                    UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
+                    button.tooltip = row.Tooltip;
+                    Row captured = row;
+                    button.eventClick += (component, e) =>
+                    {
+                        if (captured.IsEnabled && captured.Patterns != null)
+                            PatternPanel.Toggle(captured.Patterns, _owner);
+                    };
+
+                    PatternThumb image = page.AddUIComponent<PatternThumb>();
+                    image.relativePosition = new Vector3(column + width + 8f, y + 3f);
+                    image.isInteractive = false;
+
+                    control.Pattern = button;
+                    control.PatternImage = image;
+                    control.Parts.Add(button);
+                    control.Parts.Add(image);
+                    ShowPattern(control);
+                    break;
+                }
+
                 case RowKind.Shape:
                 {
                     // "Shape   [▯] [▯] [▯] [□] [▭] [▭] [▭]": a little flag of each shape, hoisted as the flag is.
@@ -639,6 +675,22 @@ namespace RealFlag.UI
                 float scale = Mathf.Min(42f / Mathf.Max(1, thumb.width), 26f / Mathf.Max(1, thumb.height));
                 control.ImageThumb.size = new Vector2(Mathf.Max(1f, Mathf.Round(thumb.width * scale)), Mathf.Max(1f, Mathf.Round(thumb.height * scale)));
             }
+        }
+
+        /// <summary>A pattern row as its settings stand: the pattern's name on the button, the flag beside it at its own shape, in its colours.</summary>
+        private static void ShowPattern(Control control)
+        {
+            Row row = control.Source;
+            PatternTarget target = row.Patterns;
+            string name = row.ChoiceName(row.ChoiceIndex);
+            if (control.Pattern.text != name)
+                control.Pattern.text = name;
+
+            // Within the 42 x 26 kept for it.
+            float seen = Mathf.Max(target.Seen, 0.01f);
+            float w = Mathf.Min(42f, 26f / seen);
+            control.PatternImage.size = new Vector2(Mathf.Max(1f, Mathf.Round(w)), Mathf.Max(1f, Mathf.Round(w * seen)));
+            control.PatternImage.Show(target.Pattern.value, target.Proportion.value, target.HoistedFromTop, target.C1, target.C2, target.C3);
         }
 
         /// <summary>A row's name on the left, as a slider row has it (greyed with the row).</summary>

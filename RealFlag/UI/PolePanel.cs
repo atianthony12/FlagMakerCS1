@@ -55,6 +55,7 @@ namespace RealFlag.UI
             if (_instance == null)
                 return;
 
+            PatternPanel.Close();
             _instance._page = page;
             _instance._beside = beside;
             _instance.Show();

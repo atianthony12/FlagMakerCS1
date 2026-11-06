@@ -65,6 +65,7 @@ namespace RealFlag.UI
 
             FlagEditor.Deselect();
             PolePanel.CloseIf(PanelPage.PoleExisting);
+            PatternPanel.CloseIf(PanelPage.Existing);
 
             bool was = _instance.isVisible;
             _instance.Show();
@@ -135,6 +136,7 @@ namespace RealFlag.UI
                 ColourPicker.Close();
                 CountryPicker.Close();
                 ImagePanel.CloseIf(PanelPage.New);
+                PatternPanel.CloseIf(PanelPage.New);
                 PolePanel.CloseIf(PanelPage.PoleNew);
                 Log.Msg("flags: the New flag window closed");
             };

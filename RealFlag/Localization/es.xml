@@ -87,9 +87,9 @@
   <String key="SelImage.Label">Tu imagen</String>
   <String key="SelImage.Tooltip">Una imagen tuya.</String>
   <String key="NewPattern.Label">Diseño</String>
-  <String key="NewPattern.Tooltip">Usa los colores de abajo.</String>
+  <String key="NewPattern.Tooltip">Diseño, colores y guardados.</String>
   <String key="SelPattern.Label">Diseño</String>
-  <String key="SelPattern.Tooltip">Usa los colores de abajo.</String>
+  <String key="SelPattern.Tooltip">Diseño, colores y guardados.</String>
 
   <String key="Pattern.Plain">Liso</String>
   <String key="Pattern.HorizontalBicolour">Dos franjas</String>
@@ -106,6 +106,21 @@
   <String key="Pattern.HoistTriangle">Triángulo lateral</String>
   <String key="Pattern.DiagonalBand">Franja diagonal</String>
   <String key="Pattern.Border">Borde</String>
+
+  <!-- La ventana Diseño. {0}: el nombre de un diseño guardado. -->
+  <String key="Tab.PatternNew">Diseño de la nueva bandera</String>
+  <String key="Tab.PatternExisting">Diseño de la bandera seleccionada</String>
+  <String key="Pattern.Saved">Diseños guardados</String>
+  <String key="Pattern.SavedEmpty">Ninguno guardado todavía.</String>
+  <String key="Pattern.Name">Nombre</String>
+  <String key="Pattern.NameTip">Nombre para guardarlo.</String>
+  <String key="Pattern.Save">Guardar</String>
+  <String key="Pattern.SaveTip">Guarda diseño y colores.</String>
+  <String key="Pattern.Delete">Eliminar</String>
+  <String key="Pattern.DeleteTip">Elimina el indicado.</String>
+  <String key="Pattern.ReplaceConfirm">¿Reemplazar el diseño guardado "{0}"?</String>
+  <String key="Pattern.DeleteConfirm">¿Eliminar el diseño guardado "{0}"? Las banderas que lo usan no cambian.</String>
+  <String key="Pattern.SaveFailed">No se pudieron escribir los diseños guardados. No cambió nada.</String>
 
   <String key="NewColour1.Label">Color 1</String>
   <String key="NewColour1.Tooltip">Fondo, primera franja.</String>

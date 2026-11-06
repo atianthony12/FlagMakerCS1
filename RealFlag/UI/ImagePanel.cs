@@ -102,6 +102,7 @@ namespace RealFlag.UI
             if (_instance == null)
                 return;
 
+            PatternPanel.Close();
             _instance.Show();
             _instance.Edit(target, beside);
         }

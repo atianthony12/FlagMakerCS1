@@ -85,9 +85,9 @@
   <String key="SelImage.Label">Your image</String>
   <String key="SelImage.Tooltip">Your own picture.</String>
   <String key="NewPattern.Label">Pattern</String>
-  <String key="NewPattern.Tooltip">Uses the colors below.</String>
+  <String key="NewPattern.Tooltip">Pattern, colors, saved ones.</String>
   <String key="SelPattern.Label">Pattern</String>
-  <String key="SelPattern.Tooltip">Uses the colors below.</String>
+  <String key="SelPattern.Tooltip">Pattern, colors, saved ones.</String>
 
   <String key="Pattern.Plain">Plain</String>
   <String key="Pattern.HorizontalBicolour">Two bands</String>
@@ -104,6 +104,21 @@
   <String key="Pattern.HoistTriangle">Side triangle</String>
   <String key="Pattern.DiagonalBand">Diagonal band</String>
   <String key="Pattern.Border">Border</String>
+
+  <!-- The Pattern window. {0}: a saved pattern's name. -->
+  <String key="Tab.PatternNew">New flag's pattern</String>
+  <String key="Tab.PatternExisting">Selected flag's pattern</String>
+  <String key="Pattern.Saved">Saved patterns</String>
+  <String key="Pattern.SavedEmpty">None saved yet.</String>
+  <String key="Pattern.Name">Name</String>
+  <String key="Pattern.NameTip">Name to save under.</String>
+  <String key="Pattern.Save">Save</String>
+  <String key="Pattern.SaveTip">Saves pattern and colors.</String>
+  <String key="Pattern.Delete">Delete</String>
+  <String key="Pattern.DeleteTip">Deletes the one named.</String>
+  <String key="Pattern.ReplaceConfirm">Replace the saved pattern "{0}"?</String>
+  <String key="Pattern.DeleteConfirm">Delete the saved pattern "{0}"? Flags using it stay as they are.</String>
+  <String key="Pattern.SaveFailed">Couldn't write the saved patterns. Nothing changed.</String>
 
   <String key="NewColour1.Label">Color 1</String>
   <String key="NewColour1.Tooltip">Background, first band.</String>

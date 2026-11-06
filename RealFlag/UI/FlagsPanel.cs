@@ -168,6 +168,7 @@ namespace RealFlag.UI
                 ColourPicker.Close();
                 CountryPicker.Close();
                 ImagePanel.Close();
+                PatternPanel.Close();
                 PolePanel.Close();
             };
 
@@ -212,6 +213,7 @@ namespace RealFlag.UI
             NewFlagPanel.RefreshOpen();
             PolePanel.RefreshOpen();
             ImagePanel.RefreshOpen();
+            PatternPanel.RefreshOpen();
         }
 
         private UIPanel AddPage()
@@ -247,6 +249,7 @@ namespace RealFlag.UI
                 FlagEditor.Deselect();
                 PolePanel.CloseIf(PanelPage.PoleExisting);
                 ImagePanel.CloseIf(PanelPage.Existing);
+                PatternPanel.CloseIf(PanelPage.Existing);
             }
 
             if (!NewFlagPanel.IsOpen)
@@ -270,6 +273,7 @@ namespace RealFlag.UI
             ColourPicker.DestroyPicker();
             CountryPicker.DestroyPicker();
             ImagePanel.DestroyPanel();
+            PatternPanel.DestroyPanel();
             PolePanel.DestroyPanel();
             NewFlagPanel.DestroyPanel();
 

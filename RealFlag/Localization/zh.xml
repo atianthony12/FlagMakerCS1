@@ -80,9 +80,9 @@
   <String key="SelImage.Label">你的图片</String>
   <String key="SelImage.Tooltip">你自己的图片。</String>
   <String key="NewPattern.Label">图案</String>
-  <String key="NewPattern.Tooltip">使用下方的颜色。</String>
+  <String key="NewPattern.Tooltip">图案、颜色和已保存项。</String>
   <String key="SelPattern.Label">图案</String>
-  <String key="SelPattern.Tooltip">使用下方的颜色。</String>
+  <String key="SelPattern.Tooltip">图案、颜色和已保存项。</String>
 
   <String key="Pattern.Plain">纯色</String>
   <String key="Pattern.HorizontalBicolour">两条横带</String>
@@ -99,6 +99,21 @@
   <String key="Pattern.HoistTriangle">侧边三角</String>
   <String key="Pattern.DiagonalBand">斜带</String>
   <String key="Pattern.Border">边框</String>
+
+  <!-- 图案窗口。{0}:已保存图案的名称。 -->
+  <String key="Tab.PatternNew">新旗帜的图案</String>
+  <String key="Tab.PatternExisting">选中旗帜的图案</String>
+  <String key="Pattern.Saved">已保存的图案</String>
+  <String key="Pattern.SavedEmpty">尚未保存。</String>
+  <String key="Pattern.Name">名称</String>
+  <String key="Pattern.NameTip">保存用的名称。</String>
+  <String key="Pattern.Save">保存</String>
+  <String key="Pattern.SaveTip">保存图案和颜色。</String>
+  <String key="Pattern.Delete">删除</String>
+  <String key="Pattern.DeleteTip">删除此名称的图案。</String>
+  <String key="Pattern.ReplaceConfirm">替换已保存的图案“{0}”?</String>
+  <String key="Pattern.DeleteConfirm">删除已保存的图案“{0}”?使用它的旗帜保持不变。</String>
+  <String key="Pattern.SaveFailed">无法写入已保存的图案。未做任何更改。</String>
 
   <String key="NewColour1.Label">颜色 1</String>
   <String key="NewColour1.Tooltip">底色，第一条带。</String>

@@ -35,7 +35,8 @@ window: a country's flag -- every country and territory, England, Scotland, Wale
 Ireland, the EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
 (plain, bands, crosses, a corner box, stripes and a corner box, a circle, a side triangle, a
 diagonal band, a border) in up to three colours (a palette, hue, saturation and brightness, or
-a hex code typed, pasted or copied); its **shape** as it hangs, from a tall banner to a long
+a hex code typed, pasted or copied), chosen in the **Pattern** window with a flat preview, where a
+pattern and its colours can be saved under a name for any city; its **shape** as it hangs, from a tall banner to a long
 flag, picked from little pictures of each; its **width** and **height** (0.5 to 30 m each,
 changing together unless you switch that off, from 1:5 to 5:1); the edge it **hangs from** -- its
 side, as flags fly, or its top, as a banner hangs from a crossbar (its design then

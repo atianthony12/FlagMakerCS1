@@ -90,9 +90,9 @@
   <String key="SelImage.Label">Votre image</String>
   <String key="SelImage.Tooltip">Votre propre image.</String>
   <String key="NewPattern.Label">Motif</String>
-  <String key="NewPattern.Tooltip">Utilise les couleurs ci-dessous.</String>
+  <String key="NewPattern.Tooltip">Motif, couleurs, enregistrés.</String>
   <String key="SelPattern.Label">Motif</String>
-  <String key="SelPattern.Tooltip">Utilise les couleurs ci-dessous.</String>
+  <String key="SelPattern.Tooltip">Motif, couleurs, enregistrés.</String>
 
   <String key="Pattern.Plain">Uni</String>
   <String key="Pattern.HorizontalBicolour">Deux bandes</String>
@@ -109,6 +109,21 @@
   <String key="Pattern.HoistTriangle">Triangle sur le côté</String>
   <String key="Pattern.DiagonalBand">Bande diagonale</String>
   <String key="Pattern.Border">Bordure</String>
+
+  <!-- La fenêtre Motif. {0} : le nom d'un motif enregistré. -->
+  <String key="Tab.PatternNew">Motif du nouveau drapeau</String>
+  <String key="Tab.PatternExisting">Motif du drapeau choisi</String>
+  <String key="Pattern.Saved">Motifs enregistrés</String>
+  <String key="Pattern.SavedEmpty">Aucun pour l’instant.</String>
+  <String key="Pattern.Name">Nom</String>
+  <String key="Pattern.NameTip">Nom à enregistrer.</String>
+  <String key="Pattern.Save">Enregistrer</String>
+  <String key="Pattern.SaveTip">Enregistre motif et couleurs.</String>
+  <String key="Pattern.Delete">Supprimer</String>
+  <String key="Pattern.DeleteTip">Supprime celui nommé.</String>
+  <String key="Pattern.ReplaceConfirm">Remplacer le motif enregistré « {0} » ?</String>
+  <String key="Pattern.DeleteConfirm">Supprimer le motif enregistré « {0} » ? Les drapeaux qui l’utilisent restent tels quels.</String>
+  <String key="Pattern.SaveFailed">Impossible d’écrire les motifs enregistrés. Rien n’a changé.</String>
 
   <String key="NewColour1.Label">Couleur 1</String>
   <String key="NewColour1.Tooltip">Fond, première bande.</String>

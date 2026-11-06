@@ -57,14 +57,21 @@ namespace RealFlag.UI
         /// and a folder button that opens the images folder. The file writes its name.
         /// </summary>
         Image,
+
+        /// <summary>
+        /// A flag's pattern (an IntSetting over <see cref="Row.ChoiceValues"/>): a button with its
+        /// name and a little picture of it that opens the Pattern window (<see cref="Row.Patterns"/>).
+        /// The file writes it as a choice.
+        /// </summary>
+        Pattern,
     }
 
     /// <summary>
     /// Which part of the in-game panel a row is in: one of its two tabs (Flags, Settings), the
-    /// New flag window, or a page of the Flagpole popup (the new flag's, the selected one's).
-    /// None = not in it.
+    /// New flag window, a page of the Flagpole popup or of the Pattern window (the new flag's, the
+    /// selected one's). None = not in it.
     /// </summary>
-    public enum PanelPage { None, New, Existing, Settings, PoleNew, PoleExisting }
+    public enum PanelPage { None, New, Existing, Settings, PoleNew, PoleExisting, PatternNew, PatternExisting }
 
     /// <summary>General = the game's mod options page. None = not on it.</summary>
     public enum OptionsPage { None, General }
@@ -165,6 +172,9 @@ namespace RealFlag.UI
 
         /// <summary>Image rows: the window's settings the Image window works on.</summary>
         public ImageTarget Image;
+
+        /// <summary>Pattern rows: the settings the Pattern window works on.</summary>
+        public PatternTarget Patterns;
 
         /// <summary>Greys the row out.</summary>
         public Func<bool> Enabled;
@@ -452,6 +462,7 @@ namespace RealFlag.UI
             Log.Msg("settings catalog: " + Rows.Count + " rows | Flags=" + CountForPanel(PanelPage.Existing) +
                     " | New flag=" + CountForPanel(PanelPage.New) + " | Settings=" + CountForPanel(PanelPage.Settings) +
                     " | Flagpole=" + CountForPanel(PanelPage.PoleNew) + "+" + CountForPanel(PanelPage.PoleExisting) +
+                    " | Pattern=" + CountForPanel(PanelPage.PatternNew) + "+" + CountForPanel(PanelPage.PatternExisting) +
                     " | options page=" + CountForOptions(OptionsPage.General) + " | rows with no UI=" + nowhere);
 
             var missing = new List<string>();
@@ -814,14 +825,31 @@ namespace RealFlag.UI
                 Enabled = enabled,
             });
 
+            // The pattern: one row here, its choice, colours and saved ones in the Pattern window (the
+            // author: "The Pattern options are taking too much space"). The colours are rows of
+            // that window's page, kept and reset as they were.
+            PanelPage patternPage = page == PanelPage.New ? PanelPage.PatternNew : PanelPage.PatternExisting;
             Add(new Row
             {
-                Kind = RowKind.Choice,
+                Kind = RowKind.Pattern,
                 Panel = page,
                 Int = pattern,
                 DefaultInt = Settings.Defaults.Pattern,
                 ChoiceValues = FlagPattern.Values,
                 ChoiceKeys = FlagPattern.NameKeys,
+                Patterns = new PatternTarget
+                {
+                    Page = page,
+                    Pattern = pattern,
+                    Colour1 = c1,
+                    Colour2 = c2,
+                    Colour3 = c3,
+                    Country = country,
+                    Proportion = proportion,
+                    HoistedFrom = hoistedFrom,
+                    Changed = changed,
+                    Enabled = enabled,
+                },
                 AfterChange = changed,
                 Enabled = patterned,
             });
@@ -829,7 +857,7 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Colour,
-                Panel = page,
+                Panel = patternPage,
                 Int = c1,
                 DefaultInt = Settings.Defaults.Colour1,
                 AfterChange = changed,
@@ -839,7 +867,7 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Colour,
-                Panel = page,
+                Panel = patternPage,
                 Int = c2,
                 DefaultInt = Settings.Defaults.Colour2,
                 AfterChange = changed,
@@ -849,7 +877,7 @@ namespace RealFlag.UI
             Add(new Row
             {
                 Kind = RowKind.Colour,
-                Panel = page,
+                Panel = patternPage,
                 Int = c3,
                 DefaultInt = Settings.Defaults.Colour3,
                 AfterChange = changed,
