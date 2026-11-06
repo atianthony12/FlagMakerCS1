@@ -1,4 +1,4 @@
-# Building RealFlag
+# Building Flag Maker
 
 ## What you need
 

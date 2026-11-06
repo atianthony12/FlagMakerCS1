@@ -15,6 +15,8 @@
 #   without the API the game runs is a stand-down in every city.
 # - Each bundle's hash before and after, printed: UNCHANGED after a shader edit is a problem,
 #   UNCHANGED without one is expected (bundle builds are deterministic).
+# - What each bundle was built from (tools\bundle-sources.ps1's hash), in
+#   RealFlag\Resources\bundles-built-from.txt: release.ps1 refuses a bundle built from older sources.
 
 param(
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe",
@@ -32,11 +34,12 @@ $builder = Join-Path $project "Assets\Editor\BundleBuilder.cs"
 
 # One row per bundle: its name, and the platform ids every shader in it must carry
 # (1 D3D9, 4 D3D11, 14 Metal, 15 OpenGLCore, 18 Vulkan). Must match BundleBuilder.Targets.
-$targets = @(
+$allTargets = @(
     @{ Name = "win";   Platforms = "4,15";  Needs = "Direct3D 11 + OpenGL Core" },
     @{ Name = "linux"; Platforms = "15";    Needs = "OpenGL Core" },
     @{ Name = "mac";   Platforms = "14,15"; Needs = "Metal + OpenGL Core" }
 )
+$targets = $allTargets
 if ($Only.Count -gt 0) {
     $Only = @($Only | ForEach-Object { $_ -split "," } | Where-Object { $_ })
     foreach ($o in $Only) {
@@ -48,6 +51,14 @@ if ($Only.Count -gt 0) {
 if (-not (Test-Path $Unity)) { throw "Unity not found at $Unity" }
 if (-not (Test-Path $apisTool)) { throw "Missing $apisTool" }
 if (-not (Test-Path $builder)) { throw "Missing $builder" }
+$stampFile = Join-Path $resources "bundles-built-from.txt"
+$sourcesTool = Join-Path $root "tools\bundle-sources.ps1"
+if (-not (Test-Path $sourcesTool)) { throw "Missing $sourcesTool" }
+
+# The sources' hash BEFORE the build: what the bundles are built from (an edit saved during the build
+# would make this stamp older than the sources, which the next release check would catch).
+$sourcesHash = & powershell -NoProfile -ExecutionPolicy Bypass -File $sourcesTool
+if ($sourcesHash -notmatch '^[0-9a-f]{64}$') { throw "tools\bundle-sources.ps1 gave no hash: $sourcesHash" }
 
 # The shaders to expect: read out of BundleBuilder.cs, the one list.
 $shaders = @([regex]::Matches((Get-Content $builder -Raw), '"Assets/RealFlag/(\w+)\.shader"') |
@@ -127,6 +138,26 @@ foreach ($t in $targets) {
     $hash = (Get-FileHash $dst -Algorithm SHA256).Hash
     $state = if ($null -eq $before[$t.Name]) { "new" } elseif ($before[$t.Name] -eq $hash) { "UNCHANGED" } else { "changed" }
     Write-Host ("OK: {0} ({1} bytes, {2}) sha256 {3}" -f $dst, (Get-Item $dst).Length, $state, $hash) -ForegroundColor Green
+}
+
+# What each bundle was built from: this build's platforms get the sources' hash, the others keep theirs.
+$stamps = [ordered]@{}
+foreach ($t in $allTargets) { $stamps[$t.Name] = "(never recorded)" }
+if (Test-Path $stampFile) {
+    foreach ($line in Get-Content $stampFile) {
+        if ($line -match '^(win|linux|mac)\s+(\S+)') { $stamps[$Matches[1]] = $Matches[2] }
+    }
+}
+foreach ($t in $targets) { $stamps[$t.Name] = $sourcesHash }
+$lines = @("# Written by build-bundle.ps1: per bundle, tools\bundle-sources.ps1's hash of the sources it was built from.",
+           "# release.ps1 refuses a release unless every line matches the sources (build-bundle.ps1, no -Only).")
+foreach ($k in $stamps.Keys) { $lines += "$k $($stamps[$k])" }
+Set-Content -Path $stampFile -Value $lines -Encoding ASCII
+
+foreach ($t in $allTargets) {
+    if ($stamps[$t.Name] -ne $sourcesHash) {
+        Write-Host ("NOTE: the {0} bundle was not built from these sources (left as it was): build-bundle.ps1 with no -Only before a release." -f $t.Name) -ForegroundColor Yellow
+    }
 }
 
 Write-Host "Now rebuild the mod to embed them."

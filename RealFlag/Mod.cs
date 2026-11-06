@@ -8,10 +8,12 @@ namespace RealFlag
     {
         /// <summary>
         /// The mod's name wherever a player reads it: the mods list, the options page, the panel's
-        /// title, button tooltips, dialog titles, the log's first line. Files, the assembly, the
-        /// namespace and the button IDs are "RealFlag" too.
+        /// title, button tooltips, dialog titles, the log's first line. The player's files are
+        /// FlagMaker too (FlagMaker.log, FlagMaker.xml, FlagMaker\Images). The assembly, the namespace,
+        /// the mod's folder and the IDs keep "RealFlag", its first name, and the save keys and the
+        /// prefab's name always will.
         /// </summary>
-        public const string DisplayName = "RealFlag";
+        public const string DisplayName = "Flag Maker";
 
         /// <summary>
         /// The release a player has: raised once per Workshop upload (the third number for a
@@ -30,7 +32,7 @@ namespace RealFlag
             Log.Start();
             Log.Msg("Mod enabled. Log file: " + Log.Path);
 
-            // Reads RealFlag.xml and starts the saver that writes changes back and picks up edits
+            // Reads FlagMaker.xml and starts the saver that writes changes back and picks up edits
             // made to the file by hand.
             Settings.Init();
             SettingsXml.StartSaver(); // again after a disable/enable, when Init has nothing left to do

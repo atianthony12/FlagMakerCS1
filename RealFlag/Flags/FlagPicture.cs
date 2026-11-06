@@ -7,7 +7,7 @@ using UnityEngine;
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// The names of the player's own images (the files in RealFlag\Images: FlagImageFolder): what a
+    /// The names of the player's own images (the files in FlagMaker\Images: FlagImageFolder): what a
     /// flag, the settings file and Move It keep of one -- its file name, nothing more -- and this
     /// session's numbers for them (a setting's value, as a country's is: 0 for none). PURE.
     /// </summary>

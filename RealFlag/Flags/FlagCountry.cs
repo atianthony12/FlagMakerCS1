@@ -42,7 +42,7 @@ namespace RealFlag.Flags
     /// tools/fetch-flags.ps1 from Flagpedia's public-domain set). PURE.
     /// </summary>
     /// <remarks>
-    /// A flag's country is kept by its CODE (FlagSpec.Country, the save, RealFlag.xml); a
+    /// A flag's country is kept by its CODE (FlagSpec.Country, the save, FlagMaker.xml); a
     /// number is only this session's handle for it (a setting's value: 1 + its place in the
     /// table, 0 for none), so the table may grow and reorder between versions.
     /// </remarks>

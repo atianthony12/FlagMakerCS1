@@ -11,7 +11,7 @@ namespace RealFlag
     /// </summary>
     public static class Log
     {
-        private const string FileName = "RealFlag.log";
+        private const string FileName = "FlagMaker.log";
 
         private static readonly object Sync = new object();
 
@@ -19,7 +19,7 @@ namespace RealFlag
         private static bool _disabled;
 
         /// <summary>
-        /// Next to RealFlag.xml, in the folder the game itself uses: on Windows and
+        /// Next to FlagMaker.xml, in the folder the game itself uses: on Windows and
         /// Linux the .NET LocalApplicationData folder (with XDG_DATA_HOME honoured on Linux),
         /// on a Mac ~/Library/Application Support -- where .NET's answer is ~/.local/share, a
         /// folder that does not exist there (Volumetric Weather learnt that in 1.1.1).
@@ -55,7 +55,7 @@ namespace RealFlag
             }
         }
 
-        /// <summary>The last session's log, kept by <see cref="Start"/>: RealFlag.prev.log beside this one.</summary>
+        /// <summary>The last session's log, kept by <see cref="Start"/>: FlagMaker.prev.log beside this one.</summary>
         public static string PreviousPath
         {
             get { return System.IO.Path.ChangeExtension(Path, ".prev.log"); }

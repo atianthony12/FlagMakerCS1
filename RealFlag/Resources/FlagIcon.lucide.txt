@@ -1,0 +1,5 @@
+# Flag Maker's button icon (the HUD button and the Unified UI button; IconLoader.cs embeds FlagIcon.png).
+# Lucide's flag (lucide.dev, lucide-static 0.460.0, ISC: THIRD-PARTY-NOTICES.md), path data copied
+# from its SVG, its line written as a path. After a change:
+# powershell -File ModsLibCS1\tools\make-button-icon.ps1 -Spec <this file> (it writes FlagIcon.png beside it).
+flag | M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z | M4 22V15

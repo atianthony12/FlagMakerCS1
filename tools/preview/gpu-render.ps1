@@ -77,7 +77,7 @@ param(
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
     [string]$Images = "",
-    [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\RealFlag\Images"),
+    [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\FlagMaker\Images"),
     [string]$Crops = "0.5,0.5,1,0",
     [switch]$Through,
     [string]$Motion = "waves",

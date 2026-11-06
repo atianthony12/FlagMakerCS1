@@ -21,7 +21,7 @@ namespace RealFlag
     /// event); the options page is rebuilt by the game every time it opens.
     ///
     /// What stays English, always: the log (it is read to fix things) and the element names in
-    /// RealFlag.xml (they are keys, not words).
+    /// FlagMaker.xml (they are keys, not words).
     ///
     /// Adding a language: copy Localization/en.xml to the game's code for it, translate the
     /// text between the tags, rebuild. The csproj embeds every file in that folder.

@@ -628,7 +628,7 @@ namespace RealFlag.Flags
         public float Darkness;
 
         /// <summary>
-        /// A picture of the player's own: a file in the images folder, RealFlag\Images
+        /// A picture of the player's own: a file in the images folder, FlagMaker\Images
         /// (FlagImageFolder), by its NAME ("castle.png"). Empty for none. Drawn over the pattern,
         /// never stretched (FlagCrop); a country's flag goes before it. A name whose file is not
         /// there is kept and drawn as the pattern, until the file is.

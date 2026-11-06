@@ -6,7 +6,7 @@ using UnityEngine;
 namespace RealFlag
 {
     /// <summary>
-    /// Persisted options, kept in RealFlag.xml next to the log (see <see cref="SettingsXml"/>),
+    /// Persisted options, kept in FlagMaker.xml next to the log (see <see cref="SettingsXml"/>),
     /// where a player can read and edit them.
     /// </summary>
     /// <remarks>
@@ -33,7 +33,21 @@ namespace RealFlag
         /// </summary>
         private const string InMemory = "RealFlagHotkey";
 
-        public static BoolSetting ShowInUnifiedUI { get; private set; }
+        /// <summary>
+        /// Where the panel's button goes, stored by VALUE (append only; <see cref="IconPlaces"/>):
+        /// Unified UI's bar (when that is there, else the HUD button), the HUD button, or none (the
+        /// key alone opens the panel). Real Glass's and Volumetric Weather's option.
+        /// </summary>
+        public static IntSetting IconPlace { get; private set; }
+
+        /// <summary>The values of <see cref="IconPlace"/>, as stored. Never renumber.</summary>
+        public static class IconPlaces
+        {
+            public const int UnifiedUI = 0;
+            public const int Toolbar = 1;
+            public const int Never = 2;
+        }
+
         public static SavedInputKey ToggleKey { get; private set; }
 
         /// <summary>Where the mod's own button sits when it is not in Unified UI, UI units from the top left.</summary>
@@ -112,7 +126,7 @@ namespace RealFlag
         public static IntSetting NewCountry { get; private set; }
 
         /// <summary>
-        /// A picture of the player's (a file in RealFlag\Images): FlagImageNames' number for its
+        /// A picture of the player's (a file in FlagMaker\Images): FlagImageNames' number for its
         /// name (0: none). The file keeps its NAME: the number is this session's only.
         /// </summary>
         public static IntSetting NewImage { get; private set; }
@@ -251,7 +265,7 @@ namespace RealFlag
         public static class Defaults
         {
             // ---- housekeeping ----
-            public const bool ShowInUnifiedUI = true;
+            public const int IconPlace = IconPlaces.UnifiedUI;
             public const bool DetailedLogging = false;
 
             /// <summary>Under Volumetric Weather's (10, 60) and Volumetric Explosions' (10, 100) buttons.</summary>
@@ -355,7 +369,7 @@ namespace RealFlag
         }
 
         /// <summary>
-        /// Constructs every setting with its default, then reads RealFlag.xml over them. Called
+        /// Constructs every setting with its default, then reads FlagMaker.xml over them. Called
         /// from Mod.OnEnabled, and defensively from everything that needs a setting before that
         /// could have run.
         /// </summary>
@@ -364,6 +378,10 @@ namespace RealFlag
             if (_initialised)
                 return;
 
+            // Here, whoever comes first (the options page can): before anything reads these files,
+            // or a fresh FlagMaker.xml of defaults would stand in the way of the old one.
+            OldNames.Move();
+
             try
             {
                 // Looked up first because a reloaded mod finds it already there, and adding a
@@ -371,7 +389,7 @@ namespace RealFlag
                 if (GameSettings.FindSettingsFileByName(InMemory) == null)
                     GameSettings.AddSettingsFile(new SettingsFile { fileName = InMemory, dontSave = true });
 
-                ShowInUnifiedUI = new BoolSetting("ShowInUnifiedUI", Defaults.ShowInUnifiedUI);
+                IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
                 ToggleKey = new SavedInputKey("ToggleKey", InMemory, DefaultToggleKey, false);
                 DetailedLogging = new BoolSetting("DetailedLogging", Defaults.DetailedLogging);
                 Language = new IntSetting("Language", Defaults.Language);

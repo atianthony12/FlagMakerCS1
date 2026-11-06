@@ -12,7 +12,8 @@
 #     from its calls), the tab names, and every key-shaped string literal in *.cs (the patterns'
 #     names are literals in FlagDesign.cs);
 #   - English has no key nothing asks for (dead text a translator would translate for nothing);
-#   - a translation has no key English lacks, and says which English keys it has not done yet;
+#   - a translation has no key English lacks, keeps English's {n} and \n in every text, and says
+#     which English keys it has not done yet;
 #   - wrapped texts come out as one line, \n as a real break.
 # The same key check runs in the game at startup (SettingsCatalog.LogLayout), from the real rows.
 
@@ -124,7 +125,7 @@ foreach ($enum in @('PanelPage')) {
 
 # Key-shaped literals anywhere in the code ("Status.Flags", "Pattern.Disc"...), including the
 # ones picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Image|PanelSkin'
+$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Image|PanelSkin|IconPlace'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)
@@ -163,6 +164,17 @@ foreach ($file in Get-ChildItem (Join-Path $root "Localization") -Filter *.xml |
     Check "$($file.Name): no key twice" ($t.Duplicates -join ", ") ""
     $extra = @($t.Table.Keys | Where-Object { -not $en.Table.ContainsKey($_) } | Sort-Object)
     Check "$($file.Name): no key English lacks" ($extra -join ", ") ""
+    # A {n} left out formats without an error (the number just goes missing); a \n left out runs
+    # two lines of the settings file's header into one. (Real Glass's check.)
+    $differ = @()
+    $holes = { param($s) (@([regex]::Matches($s, '\{\d+\}') | ForEach-Object { $_.Value }) | Sort-Object) -join "," }
+    foreach ($key in @($t.Table.Keys | Where-Object { $en.Table.ContainsKey($_) } | Sort-Object)) {
+        $mine = $t.Table[$key]; $english = $en.Table[$key]
+        if ((& $holes $mine) -ne (& $holes $english)) { $differ += "$key ({n})" }
+        if ($mine.Split("`n").Count -ne $english.Split("`n").Count) { $differ += "$key (\n)" }
+        try { [void][string]::Format($mine, $dummy) } catch { $differ += "$key (bad {n})" }
+    }
+    Check "$($file.Name): the same {n} and \n as English" ($differ -join ", ") ""
     $todo = @($en.Table.Keys | Where-Object { -not $t.Table.ContainsKey($_) }).Count
     Write-Host "      $($file.Name): $($t.Table.Count) texts, $todo still in English"
 }

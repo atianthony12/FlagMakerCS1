@@ -19,7 +19,7 @@ namespace RealFlag
         private ModButton _hudButton;
         private bool _hotkeyWasDown;
 
-        /// <summary>Rebuilds the button after the UUI preference changes.</summary>
+        /// <summary>Rebuilds the button after "Where to show mod icon" changes.</summary>
         public static void RefreshButton()
         {
             if (Instance != null)
@@ -170,20 +170,29 @@ namespace RealFlag
             UUIIntegration.Unregister();
             DestroyHudButton();
 
-            bool registered = false;
-            if (Settings.ShowInUnifiedUI != null && Settings.ShowInUnifiedUI.value)
-                registered = UUIIntegration.Register(IconLoader.Load(), OnUUIToggled);
+            int place = Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace;
+            if (place == Settings.IconPlaces.Never)
+            {
+                // No button anywhere: the panel's key (polled in Update while Unified UI holds
+                // nothing of ours) still opens it.
+                Log.Msg("panel button: none (icon place = Never; the panel key opens the panel)");
+                return;
+            }
 
+            bool wanted = place == Settings.IconPlaces.UnifiedUI;
+            bool registered = wanted && UUIIntegration.Register(IconLoader.Load(), OnUUIToggled);
+
+            // A fresh button starts inactive, but this also runs from the "Where to show mod icon"
+            // row, and the panel may be open behind the options.
             if (registered && _panel != null)
                 UUIIntegration.SetPressed(_panel.isVisible);
 
-            // Falling back also covers "wanted UUI but it isn't installed", which would
+            // Falling back also covers "wanted Unified UI but it isn't installed", which would
             // otherwise leave the player with no button at all.
             if (!registered)
                 CreateHudButton();
 
-            Log.Msg("panel button: " + (registered ? "Unified UI" : "HUD button") +
-                    " (Unified UI wanted=" + (Settings.ShowInUnifiedUI != null && Settings.ShowInUnifiedUI.value) + ")");
+            Log.Msg("panel button: " + (registered ? "Unified UI" : "HUD button") + " (Unified UI wanted=" + wanted + ")");
         }
 
         private void CreateHudButton()

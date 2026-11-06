@@ -4,21 +4,21 @@ using UnityEngine;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// The mod's own button, used when Unified UI isn't available or the player has turned the
-    /// Unified UI icon off. Drag it to move it; where it was left is saved.
+    /// The mod's own button ("Toolbar" on the options page), used when the player picks it there or
+    /// Unified UI isn't available. Drag it to move it; where it was left is saved. (Volumetric
+    /// Weather's and Real Glass's button, with this mod's icon.)
     /// </summary>
     /// <remarks>
-    /// Volumetric Weather's button, as it is since its 1.1.0: the button draws the game's
-    /// background sprites itself and the icon is a CHILD sprite, because children are drawn
-    /// over their parent (the other way round the icon is hidden). The child is not
-    /// interactive, so every click still reaches the button.
+    /// The button draws the game's background sprites itself and the icon is a CHILD sprite, because
+    /// children are drawn over their parent (the other way round the icon is hidden). The child is
+    /// not interactive, so every click still reaches the button.
     /// </remarks>
     public class ModButton : UIButton
     {
         /// <summary>
-        /// Play It!'s button size (36 x 36, read from its IL: ModManager.CreateUI), so the two sit
-        /// side by side as one set. It also uses the same OptionBase sprites and stretches its
-        /// icon over the whole button, as this does; our icon's art has its own margin.
+        /// Play It!'s button size (36 x 36, read from its IL: ModManager.CreateUI), so the sister
+        /// mods' buttons sit side by side as one set. It also uses the same OptionBase sprites and
+        /// stretches its icon over the whole button, as this does; our icon's art has its own margin.
         /// </summary>
         public const float ButtonSize = 36f;
 
@@ -57,25 +57,20 @@ namespace RealFlag.UI
             size = new Vector2(ButtonSize, ButtonSize);
             tooltip = Mod.DisplayName;
 
+            // UIComponent.tooltipBox falls back to the view's default box only when the parent is
+            // itself a UIComponent (IL of get_tooltipBox, 2026-11-02); this button hangs off the
+            // view's root, so without this its tooltip never showed.
+            if (tooltipBox == null)
+                tooltipBox = UIView.GetAView().defaultTooltipBox;
+
             // A focused UIButton keeps its focused look after the click, until something else
             // takes the focus: the button would stay lit. Blue means the mouse is on it, only.
             canFocus = false;
 
-            // The panel's look (Volumetric Weather's and Real Glass's): the new looks' own button
-            // sprites; Vanilla, or a look whose sprites are missing, the game's as before.
-            ModsLibCS1.UI.Builder look = PanelLook.NewBuilder("the HUD button");
-            ModsLibCS1.UI.SkinSprites own = look.Theme.Sprites;
-            string[] sprites;
-            if (own.OwnSheet && own.Hud != null && look.Atlas != null && look.Atlas[own.Hud] != null)
-            {
-                atlas = look.Atlas;
-                sprites = new[] { own.Hud, own.HudHover ?? own.Hud, own.HudHover ?? own.Hud, own.Hud };
-            }
-            else
-            {
-                atlas = UIView.GetAView().defaultAtlas;
-                sprites = PickBackground(atlas);
-            }
+            // The game's round sprites in every panel look, as Play It!'s and Render It's buttons are
+            // (the looks' own "hud" sprite was a rounded square: the author's call, 2026-10-31).
+            atlas = UIView.GetAView().defaultAtlas;
+            string[] sprites = PickBackground(atlas);
             if (sprites != null)
             {
                 normalBgSprite = sprites[0];
@@ -99,7 +94,7 @@ namespace RealFlag.UI
             else
             {
                 // Without an icon the button would be an empty square, so fall back to text.
-                text = "RF";
+                text = "FM";
                 textScale = 0.8f;
             }
 

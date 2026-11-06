@@ -1,8 +1,8 @@
 # Changelog
 
-Notable changes to RealFlag. The format follows
+Notable changes to Flag Maker. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Each Workshop upload is one version
-below; the mods list shows it after the mod's name, and the first line of `RealFlag.log` gives
+below; the mods list shows it after the mod's name, and the first line of `FlagMaker.log` gives
 it with the exact build. The version is `Mod.Version` in `RealFlag/Mod.cs` (0.x while in
 development).
 
@@ -27,7 +27,7 @@ The first release.
   through its shadow too), each flag its own.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
-  Unlock range). The cloth keeps off its pole. A banner hoisted from its top has no pole.
+  Allow taller poles). The cloth keeps off its pole. A banner hoisted from its top has no pole.
 - **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default).
 - **Cloth detail** from Low to Extreme, finer near the camera. With more flags in view than the
   CPU has time for, the smallest on the screen go coarser and slower first, so every flag keeps
@@ -44,6 +44,13 @@ The first release.
   lean it, and every design setting applies to it live.
 - **Move It** moves, copies, pastes and undoes flags with their designs. Procedural Objects'
   conversion leaves flags as they are.
+
+### The panel
+
+- **The mod's icon** sits in Unified UI, on the Toolbar as a button of its own, or nowhere (the key
+  still opens the panel): **Where to show mod icon** in the mod's options.
+- **In four languages**: English, Spanish, French and Simplified Chinese, following the game's
+  language or your choice in the options.
 
 ### Saved with the city
 

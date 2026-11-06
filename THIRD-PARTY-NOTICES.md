@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-RealFlag is an unofficial mod for Cities: Skylines 1. This file records what in the repository
+Flag Maker is an unofficial mod for Cities: Skylines 1. This file records what in the repository
 is not original work, and what is credited rather than incorporated.
 
 The repository contains no game code and no game assets. The game's DLLs are referenced from
@@ -23,7 +23,7 @@ ecosystem.
 
 | Asset | Source | Licence | Use |
 | --- | --- | --- | --- |
-| `RealFlag/Resources/FlagIcon.png` | Drawn by `tools/make-icon.ps1` (System.Drawing) for this mod | MIT, as the rest | The mod's button icon, embedded in the DLL |
+| `RealFlag/Resources/FlagIcon.png` (listed in `FlagIcon.lucide.txt`) | Drawn by ModsLibCS1's `tools/make-button-icon.ps1` from the path data of the [Lucide](https://lucide.dev) icon flag (lucide-static 0.460.0) | ISC, as the panel's icons below | The mod's button icon, embedded in the DLL |
 | `RealFlag/Resources/Flags/*.png`, `Flags/Small/*.png` | The world's flags from [Flagpedia.net](https://flagpedia.net) (its CDN, flagcdn.com), drawn from [Wikimedia Commons](https://commons.wikimedia.org)' vector files; fetched by `tools/fetch-flags.ps1` | Public domain: "The flag images provided on our website are in the public domain and can be used freely without restriction" ([flagpedia.net/terms](https://flagpedia.net/terms)) | The countries' flags on the cloth (640 px) and in the country picker (80 px), embedded in the DLL. 256 codes, 252 images |
 
 | The panel's icons: the tab and folder icons (`RealFlag/Resources/PanelIcons.png`, listed in `PanelIcons.lucide.txt`) and the library's glyphs (`ModsLibCS1/sprites/sheet.png`) | Drawn by the ModsLibCS1 UI library's tools (the library is compiled into the DLL) from the path data of [Lucide](https://lucide.dev) icons (lucide-static 0.460.0): flag, settings (the tabs), folder-open (the images folder's buttons); rotate-ccw, chevron-down, chevron-right, x (the library's reset, fold, dropdown, close) | ISC (copyright Lucide Contributors; portions Cole Bemis, as part of Feather, MIT); its notice follows | The panel's tab icons, the images folder's buttons, the close cross and the dropdown arrow, embedded in the DLL |

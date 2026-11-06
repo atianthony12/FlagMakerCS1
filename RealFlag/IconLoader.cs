@@ -5,7 +5,11 @@ using UnityEngine;
 
 namespace RealFlag
 {
-    /// <summary>Loads the mod icon out of the assembly's embedded resources.</summary>
+    /// <summary>
+    /// Loads the mod icon (Lucide's flag, white, 72 x 72, drawn from Resources\FlagIcon.lucide.txt by
+    /// ModsLibCS1's make-button-icon.ps1: see THIRD-PARTY-NOTICES.md) out of the assembly's embedded
+    /// resources.
+    /// </summary>
     internal static class IconLoader
     {
         private const string ResourceName = "RealFlag.Resources.FlagIcon.png";

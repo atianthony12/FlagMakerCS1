@@ -5,7 +5,7 @@ namespace RealFlag.UI
 {
     /// <summary>
     /// The settings one window's picture works through -- the New flag window's (the next flag's,
-    /// kept in RealFlag.xml) or the Flags tab's (the selected flag's, transient) -- and what the
+    /// kept in FlagMaker.xml) or the Flags tab's (the selected flag's, transient) -- and what the
     /// Image window does to them: pick a picture, lay it on the flag, turn it.
     /// </summary>
     /// <remarks>

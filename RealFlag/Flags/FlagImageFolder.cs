@@ -6,7 +6,7 @@ using ColossalFramework.IO;
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// The player's images folder, RealFlag\Images next to RealFlag.xml (in the game's own
+    /// The player's images folder, FlagMaker\Images next to FlagMaker.xml (in the game's own
     /// folder of local data: Procedural Objects keeps its textures the same way, in
     /// ProceduralObjects\Textures, and Image Overlay its pictures in a Files folder -- the author
     /// asked for their way of it): what is in it, each picture's size read from its header, its
@@ -45,13 +45,13 @@ namespace RealFlag.Flags
         /// <summary>Moves on whenever what is in the folder changes.</summary>
         public static int Version { get; private set; }
 
-        /// <summary>%LOCALAPPDATA%\Colossal Order\Cities_Skylines\RealFlag\Images on Windows.</summary>
+        /// <summary>%LOCALAPPDATA%\Colossal Order\Cities_Skylines\FlagMaker\Images on Windows.</summary>
         public static string FolderPath
         {
             get
             {
                 if (_path == null)
-                    _path = Path.Combine(Path.Combine(DataLocation.localApplicationData, "RealFlag"), "Images");
+                    _path = Path.Combine(Path.Combine(DataLocation.localApplicationData, "FlagMaker"), "Images");
                 return _path;
             }
         }

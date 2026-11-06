@@ -8,8 +8,8 @@ namespace RealFlag.UI
     /// The panel's look: the "Panel look" row (Settings.PanelSkin) read as a ModsLibCS1 skin, a
     /// Builder for it, and the few parts this mod's windows draw that the library has no row for
     /// -- a button lit as a choice made, the lists' rows, boxes and bars. Every window (the panel,
-    /// the New flag window, the Flagpole popup, the pickers, the Image window) and the HUD button
-    /// draw through ModsLibCS1; a change of look rebuilds them. (Volumetric Weather's and Real
+    /// the New flag window, the Flagpole popup, the pickers, the Image window) draws through
+    /// ModsLibCS1; a change of look rebuilds them. (Volumetric Weather's and Real
     /// Glass's PanelLook.) Vanilla draws each part as the panel did before.
     /// </summary>
     internal static class PanelLook

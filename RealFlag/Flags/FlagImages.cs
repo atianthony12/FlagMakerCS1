@@ -8,7 +8,7 @@ namespace RealFlag.Flags
 {
     /// <summary>
     /// The flags' images as textures: the countries' (FlagCountries), and the player's own
-    /// pictures (RealFlag\Images: FlagImageFolder), each made the first time a flag or the panel
+    /// pictures (FlagMaker\Images: FlagImageFolder), each made the first time a flag or the panel
     /// shows it and kept until the city unloads -- a picture of the player's also until its file
     /// changes (<see cref="ForgetUser"/>). Main thread only. Engine code, shared with the GPU
     /// preview (tools/sync-sim.ps1), which reads the countries' PNGs from the repository's folder

@@ -11,16 +11,16 @@
 #   1. Checks the release is ready: the game is closed, the git tree is committed, the ModsLibCS1
 #      submodule is pinned and pushed, Mod.Version is 1.0.0 or later and newer than the last v*
 #      tag, CHANGELOG.md has that version dated (not "unreleased"), no personal name in the repo's
-#      files, the shader bundles were built after the last shader edit, and the Workshop pieces
-#      are there (the preview image, the description within Steam's 8000 characters, this
-#      version's change note).
+#      files, every platform's shader bundle was built from the shader sources as they stand, and
+#      the Workshop pieces are there (the preview image, the description within Steam's 8000
+#      characters, this version's change note).
 #   2. Builds (which deploys to Addons\Mods) and checks the deployed DLL: it carries Mod.Version and
-#      embeds the three shader bundles, the icon, the panel's icon atlases, en.xml and every
-#      country's flag at their sizes on disk; each bundle holds every shader with real code for
-#      every API of its platform; the folder holds exactly the five shipped files, the libraries
-#      and notices as in the repo.
+#      embeds the three shader bundles, the icon, the panel's icon atlases, every language file and
+#      every country's flag at their sizes on disk; each bundle holds every shader with real code
+#      for every API of its platform (Direct3D 11, OpenGL Core, Metal); the folder holds exactly the
+#      five shipped files, the libraries and notices as in the repo.
 #   3. Runs every offline test, the Metal (Mac) and AMD compile checks of the shipped shaders
-#      included; one failure stops the release.
+#      included; one failure stops the release. All of this runs for EVERY release, the first or not.
 #   4. THE FIRST UPLOAD ($workshopId empty): stops there -- the game's Share button uploads
 #      Addons\Mods\RealFlag as it stands, and prints the steps by hand.
 #      EVERY LATER ONE: copies exactly the five shipped files into the SUBSCRIBED Workshop folder,
@@ -174,18 +174,24 @@ if ($words.Count -eq 0) {
     if ($hits.Count -gt 0) { Stop-Release "the author's name is in: $($hits -join ', ')" } else { Ok "only in README.md and LICENSE" }
 }
 
-# The DLL embeds the bundles, and build-bundle.ps1 is the only thing that makes them: a shader
-# edited after the last bundle build ships as it was before the edit, with every test green.
-Step "The shader bundles were built after the last shader edit"
-$shaderSources = @(Get-ChildItem (Join-Path $root "UnityProject\Assets\RealFlag") -File | Where-Object { $_.Extension -eq ".shader" -or $_.Extension -eq ".cginc" })
-$newest = $shaderSources | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-foreach ($b in $bundles) {
-    $file = Get-Item (Join-Path $root "RealFlag\Resources\realflag-$($b.Name).bundle") -ErrorAction SilentlyContinue
-    if (-not $file) { Stop-Release "RealFlag\Resources\realflag-$($b.Name).bundle is missing (build-bundle.ps1)"; continue }
-    if ($file.LastWriteTime -lt $newest.LastWriteTime) {
-        Stop-Release "realflag-$($b.Name).bundle ($($file.LastWriteTime)) is older than $($newest.Name) ($($newest.LastWriteTime)): run build-bundle.ps1"
-    } else { Ok "realflag-$($b.Name).bundle $($file.LastWriteTime), after $($newest.Name) $($newest.LastWriteTime)" }
+# Day to day only the Windows bundle is built (the author's call 2026-10-30): the Mac and Linux ones go
+# stale between releases, and an old Mac bundle would pass every check below (test-metal included) while
+# shipping last release's shaders. build-bundle.ps1 records what each bundle was built from. (By hash,
+# not by date: a checkout's dates say nothing. Volumetric Weather's check.)
+Step "Every platform's bundle was built from these shader sources (build-bundle.ps1, no -Only)"
+$sourcesHash = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "bundle-sources.ps1")
+$stampFile = Join-Path $root "RealFlag\Resources\bundles-built-from.txt"
+$stamps = @{}
+if (Test-Path $stampFile) {
+    foreach ($line in Get-Content $stampFile) { if ($line -match '^(win|linux|mac)\s+(\S+)') { $stamps[$Matches[1]] = $Matches[2] } }
 }
+$stale = @($bundles | ForEach-Object { $_.Name } | Where-Object { $stamps[$_] -ne $sourcesHash })
+$lost = @($bundles | ForEach-Object { $_.Name } | Where-Object { -not (Test-Path (Join-Path $root "RealFlag\Resources\realflag-$_.bundle")) })
+if ($lost.Count -gt 0) {
+    Stop-Release ("missing: " + ($lost -join ", ") + ". Run .\build-bundle.ps1, commit, run again.")
+} elseif ($stale.Count -gt 0) {
+    Stop-Release ("built from older sources (or never recorded): " + ($stale -join ", ") + ". Run .\build-bundle.ps1, commit, run again.")
+} else { Ok ("win, linux, mac from sources " + $sourcesHash.Substring(0, 12)) }
 
 # What gets pasted into the game's Share panel and dropped into its staging folder: kept in the
 # repo (docs\RELEASE-CHECKLIST.md, "Where each piece lives"). Steam counts a line break as two
@@ -244,7 +250,7 @@ if ((ReleaseOf $deployedVersion) -ne $version) {
 # The csproj embeds a bundle only if its file exists, so a missing or renamed file gives a clean
 # build, 0 warnings -- and a stand-down (no shader) on that platform. Read the DLL. From its bytes:
 # Windows' application control can block a fresh DLL loaded by path.
-Step "The deployed DLL embeds the bundles, the icons, en.xml and the countries' flags"
+Step "The deployed DLL embeds the bundles, the icons, every language file and the countries' flags"
 $asm = [System.Reflection.Assembly]::ReflectionOnlyLoad([System.IO.File]::ReadAllBytes($deployedDll))
 $resourceNames = @($asm.GetManifestResourceNames())
 $embedded = @()
@@ -254,7 +260,9 @@ $embedded += ,@("ModsLibCS1.icons.png", "RealFlag\Resources\PanelIcons.png")
 $embedded += ,@("ModsLibCS1.icons.txt", "RealFlag\Resources\PanelIcons.txt")
 $embedded += ,@("ModsLibCS1.sheet.png", "ModsLibCS1\sprites\sheet.png")
 $embedded += ,@("ModsLibCS1.sheet.txt", "ModsLibCS1\sprites\sheet.txt")
-$embedded += ,@("Localization.en.xml", "RealFlag\Localization\en.xml")
+foreach ($f in Get-ChildItem (Join-Path $root "RealFlag\Localization") -Filter *.xml) {
+    $embedded += ,@("Localization.$($f.Name)", "RealFlag\Localization\$($f.Name)")
+}
 foreach ($e in $embedded) {
     $res = $e[0]
     if ($resourceNames -notcontains $res) { Stop-Release "$res is not embedded"; continue }
@@ -380,8 +388,8 @@ if (-not $workshopId) {
     Write-Host ""
     Write-Host "By hand, in this order (docs\RELEASE-CHECKLIST.md, steps 6-8):"
     Write-Host "  1. Launch the game and load a city. The first log line must read '$version'. (Claude reads the log.)"
-    Write-Host "  2. Content Manager -> Mods -> RealFlag -> Share. Drop Workshop\PreviewImage.png into the"
-    Write-Host "     staging folder (the panel's folder button); type the title; description ="
+    Write-Host "  2. Content Manager -> Mods -> Flag Maker -> Share. Drop Workshop\PreviewImage.png into the"
+    Write-Host "     staging folder (the panel's folder button); type the title, Flag Maker; description ="
     Write-Host "     Workshop\Description.bbcode.txt; change note = Workshop\ChangeNotes\$version.bbcode.txt. Share."
     Write-Host "  3. On the Steam page: Harmony (2040656402) as a required item, screenshots, Public."
     Write-Host "     The GitHub repository public too, and ModsLibCS1 (the description links it)."
@@ -394,7 +402,7 @@ if (-not $workshopId) {
     Write-Host "  1. Skyve: the Workshop item must be ENABLED (it was disabled for development)."
     Write-Host "  2. Launch the game and load a city. The first log line must read '$version'; the settings:"
     Write-Host "     line must have nothing ignored or pulled into its range. (Claude reads the log.)"
-    Write-Host "  3. Content Manager -> Mods -> RealFlag. The button must read UPDATE."
+    Write-Host "  3. Content Manager -> Mods -> Flag Maker. The button must read UPDATE."
     Write-Host "     If it reads Share, STOP: that is a local copy and would create a second item."
     Write-Host "  4. Description = Workshop\Description.bbcode.txt; paste the change note"
     Write-Host "     (Workshop\ChangeNotes\$version.bbcode.txt); the preview image stays. Click Update."

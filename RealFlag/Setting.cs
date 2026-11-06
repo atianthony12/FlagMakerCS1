@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace RealFlag
 {
     /// <summary>
-    /// One saved setting: a value held in memory and written to RealFlag.xml by
+    /// One saved setting: a value held in memory and written to FlagMaker.xml by
     /// <see cref="SettingsXml"/>. The lower-case <c>value</c> and <c>name</c> are those of the
     /// game's SavedFloat / SavedBool / SavedInt, which these replace.
     /// </summary>
@@ -25,7 +25,7 @@ namespace RealFlag
             Registry.Add(this);
         }
 
-        /// <summary>The element name in RealFlag.xml. Permanent once players have the file.</summary>
+        /// <summary>The element name in FlagMaker.xml. Permanent once players have the file.</summary>
         public string name { get; private set; }
 
         /// <summary>

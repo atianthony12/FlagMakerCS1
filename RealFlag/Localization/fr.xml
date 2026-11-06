@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Flag Maker: every text a player reads, in French, translated from en.xml (the source for every
+  translation). Made with AI: corrections from native speakers are welcome.
+
+  To translate: copy en.xml, name it with the game's code for your language (de.xml, es.xml,
+  fr.xml, ko.xml, pl.xml, pt.xml, ru.xml, zh.xml), set code and name below, and translate the
+  text between the tags. Leave the keys alone.
+
+  - {0}, {1}... are filled in by the mod (a number, a name). Keep every one of them.
+  - A long text can be wrapped over several lines here: the break reads as one space.
+  - \n is a real line break (used in the dialogs).
+  - A key missing from a translation shows in English, so a partial translation works.
+
+  The game's own words and this mod's: flag = drapeau, flagpole = mât, cloth = tissu, pattern =
+  motif, corner box = carré d'angle, Images folder = dossier Images (its name on disk). Wind = vent,
+  gust = rafale, breeze = brise, and the wind's names as Volumetric Weather has them (calme,
+  brise, tempête, coup de vent); Fixed = Fixe. Info view = vue Infos, as Real Glass has. "Vous",
+  a space before : ; ? ! as Real Glass has. Move It, Unified UI, Volumetric Weather, Procedural
+  Objects, Extended Managers Library and Prop Anarchy stay in English.
+-->
+<Language code="fr" name="Français">
+
+  <!-- ==================== The mod ==================== -->
+
+  <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
+  <String key="Mod.Description">Drapeaux en tissu qui flottent</String>
+  <String key="Mod.Unsupported">
+    Flag Maker ne peut pas afficher les drapeaux sur cet ordinateur : il lui faut Metal ou
+    OpenGL 3.3. Vos drapeaux restent sauvegardés dans la ville.
+  </String>
+  <String key="Mod.UnsupportedWindows">
+    Flag Maker ne peut pas afficher les drapeaux sur cet ordinateur : il lui faut DirectX 11.
+    Vos drapeaux restent sauvegardés dans la ville.\n\n
+    Supprimez toute option de lancement graphique (Steam : Propriétés, Options de lancement)
+    puis redémarrez.\n\n
+    Toujours bloqué ? Signalez-le avec le journal :\n{0}
+  </String>
+  <String key="Mod.UnsupportedLinux">
+    Flag Maker ne peut pas afficher les drapeaux sur cet ordinateur : il lui faut OpenGL 3.3.
+    Vos drapeaux restent sauvegardés dans la ville.\n\n
+    Ou lancez la version Windows du jeu avec Proton.\n\n
+    Merci de signaler le problème avec le journal :\n{0}
+  </String>
+
+  <!-- A city whose flags this copy of the mod must leave alone: it stands down in the city, and
+       the flags' saved designs are written back exactly as they were loaded. -->
+  <String key="Mod.KeptUnreadable">
+    Flag Maker ne peut pas lire les drapeaux de cette ville (sauvegardés par une version plus
+    récente, ou abîmés). Le mod reste désactivé ici ; sauvegarder garde les drapeaux tels quels.\n\n
+    Redémarrez le jeu pour que Steam mette le mod à jour.\n\n
+    Toujours bloqué ? Signalez-le avec le journal :\n{0}
+  </String>
+  <String key="Mod.KeptEml">
+    Flag Maker ne gère pas encore Extended Managers Library (utilisé par Prop Anarchy). Il reste
+    désactivé ici ; sauvegarder garde les drapeaux tels quels.
+  </String>
+  <String key="Mod.KeptLost">
+    Flag Maker a perdu {0} drapeau(x) de cette ville pendant le chargement. Ne sauvegardez pas :
+    quittez, redémarrez le jeu et rechargez.\n\n
+    Toujours manquants ? Signalez-le avec le journal :\n{1}
+  </String>
+
+  <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
+  <String key="Mod.NoProcedural">Les drapeaux ne peuvent pas devenir des Procedural Objects. Ils restent tels quels.</String>
+
+  <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
+  <String key="Prop.Title">Drapeau en tissu</String>
+  <String key="Prop.Description">Un drapeau en tissu qui flotte. Modifiez-le dans le panneau Flag Maker.</String>
+
+  <!-- ==================== The in-game panel (F6) ==================== -->
+
+  <String key="Tab.Existing">Drapeaux</String>
+  <String key="Tab.Settings">Réglages</String>
+  <!-- The window "+ New flag" opens, beside the panel. -->
+  <String key="Tab.New">Nouveau drapeau</String>
+
+  <String key="Key.Press">Appuyez sur une touche</String>
+
+  <!-- A flag's design: the same controls in the New flag window and the Flags tab. -->
+  <String key="Colours.Label">Couleurs</String>
+
+  <String key="NewCountry.Label">Pays</String>
+  <String key="NewCountry.Tooltip">Le drapeau d’un vrai pays.</String>
+  <String key="SelCountry.Label">Pays</String>
+  <String key="SelCountry.Tooltip">Le drapeau d’un vrai pays.</String>
+  <!-- A picture of the player's own, from the FlagMaker\Images folder: the row's button opens the Image window, its folder button the folder. -->
+  <String key="NewImage.Label">Votre image</String>
+  <String key="NewImage.Tooltip">Votre propre image.</String>
+  <String key="SelImage.Label">Votre image</String>
+  <String key="SelImage.Tooltip">Votre propre image.</String>
+  <String key="NewPattern.Label">Motif</String>
+  <String key="NewPattern.Tooltip">Utilise les couleurs ci-dessous.</String>
+  <String key="SelPattern.Label">Motif</String>
+  <String key="SelPattern.Tooltip">Utilise les couleurs ci-dessous.</String>
+
+  <String key="Pattern.Plain">Uni</String>
+  <String key="Pattern.HorizontalBicolour">Deux bandes</String>
+  <String key="Pattern.HorizontalTricolour">Trois bandes</String>
+  <String key="Pattern.CentreBand">Large bande centrale</String>
+  <String key="Pattern.VerticalBicolour">Deux bandes verticales</String>
+  <String key="Pattern.VerticalTricolour">Trois bandes verticales</String>
+  <String key="Pattern.NordicCross">Croix nordique</String>
+  <String key="Pattern.Cross">Croix centrée</String>
+  <String key="Pattern.Saltire">Croix diagonale</String>
+  <String key="Pattern.Canton">Carré d’angle</String>
+  <String key="Pattern.StripesAndCanton">Bandes et carré d’angle</String>
+  <String key="Pattern.Disc">Cercle</String>
+  <String key="Pattern.HoistTriangle">Triangle sur le côté</String>
+  <String key="Pattern.DiagonalBand">Bande diagonale</String>
+  <String key="Pattern.Border">Bordure</String>
+
+  <String key="NewColour1.Label">Couleur 1</String>
+  <String key="NewColour1.Tooltip">Fond, première bande.</String>
+  <String key="NewColour2.Label">Couleur 2</String>
+  <String key="NewColour2.Tooltip">Deuxième bande, croix, disque.</String>
+  <String key="NewColour3.Label">Couleur 3</String>
+  <String key="NewColour3.Tooltip">Troisième bande, bordure.</String>
+  <String key="SelColour1.Label">Couleur 1</String>
+  <String key="SelColour1.Tooltip">Fond, première bande.</String>
+  <String key="SelColour2.Label">Couleur 2</String>
+  <String key="SelColour2.Tooltip">Deuxième bande, croix, disque.</String>
+  <String key="SelColour3.Label">Couleur 3</String>
+  <String key="SelColour3.Tooltip">Troisième bande, bordure.</String>
+
+  <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
+  <String key="NewShape.Label">Forme</String>
+  <String key="NewShape.Tooltip">Hauteur sur largeur.</String>
+  <String key="SelShape.Label">Forme</String>
+  <String key="SelShape.Tooltip">Hauteur sur largeur.</String>
+  <String key="NewWidth.Label">Largeur</String>
+  <String key="NewWidth.Tooltip">D’un bord à l’autre.</String>
+  <String key="SelWidth.Label">Largeur</String>
+  <String key="SelWidth.Tooltip">D’un bord à l’autre.</String>
+  <String key="NewTall.Label">Hauteur</String>
+  <String key="NewTall.Tooltip">Du haut au bas.</String>
+  <String key="SelTall.Label">Hauteur</String>
+  <String key="SelTall.Tooltip">Du haut au bas.</String>
+  <String key="LinkSize.Label">Lier largeur et hauteur</String>
+  <String key="LinkSize.Tooltip">Garde la forme.</String>
+  <String key="NewHoistedFrom.Label">Accroché par</String>
+  <String key="NewHoistedFrom.Tooltip">Le bord retenu.</String>
+  <String key="SelHoistedFrom.Label">Accroché par</String>
+  <String key="SelHoistedFrom.Tooltip">Le bord retenu.</String>
+  <String key="Hoist.Side">Côté</String>
+  <String key="Hoist.Top">Haut</String>
+
+  <!-- What the width and height set, as the settings file names it. -->
+  <String key="NewLength.Label">Nouveau drapeau : longueur du mât au bout, en mètres</String>
+  <String key="NewProportion.Label">Nouveau drapeau : bord du mât / longueur x 1000 (667 = 2:3, 1500 = 3:2)</String>
+
+  <!-- Where the new flag's picture lies on it, as the settings file names it (the Image window sets them). -->
+  <String key="NewImageX.Label">Image du nouveau drapeau : centre en largeur (0 gauche, 1 droite)</String>
+  <String key="NewImageY.Label">Image du nouveau drapeau : centre en hauteur (0 haut, 1 bas)</String>
+  <String key="NewImageZoom.Label">Image du nouveau drapeau : zoom (1 = remplit le drapeau)</String>
+  <String key="NewImageTurn.Label">Image du nouveau drapeau : quarts de tour dans le sens horaire, 0 à 3</String>
+  <String key="NewImageAlpha.Label">Image du nouveau drapeau : parties transparentes</String>
+
+  <String key="NewMotion.Label">Mouvement</String>
+  <String key="NewMotion.Tooltip">Flottant, figé ou plat.</String>
+  <String key="SelMotion.Label">Mouvement</String>
+  <String key="SelMotion.Tooltip">Flottant, figé ou plat.</String>
+  <String key="Motion.Waves">Flottant</String>
+  <String key="Motion.Still">Figé</String>
+  <String key="Motion.Flat">Plat</String>
+  <String key="NewWaviness.Label">Ondulation</String>
+  <String key="NewWaviness.Tooltip">Combien il ondule.</String>
+  <String key="SelWaviness.Label">Ondulation</String>
+  <String key="SelWaviness.Tooltip">Combien il ondule.</String>
+  <String key="NewDarkness.Label">Assombrir</String>
+  <String key="NewDarkness.Tooltip">Adoucit les couleurs vives.</String>
+  <String key="SelDarkness.Label">Assombrir</String>
+  <String key="SelDarkness.Tooltip">Adoucit les couleurs vives.</String>
+  <String key="Group.Wear">Usure</String>
+  <String key="NewWear.Label">Usé</String>
+  <String key="NewWear.Tooltip">Décoloré, bords effilochés.</String>
+  <String key="SelWear.Label">Usé</String>
+  <String key="SelWear.Tooltip">Décoloré, bords effilochés.</String>
+  <String key="NewTear.Label">Déchiré</String>
+  <String key="NewTear.Tooltip">Déchiré en lambeaux.</String>
+  <String key="SelTear.Label">Déchiré</String>
+  <String key="SelTear.Tooltip">Déchiré en lambeaux.</String>
+  <String key="NewDirt.Label">Saleté</String>
+  <String key="NewDirt.Tooltip">Crasse et traces de pluie.</String>
+  <String key="SelDirt.Label">Saleté</String>
+  <String key="SelDirt.Tooltip">Crasse et traces de pluie.</String>
+  <String key="NewHoles.Label">Trous</String>
+  <String key="NewHoles.Tooltip">Impacts, brûlures, déchirures.</String>
+  <String key="SelHoles.Label">Trous</String>
+  <String key="SelHoles.Tooltip">Impacts, brûlures, déchirures.</String>
+
+  <!-- The Flagpole button of each window, and its popup. -->
+  <String key="NewPoleButton.Label">Mât</String>
+  <String key="NewPoleButton.Tooltip">Mât, cordes, inclinaison.</String>
+  <String key="SelPoleButton.Label">Mât</String>
+  <String key="SelPoleButton.Tooltip">Mât, cordes, inclinaison.</String>
+  <String key="PoleButton.None">Mât : aucun</String>
+  <!-- A flag hoisted from its top has no pole (its choice kept for the side). -->
+  <String key="PoleButton.Top">Mât : aucun (accroché par le haut)</String>
+  <!-- A crossbar (a pole tilted past 60 degrees): its length is found along to its wall. -->
+  <String key="PoleButton.Pole">Mât : {0}, cordes : {1}</String>
+  <!-- A pole that stands: its style, its height (metres), its ropes. -->
+  <String key="PoleButton.Tall">Mât : {0}, {1} m, cordes : {2}</String>
+  <String key="PoleButton.Tilted">, incliné {0}° / {1}°</String>
+  <String key="Tab.PoleNew">Mât du nouveau drapeau</String>
+  <String key="Tab.PoleExisting">Mât du drapeau choisi</String>
+
+  <String key="NewPole.Label">Mât</String>
+  <String key="NewPole.Tooltip">Style, ou aucun.</String>
+  <String key="SelPole.Label">Mât</String>
+  <String key="SelPole.Tooltip">Style, ou aucun.</String>
+  <String key="Pole.None">Aucun</String>
+  <String key="Pole.Ball">Sommet boule</String>
+  <String key="Pole.Flat">Sommet plat</String>
+  <String key="Pole.Spear">Sommet en pointe</String>
+
+  <String key="NewRopes.Label">Cordes</String>
+  <String key="NewRopes.Tooltip">Drapeau fixé à une corde.</String>
+  <String key="SelRopes.Label">Cordes</String>
+  <String key="SelRopes.Tooltip">Drapeau fixé à une corde.</String>
+  <String key="Ropes.None">Aucune</String>
+  <String key="Ropes.One">Une</String>
+  <String key="Ropes.Two">Deux</String>
+
+  <String key="NewPoleColour.Label">Couleur du mât</String>
+  <String key="NewPoleColour.Tooltip">Mât, embout, pied.</String>
+  <String key="NewTopColour.Label">Couleur du sommet</String>
+  <String key="NewTopColour.Tooltip">Boule ou pointe.</String>
+  <String key="NewRopeColour.Label">Couleur des cordes</String>
+  <String key="NewRopeColour.Tooltip">Les cordes.</String>
+  <String key="SelPoleColour.Label">Couleur du mât</String>
+  <String key="SelPoleColour.Tooltip">Mât, embout, pied.</String>
+  <String key="SelTopColour.Label">Couleur du sommet</String>
+  <String key="SelTopColour.Tooltip">Boule ou pointe.</String>
+  <String key="SelRopeColour.Label">Couleur des cordes</String>
+  <String key="SelRopeColour.Tooltip">Les cordes.</String>
+
+  <String key="NewPoleThickness.Label">Épaisseur</String>
+  <String key="NewPoleThickness.Tooltip">100 % a l’air réaliste.</String>
+  <String key="SelPoleThickness.Label">Épaisseur</String>
+  <String key="SelPoleThickness.Tooltip">100 % a l’air réaliste.</String>
+
+  <String key="NewTilt.Label">Inclinaison</String>
+  <String key="NewTilt.Tooltip">Penche vers le drapeau.</String>
+  <String key="SelTilt.Label">Inclinaison</String>
+  <String key="SelTilt.Tooltip">Penche vers le drapeau.</String>
+  <String key="NewLean.Label">Pencher</String>
+  <String key="NewLean.Tooltip">Penche sur le côté.</String>
+  <String key="SelLean.Label">Pencher</String>
+  <String key="SelLean.Tooltip">Penche sur le côté.</String>
+  <String key="PoleToGround.Label">Mât jusqu’au sol</String>
+  <String key="PoleToGround.Tooltip">L’étire jusqu’au sol.</String>
+
+  <String key="NewRotation.Label">Rotation</String>
+  <String key="NewRotation.Tooltip">Vers où il pointe.</String>
+  <String key="SelRotation.Label">Rotation</String>
+  <String key="SelRotation.Tooltip">Vers où il pointe.</String>
+
+  <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
+  <String key="NewHeight.Label">Hauteur du mât</String>
+  <String key="NewHeight.Tooltip">Pied au haut du drapeau.</String>
+  <String key="SelHeight.Label">Hauteur du mât</String>
+  <String key="SelHeight.Tooltip">Le pied reste en place.</String>
+  <!-- Under the pole height in both Flagpole popups: its slider to 200 m instead of 50 m (Settings.Defaults.LockedHeight / MaxNewHeight). -->
+  <String key="UnlockPoleHeight.Label">Mâts plus hauts</String>
+  <String key="UnlockPoleHeight.Tooltip">Jusqu’à 200 m.</String>
+
+  <!-- The Flags tab. -->
+  <String key="NewFlag.Label">+ Nouveau drapeau</String>
+  <String key="NewFlag.Tooltip">Placer un nouveau drapeau.</String>
+  <String key="Existing.Empty">Aucun drapeau. Cliquez sur + Nouveau drapeau.</String>
+  <String key="Existing.NoneSelected">Rien de choisi. Cliquez un drapeau ci-dessus, ou choisissez-en un sur la carte.</String>
+  <String key="Existing.Selected">{0} à x {1}, z {2}, {3} m de haut.</String>
+  <String key="Flag.Title">Drapeau {0}</String>
+
+  <String key="GoToFlag.Label">Aller à</String>
+  <String key="GoToFlag.Tooltip">Déplace la caméra ici.</String>
+  <String key="PickFlag.Label">Choisir sur la carte</String>
+  <String key="PickFlag.Tooltip">Cliquez un drapeau pour choisir.</String>
+  <String key="CopyToNew.Label">Copier</String>
+  <String key="CopyToNew.Tooltip">En placer un semblable.</String>
+  <String key="DeleteFlag.Label">Supprimer</String>
+  <String key="DeleteFlag.Tooltip">Supprime ce drapeau.</String>
+  <String key="DeleteFlag.Confirm">Supprimer ce drapeau ?</String>
+
+  <!-- Status lines. -->
+  <String key="Status.Flags">Drapeaux : {0}, dans la vue : {1}.</String>
+  <String key="Status.NoCity">Aucune ville chargée.</String>
+  <String key="Status.Failed">Les drapeaux ne peuvent pas être affichés ici. Voir le journal.</String>
+  <String key="Status.NoPrefab">Le drapeau n’a pas pu être chargé. Voir le journal.</String>
+
+  <!-- The tool's hints at the cursor. -->
+  <String key="Tool.PlaceHint">Cliquez pour placer. Clic droit pour tourner. {0} pour monter ou descendre (Maj plus vite, Alt plus fin).</String>
+  <String key="Tool.Raised">Relevé de {0} m</String>
+  <String key="Tool.Lowered">Abaissé de {0} m</String>
+  <String key="Tool.NoPrefab">Impossible de placer des drapeaux ici. Voir le journal.</String>
+  <String key="Tool.PickHint">Cliquez pour choisir</String>
+  <String key="Tool.PickNone">Pointez un drapeau</String>
+  <String key="Tool.SelectedHint">Glissez les flèches pour déplacer, les anneaux pour tourner. {0} pour monter ou descendre. Ctrl pour aligner, Maj pour plus fin. Échap pour désélectionner.</String>
+
+  <!-- The gizmo on the selected flag: what a handle does, and what a drag has done. -->
+  <String key="Gizmo.HintX">Avancer ou reculer</String>
+  <String key="Gizmo.HintY">Monter ou descendre</String>
+  <String key="Gizmo.HintZ">Aller de côté</String>
+  <String key="Gizmo.HintPlane">Déplacer à cette hauteur</String>
+  <String key="Gizmo.HintHeading">Tourner</String>
+  <String key="Gizmo.HintTilt">Incliner le mât</String>
+  <String key="Gizmo.HintLean">Pencher le mât</String>
+  <String key="Gizmo.Moved">Déplacé de {0} m ({1} m de haut)</String>
+  <String key="Gizmo.Heading">Pointe vers {0}°</String>
+  <String key="Gizmo.Tilt">Incliné de {0}°</String>
+  <String key="Gizmo.Lean">Penché de {0}°</String>
+
+  <!-- The colour picker. -->
+  <String key="Picker.Hue">Teinte</String>
+  <String key="Picker.Saturation">Saturation</String>
+  <String key="Picker.Brightness">Luminosité</String>
+  <String key="Picker.Done">OK</String>
+  <String key="Picker.HexTip">Tapez ou collez #RRGGBB.</String>
+  <String key="Picker.Copy">Copier</String>
+  <String key="Picker.CopyTip">Copie le code.</String>
+  <String key="Picker.Paste">Coller</String>
+  <String key="Picker.PasteTip">Colle un code.</String>
+  <String key="Country.None">Aucun (utiliser un motif)</String>
+  <String key="Country.Search">Rechercher</String>
+
+  <!-- The Image window: your pictures, and where one lies on the flag. {0} of Image.Row is a file name, {1} and {2} its size in pixels. -->
+  <String key="Image.TitleNew">Image du nouveau drapeau</String>
+  <String key="Image.TitleExisting">Image du drapeau choisi</String>
+  <String key="Image.Open">Ouvrir le dossier Images</String>
+  <String key="Image.OpenTip">Mettez-y des fichiers .png ou .jpg.</String>
+  <String key="Image.Hint">Mettez des fichiers .png ou .jpg dans le dossier Images : ils apparaîtront ici.</String>
+  <String key="Image.Empty">Aucune image. Ouvrez le dossier et mettez-y des fichiers .png ou .jpg.</String>
+  <String key="Image.None">Aucune</String>
+  <String key="Image.NoneRow">Aucune (motif ou pays)</String>
+  <String key="Image.Row">{0} ({1} × {2})</String>
+  <String key="Image.Missing">{0} (absente)</String>
+  <String key="Image.Drag">Glissez pour déplacer, molette pour zoomer.</String>
+  <String key="Image.DragTip">Glisser déplace, molette zoome.</String>
+  <String key="Image.Zoom">Zoom</String>
+  <String key="Image.ZoomTip">100 % remplit le drapeau.</String>
+  <String key="Image.Fill">Remplir</String>
+  <String key="Image.FillTip">Remplit le drapeau, rogné.</String>
+  <String key="Image.Whole">Image entière</String>
+  <String key="Image.WholeTip">Montre tout.</String>
+  <String key="Image.Turn">Tourner de 90°</String>
+  <String key="Image.TurnTip">Quart de tour horaire.</String>
+  <String key="Image.Shape">Prendre sa forme : {0}</String>
+  <String key="Image.ShapeNone">Prendre sa forme</String>
+  <String key="Image.ShapeTip">Le drapeau prend sa forme.</String>
+  <String key="Image.SeeThrough">Parties transparentes</String>
+  <String key="Image.Cut">Découper</String>
+  <String key="Image.CutTip">Elles deviennent des trous.</String>
+  <String key="Image.Through">Montrer le drapeau</String>
+  <String key="Image.ThroughTip">Le drapeau se voit au travers.</String>
+
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <String key="Group.Wind">Vent</String>
+  <String key="WindFromGame.Label">Utiliser le vent du jeu</String>
+  <String key="WindFromGame.Tooltip">Ou celui de Volumetric Weather.</String>
+  <String key="GameWindNow.Status">Maintenant {0} à 10 m, vers {1}°</String>
+  <String key="GameWindNow.Weather">Volumetric Weather : {0} à 10 m, vers {1}°</String>
+  <String key="GameWindNow.WeatherSet">Volumetric Weather, réglé dans son onglet Actuel : {0}, vers {1}°</String>
+  <String key="GameWindNow.Rain">, pluie +{0} %</String>
+  <String key="GameWindNow.Fog">, brouillard -{0} %</String>
+  <String key="GameWindNow.Own">Votre propre vent, ci-dessous</String>
+  <String key="GameWindNow.NoCity">Le vent du jeu, une fois une ville chargée</String>
+  <String key="WindSpeed.Label">Vitesse du vent</String>
+  <String key="WindSpeed.Tooltip">À 10 m de haut.</String>
+  <String key="WindGusts.Label">Rafales</String>
+  <String key="WindGusts.Tooltip">100 % : une ville typique.</String>
+  <String key="WindMode.Label">Direction</String>
+  <String key="WindMode.Tooltip">Où flottent les drapeaux.</String>
+  <String key="WindMode.EachFlag">Vers où pointe chaque drapeau</String>
+  <String key="WindMode.Fixed">Fixe</String>
+  <String key="WindMode.Game">Celle du jeu</String>
+  <String key="WindDirection.Label">Angle</String>
+  <String key="WindDirection.Tooltip">Utilisé seulement si Fixe.</String>
+
+  <!-- ==================== The game's options page ==================== -->
+
+  <String key="Group.Language">Langue</String>
+  <String key="Language.Label">Langue</String>
+  <String key="Language.Tooltip">Langue de ce mod.</String>
+  <String key="Language.Game">Comme le jeu</String>
+
+  <String key="Group.Panel">Panneau en jeu</String>
+  <String key="ToggleKey.Label">Ouvrir le panneau</String>
+  <String key="ToggleKey.Tooltip">Cliquez, puis tapez une touche.</String>
+  <String key="IconPlace.Label">Où afficher l’icône du mod</String>
+  <String key="IconPlace.Tooltip">La touche l’ouvre toujours.</String>
+  <String key="IconPlace.UnifiedUI">Unified UI</String>
+  <String key="IconPlace.Toolbar">Barre d’outils</String>
+  <String key="IconPlace.Never">Jamais</String>
+
+  <!-- The panel's look, every window of it. Vanilla is the game's own look. -->
+  <String key="PanelSkin.Label">Style du panneau</String>
+  <String key="PanelSkin.Tooltip">Apparence des fenêtres.</String>
+  <String key="PanelSkin.Frosted">Verre dépoli</String>
+  <String key="PanelSkin.SeeThrough">Transparent</String>
+  <String key="PanelSkin.GameBlue">Bleu</String>
+  <String key="PanelSkin.Vanilla">Standard du jeu</String>
+
+  <String key="Group.Flags">Drapeaux</String>
+  <String key="FreezeWhenPaused.Label">Figer les drapeaux en pause</String>
+  <String key="FreezeWhenPaused.Tooltip">Pratique pour les captures.</String>
+
+  <!-- On the options page and in the in-game panel's Settings tab. -->
+  <String key="Group.Cloth">Tissu</String>
+  <String key="ClothDetail.Label">Détail du tissu</String>
+  <String key="ClothDetail.Tooltip">Meilleur, mais plus coûteux.</String>
+  <String key="ClothDetail.Low">Faible</String>
+  <String key="ClothDetail.Medium">Moyen</String>
+  <String key="ClothDetail.High">Élevé</String>
+  <String key="ClothDetail.VeryHigh">Très élevé</String>
+  <String key="ClothDetail.Ultra">Ultra</String>
+  <String key="ClothDetail.Extreme">Extrême</String>
+  <String key="SelfCollision.Label">Le tissu se heurte à lui-même</String>
+  <String key="SelfCollision.Tooltip">Évite que les plis se traversent.</String>
+  <String key="CityCollision.Label">Le tissu évite bâtiments, objets et arbres</String>
+  <String key="CityCollision.Tooltip">Empêche de les traverser.</String>
+  <String key="ClothThreads.Label">Threads CPU pour le tissu</String>
+  <String key="ClothThreads.Tooltip">Plus de mouvements, plus de CPU.</String>
+  <!-- {0}: how many threads Auto takes on this machine. -->
+  <String key="ClothThreads.Auto">Auto ({0})</String>
+  <String key="SharedMotion.Label">Mouvement partagé</String>
+  <String key="SharedMotion.Tooltip">Drapeaux semblables, même mouvement.</String>
+
+  <String key="Group.Diagnostics">Diagnostic</String>
+  <String key="DetailedLogging.Label">Journal détaillé</String>
+  <String key="DetailedLogging.Tooltip">Pour signaler des bugs.</String>
+
+  <String key="Group.StartingOver">Recommencer</String>
+  <String key="ResetAll.Label">Réinitialiser tous les réglages</String>
+  <String key="ResetAll.Tooltip">Vos drapeaux restent intacts.</String>
+  <String key="ResetAll.Confirm">Remettre tous les réglages par défaut ? Vos drapeaux restent.</String>
+
+  <!-- ==================== No row in either UI ==================== -->
+
+  <String key="HudButtonX.Label">Icône de la barre d’outils : distance depuis la gauche</String>
+  <String key="HudButtonY.Label">Icône de la barre d’outils : distance depuis le haut</String>
+
+  <!-- ==================== Slider readouts ==================== -->
+
+  <String key="Unit.Percent">{0} %</String>
+  <String key="Unit.Metres">{0} m</String>
+  <String key="Unit.MetresShape">{0} m · {1}</String>
+  <String key="Unit.Size">{0} × {1} m</String>
+  <String key="Unit.Degrees">{0}°</String>
+  <String key="Unit.Wind">{0} m/s · Bf {1}</String>
+
+  <!-- ==================== The settings file (FlagMaker.xml) ==================== -->
+  <!-- Comments the mod writes into the player's settings file. The names of the settings in
+       that file are not translated. One line of the file per \n. -->
+  <String key="File.Header">
+    Réglages Flag Maker : le vent, le dessin du prochain drapeau, le mod. Vos drapeaux sont
+    sauvegardés avec votre ville, pas ici.\n
+    \n
+    Modifiez-le pendant que le jeu tourne : les changements s’appliquent en moins d’une seconde.\n
+    \n
+    - Les décimales s’écrivent avec un point : 0.5.\n
+    - Les pourcentages comme le curseur les affiche : 47 veut dire 47 %.\n
+    - Les couleurs en #RRGGBB.\n
+    - Les valeurs hors limites sont ramenées dans les limites ; les valeurs illisibles et les
+    noms inconnus sont ignorés (FlagMaker.log dit lesquels).\n
+    - Une ligne absente garde sa valeur actuelle.\n
+    - Un fichier illisible est laissé intact (le journal le signale).\n
+    - Le mod réécrit ce fichier à chaque changement : vos notes personnelles sont perdues.\n
+    - Supprimez-le, jeu fermé, pour tout réinitialiser.
+  </String>
+  <String key="File.Section.Panel">Panneau en jeu : {0}</String>
+  <String key="File.Section.Options">La page d’options du jeu</String>
+  <String key="File.Section.None">Sur aucune des deux pages</String>
+  <String key="File.Percent">{0}, en %. {1} à {2}, par défaut {3}.</String>
+  <String key="File.Number">{0}. {1} à {2}{3}, par défaut {4}.</String>
+  <String key="File.AnyNumber">{0}. Par défaut {1}.</String>
+  <String key="File.Readout">(curseur : {0} à {1})</String>
+  <String key="File.Toggle">{0}. true ou false, par défaut {1}.</String>
+  <String key="File.Choice">{0}. Une de {1} ; par défaut {2}.</String>
+  <String key="File.Colour">{0}. Une couleur #RRGGBB ; par défaut {1}.</String>
+  <String key="File.Country">{0}. Un code de pays (fr, de, gb-sct, eu ...) ou none ; par défaut {1}.</String>
+  <String key="File.Image">{0}. Le nom d’un fichier du dossier Images, ou none ; par défaut {1}.</String>
+  <String key="File.Key">{0}. Une touche comme F6 ou Ctrl+Shift+F, ou None ; par défaut {1}.</String>
+</Language>

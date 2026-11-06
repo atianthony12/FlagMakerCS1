@@ -10,7 +10,7 @@ using RealFlag.UI;
 namespace RealFlag
 {
     /// <summary>
-    /// RealFlag.xml, next to the log: every setting, in a file a player can open and
+    /// FlagMaker.xml, next to the log: every setting, in a file a player can open and
     /// edit -- with the game running, too. The same design as Volumetric Weather's settings file.
     /// </summary>
     /// <remarks>
@@ -37,7 +37,7 @@ namespace RealFlag
     /// </remarks>
     public static class SettingsXml
     {
-        public const string FileName = "RealFlag.xml";
+        public const string FileName = "FlagMaker.xml";
 
         private const float SaveDelay = 1f;
         private const float FileCheckInterval = 1f;

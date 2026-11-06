@@ -2,9 +2,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using RealFlag;
 
-[assembly: AssemblyTitle("RealFlag")]
+[assembly: AssemblyTitle(Mod.DisplayName)]
 [assembly: AssemblyDescription("Realistic cloth flags that wave in the wind.")]
-[assembly: AssemblyProduct("RealFlag")]
+[assembly: AssemblyProduct(Mod.DisplayName)]
 [assembly: ComVisible(false)]
 
 // The release is Mod.Version; the wildcard fills the fourth part with the time of day

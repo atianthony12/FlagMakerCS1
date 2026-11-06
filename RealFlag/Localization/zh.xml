@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Flag Maker: every text a player reads, in Simplified Chinese, translated from en.xml (the
+  source for every translation). Made with AI: corrections from native speakers are welcome.
+
+  To translate: copy en.xml, name it with the game's code for your language (de.xml, es.xml,
+  fr.xml, ko.xml, pl.xml, pt.xml, ru.xml, zh.xml), set code and name below, and translate the
+  text between the tags. Leave the keys alone.
+
+  - {0}, {1}... are filled in by the mod (a number, a name). Keep every one of them.
+  - A long text can be wrapped over several lines here: the break reads as one space. So in
+    Chinese, a text is wrapped only right after a \n (the spaces around a \n are dropped).
+  - \n is a real line break.
+  - A key missing from a translation shows in English, so a partial translation works.
+
+  The game's own words: mod = 模组, options page = 选项页面, Workshop = Workshop, Toolbar =
+  工具栏. Flag = 旗帜, flagpole = 旗杆, cloth = 布料, wind = 风. The mod's name stays in English.
+  Keep every text short: say it in as few words as get the message across.
+  Tooltips: a few words at most. Say only what the label leaves out. Everyday words.
+-->
+<Language code="zh" name="简体中文">
+
+  <!-- ==================== The mod ==================== -->
+
+  <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
+  <String key="Mod.Description">在风中飘动的布旗</String>
+  <String key="Mod.Unsupported">Flag Maker 无法在此电脑上绘制旗帜：需要 Metal 或 OpenGL 3.3。你的旗帜仍保存在城市中。</String>
+  <String key="Mod.UnsupportedWindows">
+    Flag Maker 无法在此电脑上绘制旗帜：需要 DirectX 11。你的旗帜仍保存在城市中。\n\n
+    移除任何图形启动选项（Steam：属性 → 启动选项），然后重启游戏。\n\n
+    仍然无法解决？请附上日志报告：\n{0}
+  </String>
+  <String key="Mod.UnsupportedLinux">
+    Flag Maker 无法在此电脑上绘制旗帜：需要 OpenGL 3.3。你的旗帜仍保存在城市中。\n\n
+    也可以通过 Proton 运行游戏的 Windows 版本。\n\n
+    请附上日志报告：\n{0}
+  </String>
+
+  <!-- A city whose flags this copy of the mod must leave alone: it stands down in the city, and
+       the flags' saved designs are written back exactly as they were loaded. -->
+  <String key="Mod.KeptUnreadable">
+    Flag Maker 无法读取此城市的旗帜（由较新版本保存，或已损坏）。它在此城市中停止工作；保存时会原样保留旗帜。\n\n
+    重启游戏，让 Steam 更新模组。\n\n
+    仍然无法解决？请附上日志报告：\n{0}
+  </String>
+  <String key="Mod.KeptEml">
+    Flag Maker 暂不支持 Extended Managers Library（Prop Anarchy 使用）。它在此城市中停止工作；保存时会原样保留旗帜。
+  </String>
+  <String key="Mod.KeptLost">
+    Flag Maker 加载此城市时丢失了 {0} 面旗帜。请不要保存：退出游戏，重启后再次加载。\n\n
+    仍然缺失？请附上日志报告：\n{1}
+  </String>
+
+  <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
+  <String key="Mod.NoProcedural">旗帜不能变成 Procedural Objects，它们保持原样。</String>
+
+  <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
+  <String key="Prop.Title">布旗</String>
+  <String key="Prop.Description">一面飘动的布旗。在 Flag Maker 面板中编辑。</String>
+
+  <!-- ==================== The in-game panel (F6) ==================== -->
+
+  <String key="Tab.Existing">旗帜</String>
+  <String key="Tab.Settings">设置</String>
+  <!-- The window "+ New flag" opens, beside the panel. -->
+  <String key="Tab.New">新建旗帜</String>
+
+  <String key="Key.Press">按下一个键</String>
+
+  <!-- A flag's design: the same controls in the New flag window and the Flags tab. -->
+  <String key="Colours.Label">颜色</String>
+
+  <String key="NewCountry.Label">国家</String>
+  <String key="NewCountry.Tooltip">真实国家的国旗。</String>
+  <String key="SelCountry.Label">国家</String>
+  <String key="SelCountry.Tooltip">真实国家的国旗。</String>
+  <!-- A picture of the player's own, from the FlagMaker\Images folder: the row's button opens the Image window, its folder button the folder. -->
+  <String key="NewImage.Label">你的图片</String>
+  <String key="NewImage.Tooltip">你自己的图片。</String>
+  <String key="SelImage.Label">你的图片</String>
+  <String key="SelImage.Tooltip">你自己的图片。</String>
+  <String key="NewPattern.Label">图案</String>
+  <String key="NewPattern.Tooltip">使用下方的颜色。</String>
+  <String key="SelPattern.Label">图案</String>
+  <String key="SelPattern.Tooltip">使用下方的颜色。</String>
+
+  <String key="Pattern.Plain">纯色</String>
+  <String key="Pattern.HorizontalBicolour">两条横带</String>
+  <String key="Pattern.HorizontalTricolour">三条横带</String>
+  <String key="Pattern.CentreBand">宽中央横带</String>
+  <String key="Pattern.VerticalBicolour">两条竖带</String>
+  <String key="Pattern.VerticalTricolour">三条竖带</String>
+  <String key="Pattern.NordicCross">北欧十字</String>
+  <String key="Pattern.Cross">居中十字</String>
+  <String key="Pattern.Saltire">斜十字</String>
+  <String key="Pattern.Canton">角块</String>
+  <String key="Pattern.StripesAndCanton">条纹加角块</String>
+  <String key="Pattern.Disc">圆形</String>
+  <String key="Pattern.HoistTriangle">侧边三角</String>
+  <String key="Pattern.DiagonalBand">斜带</String>
+  <String key="Pattern.Border">边框</String>
+
+  <String key="NewColour1.Label">颜色 1</String>
+  <String key="NewColour1.Tooltip">底色，第一条带。</String>
+  <String key="NewColour2.Label">颜色 2</String>
+  <String key="NewColour2.Tooltip">第二条带、十字、圆形。</String>
+  <String key="NewColour3.Label">颜色 3</String>
+  <String key="NewColour3.Tooltip">第三条带、边框。</String>
+  <String key="SelColour1.Label">颜色 1</String>
+  <String key="SelColour1.Tooltip">底色，第一条带。</String>
+  <String key="SelColour2.Label">颜色 2</String>
+  <String key="SelColour2.Tooltip">第二条带、十字、圆形。</String>
+  <String key="SelColour3.Label">颜色 3</String>
+  <String key="SelColour3.Tooltip">第三条带、边框。</String>
+
+  <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
+  <String key="NewShape.Label">形状</String>
+  <String key="NewShape.Tooltip">高与宽之比。</String>
+  <String key="SelShape.Label">形状</String>
+  <String key="SelShape.Tooltip">高与宽之比。</String>
+  <String key="NewWidth.Label">宽度</String>
+  <String key="NewWidth.Tooltip">左右的宽度。</String>
+  <String key="SelWidth.Label">宽度</String>
+  <String key="SelWidth.Tooltip">左右的宽度。</String>
+  <String key="NewTall.Label">高度</String>
+  <String key="NewTall.Tooltip">上下的高度。</String>
+  <String key="SelTall.Label">高度</String>
+  <String key="SelTall.Tooltip">上下的高度。</String>
+  <String key="LinkSize.Label">宽高一起变</String>
+  <String key="LinkSize.Tooltip">保持形状。</String>
+  <String key="NewHoistedFrom.Label">悬挂边</String>
+  <String key="NewHoistedFrom.Tooltip">被握住的那一边。</String>
+  <String key="SelHoistedFrom.Label">悬挂边</String>
+  <String key="SelHoistedFrom.Tooltip">被握住的那一边。</String>
+  <String key="Hoist.Side">侧边</String>
+  <String key="Hoist.Top">顶边</String>
+
+  <!-- What the width and height set, as the settings file names it. -->
+  <String key="NewLength.Label">新旗帜：从旗杆到末端的长度，单位米</String>
+  <String key="NewProportion.Label">新旗帜：旗杆边 / 长度 × 1000（667 = 2:3，1500 = 3:2）</String>
+
+  <!-- Where the new flag's picture lies on it, as the settings file names it (the Image window sets them). -->
+  <String key="NewImageX.Label">新旗帜的图片：旗帜中心的横向位置（0 左，1 右）</String>
+  <String key="NewImageY.Label">新旗帜的图片：旗帜中心的纵向位置（0 上，1 下）</String>
+  <String key="NewImageZoom.Label">新旗帜的图片：缩放（1 = 充满旗帜）</String>
+  <String key="NewImageTurn.Label">新旗帜的图片：顺时针转的四分之一圈数，0 到 3</String>
+  <String key="NewImageAlpha.Label">新旗帜的图片：透明部分</String>
+
+  <String key="NewMotion.Label">飘动方式</String>
+  <String key="NewMotion.Tooltip">飘动、静止或平放。</String>
+  <String key="SelMotion.Label">飘动方式</String>
+  <String key="SelMotion.Tooltip">飘动、静止或平放。</String>
+  <String key="Motion.Waves">飘动</String>
+  <String key="Motion.Still">静止</String>
+  <String key="Motion.Flat">平放</String>
+  <String key="NewWaviness.Label">起伏程度</String>
+  <String key="NewWaviness.Tooltip">波纹有多大。</String>
+  <String key="SelWaviness.Label">起伏程度</String>
+  <String key="SelWaviness.Tooltip">波纹有多大。</String>
+  <String key="NewDarkness.Label">暗度</String>
+  <String key="NewDarkness.Tooltip">压暗鲜艳的颜色。</String>
+  <String key="SelDarkness.Label">暗度</String>
+  <String key="SelDarkness.Tooltip">压暗鲜艳的颜色。</String>
+  <String key="Group.Wear">磨损与破旧</String>
+  <String key="NewWear.Label">磨损</String>
+  <String key="NewWear.Tooltip">褪色，边缘磨毛。</String>
+  <String key="SelWear.Label">磨损</String>
+  <String key="SelWear.Tooltip">褪色，边缘磨毛。</String>
+  <String key="NewTear.Label">撕裂</String>
+  <String key="NewTear.Tooltip">撕成碎条。</String>
+  <String key="SelTear.Label">撕裂</String>
+  <String key="SelTear.Tooltip">撕成碎条。</String>
+  <String key="NewDirt.Label">脏污</String>
+  <String key="NewDirt.Tooltip">污垢和雨痕。</String>
+  <String key="SelDirt.Label">脏污</String>
+  <String key="SelDirt.Tooltip">污垢和雨痕。</String>
+  <String key="NewHoles.Label">破洞</String>
+  <String key="NewHoles.Tooltip">弹孔、烧洞、撕口。</String>
+  <String key="SelHoles.Label">破洞</String>
+  <String key="SelHoles.Tooltip">弹孔、烧洞、撕口。</String>
+
+  <!-- The Flagpole button of each window, and its popup. -->
+  <String key="NewPoleButton.Label">旗杆</String>
+  <String key="NewPoleButton.Tooltip">杆、绳索、倾斜。</String>
+  <String key="SelPoleButton.Label">旗杆</String>
+  <String key="SelPoleButton.Tooltip">杆、绳索、倾斜。</String>
+  <String key="PoleButton.None">旗杆：无</String>
+  <!-- A flag hoisted from its top has no pole (its choice kept for the side). -->
+  <String key="PoleButton.Top">旗杆：无（从顶边悬挂）</String>
+  <!-- A crossbar (a pole tilted past 60 degrees): its length is found along to its wall. -->
+  <String key="PoleButton.Pole">旗杆：{0}，绳索：{1}</String>
+  <!-- A pole that stands: its style, its height (metres), its ropes. -->
+  <String key="PoleButton.Tall">旗杆：{0}，{1} 米，绳索：{2}</String>
+  <String key="PoleButton.Tilted">，倾斜 {0}° / {1}°</String>
+  <String key="Tab.PoleNew">新旗帜的旗杆</String>
+  <String key="Tab.PoleExisting">选中旗帜的旗杆</String>
+
+  <String key="NewPole.Label">旗杆</String>
+  <String key="NewPole.Tooltip">样式，或无。</String>
+  <String key="SelPole.Label">旗杆</String>
+  <String key="SelPole.Tooltip">样式，或无。</String>
+  <String key="Pole.None">无</String>
+  <String key="Pole.Ball">球形杆顶</String>
+  <String key="Pole.Flat">平顶</String>
+  <String key="Pole.Spear">矛形杆顶</String>
+
+  <String key="NewRopes.Label">绳索</String>
+  <String key="NewRopes.Tooltip">旗子夹在绳上。</String>
+  <String key="SelRopes.Label">绳索</String>
+  <String key="SelRopes.Tooltip">旗子夹在绳上。</String>
+  <String key="Ropes.None">无</String>
+  <String key="Ropes.One">一根</String>
+  <String key="Ropes.Two">两根</String>
+
+  <String key="NewPoleColour.Label">杆的颜色</String>
+  <String key="NewPoleColour.Tooltip">杆、顶帽、底座。</String>
+  <String key="NewTopColour.Label">顶饰颜色</String>
+  <String key="NewTopColour.Tooltip">球或矛。</String>
+  <String key="NewRopeColour.Label">绳的颜色</String>
+  <String key="NewRopeColour.Tooltip">绳索。</String>
+  <String key="SelPoleColour.Label">杆的颜色</String>
+  <String key="SelPoleColour.Tooltip">杆、顶帽、底座。</String>
+  <String key="SelTopColour.Label">顶饰颜色</String>
+  <String key="SelTopColour.Tooltip">球或矛。</String>
+  <String key="SelRopeColour.Label">绳的颜色</String>
+  <String key="SelRopeColour.Tooltip">绳索。</String>
+
+  <String key="NewPoleThickness.Label">粗细</String>
+  <String key="NewPoleThickness.Tooltip">100% 较逼真。</String>
+  <String key="SelPoleThickness.Label">粗细</String>
+  <String key="SelPoleThickness.Tooltip">100% 较逼真。</String>
+
+  <String key="NewTilt.Label">倾斜</String>
+  <String key="NewTilt.Tooltip">向旗子一侧倾。</String>
+  <String key="SelTilt.Label">倾斜</String>
+  <String key="SelTilt.Tooltip">向旗子一侧倾。</String>
+  <String key="NewLean.Label">侧倾</String>
+  <String key="NewLean.Tooltip">向侧面倾。</String>
+  <String key="SelLean.Label">侧倾</String>
+  <String key="SelLean.Tooltip">向侧面倾。</String>
+  <String key="PoleToGround.Label">旗杆到地面</String>
+  <String key="PoleToGround.Tooltip">拉长到地面。</String>
+
+  <String key="NewRotation.Label">朝向</String>
+  <String key="NewRotation.Tooltip">指向哪边。</String>
+  <String key="SelRotation.Label">朝向</String>
+  <String key="SelRotation.Tooltip">指向哪边。</String>
+
+  <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
+  <String key="NewHeight.Label">杆高</String>
+  <String key="NewHeight.Tooltip">杆底到旗顶。</String>
+  <String key="SelHeight.Label">杆高</String>
+  <String key="SelHeight.Tooltip">杆底不动。</String>
+  <!-- Under the pole height in both Flagpole popups: its slider to 200 m instead of 50 m (Settings.Defaults.LockedHeight / MaxNewHeight). -->
+  <String key="UnlockPoleHeight.Label">允许更高的旗杆</String>
+  <String key="UnlockPoleHeight.Tooltip">最高 200 米。</String>
+
+  <!-- The Flags tab. -->
+  <String key="NewFlag.Label">+ 新建旗帜</String>
+  <String key="NewFlag.Tooltip">放置一面新旗帜。</String>
+  <String key="Existing.Empty">还没有旗帜。点击“+ 新建旗帜”。</String>
+  <String key="Existing.NoneSelected">未选中。点击上方的旗帜，或在地图上选择。</String>
+  <String key="Existing.Selected">{0}，位于 x {1}、z {2}，高 {3} 米。</String>
+  <String key="Flag.Title">旗帜 {0}</String>
+
+  <String key="GoToFlag.Label">前往</String>
+  <String key="GoToFlag.Tooltip">镜头移到这里。</String>
+  <String key="PickFlag.Label">在地图上选择</String>
+  <String key="PickFlag.Tooltip">点击旗帜以选中。</String>
+  <String key="CopyToNew.Label">复制</String>
+  <String key="CopyToNew.Tooltip">再放一面相同的。</String>
+  <String key="DeleteFlag.Label">删除</String>
+  <String key="DeleteFlag.Tooltip">删除这面旗帜。</String>
+  <String key="DeleteFlag.Confirm">删除这面旗帜？</String>
+
+  <!-- Status lines. -->
+  <String key="Status.Flags">旗帜：{0}，视野内：{1}。</String>
+  <String key="Status.NoCity">没有加载城市。</String>
+  <String key="Status.Failed">这里无法绘制旗帜。请查看日志。</String>
+  <String key="Status.NoPrefab">无法加载旗帜。请查看日志。</String>
+
+  <!-- The tool's hints at the cursor. -->
+  <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细）。</String>
+  <String key="Tool.Raised">已升高 {0} 米</String>
+  <String key="Tool.Lowered">已降低 {0} 米</String>
+  <String key="Tool.NoPrefab">这里无法放置旗帜。请查看日志。</String>
+  <String key="Tool.PickHint">点击选中</String>
+  <String key="Tool.PickNone">指向一面旗帜</String>
+  <String key="Tool.SelectedHint">拖动箭头移动，拖动圆环旋转。{0} 升高或降低。Ctrl 吸附，Shift 更精细。Esc 取消选中。</String>
+
+  <!-- The gizmo on the selected flag: what a handle does, and what a drag has done. -->
+  <String key="Gizmo.HintX">前后移动</String>
+  <String key="Gizmo.HintY">上下移动</String>
+  <String key="Gizmo.HintZ">左右移动</String>
+  <String key="Gizmo.HintPlane">在此高度移动</String>
+  <String key="Gizmo.HintHeading">旋转</String>
+  <String key="Gizmo.HintTilt">倾斜旗杆</String>
+  <String key="Gizmo.HintLean">侧倾旗杆</String>
+  <String key="Gizmo.Moved">已移动 {0} 米（升高 {1} 米）</String>
+  <String key="Gizmo.Heading">朝向 {0}°</String>
+  <String key="Gizmo.Tilt">已倾斜 {0}°</String>
+  <String key="Gizmo.Lean">已侧倾 {0}°</String>
+
+  <!-- The colour picker. -->
+  <String key="Picker.Hue">色相</String>
+  <String key="Picker.Saturation">饱和度</String>
+  <String key="Picker.Brightness">亮度</String>
+  <String key="Picker.Done">完成</String>
+  <String key="Picker.HexTip">输入或粘贴 #RRGGBB。</String>
+  <String key="Picker.Copy">复制</String>
+  <String key="Picker.CopyTip">复制代码。</String>
+  <String key="Picker.Paste">粘贴</String>
+  <String key="Picker.PasteTip">粘贴代码。</String>
+  <String key="Country.None">无（使用图案）</String>
+  <String key="Country.Search">搜索</String>
+
+  <!-- The Image window: your pictures, and where one lies on the flag. {0} of Image.Row is a file name, {1} and {2} its size in pixels. -->
+  <String key="Image.TitleNew">新旗帜的图片</String>
+  <String key="Image.TitleExisting">选中旗帜的图片</String>
+  <String key="Image.Open">打开 Images 文件夹</String>
+  <String key="Image.OpenTip">把 .png 或 .jpg 文件放这里。</String>
+  <String key="Image.Hint">把 .png 或 .jpg 文件放入 Images 文件夹，它们就会出现在这里。</String>
+  <String key="Image.Empty">还没有图片。打开文件夹，把 .png 或 .jpg 文件放进去。</String>
+  <String key="Image.None">无</String>
+  <String key="Image.NoneRow">无（图案或国家）</String>
+  <String key="Image.Row">{0}（{1} × {2}）</String>
+  <String key="Image.Missing">{0}（缺失）</String>
+  <String key="Image.Drag">拖动可移动图片，滚轮缩放。</String>
+  <String key="Image.DragTip">拖动移动，滚轮缩放。</String>
+  <String key="Image.Zoom">缩放</String>
+  <String key="Image.ZoomTip">100% 充满旗帜。</String>
+  <String key="Image.Fill">填满</String>
+  <String key="Image.FillTip">裁切后填满旗帜。</String>
+  <String key="Image.Whole">整张图片</String>
+  <String key="Image.WholeTip">显示全部。</String>
+  <String key="Image.Turn">旋转 90°</String>
+  <String key="Image.TurnTip">顺时针转四分之一圈。</String>
+  <String key="Image.Shape">匹配其形状：{0}</String>
+  <String key="Image.ShapeNone">匹配其形状</String>
+  <String key="Image.ShapeTip">旗帜采用图片的形状。</String>
+  <String key="Image.SeeThrough">透明部分</String>
+  <String key="Image.Cut">抠出</String>
+  <String key="Image.CutTip">变成孔洞。</String>
+  <String key="Image.Through">显示旗帜</String>
+  <String key="Image.ThroughTip">旗帜透过显示。</String>
+
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <String key="Group.Wind">风</String>
+  <String key="WindFromGame.Label">使用游戏的风</String>
+  <String key="WindFromGame.Tooltip">若已开启，则用体积天气的风。</String>
+  <String key="GameWindNow.Status">当前 10 米高处 {0}，吹向 {1}°</String>
+  <String key="GameWindNow.Weather">体积天气：10 米高处 {0}，吹向 {1}°</String>
+  <String key="GameWindNow.WeatherSet">体积天气，在其“当前”选项卡设置：{0}，吹向 {1}°</String>
+  <String key="GameWindNow.Rain">，雨 +{0}%</String>
+  <String key="GameWindNow.Fog">，雾 -{0}%</String>
+  <String key="GameWindNow.Own">你自己的风，见下方</String>
+  <String key="GameWindNow.NoCity">加载城市后显示游戏的风</String>
+  <String key="WindSpeed.Label">风速</String>
+  <String key="WindSpeed.Tooltip">10 米高处。</String>
+  <String key="WindGusts.Label">阵风</String>
+  <String key="WindGusts.Tooltip">100% 为典型城镇。</String>
+  <String key="WindMode.Label">方向</String>
+  <String key="WindMode.Tooltip">旗帜朝哪边飘。</String>
+  <String key="WindMode.EachFlag">各旗帜的朝向</String>
+  <String key="WindMode.Fixed">固定</String>
+  <String key="WindMode.Game">游戏的</String>
+  <String key="WindDirection.Label">角度</String>
+  <String key="WindDirection.Tooltip">仅在选择“固定”时使用。</String>
+
+  <!-- ==================== The game's options page ==================== -->
+
+  <String key="Group.Language">语言</String>
+  <String key="Language.Label">语言</String>
+  <String key="Language.Tooltip">本模组的语言。</String>
+  <String key="Language.Game">与游戏相同</String>
+
+  <String key="Group.Panel">游戏内面板</String>
+  <String key="ToggleKey.Label">打开面板</String>
+  <String key="ToggleKey.Tooltip">点击，再按一个键。</String>
+  <String key="IconPlace.Label">模组图标显示位置</String>
+  <String key="IconPlace.Tooltip">按键始终可打开。</String>
+  <String key="IconPlace.UnifiedUI">Unified UI</String>
+  <String key="IconPlace.Toolbar">工具栏</String>
+  <String key="IconPlace.Never">从不显示</String>
+
+  <!-- The panel's look, every window of it. Vanilla is the game's own look. -->
+  <String key="PanelSkin.Label">面板外观</String>
+  <String key="PanelSkin.Tooltip">窗口的外观。</String>
+  <String key="PanelSkin.Frosted">磨砂玻璃</String>
+  <String key="PanelSkin.SeeThrough">半透明</String>
+  <String key="PanelSkin.GameBlue">蓝色</String>
+  <String key="PanelSkin.Vanilla">原版</String>
+
+  <String key="Group.Flags">旗帜</String>
+  <String key="FreezeWhenPaused.Label">暂停时冻结旗帜</String>
+  <String key="FreezeWhenPaused.Tooltip">方便截图。</String>
+
+  <!-- On the options page and in the in-game panel's Settings tab. -->
+  <String key="Group.Cloth">布料</String>
+  <String key="ClothDetail.Label">布料细节</String>
+  <String key="ClothDetail.Tooltip">越高越好看，越耗性能。</String>
+  <String key="ClothDetail.Low">低</String>
+  <String key="ClothDetail.Medium">中</String>
+  <String key="ClothDetail.High">高</String>
+  <String key="ClothDetail.VeryHigh">很高</String>
+  <String key="ClothDetail.Ultra">极高</String>
+  <String key="ClothDetail.Extreme">极限</String>
+  <String key="SelfCollision.Label">布料与自身碰撞</String>
+  <String key="SelfCollision.Tooltip">防止褶皱互相穿过。</String>
+  <String key="CityCollision.Label">布料避开建筑、道具和树木</String>
+  <String key="CityCollision.Tooltip">防止穿过。</String>
+  <String key="ClothThreads.Label">布料使用的 CPU 线程</String>
+  <String key="ClothThreads.Tooltip">飘动的旗帜更多，占用更多 CPU。</String>
+  <!-- {0}: how many threads Auto takes on this machine. -->
+  <String key="ClothThreads.Auto">自动（{0}）</String>
+  <String key="SharedMotion.Label">共享运动</String>
+  <String key="SharedMotion.Tooltip">相似的旗帜共享运动。</String>
+
+  <String key="Group.Diagnostics">诊断</String>
+  <String key="DetailedLogging.Label">详细日志</String>
+  <String key="DetailedLogging.Tooltip">仅用于错误报告。</String>
+
+  <String key="Group.StartingOver">重置</String>
+  <String key="ResetAll.Label">重置所有设置</String>
+  <String key="ResetAll.Tooltip">旗帜保持不变。</String>
+  <String key="ResetAll.Confirm">将每项设置恢复默认？旗帜保留。</String>
+
+  <!-- ==================== No row in either UI ==================== -->
+
+  <String key="HudButtonX.Label">工具栏图标：距左边缘</String>
+  <String key="HudButtonY.Label">工具栏图标：距上边缘</String>
+
+  <!-- ==================== Slider readouts ==================== -->
+
+  <String key="Unit.Percent">{0}%</String>
+  <String key="Unit.Metres">{0} 米</String>
+  <String key="Unit.MetresShape">{0} 米 · {1}</String>
+  <String key="Unit.Size">{0} × {1} 米</String>
+  <String key="Unit.Degrees">{0}°</String>
+  <String key="Unit.Wind">{0} 米/秒 · 蒲福 {1} 级</String>
+
+  <!-- ==================== The settings file (FlagMaker.xml) ==================== -->
+  <!-- Comments the mod writes into the player's settings file. The names of the settings in
+       that file are not translated. One line of the file per \n. -->
+  <String key="File.Header">
+    Flag Maker 设置：风、下一面旗帜的设计、模组。你的旗帜保存在城市中，不在这里。\n
+    \n
+    游戏运行时可编辑此文件：保存后一秒内生效。\n
+    \n
+    - 小数用点：0.5。\n
+    - 百分比按滑块显示的数字填写：47 表示 47%。\n
+    - 颜色写作 #RRGGBB。\n
+    - 超出范围的值会被拉回范围内；无法读取的值和不认识的名称会被忽略（FlagMaker.log 会说明）。\n
+    - 缺少某行时保留当前值。\n
+    - 无法读取的文件不会被改动（日志会说明）。\n
+    - 模组每次改动都会重写此文件：你自己的备注会丢失。\n
+    - 关闭游戏后删除此文件，可全部恢复默认。
+  </String>
+  <String key="File.Section.Panel">游戏内面板：{0}</String>
+  <String key="File.Section.Options">游戏选项页面</String>
+  <String key="File.Section.None">两个页面都不显示</String>
+  <String key="File.Percent">{0}，单位 %。{1} 到 {2}，默认 {3}。</String>
+  <String key="File.Number">{0}。{1} 到 {2}{3}，默认 {4}。</String>
+  <String key="File.AnyNumber">{0}。默认 {1}。</String>
+  <String key="File.Readout">（滑块：{0} 到 {1}）</String>
+  <String key="File.Toggle">{0}。true 或 false，默认 {1}。</String>
+  <String key="File.Choice">{0}。可选 {1}；默认 {2}。</String>
+  <String key="File.Colour">{0}。颜色 #RRGGBB；默认 {1}。</String>
+  <String key="File.Country">{0}。国家代码（fr、de、gb-sct、eu ...）或 none；默认 {1}。</String>
+  <String key="File.Image">{0}。Images 文件夹中图片的文件名，或 none；默认 {1}。</String>
+  <String key="File.Key">{0}。按键，如 F6 或 Ctrl+Shift+F，或 None；默认 {1}。</String>
+</Language>

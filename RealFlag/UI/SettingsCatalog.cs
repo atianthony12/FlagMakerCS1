@@ -172,7 +172,7 @@ namespace RealFlag.UI
         /// <summary>True while this row's confirmation dialog is open (the stored value is still the old one).</summary>
         public bool Pending;
 
-        /// <summary>The name this row is stored under in RealFlag.xml and the log, and its key in the language files.</summary>
+        /// <summary>The name this row is stored under in FlagMaker.xml and the log, and its key in the language files.</summary>
         public string Name
         {
             get
@@ -378,7 +378,7 @@ namespace RealFlag.UI
 
     /// <summary>
     /// Every setting in the mod, once, with where it is shown and what its default is. Both UIs
-    /// are drawn from this list, RealFlag.xml is written from it and Reset walks it (Volumetric
+    /// are drawn from this list, FlagMaker.xml is written from it and Reset walks it (Volumetric
     /// Weather's design).
     /// </summary>
     /// <remarks>
@@ -733,7 +733,7 @@ namespace RealFlag.UI
         {
             Settings.Init();
 
-            // A first Init reads RealFlag.xml, which is written from this list, so it may have
+            // A first Init reads FlagMaker.xml, which is written from this list, so it may have
             // built it already.
             if (_rows != null)
                 return;
@@ -1576,19 +1576,23 @@ namespace RealFlag.UI
                 DefaultKey = Settings.DefaultToggleKey,
             });
 
+            // Where the panel's button goes: Unified UI, the HUD button ("Toolbar") or none (Real
+            // Glass's and Volumetric Weather's row). Stored by value, append only.
             Add(new Row
             {
-                Kind = RowKind.Toggle,
+                Kind = RowKind.Choice,
                 Options = OptionsPage.General,
-                Bool = Settings.ShowInUnifiedUI,
-                DefaultBool = Settings.Defaults.ShowInUnifiedUI,
+                Int = Settings.IconPlace,
+                DefaultInt = Settings.Defaults.IconPlace,
+                ChoiceKeys = new[] { "IconPlace.UnifiedUI", "IconPlace.Toolbar", "IconPlace.Never" },
+                ChoiceValues = new[] { Settings.IconPlaces.UnifiedUI, Settings.IconPlaces.Toolbar, Settings.IconPlaces.Never },
                 AfterChange = ModController.RefreshButton,
             });
 
             // The panels' look (ModsLibCS1, Volumetric Weather's and Real Glass's row). Stored by
             // value, append only; listed with the default (Frosted glass) first and the old look
-            // last. A change rebuilds the panel where it stands (its windows with it) and the HUD
-            // button, which wears the look too.
+            // last. A change rebuilds the panel where it stands (its windows with it). The mod's
+            // button keeps the game's round sprites in every look.
             Add(new Row
             {
                 Kind = RowKind.Choice,

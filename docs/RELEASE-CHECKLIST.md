@@ -1,4 +1,4 @@
-# Release checklist — Steam Workshop (RealFlag: not published yet)
+# Release checklist — Steam Workshop (Flag Maker: not published yet)
 
 Everything that has to be true before the first upload, in the order the steps block each other.
 Made 2026-10-22 from Volumetric Weather's and Real Glass's checklists (`..\VolumetricClouds\docs\
@@ -14,11 +14,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -DryRun
 
 It changes nothing and lists every problem (a real run stops at the first): the game closed, the
 tree committed, ModsLibCS1 pinned and pushed, `Mod.Version` 1.0.0 or later and not a tag yet,
-`CHANGELOG.md` dated, no personal name in the repo's files, the bundles newer than the shaders,
-the Workshop texts and image there, then the build, what the DLL embeds, the five shipped files,
-`bundle-apis.ps1` on all three bundles and the tests -- settings, localization, cloth, **Metal**
-(Apple's compiler on every shipped Metal program) and **AMD** (AMD's compiler on every shipped
-Direct3D 11 program, five chip generations). About half an hour, most of it the AMD check (23
+`CHANGELOG.md` dated, no personal name in the repo's files, every platform's bundle built from the
+shader sources as they stand, the Workshop texts and image there, then the build, what the DLL
+embeds, the five shipped files, `bundle-apis.ps1` on all three bundles (real code for **Direct3D 11,
+OpenGL Core and Metal**) and the tests -- settings, localization, cloth, **Metal** (Apple's compiler
+on every shipped Metal program) and **AMD** (AMD's compiler on every shipped Direct3D 11 program,
+five chip generations). **All of it runs for every release, not only the first**: a release is never
+shipped without them (Real Glass's 2026-10-22 release broke on every Mac on a shader `test-metal`
+would have caught). About half an hour, most of it the AMD check (23
 minutes here: the older chips take one program at a time). It never builds under a running game,
 dry run or not: the build deploys. Without
 `-DryRun`, for the first upload it stops after the checks (the game's Share button uploads
@@ -29,10 +32,10 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 
 | Piece | Defined where | Notes |
 | --- | --- | --- |
-| Mod name and version in Content Manager | `Mod.DisplayName`, `Mod.Version` in `RealFlag/Mod.cs` | "RealFlag 1.0.0". 0.x is the development series: release.ps1 refuses it |
+| Mod name and version in Content Manager | `Mod.DisplayName`, `Mod.Version` in `RealFlag/Mod.cs` | "Flag Maker 1.0.0". 0.x is the development series: release.ps1 refuses it |
 | Mod description in Content Manager | `Mod.Description` in `RealFlag/Localization/en.xml` | "Cloth flags that wave in the wind" |
-| Button icon | `RealFlag/Resources/FlagIcon.png` | Embedded; 128 × 128 RGBA (`tools\make-icon.ps1`) |
-| Workshop title | Typed into the game's Share panel | Pre-filled from the folder name `RealFlag` |
+| Button icon | `RealFlag/Resources/FlagIcon.png` | Embedded; 72 × 72, white on clear, drawn from `FlagIcon.lucide.txt` by `ModsLibCS1\tools\make-button-icon.ps1` |
+| Workshop title | Typed into the game's Share panel | Pre-filled from the folder name `RealFlag`: type **Flag Maker** over it |
 | Workshop description | `Workshop/Description.bbcode.txt`, pasted into the panel | BBCode, not Markdown. Steam caps it at 8000 characters, counting each line break twice and each apostrophe as `&#39;` (5): `tools\bbcode-preview.html` previews and counts it Steam's way, release.ps1 checks it |
 | Change note | `Workshop/ChangeNotes/<version>.bbcode.txt` | Pasted into the same panel. The author's fixed shape: `[h1]Version X.Y.Z[/h1]`, then New / Fixed / Changed / Removed lists, only those that apply |
 | Preview image | `Workshop/PreviewImage.png`, dropped into the STAGING folder at upload | 512 × 512 PNG, under 1 MB. A copy in the mod folder is never used as the preview |
@@ -59,9 +62,11 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 - [ ] `CHANGELOG.md`: `## 1.0.0 — unreleased` dated (`## 1.0.0 — 2026-..-..`) when the build is
       final; the next change opens `## 1.0.1 — unreleased`.
 - [ ] **All three bundles** built after the last shader edit (`.\build-bundle.ps1`, no `-Only`):
-      `-Only win` while iterating leaves the Mac and Linux ones stale. release.ps1 compares their
-      dates with every `.shader`/`.cginc` under `UnityProject\Assets\RealFlag`. (2026-10-22: built
-      2026-09-29 00:04, the last shader edit 2026-09-27 16:12.)
+      `-Only win` while iterating leaves the Mac and Linux ones stale. build-bundle.ps1 records
+      what each was built from in `RealFlag\Resources\bundles-built-from.txt`; release.ps1 refuses
+      any line that does not match `tools\bundle-sources.ps1`'s hash of every `.shader`/`.cginc`
+      under `UnityProject\Assets\RealFlag` and `BundleBuilder.cs`. (2026-11-06: no line yet, and the
+      Mac and Linux bundles are older than wear and tear and Torn: the release's full build fixes both.)
 - [ ] `tools\bundle-apis.ps1` on each bundle (release.ps1 runs it): every shader with real code for
       every API (win D3D11 + OpenGL Core, linux OpenGL Core, mac Metal + OpenGL Core), no "not"
       that HLSLcc made never false, no Metal sampler past slot 15. (2026-10-22: all three pass.)
@@ -78,7 +83,9 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 - [ ] `tools\test-cloth.ps1`, `test-settings.ps1`, `test-localization.ps1` pass (release.ps1 runs
       them on the deployed DLL).
 - [ ] Defaults reviewed: no pole, the game's wind, Cloth detail High (32), self-collision and
-      "keeps off buildings" on, freeze when paused on, detailed logging OFF, Panel look Frosted.
+      "keeps off buildings" on, freeze when paused on, detailed logging OFF, Panel look Frosted,
+      the mod icon in Unified UI.
+- [ ] Languages: en, es, fr, zh complete (`test-localization.ps1` lists any text still in English).
 - [ ] No personal name in the repo's files but README.md and LICENSE (release.ps1 checks it).
 - [ ] CLAUDE.md and the plans are never committed (`.gitignore` has `/CLAUDE.md`); no token
       patterns or e-mail addresses in the history before the repository goes public.
@@ -90,11 +97,12 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
       but the expected, the "other mods patching" line, Move It's and Procedural Objects' patch
       lines.
 - [ ] The rounds since the last in-game run, seen (CLAUDE.md's "To see" lists): the pre-release
-      round (the Pole height's Unlock range; no pole for a top hoist) and, before it, the ModsLibCS1
+      round (the Pole height's Allow taller poles; no pole for a top hoist) and, before it, the ModsLibCS1
       panel (every look, every window), the Ultra/Extreme details and the flags dragged past
       buildings.
-- [ ] OpenGL once: the game started with `-force-glcore` (Render It! off: its post-processing is
-      D3D11-only) runs the Linux code path.
+- [ ] **OpenGL, every release that changed a shader**: the game started with `-force-glcore` (Render
+      It! off: its post-processing is D3D11-only) runs the Linux code path. Nothing offline compiles
+      GLSL as a driver would: `bundle-apis.ps1` only proves the code is there.
 - [ ] The Mac, if one is at hand (the first player's log: "shader bundle loaded: mac ... on Metal").
 
 ## 3. The folder that gets uploaded
@@ -122,7 +130,7 @@ stands.
 - [ ] `Workshop/Description.bbcode.txt`: Volumetric Weather's format (a version banner on top,
       then Requirements / How to use / Features / Performance / Compatibility / Source code /
       Reporting a bug), within 8000 characters Steam's way. The compatibility lines CLAUDE.md
-      keeps: Extended Managers Library / Prop Anarchy's larger limit not supported yet (RealFlag
+      keeps: Extended Managers Library / Prop Anarchy's larger limit not supported yet (Flag Maker
       stands down, designs kept); Mac and Linux new and experimental; flags placed by other tools
       (Find It, Picker) get the new flag's design; removing the mod loses a city's flags only if
       it is saved without it.
@@ -133,17 +141,18 @@ stands.
 `tools\release.ps1` (no `-DryRun`) passes, then by hand:
 
 1. Launch the game and load a city on that build; Claude reads the log.
-2. Content Manager → **Mods** → RealFlag → **Share**.
+2. Content Manager → **Mods** → Flag Maker → **Share**.
 3. The game makes `WorkshopStagingArea\<GUID>\` with its own `PreviewImage.png` and the mod folder
    under `Content\`. Click the folder button and overwrite that `PreviewImage.png` with ours;
    check the thumbnail changed on screen.
-4. The title, the description, the change note. **Share**. Assume the item is live the moment
+4. The title (**Flag Maker**: the panel fills in the folder's name, `RealFlag`), the description,
+   the change note. **Share**. Assume the item is live the moment
    the upload finishes (the panel has no visibility control).
 
 ## 7. On the Steam page, straight away
 
-- [ ] **The GitHub repository public** (the description links it): `anthonytoumaibrahim/RealFlag`
-      is PRIVATE on 2026-10-22. ModsLibCS1 is public; its pinned commit must be pushed
+- [ ] **The GitHub repository public** (the description links it): `atianthony12/FlagMakerCS1`
+      is PRIVATE on 2026-11-06. ModsLibCS1 is public; its pinned commit must be pushed
       (release.ps1 checks it) or a clone cannot build and GitHub shows the submodule as a 404.
 - [ ] *Add/Remove Required Items* → Harmony, `2040656402`.
 - [ ] Screenshots; tags beyond `Mod`; the description renders (lists, links).
@@ -162,7 +171,7 @@ stands.
       a zip of exactly the five uploaded files in a `RealFlag/` folder, notes = what the version
       brings + a link to `CHANGELOG.md` at the tag + how to install by hand (the folder into
       `Addons\Mods`, Harmony `2040656402` subscribed), latest.
-      `gh release create v1.0.0 RealFlag-1.0.0.zip --title "RealFlag 1.0.0" --notes-file ... --latest`
+      `gh release create v1.0.0 FlagMaker-1.0.0.zip --title "Flag Maker 1.0.0" --notes-file ... --latest`
       The tag must be on GitHub first: with no remote tag, `gh` makes one at main's tip.
 - [ ] Open `## 1.0.1 — unreleased` in CHANGELOG.md.
 

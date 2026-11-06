@@ -1,4 +1,4 @@
-# Offline checks of SettingsXmlFormat -- the text of RealFlag.xml -- run against the
+# Offline checks of SettingsXmlFormat -- the text of FlagMaker.xml -- run against the
 # BUILT mod DLL, no game needed.
 #
 #   dotnet build RealFlag/RealFlag.csproj
@@ -247,15 +247,18 @@ if ($r.Values -ne $null) {
 Check "CRLF line ends"      ($text.Contains("`r`n")) "True"
 Check "one section heading each" ([regex]::Matches($text, "==========  ?Options page").Count) 1
 
-$r = Parse "<RealFlag version=`"1`"><Mine><A>1</A></Mine><B> 2 </B></RealFlag>"
+$r = Parse "<FlagMaker version=`"1`"><Mine><A>1</A></Mine><B> 2 </B></FlagMaker>"
 Check "wrapped lines are looked into" ("" + $r.Values["A"] + "," + $r.Values["B"]) "1,2"
 
-$r = Parse "<RealFlag><A>1</A><a>2</a></RealFlag>"
+$r = Parse "<RealFlag version=`"1`"><A>1</A></RealFlag>"
+Check "a file from before the new name is read" ("" + ($null -eq $r.Error) + "," + $r.Values["A"]) "True,1"
+
+$r = Parse "<FlagMaker><A>1</A><a>2</a></FlagMaker>"
 Check "twice: the last one wins" $r.Values["A"] "2"
 Check "twice: and it is reported" ($r.Duplicates -join ",") "a"
 Check "no version attribute reads as 0" $r.Version 0
 
-$r = Parse "<RealFlag>`r`n  <A>1</A>`r`n  <B>2</B>`r`n"
+$r = Parse "<FlagMaker>`r`n  <A>1</A>`r`n  <B>2</B>`r`n"
 Check "broken file is refused" ($r.Error -is [System.FormatException]) "True"
 Check "...and says where" ($r.Error.Message -match "[Ll]ine") "True"
 Write-Host "      (the parser says: $($r.Error.Message))"
@@ -266,7 +269,7 @@ Check "another mod's file is refused" ($r.Error -is [System.FormatException]) "T
 $r = Parse ""
 Check "an empty file is refused" ($r.Error -is [System.FormatException]) "True"
 
-$r = Parse "<RealFlag><!-- a -- b --><A>1</A></RealFlag>"
+$r = Parse "<FlagMaker><!-- a -- b --><A>1</A></FlagMaker>"
 Check "a '--' in a hand-written comment is refused, not half-read" ($r.Error -is [System.FormatException]) "True"
 
 Write-Host ""

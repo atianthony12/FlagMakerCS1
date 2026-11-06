@@ -1,4 +1,4 @@
-# RealFlag
+# Flag Maker
 
 Cloth flags that wave in the wind, for **Cities: Skylines** (the first game). Every flag is a
 real piece of cloth, simulated as it hangs and flutters, and drawn with a fabric shader in the
@@ -12,9 +12,12 @@ flagpole under it.
 
 ## Using it
 
-Open the panel with **F6** (or its Unified UI button). It opens on the city's **Flags**. Its
-look is the options page's **Panel look**: Frosted glass (the default, over a blurred copy of the
-city), See-through, Blue, or Vanilla, the game's own.
+Open the panel with **F6**, or with the mod's icon. **Where to show mod icon** on the options page
+(Pause menu, Options, Mod Settings) puts that in **Unified UI**, on the **Toolbar** as a button of
+its own you can drag anywhere, or **Never**: the key still opens the panel. It opens on the city's
+**Flags**. Its look is the options page's **Panel look**: Frosted glass (the default, over a blurred
+copy of the city), See-through, Blue, or Vanilla, the game's own. The text comes in English,
+Spanish, French and Simplified Chinese; it follows the game's language, or the **Language** row.
 
 **+ New flag** (at the top of the Flags tab) opens the new flag's window beside the panel, and
 the flag follows the pointer, blowing, standing on whatever is under it (ground, roof, road;
@@ -29,14 +32,14 @@ without a pole where it hangs. The pointer's tip says how far, and the flags you
 until you close the window. Close the window, or press Esc, when done. In the
 window: a country's flag -- every country and territory, England, Scotland, Wales, Northern
 Ireland, the EU and the UN, flown as it is at its own proportions (search by name or code) -- or a pattern
-(plain, bands, crosses, a saltire, a canton, stripes and canton, a disc, a hoist triangle, a
+(plain, bands, crosses, a corner box, stripes and a corner box, a circle, a side triangle, a
 diagonal band, a border) in up to three colours (a palette, hue, saturation and brightness, or
 a hex code typed, pasted or copied); its **shape** as it hangs, from a tall banner to a long
 flag, picked from little pictures of each; its **width** and **height** (0.5 to 30 m each,
-changing together unless you switch that off, from 1:5 to 5:1); the edge it is **hoisted
-from** -- its side, as flags fly, or its top, as a banner hangs from a crossbar (its design then
-turns as a flag hung upright does: the canton at the top on the left); its **motion** -- it
-**waves** in the wind, keeps **still**, or is held **flat**; how wavy the cloth is, how dark
+changing together unless you switch that off, from 1:5 to 5:1); the edge it **hangs from** -- its
+side, as flags fly, or its top, as a banner hangs from a crossbar (its design then
+turns as a flag hung upright does: the corner box at the top on the left); its **motion** -- it
+is **waving** in the wind, keeps **still**, or is held **flat**; how wavy the cloth is, how dark
 (for a flag whose white or yellow glares in a bright sun: its colours as if dyed darker, up to
 80%), and the way it points.
 
@@ -48,9 +51,9 @@ and once made they cost nothing to run -- for rows of flags, flags indoors or on
 city whose flags should hold a pose. Switched back to waving, a flag flies on from where it was.
 
 **Your image** (in the new flag's window and in the Flags tab): a picture of your own on the
-flag. The folder button beside it opens the images folder, `RealFlag\Images` in the game's
-data folder next to `RealFlag.xml` (on Windows
-`%LOCALAPPDATA%\Colossal Order\Cities_Skylines\RealFlag\Images`); put `.png` or `.jpg` pictures
+flag. The folder button beside it opens the images folder, `FlagMaker\Images` in the game's
+data folder next to `FlagMaker.xml` (on Windows
+`%LOCALAPPDATA%\Colossal Order\Cities_Skylines\FlagMaker\Images`); put `.png` or `.jpg` pictures
 in it. The name button opens the **Image** window: your pictures in a list, each with a
 thumbnail -- new ones appear by themselves while it is open -- and, under it, the flag as it
 hangs with the picture on it and what is cut off dimmed round it. Picking a picture gives the
@@ -69,7 +72,7 @@ is next open.
 
 **Flagpole** (a button in the new flag's window and in the Flags tab, which opens beside them): none by default -- the flag
 is for a pole of your own -- or a pole the mod draws, its **Pole height** from its foot to the
-flag (1 to 50 m on the slider; **Unlock range** under it opens it to 200 m): 64-sided, tapered like a real one and as thick as one for that flag and height, with
+flag (1 to 50 m on the slider; **Allow taller poles** under it opens it to 200 m): 64-sided, tapered like a real one and as thick as one for that flag and height, with
 a flash collar at its foot, a truck at its top and a gilt ball, a flat cap or a spear on it,
 one or two halyard lines, your colours for the pole, its top and its ropes, and a thickness to
 taste. With ropes, the flag hangs from its top and bottom clips only, as a hoisted flag does,
@@ -79,7 +82,7 @@ hoisted from its top has no pole (the pole you chose comes back with the side's)
 reaching out level, tilt a flag hoisted from its side. The pole is
 part of the flag: raised or lowered with Move It or Page Up and Page Down, the flag takes its
 pole with it. A selected flag's **Pole height** makes its pole taller or shorter, its foot where
-it stands and the flag going with the top, and **Pole down to the ground** (the same window)
+it stands and the flag going with the top, and **Pole to the ground** (the same window)
 sends a moved pole down to whatever stands under it again. Here
 too the pole's **tilt** and **lean** (a wall-mounted pole leans 30 to 45 degrees, a horizontal
 one 90) -- the flag hangs from the tilted line whether a pole is drawn or not.
@@ -90,8 +93,8 @@ select it: its design, size, pole and rotation are in the tab, and it carries a
 slides it anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap,
 Shift to go finely. **Page Up** and **Page Down** raise and lower it, pole and all, as they do
 while placing. Click elsewhere on the map, right-click or press Esc to let it go (Esc during
-a drag puts the flag back). **Go to** flies the camera there, **Delete** removes it, **New flag
-like this** opens the new flag's window with its design, to place another.
+a drag puts the flag back). **Go to** flies the camera there, **Delete** removes it, **Copy**
+opens the new flag's window with its design, to place another.
 
 **Settings**: the **wind** is the game's own by default -- its direction, which turns slowly
 over time; a gentle breeze made stronger by rain and calmer by fog, as the game's weather has
@@ -130,20 +133,20 @@ it is missing.
   have shaders of their own, checked in the editor but not yet run on either: new and
   experimental. On a Mac the panel's key is Fn+F6 on most keyboards (the button always works),
   and Page Up / Page Down are Fn+Up / Fn+Down on a laptop.
-- The log (`RealFlag.log`), the settings (`RealFlag.xml`) and your images folder
-  (`RealFlag/Images`) are in the game's data folder: `%LOCALAPPDATA%\Colossal Order\Cities_Skylines`
+- The log (`FlagMaker.log`), the settings (`FlagMaker.xml`) and your images folder
+  (`FlagMaker/Images`) are in the game's data folder: `%LOCALAPPDATA%\Colossal Order\Cities_Skylines`
   on Windows, `~/Library/Application Support/Colossal Order/Cities_Skylines` on a Mac,
   `~/.local/share/Colossal Order/Cities_Skylines` on Linux.
 - **Extended Managers Library** (which Prop Anarchy's larger prop limit uses) keeps a city's
-  props where RealFlag cannot find them: with it enabled, RealFlag does nothing in a city and
+  props where Flag Maker cannot find them: with it enabled, Flag Maker does nothing in a city and
   says so, and saving the city keeps its flags' designs exactly as they were.
 - **Other tools that place props** (Find It, Picker, the game's own prop tool) can place
-  RealFlag's prop, which then becomes a flag with the new flag's design. Place flags with
-  RealFlag's own tool, or copy them with Move It, which keeps their designs.
+  Flag Maker's prop, which then becomes a flag with the new flag's design. Place flags with
+  Flag Maker's own tool, or copy them with Move It, which keeps their designs.
 - **Procedural Objects** can't turn a flag into one (its own Convert to PO or Move It's): it
-  would copy only a flat placeholder, not the cloth. RealFlag refuses and the flag stays a flag;
+  would copy only a flat placeholder, not the cloth. Flag Maker refuses and the flag stays a flag;
   in a selection, Move It converts the rest.
-- Only one copy of RealFlag may be enabled: a copy in the game's local Mods folder and a
+- Only one copy of Flag Maker may be enabled: a copy in the game's local Mods folder and a
   subscribed one would both run.
 
 ## Saves

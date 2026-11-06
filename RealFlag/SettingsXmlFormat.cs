@@ -8,7 +8,7 @@ using UnityEngine;
 namespace RealFlag
 {
     /// <summary>
-    /// The text of RealFlag.xml: writing it, reading it back, and the number, switch
+    /// The text of FlagMaker.xml: writing it, reading it back, and the number, switch
     /// and key formats in it. Knows nothing about the catalog or the game, and makes no engine
     /// call (KeyCode is a plain enum), so tools/test-settings.ps1 runs it against the built DLL
     /// with no game.
@@ -24,7 +24,10 @@ namespace RealFlag
     /// </remarks>
     public static class SettingsXmlFormat
     {
-        public const string RootName = "RealFlag";
+        public const string RootName = "FlagMaker";
+
+        /// <summary>The root of a file written before the mod's new name: read, and written back as <see cref="RootName"/>.</summary>
+        private const string OldRootName = "RealFlag";
 
         /// <summary>Goes up when a name or a unit in the file changes meaning.</summary>
         public const int Version = 1;
@@ -115,7 +118,7 @@ namespace RealFlag
             }
 
             XmlElement root = document.DocumentElement;
-            if (root == null || root.Name != RootName)
+            if (root == null || (root.Name != RootName && root.Name != OldRootName))
             {
                 throw new FormatException("the outermost element is <" + (root == null ? "nothing" : root.Name) +
                                           ">, not <" + RootName + ">");
