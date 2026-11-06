@@ -10,12 +10,23 @@ namespace RealFlag.UI
     /// <summary>
     /// The Flags tab's list: every flag in the city, a row each -- its name, its pattern (its
     /// country, its picture) and its width by height as seen, its three colours (its image) -- in a
-    /// scrolling box. A click selects the flag (FlagEditor) and the controls below take it over.
+    /// scrolling box. A click selects the flag (FlagEditor) and the controls below take it over; a
+    /// double click also takes the camera to it.
     /// </summary>
     public class FlagListView : UIPanel
     {
         public const float RowHeight = 24f;
         public const int VisibleRows = 5;
+
+        /// <summary>Rows a notch of the wheel moves (the Image window's: 2 of its 7).</summary>
+        private const int WheelRows = 2;
+
+        /// <summary>
+        /// A second click on a row this soon is a double click (Windows' default). The game's own is
+        /// 0.25 s (UIInput.MouseHandler.m_DoubleClickTime), read once a frame: at 8-11 fps a double
+        /// click often misses it, and the second click would let go of the flag just selected.
+        /// </summary>
+        private const float DoubleClickSeconds = 0.5f;
 
         private Builder _ui;
         private UIScrollablePanel _list;
@@ -31,6 +42,9 @@ namespace RealFlag.UI
         private int _shownVersion = -1;
         private int _shownImages = -1;
         private uint _shownSelected = uint.MaxValue;
+        // The flag of the last single click and when, for DoubleClickSeconds; 0: none waiting.
+        private uint _clicked;
+        private float _clickedAt;
 
         /// <summary>Builds the box inside a page, <paramref name="width"/> wide, in the panel's look.</summary>
         public void Build(float width, Builder ui)
@@ -46,13 +60,15 @@ namespace RealFlag.UI
             _list.autoLayoutDirection = LayoutDirection.Vertical;
             _list.autoLayoutPadding = new RectOffset(0, 0, 0, 0);
             _list.scrollWheelDirection = UIOrientation.Vertical;
-            _list.scrollWheelAmount = (int)RowHeight;
+            // UIScrollablePanel.OnMouseWheel does nothing without this (off by default); the rows
+            // pass the wheel up to it. With a scrollbar a notch moves the bar's incrementAmount.
+            _list.builtinKeyNavigation = true;
             _list.clipChildren = true;
 
             float barWidth = PanelLook.ListBarWidth(ui);
             _bar = PanelLook.AddListBar(ui, this, new Vector2(barWidth, height - 6f), new Vector3(width - 2f - barWidth, 3f));
             _bar.value = 0f;
-            _bar.incrementAmount = RowHeight;
+            _bar.incrementAmount = RowHeight * WheelRows;
             _bar.autoHide = true;
 
             _list.verticalScrollbar = _bar;
@@ -145,12 +161,23 @@ namespace RealFlag.UI
             row.textPadding = new RectOffset(8, 64, 4, 0);
 
             // A click selects the flag the row shows now; a click on the selected one lets it go.
+            // The game sends the second click of a quick pair as a double click INSTEAD of a click
+            // (UIInput), so a slower pair arrives here as two clicks: both go to the flag.
             row.eventClick += (component, p) =>
             {
                 if (index >= _shown.Count)
                     return;
 
                 uint prop = _shown[index];
+                float now = Time.realtimeSinceStartup;
+                if (prop == _clicked && now - _clickedAt < DoubleClickSeconds)
+                {
+                    GoTo(prop);
+                    return;
+                }
+
+                _clicked = prop;
+                _clickedAt = now;
                 if (FlagEditor.Selected == prop)
                     FlagEditor.Deselect();
                 else
@@ -158,10 +185,29 @@ namespace RealFlag.UI
                 Highlight();
             };
 
+            row.eventDoubleClick += (component, p) =>
+            {
+                if (index < _shown.Count)
+                    GoTo(_shown[index]);
+            };
+
             _rows.Add(row);
             _shown.Add(0u);
             _looks.Add(null);
             _decorations.Add(new List<UIComponent>());
+        }
+
+        /// <summary>
+        /// A double click: the camera to the flag, left selected. The first click has already
+        /// selected it, or let it go if it was the selected one: then it is selected again.
+        /// </summary>
+        private void GoTo(uint prop)
+        {
+            _clicked = 0u;
+            if (FlagEditor.Selected != prop)
+                FlagEditor.Select(prop);
+            FlagEditor.GoTo();
+            Highlight();
         }
 
         /// <summary>Row <paramref name="i"/> shows <paramref name="e"/>: drawn again only if its text, colours or picture changed.</summary>

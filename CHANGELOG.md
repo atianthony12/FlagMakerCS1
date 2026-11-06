@@ -40,8 +40,8 @@ The first release.
 
 - **+ New flag**: the flag follows the pointer and stands on what is under it; the right button
   turns it, Page Up and Page Down raise it.
-- **The Flags tab** lists the city's flags; a selected flag carries handles to move, turn, tilt and
-  lean it, and every design setting applies to it live.
+- **The Flags tab** lists the city's flags (a double click takes the camera to one); a selected
+  flag carries handles to move, turn, tilt and lean it, and every design setting applies to it live.
 - **Line Tool**: with that mod on, the New flag window places rows of flags in a line, a curve,
   freeform or a circle, each flag previewed before the click.
 - **Move It** moves, copies, pastes and undoes flags with their designs. Procedural Objects'

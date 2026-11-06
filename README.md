@@ -95,7 +95,7 @@ select it: its design, size, pole and rotation are in the tab, and it carries a
 slides it anywhere at its height), its rings to turn it, tilt it or lean it; hold Ctrl to snap,
 Shift to go finely. **Page Up** and **Page Down** raise and lower it, pole and all, as they do
 while placing. Click elsewhere on the map, right-click or press Esc to let it go (Esc during
-a drag puts the flag back). **Go to** flies the camera there, **Delete** removes it, **Copy**
+a drag puts the flag back). **Go to** (or a double click in the list) flies the camera there, **Delete** removes it, **Copy**
 opens the new flag's window with its design, to place another.
 
 **Settings**: the **wind** is the game's own by default -- its direction, which turns slowly
