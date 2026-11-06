@@ -176,8 +176,14 @@ namespace RealFlag.UI
         /// <summary>Pattern rows: the settings the Pattern window works on.</summary>
         public PatternTarget Patterns;
 
+        /// <summary>Segmented rows of icons (the atlas's sprites, one per value): no words on the buttons, each choice's name its tooltip.</summary>
+        public string[] ChoiceIcons;
+
         /// <summary>Greys the row out.</summary>
         public Func<bool> Enabled;
+
+        /// <summary>Leaves the row out of its panel, when the panel is built (what needs another mod). Null: always there.</summary>
+        public Func<bool> Shown;
 
         /// <summary>True while this row's confirmation dialog is open (the stored value is still the old one).</summary>
         public bool Pending;
@@ -1256,6 +1262,43 @@ namespace RealFlag.UI
                           Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
             AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
                     Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null, null, null);
+
+            // Rows of flags, by the Line Tool mod: these three only with it (LineFlags).
+            Func<bool> inRows = () => Settings.NewPlacing.value != LineFlags.Single;
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = PanelPage.New,
+                Int = Settings.NewPlacing,
+                DefaultInt = LineFlags.Single,
+                ChoiceValues = LineFlags.Values,
+                ChoiceKeys = LineFlags.NameKeys,
+                ChoiceIcons = LineFlags.Icons,
+                AfterChange = () => LineFlags.Choose(Settings.NewPlacing.value),
+                Shown = LineFlags.IsAvailable,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.New,
+                Float = Settings.NewLineSpacing,
+                DefaultFloat = Settings.Defaults.LineSpacing,
+                Min = 1f, Max = 100f, Step = 0.5f,
+                Format = Metres,
+                Enabled = inRows,
+                Shown = LineFlags.IsAvailable,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.New,
+                Bool = Settings.NewLineAlong,
+                DefaultBool = Settings.Defaults.LineAlong,
+                Enabled = inRows,
+                Shown = LineFlags.IsAvailable,
+            });
 
             Add(new Row
             {

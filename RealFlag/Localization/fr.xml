@@ -266,6 +266,19 @@
   <String key="PoleToGround.Label">Mât jusqu’au sol</String>
   <String key="PoleToGround.Tooltip">L’étire jusqu’au sol.</String>
 
+  <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
+  <String key="NewPlacing.Label">Placer</String>
+  <String key="NewPlacing.Tooltip">Un drapeau ou une rangée.</String>
+  <String key="Placing.Single">Un drapeau</String>
+  <String key="Placing.Line">Ligne droite</String>
+  <String key="Placing.Curve">Courbe</String>
+  <String key="Placing.Freeform">Tracé libre</String>
+  <String key="Placing.Circle">Cercle</String>
+  <String key="NewLineSpacing.Label">Espacement</String>
+  <String key="NewLineSpacing.Tooltip">Mètres entre les drapeaux.</String>
+  <String key="NewLineAlong.Label">Pointer le long de la ligne</String>
+  <String key="NewLineAlong.Tooltip">La rotation s’y ajoute.</String>
+
   <String key="NewRotation.Label">Rotation</String>
   <String key="NewRotation.Tooltip">Vers où il pointe.</String>
   <String key="SelRotation.Label">Rotation</String>

@@ -71,6 +71,7 @@ namespace RealFlag.UI
             _instance.Show();
             _instance.PlaceBesidePanel();
             _instance.BringToFront();
+            Settings.NewPlacing.value = LineFlags.Single;
             FlagTool.Open(FlagTool.Mode.Place);
 
             if (!was)
@@ -133,6 +134,8 @@ namespace RealFlag.UI
                 // Closed: placing ends, and what was opened from here closes too.
                 if (FlagTool.IsPlacing)
                     FlagTool.PutAway();
+                LineFlags.PutAway();
+                Settings.NewPlacing.value = LineFlags.Single;
                 ColourPicker.Close();
                 CountryPicker.Close();
                 ImagePanel.CloseIf(PanelPage.New);
@@ -162,12 +165,17 @@ namespace RealFlag.UI
             if (!isVisible || !_built)
                 return;
 
-            // The tool put away by any means: the window goes with it.
-            if (!FlagTool.IsPlacing)
+            // The tool put away by any means: the window goes with it. Line Tool placing a row
+            // from here counts: it is this window's tool for as long as it has the flag.
+            if (!FlagTool.IsPlacing && !LineFlags.Driving)
             {
                 Hide();
                 return;
             }
+
+            // Esc with Line Tool out: kept from the game's pause menu, as FlagTool keeps it.
+            if (LineFlags.Driving && Input.GetKeyDown(KeyCode.Escape) && !UIView.HasInputFocus())
+                FlagsPanel.CatchEscape();
 
             if (Time.realtimeSinceStartup < _nextRefreshTime)
                 return;

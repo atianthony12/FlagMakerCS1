@@ -256,6 +256,19 @@
   <String key="PoleToGround.Label">旗杆到地面</String>
   <String key="PoleToGround.Tooltip">拉长到地面。</String>
 
+  <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
+  <String key="NewPlacing.Label">放置</String>
+  <String key="NewPlacing.Tooltip">单面旗帜或一排旗帜。</String>
+  <String key="Placing.Single">单面旗帜</String>
+  <String key="Placing.Line">直线</String>
+  <String key="Placing.Curve">曲线</String>
+  <String key="Placing.Freeform">自由线条</String>
+  <String key="Placing.Circle">圆形</String>
+  <String key="NewLineSpacing.Label">间距</String>
+  <String key="NewLineSpacing.Tooltip">旗帜之间的米数。</String>
+  <String key="NewLineAlong.Label">沿线指向</String>
+  <String key="NewLineAlong.Tooltip">朝向在此基础上叠加。</String>
+
   <String key="NewRotation.Label">朝向</String>
   <String key="NewRotation.Tooltip">指向哪边。</String>
   <String key="SelRotation.Label">朝向</String>

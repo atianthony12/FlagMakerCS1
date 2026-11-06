@@ -8,4 +8,5 @@
 [*][b]Flagpoles[/b]: optional, with a ball, flat or spear top, halyard ropes, tilt and lean.
 [*][b]Keeps off the city[/b]: flags drape over roofs, walls, props and trees instead of passing through.
 [*][b]Move It[/b]: move, copy and paste flags with their designs.
+[*][b]Line Tool[/b]: rows of flags in a line, a curve or a circle, previewed before you click.
 [/list]

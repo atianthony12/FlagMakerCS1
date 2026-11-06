@@ -178,6 +178,15 @@ namespace RealFlag
         /// <summary>The way the flag points (its prop's rotation), degrees.</summary>
         public static FloatSetting NewRotation { get; private set; }
 
+        /// <summary>One flag at a time, or a row by Line Tool (LineFlags' values). Starts at one flag each time the New flag window opens.</summary>
+        public static IntSetting NewPlacing { get; private set; }
+
+        /// <summary>A row's flags this far apart, metres.</summary>
+        public static FloatSetting NewLineSpacing { get; private set; }
+
+        /// <summary>A row's flags point along its line, the Rotation on top; off, the Rotation alone.</summary>
+        public static BoolSetting NewLineAlong { get; private set; }
+
         /// <summary>
         /// The new flag's POLE HEIGHT: its length up its axis from its foot to the flag's top,
         /// metres (FlagSpec.PoleLength, for a pole that stands: FlagStand). Its name is the old
@@ -336,6 +345,8 @@ namespace RealFlag
             public const float Holes = 0f;
             public const float Tear = 0f;
             public const float Rotation = 0f;
+            public const float LineSpacing = 10f;
+            public const bool LineAlong = true;
 
             /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
             public const float Height = 10f;
@@ -430,6 +441,9 @@ namespace RealFlag
                 NewHoles = new FloatSetting("NewHoles", Defaults.Holes);
                 NewTear = new FloatSetting("NewTear", Defaults.Tear);
                 NewRotation = new FloatSetting("NewRotation", Defaults.Rotation);
+                NewPlacing = new IntSetting("NewPlacing", LineFlags.Single, true);
+                NewLineSpacing = new FloatSetting("NewLineSpacing", Defaults.LineSpacing);
+                NewLineAlong = new BoolSetting("NewLineAlong", Defaults.LineAlong);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
                 UnlockPoleHeight = new BoolSetting("UnlockPoleHeight", Defaults.UnlockPoleHeight);
                 NewPole = new IntSetting("NewPole", Defaults.Pole);

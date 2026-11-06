@@ -164,6 +164,7 @@ namespace RealFlag.UI
 
                 // Closed: the tool (and with it the selection), the New flag window and the pickers go with it.
                 FlagTool.PutAway();
+                LineFlags.PutAway();
                 NewFlagPanel.Close();
                 ColourPicker.Close();
                 CountryPicker.Close();
@@ -174,11 +175,12 @@ namespace RealFlag.UI
 
             eventKeyDown += (component, p) =>
             {
-                if (p.used || p.keycode != KeyCode.Escape || !FlagTool.IsOut)
+                bool rows = LineFlags.Driving;
+                if (p.used || p.keycode != KeyCode.Escape || (!FlagTool.IsOut && !rows))
                     return;
 
                 p.Use();
-                string step = FlagTool.StepBack();
+                string step = rows ? LineFlags.PutAway() : FlagTool.StepBack();
                 Unfocus();
                 Log.Msg("flags: Esc: " + step + " (the key kept from the game's pause menu)");
             };

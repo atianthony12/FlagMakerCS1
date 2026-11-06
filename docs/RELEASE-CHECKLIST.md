@@ -80,8 +80,9 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
       do when it fails). Needs Radeon GPU Analyzer (`Documents\Projects\RGA`; `-Rga` / `RF_RGA`).
       (2026-10-22: 275 programs on RX 7000, RX 9000, RX 6000, RX 5000 and Vega, no spills; the
       cloth's largest 692-1,250 instructions, at most 84 VGPRs.)
-- [ ] `tools\test-cloth.ps1`, `test-settings.ps1`, `test-localization.ps1` pass (release.ps1 runs
-      them on the deployed DLL).
+- [ ] `tools\test-cloth.ps1`, `test-settings.ps1`, `test-localization.ps1`, `test-linetool.ps1` pass
+      (release.ps1 runs them on the deployed DLL). test-linetool holds what LineFlags reflects to
+      the Workshop's Line Tool: an update there would hide the rows without a word.
 - [ ] Defaults reviewed: no pole, the game's wind, Cloth detail High (32), self-collision and
       "keeps off buildings" on, freeze when paused on, detailed logging OFF, Panel look Frosted,
       the mod icon in Unified UI.

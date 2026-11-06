@@ -73,6 +73,7 @@ namespace RealFlag
 
             // This city's flags go with it; the next city's come with its save.
             FlagTool.Remove();
+            LineFlags.Forget();
             FlagEditor.Clear();
             FlagRegistry.Clear();
             FlagSaveData.Forget();

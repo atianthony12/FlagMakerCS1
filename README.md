@@ -127,10 +127,20 @@ pole). A pole asset right beside a flag's hoist can be behind that target: Move 
 or its filters pick it. This needs the Harmony mod, which the game offers to subscribe to when
 it is missing.
 
+### With Line Tool
+
+With the **Line Tool** mod on, the New flag window gets a **Place** row: one flag, a straight
+line, a curve, freeform or a circle, with their **Spacing** and **Point along the line**. Every
+flag of the row takes the window's design and stands on its own pole, and you see them all
+before you click, the row following the pointer. Rows stand on the ground, not on roofs or
+bridges: Page Up and Page Down lift the whole row before it is placed, and Move It lifts it
+afterwards. Line Tool leaves out a point it finds blocked by a road or a building (red ring),
+unless Prop Control's anarchy is on. Without Line Tool the window has none of this.
+
 ## Requirements and compatibility
 
 - **Harmony** (Workshop 2040656402) is required; the game offers to subscribe to it when it is
-  missing. **Move It** and **Unified UI** are optional.
+  missing. **Move It**, **Unified UI** and **Line Tool** are optional.
 - **Windows** is where the mod is made and tested. The **Mac** (Metal) and **Linux** (OpenGL)
   have shaders of their own, checked in the editor but not yet run on either: new and
   experimental. On a Mac the panel's key is Fn+F6 on most keyboards (the button always works),

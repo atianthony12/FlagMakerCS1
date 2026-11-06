@@ -76,6 +76,25 @@ namespace RealFlag.UI
             return texture;
         }
 
+        /// <summary>True if the panel's atlas has this icon (ModsLibCS1 merges Resources\PanelIcons into it).</summary>
+        public static bool HasIcon(string sprite)
+        {
+            UITextureAtlas atlas = ModsLibCS1.UI.Atlas.Ours;
+            return atlas != null && atlas[sprite] != null;
+        }
+
+        /// <summary>A white icon of the panel's atlas on a component, not in the pointer's way.</summary>
+        public static UISprite AddIcon(UIComponent parent, string sprite, Vector3 at, float size)
+        {
+            UISprite icon = parent.AddUIComponent<UISprite>();
+            icon.atlas = ModsLibCS1.UI.Atlas.Ours;
+            icon.spriteName = sprite;
+            icon.size = new Vector2(size, size);
+            icon.relativePosition = at;
+            icon.isInteractive = false;
+            return icon;
+        }
+
         /// <summary>A block of one colour on a component, not in the pointer's way.</summary>
         public static UITextureSprite AddBlock(UIComponent parent, Color32 colour)
         {

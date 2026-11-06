@@ -263,6 +263,19 @@
   <String key="PoleToGround.Label">Asta hasta el suelo</String>
   <String key="PoleToGround.Tooltip">La estira hasta el suelo.</String>
 
+  <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
+  <String key="NewPlacing.Label">Colocar</String>
+  <String key="NewPlacing.Tooltip">Una bandera o una hilera.</String>
+  <String key="Placing.Single">Una bandera</String>
+  <String key="Placing.Line">Línea recta</String>
+  <String key="Placing.Curve">Curva</String>
+  <String key="Placing.Freeform">Trazo libre</String>
+  <String key="Placing.Circle">Círculo</String>
+  <String key="NewLineSpacing.Label">Separación</String>
+  <String key="NewLineSpacing.Tooltip">Metros entre banderas.</String>
+  <String key="NewLineAlong.Label">Apuntar según la línea</String>
+  <String key="NewLineAlong.Tooltip">El giro se suma.</String>
+
   <String key="NewRotation.Label">Giro</String>
   <String key="NewRotation.Tooltip">Hacia dónde apunta.</String>
   <String key="SelRotation.Label">Giro</String>

@@ -103,7 +103,7 @@ namespace RealFlag.UI
 
             foreach (Row row in SettingsCatalog.Rows)
             {
-                if (row.Panel != which)
+                if (row.Panel != which || (row.Shown != null && !row.Shown()))
                     continue;
 
                 if (row.Group != null)
@@ -524,8 +524,12 @@ namespace RealFlag.UI
                     for (int i = 0; i < count; i++)
                     {
                         int value = row.ChoiceValues[i];
-                        UIButton button = _ui.AddButton(page, row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
-                        button.tooltip = row.Tooltip;
+                        bool drawn = row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]);
+                        UIButton button = _ui.AddButton(page, drawn ? string.Empty : row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
+                        button.tooltip = drawn ? row.ChoiceName(i) : row.Tooltip;
+                        if (drawn)
+                            FlagWidgets.AddIcon(button, row.ChoiceIcons[i], new Vector3(Mathf.Round(0.5f * (width - 20f)), 4f), 20f);
+
                         button.eventClick += (component, e) =>
                         {
                             if (!captured.IsEnabled || captured.Int == null || captured.Int.value == value)

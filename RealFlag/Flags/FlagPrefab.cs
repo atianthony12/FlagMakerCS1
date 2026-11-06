@@ -183,6 +183,11 @@ namespace RealFlag.Flags
             mesh.normals = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back };
             mesh.triangles = new[] { 0, 1, 2, 1, 3, 2 };
             mesh.RecalculateBounds();
+
+            // A flat flag has no depth, but other mods size a prop by its mesh: Line Tool's "Length"
+            // spacing is bounds.extents.z x 2, and a spacing of 0 never ends its loop along a line
+            // (LineMode.CalculatePoints, 0.7.1: the game freezes). As deep as the flag is long.
+            mesh.bounds = new Bounds(new Vector3(1.5f, -1f, 0f), new Vector3(3f, 2f, 3f));
             return mesh;
         }
 

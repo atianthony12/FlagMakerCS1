@@ -567,6 +567,10 @@ namespace RealFlag.Flags
         private float _ghostAngle;
         private FlagSpec _ghostSpec;
 
+        /// <summary>Line Tool's row this frame, and how many props there were when it last looked (a change: flags to find).</summary>
+        private readonly List<LinePoint> _linePoints = new List<LinePoint>();
+        private uint _propsCounted;
+
         private Material _material;
         private Material _poleMaterial;
         private Camera _camera;
@@ -888,6 +892,8 @@ namespace RealFlag.Flags
                 _refineChanges = 0;
                 LogCamera();
 
+                LineFlags.Tick();
+                AskLine();
                 ApplyGhost(eye, planes);
                 Refresh(eye, planes);
 
@@ -895,7 +901,10 @@ namespace RealFlag.Flags
                     Draw(f);
 
                 if (_ghost != null)
+                {
                     Draw(_ghost);
+                    DrawLine();
+                }
 
                 _surfacesThisFrame = 0;
                 _capsulesThisFrame = 0;
@@ -1083,6 +1092,19 @@ namespace RealFlag.Flags
             PropInstance[] buffer = Singleton<PropManager>.instance.m_props.m_buffer;
             int end = Math.Min(buffer.Length, _scanCursor + ScanPerFrame);
 
+            // Line Tool's row, as soon as it is placed: all of it found now, not over 16 frames
+            // (seconds at the author's frame rates, the preview gone and the flags not there yet).
+            if (LineFlags.IsOut)
+            {
+                uint count = Singleton<PropManager>.instance.m_props.ItemCount();
+                if (count != _propsCounted)
+                {
+                    _propsCounted = count;
+                    _scanCursor = 1;
+                    end = buffer.Length;
+                }
+            }
+
             for (int i = _scanCursor; i < end; i++)
             {
                 if ((buffer[i].m_flags & (ushort)PropInstance.Flags.Created) == 0 || !FlagPrefab.IsFlagIndex(buffer[i].m_infoIndex))
@@ -1140,9 +1162,9 @@ namespace RealFlag.Flags
                 // the flag hangs underground.
                 if (!fixedHeight && _heightFixed.Add(f.Prop))
                 {
-                    float pole = f.Spec.PoleLength > 0f ? f.Spec.PoleLength : Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
-                    float x, rise, z;
-                    FlagStand.Anchor(f.Spec, angle, pole, 0f, 0f, 0f, out x, out rise, out z);
+                    float rise = StandRise(f.Spec, angle);
+                    if (LineFlags.IsOut)
+                        rise += FlagTool.Lift;
                     FlagProps.FixHeight(f.Prop, rise);
                     Log.Msg("flags: flag #" + f.Prop + " stood on the ground; raised " + rise.ToString("F1") + " m to stand there, and fixed");
                 }
@@ -3583,6 +3605,90 @@ namespace RealFlag.Flags
 
             Release(_ghost);
             _ghost = null;
+        }
+
+        /// <summary>How far above the ground a flag put there by another tool goes to stand on it (FlagStand: a standing pole's foot on it, else its hoist).</summary>
+        private static float StandRise(FlagSpec spec, float angle)
+        {
+            float pole = spec.PoleLength > 0f ? spec.PoleLength : Settings.NewHeight != null ? Settings.NewHeight.value : Settings.Defaults.Height;
+            float x, rise, z;
+            FlagStand.Anchor(spec, angle, pole, 0f, 0f, 0f, out x, out rise, out z);
+            return rise;
+        }
+
+        /// <summary>
+        /// Line Tool has the flag: the ghost stands at the row's first point, or under the pointer
+        /// until there is a row, and <see cref="DrawLine"/> shows it at the others. The game cannot
+        /// draw the row (our prop has no renderer), and a live cloth at each of a long row's points
+        /// would be a settle per point per move of the mouse: one cloth, drawn many times.
+        /// </summary>
+        private void AskLine()
+        {
+            _linePoints.Clear();
+            if (!LineFlags.IsOut)
+                return;
+
+            Vector3 pointer;
+            if (!LineFlags.ReadPoints(_linePoints, out pointer))
+                return;
+
+            FlagSpec spec = Settings.NewSpec();
+            float lift = FlagTool.Lift;
+            Vector3 at;
+            float angle;
+            if (_linePoints.Count > 0)
+            {
+                at = _linePoints[0].Position;
+                angle = _linePoints[0].Angle;
+            }
+            else
+            {
+                ToolController tools = ToolsModifierControl.toolController;
+                if (tools == null || tools.IsInsideUI)
+                    return;
+
+                at = new Vector3(pointer.x, FlagProps.GroundAt(pointer), pointer.z);
+                angle = Settings.NewRotation.value * Mathf.Deg2Rad;
+            }
+
+            at.y += StandRise(spec, angle) + lift;
+            SetGhost(at, angle, spec);
+        }
+
+        /// <summary>
+        /// The ghost again at the row's other points, stood as those flags will stand. A waving
+        /// flag upright is only carried there, flying as it does in this wind; one whose shape
+        /// goes by the way it heads (still, flat, tilted, hoisted from its top) turns with it.
+        /// </summary>
+        private void DrawLine()
+        {
+            FlagInstance g = _ghost;
+            if (_linePoints.Count < 2 || g.Mesh == null || !g.Settled || !g.BlockReady)
+                return;
+
+            FlagSpec spec = g.Spec;
+            bool pole = g.PoleMesh != null && spec.HasPole && _poleMaterial != null && g.PoleBlockReady;
+            bool turns = spec.Motion != FlagMotion.Waves || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f;
+            float lift = FlagTool.Lift;
+
+            for (int i = 1; i < _linePoints.Count; i++)
+            {
+                LinePoint p = _linePoints[i];
+                Vector3 anchor = p.Position;
+                anchor.y += StandRise(spec, p.Angle) + lift;
+
+                // The prop's angle runs from x towards z; Unity's turn about y the other way.
+                Quaternion turn = turns ? Quaternion.AngleAxis((g.Angle - p.Angle) * Mathf.Rad2Deg, Vector3.up) : Quaternion.identity;
+                Graphics.DrawMesh(g.Mesh.Mesh, Matrix4x4.TRS(anchor, turn, Vector3.one), _material, _layer, _camera, 0, g.Block, true, true);
+
+                if (pole)
+                {
+                    float hx, hy, hz, fx, fy, fz;
+                    FlagOrientation.Frame(p.Angle, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+                    Graphics.DrawMesh(g.PoleMesh, FlagPoleMesh.Placement(anchor, g.PoleShape, new Vector3(hx, hy, hz), new Vector3(fx, fy, fz)),
+                                      _poleMaterial, _layer, _camera, 0, g.PoleBlock, true, true);
+                }
+            }
         }
 
         // ---- for the panel and the tool -------------------------------------------------------

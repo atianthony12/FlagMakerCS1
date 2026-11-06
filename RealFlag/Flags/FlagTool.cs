@@ -274,7 +274,10 @@ namespace RealFlag.Flags
             _rightDown = false;
             Hovered = 0;
             EndRaise();
-            _lift = 0f;
+
+            // Over to Line Tool, the row keeps the lift.
+            if (!LineFlags.Handing)
+                _lift = 0f;
 
             // Put away by any means: a drag stays where it got to, the selection goes.
             EndDrag();
@@ -512,12 +515,44 @@ namespace RealFlag.Flags
         /// </summary>
         private void UpdateRaise(Event e)
         {
+            UpdateRaise(e.control, e.shift, e.alt);
+        }
+
+        /// <summary>
+        /// Every frame while Line Tool places a row: the raise and lower keys lift the whole row, as
+        /// they lift the new flag. This tool is not out then and gets no GUI events: read from Input.
+        /// </summary>
+        public void RaiseOverLine()
+        {
+            UpdateRaise(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl),
+                        Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift),
+                        Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
+        }
+
+        /// <summary>The new flag's (or row's) lift off what it stands on, metres.</summary>
+        public static float Lift
+        {
+            get { return Instance != null ? Instance._lift : 0f; }
+        }
+
+        /// <summary>The row is over: the next flag starts on the surface again.</summary>
+        public static void ForgetLift()
+        {
+            if (Instance != null)
+            {
+                Instance.EndRaise();
+                Instance._lift = 0f;
+            }
+        }
+
+        private void UpdateRaise(bool control, bool shift, bool alt)
+        {
             if (_raiseKey == null || _lowerKey == null ||
                 ColossalFramework.UI.UIView.HasModalInput() || ColossalFramework.UI.UIView.HasInputFocus())
                 return;
 
-            bool up = Held(_raiseKey, e), down = Held(_lowerKey, e);
-            float step = _elevation.Event(up, down, e.shift, e.alt, System.Diagnostics.Stopwatch.GetTimestamp(),
+            bool up = Held(_raiseKey, control), down = Held(_lowerKey, control);
+            float step = _elevation.Event(up, down, shift, alt, System.Diagnostics.Stopwatch.GetTimestamp(),
                                           System.Diagnostics.Stopwatch.Frequency);
             if (step != 0f)
             {
@@ -614,10 +649,10 @@ namespace RealFlag.Flags
         /// A raise or lower key held as Move It reads its own (MoveItTool.IsKeyDown, its IL): its key
         /// down, and Ctrl as its binding has it -- Shift and Alt only scale the step.
         /// </summary>
-        private static bool Held(SavedInputKey key, Event e)
+        private static bool Held(SavedInputKey key, bool control)
         {
             KeyCode code = key.Key;
-            return code != KeyCode.None && Input.GetKey(code) && key.Control == e.control;
+            return code != KeyCode.None && Input.GetKey(code) && key.Control == control;
         }
 
         /// <summary>The raise and lower keys' names, as the game's key mapping shows them.</summary>
