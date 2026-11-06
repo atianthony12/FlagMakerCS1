@@ -13,7 +13,7 @@
 
   Keep every text short: say it in as few words as get the message across.
   Tooltips: five words at most (they overflow otherwise). Say only what the label leaves out.
-  Everyday words.
+  Everyday words, American English.
 -->
 <Language code="en" name="English">
 
@@ -22,17 +22,17 @@
   <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
   <String key="Mod.Description">Cloth flags that wave in the wind</String>
   <String key="Mod.Unsupported">
-    Flag Maker can'tdraw flags on this computer: it needs Metal or OpenGL 3.3. Your flags stay
+    Flag Maker can't draw flags on this computer: it needs Metal or OpenGL 3.3. Your flags stay
     saved in the city.
   </String>
   <String key="Mod.UnsupportedWindows">
-    Flag Maker can'tdraw flags on this computer: it needs DirectX 11. Your flags stay saved in
+    Flag Maker can't draw flags on this computer: it needs DirectX 11. Your flags stay saved in
     the city.\n\n
     Remove any graphics launch option (Steam: Properties, Launch Options) and restart.\n\n
     Still broken? Report it with the log:\n{0}
   </String>
   <String key="Mod.UnsupportedLinux">
-    Flag Maker can'tdraw flags on this computer: it needs OpenGL 3.3. Your flags stay saved in
+    Flag Maker can't draw flags on this computer: it needs OpenGL 3.3. Your flags stay saved in
     the city.\n\n
     Or run the game's Windows version through Proton.\n\n
     Please report it with the log:\n{0}
@@ -41,7 +41,7 @@
   <!-- A city whose flags this copy of the mod must leave alone: it stands down in the city, and
        the flags' saved designs are written back exactly as they were loaded. -->
   <String key="Mod.KeptUnreadable">
-    Flag Maker can'tread this city's flags (saved by a newer version, or damaged). It stays off
+    Flag Maker can't read this city's flags (saved by a newer version, or damaged). It stays off
     here; saving keeps the flags as they are.\n\n
     Restart the game so Steam updates the mod.\n\n
     Still broken? Report it with the log:\n{0}
@@ -73,7 +73,7 @@
   <String key="Key.Press">Press a key</String>
 
   <!-- A flag's design: the same controls in the New flag window and the Flags tab. -->
-  <String key="Colours.Label">Colours</String>
+  <String key="Colours.Label">Colors</String>
 
   <String key="NewCountry.Label">Country</String>
   <String key="NewCountry.Tooltip">A real country's flag.</String>
@@ -85,9 +85,9 @@
   <String key="SelImage.Label">Your image</String>
   <String key="SelImage.Tooltip">Your own picture.</String>
   <String key="NewPattern.Label">Pattern</String>
-  <String key="NewPattern.Tooltip">Uses the colours below.</String>
+  <String key="NewPattern.Tooltip">Uses the colors below.</String>
   <String key="SelPattern.Label">Pattern</String>
-  <String key="SelPattern.Tooltip">Uses the colours below.</String>
+  <String key="SelPattern.Tooltip">Uses the colors below.</String>
 
   <String key="Pattern.Plain">Plain</String>
   <String key="Pattern.HorizontalBicolour">Two bands</String>
@@ -96,7 +96,7 @@
   <String key="Pattern.VerticalBicolour">Two vertical bands</String>
   <String key="Pattern.VerticalTricolour">Three vertical bands</String>
   <String key="Pattern.NordicCross">Nordic cross</String>
-  <String key="Pattern.Cross">Centred cross</String>
+  <String key="Pattern.Cross">Centered cross</String>
   <String key="Pattern.Saltire">Diagonal cross</String>
   <String key="Pattern.Canton">Corner box</String>
   <String key="Pattern.StripesAndCanton">Stripes and corner box</String>
@@ -105,17 +105,17 @@
   <String key="Pattern.DiagonalBand">Diagonal band</String>
   <String key="Pattern.Border">Border</String>
 
-  <String key="NewColour1.Label">Colour 1</String>
+  <String key="NewColour1.Label">Color 1</String>
   <String key="NewColour1.Tooltip">Background, first band.</String>
-  <String key="NewColour2.Label">Colour 2</String>
-  <String key="NewColour2.Tooltip">Second band, cross, disc.</String>
-  <String key="NewColour3.Label">Colour 3</String>
+  <String key="NewColour2.Label">Color 2</String>
+  <String key="NewColour2.Tooltip">Second band, cross, circle.</String>
+  <String key="NewColour3.Label">Color 3</String>
   <String key="NewColour3.Tooltip">Third band, border.</String>
-  <String key="SelColour1.Label">Colour 1</String>
+  <String key="SelColour1.Label">Color 1</String>
   <String key="SelColour1.Tooltip">Background, first band.</String>
-  <String key="SelColour2.Label">Colour 2</String>
-  <String key="SelColour2.Tooltip">Second band, cross, disc.</String>
-  <String key="SelColour3.Label">Colour 3</String>
+  <String key="SelColour2.Label">Color 2</String>
+  <String key="SelColour2.Tooltip">Second band, cross, circle.</String>
+  <String key="SelColour3.Label">Color 3</String>
   <String key="SelColour3.Tooltip">Third band, border.</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
@@ -141,7 +141,7 @@
   <String key="Hoist.Top">Top</String>
 
   <!-- What the width and height set, as the settings file names it. -->
-  <String key="NewLength.Label">New flag: length from the pole to the far end, in metres</String>
+  <String key="NewLength.Label">New flag: length from the pole to the far end, in meters</String>
   <String key="NewProportion.Label">New flag: pole edge / length x 1000 (667 = 2:3, 1500 = 3:2)</String>
 
   <!-- Where the new flag's picture lies on it, as the settings file names it (the Image window sets them). -->
@@ -163,9 +163,9 @@
   <String key="SelWaviness.Label">How wavy</String>
   <String key="SelWaviness.Tooltip">How much it ripples.</String>
   <String key="NewDarkness.Label">Darkness</String>
-  <String key="NewDarkness.Tooltip">Tones down bright colours.</String>
+  <String key="NewDarkness.Tooltip">Tones down bright colors.</String>
   <String key="SelDarkness.Label">Darkness</String>
-  <String key="SelDarkness.Tooltip">Tones down bright colours.</String>
+  <String key="SelDarkness.Tooltip">Tones down bright colors.</String>
   <String key="Group.Wear">Wear and tear</String>
   <String key="NewWear.Label">Worn</String>
   <String key="NewWear.Tooltip">Faded, with frayed edges.</String>
@@ -194,7 +194,7 @@
   <String key="PoleButton.Top">Flagpole: none (hangs from its top)</String>
   <!-- A crossbar (a pole tilted past 60 degrees): its length is found along to its wall. -->
   <String key="PoleButton.Pole">Flagpole: {0}, ropes: {1}</String>
-  <!-- A pole that stands: its style, its height (metres), its ropes. -->
+  <!-- A pole that stands: its style, its height (meters), its ropes. -->
   <String key="PoleButton.Tall">Flagpole: {0}, {1} m, ropes: {2}</String>
   <String key="PoleButton.Tilted">, tilted {0}° / {1}°</String>
   <String key="Tab.PoleNew">New flag's pole</String>
@@ -217,17 +217,17 @@
   <String key="Ropes.One">One</String>
   <String key="Ropes.Two">Two</String>
 
-  <String key="NewPoleColour.Label">Pole colour</String>
+  <String key="NewPoleColour.Label">Pole color</String>
   <String key="NewPoleColour.Tooltip">Pole, cap, foot.</String>
-  <String key="NewTopColour.Label">Top colour</String>
+  <String key="NewTopColour.Label">Top color</String>
   <String key="NewTopColour.Tooltip">Ball or spear.</String>
-  <String key="NewRopeColour.Label">Rope colour</String>
+  <String key="NewRopeColour.Label">Rope color</String>
   <String key="NewRopeColour.Tooltip">The ropes.</String>
-  <String key="SelPoleColour.Label">Pole colour</String>
+  <String key="SelPoleColour.Label">Pole color</String>
   <String key="SelPoleColour.Tooltip">Pole, cap, foot.</String>
-  <String key="SelTopColour.Label">Top colour</String>
+  <String key="SelTopColour.Label">Top color</String>
   <String key="SelTopColour.Tooltip">Ball or spear.</String>
-  <String key="SelRopeColour.Label">Rope colour</String>
+  <String key="SelRopeColour.Label">Rope color</String>
   <String key="SelRopeColour.Tooltip">The ropes.</String>
 
   <String key="NewPoleThickness.Label">Thickness</String>
@@ -306,7 +306,7 @@
   <String key="Gizmo.Tilt">Tilted {0}°</String>
   <String key="Gizmo.Lean">Leaning {0}°</String>
 
-  <!-- The colour picker. -->
+  <!-- The color picker. -->
   <String key="Picker.Hue">Hue</String>
   <String key="Picker.Saturation">Saturation</String>
   <String key="Picker.Brightness">Brightness</String>
@@ -353,9 +353,9 @@
   <String key="Group.Wind">Wind</String>
   <String key="WindFromGame.Label">Use the game's wind</String>
   <String key="WindFromGame.Tooltip">Or Volumetric Weather's, if it's on.</String>
-  <String key="GameWindNow.Status">Now {0} at 10 m, towards {1}°</String>
-  <String key="GameWindNow.Weather">Volumetric Weather's: {0} at 10 m, towards {1}°</String>
-  <String key="GameWindNow.WeatherSet">Volumetric Weather's, set on its Now tab: {0}, towards {1}°</String>
+  <String key="GameWindNow.Status">Now {0} at 10 m, toward {1}°</String>
+  <String key="GameWindNow.Weather">Volumetric Weather's: {0} at 10 m, toward {1}°</String>
+  <String key="GameWindNow.WeatherSet">Volumetric Weather's, set on its Now tab: {0}, toward {1}°</String>
   <String key="GameWindNow.Rain">, rain +{0}%</String>
   <String key="GameWindNow.Fog">, fog -{0}%</String>
   <String key="GameWindNow.Own">Your own wind, below</String>
@@ -455,7 +455,7 @@
     \n
     - Decimals use a dot: 0.5.\n
     - Percentages as the slider shows: 47 means 47%.\n
-    - Colours as #RRGGBB.\n
+    - Colors as #RRGGBB.\n
     - Out-of-range values are pulled into range; unreadable values and unknown names are
     ignored (FlagMaker.log says which).\n
     - A missing line keeps its current value.\n
@@ -472,7 +472,7 @@
   <String key="File.Readout">(slider: {0} to {1})</String>
   <String key="File.Toggle">{0}. true or false, default {1}.</String>
   <String key="File.Choice">{0}. One of {1}; default {2}.</String>
-  <String key="File.Colour">{0}. A colour #RRGGBB; default {1}.</String>
+  <String key="File.Colour">{0}. A color #RRGGBB; default {1}.</String>
   <String key="File.Country">{0}. A country code (fr, de, gb-sct, eu ...) or none; default {1}.</String>
   <String key="File.Image">{0}. A picture's file name in the Images folder, or none; default {1}.</String>
   <String key="File.Key">{0}. A key such as F6 or Ctrl+Shift+F, or None; default {1}.</String>
