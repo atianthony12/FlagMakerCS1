@@ -85,7 +85,9 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 - [ ] Defaults reviewed: no pole, the game's wind, Cloth detail High (32), self-collision and
       "keeps off buildings" on, freeze when paused on, detailed logging OFF, Panel look Frosted,
       the mod icon in Unified UI.
-- [ ] Languages: en, es, fr, zh complete (`test-localization.ps1` lists any text still in English).
+- [ ] Languages: en, es, fr, zh complete (`test-localization.ps1` lists any text still in English),
+      with the countries' names (`Localization\Countries`, `tools\fetch-country-names.ps1`). A new
+      flag code needs a run of that script, or it stays English in its language.
 - [ ] No personal name in the repo's files but README.md and LICENSE (release.ps1 checks it).
 - [ ] CLAUDE.md and the plans are never committed (`.gitignore` has `/CLAUDE.md`); no token
       patterns or e-mail addresses in the history before the repository goes public.

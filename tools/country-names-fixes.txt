@@ -1,0 +1,4 @@
+# Corrections to the countries' names from Unicode CLDR. tools\fetch-country-names.ps1 applies them
+# over CLDR's every time it runs, so they outlive an update. One a line: language, code, name.
+#
+#   fr cd=Congo-Kinshasa

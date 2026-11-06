@@ -199,9 +199,9 @@ namespace RealFlag.UI
             if (query.Trim().Length == 0)
                 _shown.Add(null);
 
-            foreach (FlagCountry country in FlagCountries.ByName)
+            foreach (FlagCountry country in CountryNames.Order)
             {
-                if (FlagCountries.Matches(country, query))
+                if (CountryNames.Matches(country, query))
                     _shown.Add(country);
             }
 
@@ -255,7 +255,7 @@ namespace RealFlag.UI
 
                 button.isVisible = true;
                 FlagCountry country = _shown[at];
-                button.text = country != null ? country.Name : Localization.Get("Country.None");
+                button.text = country != null ? CountryNames.Of(country) : Localization.Get("Country.None");
 
                 Texture2D texture = country != null ? FlagImages.Thumbnail(country.Image) : null;
                 thumb.texture = texture;

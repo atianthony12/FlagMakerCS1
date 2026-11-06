@@ -17,7 +17,8 @@ Open the panel with **F6**, or with the mod's icon. **Where to show mod icon** o
 its own you can drag anywhere, or **Never**: the key still opens the panel. It opens on the city's
 **Flags**. Its look is the options page's **Panel look**: Frosted glass (the default, over a blurred
 copy of the city), See-through, Blue, or Vanilla, the game's own. The text comes in English,
-Spanish, French and Simplified Chinese; it follows the game's language, or the **Language** row.
+Spanish, French and Simplified Chinese, the countries' names too; it follows the game's language,
+or the **Language** row. A country's search finds its name in your language or in English.
 
 **+ New flag** (at the top of the Flags tab) opens the new flag's window beside the panel, and
 the flag follows the pointer, blowing, standing on whatever is under it (ground, roof, road;
@@ -338,6 +339,8 @@ Written from scratch after these, with thanks (no code from them is included):
   tears' shapes; forensic science's "bullet wipe" -- the dark ring round a bullet hole in cloth.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
+- The countries' names in Spanish, French and Chinese: the
+  [Unicode Common Locale Data Repository](https://cldr.unicode.org), Unicode License V3.
 - The panel's icons: drawn from [Lucide](https://lucide.dev)'s, ISC.
 
 ## License

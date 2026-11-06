@@ -606,7 +606,7 @@ namespace RealFlag.UI
             control.CountryShown = number;
 
             FlagCountry country = FlagCountries.At(number);
-            control.Country.text = country != null ? country.Name : Localization.Get("Country.None");
+            control.Country.text = country != null ? CountryNames.Of(country) : Localization.Get("Country.None");
 
             Texture2D thumb = country != null ? FlagImages.Thumbnail(country.Image) : null;
             control.CountryImage.texture = thumb;

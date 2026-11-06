@@ -179,5 +179,32 @@ foreach ($file in Get-ChildItem (Join-Path $root "Localization") -Filter *.xml |
     Write-Host "      $($file.Name): $($t.Table.Count) texts, $todo still in English"
 }
 
+# ---- the countries' names (tools\fetch-country-names.ps1) --------------------------------------
+
+$tableText = [IO.File]::ReadAllText((Join-Path $root "Flags\FlagCountries.cs"))
+$codes = @([regex]::Matches($tableText, 'new FlagCountry\("([a-z-]+)"') | ForEach-Object { $_.Groups[1].Value })
+$translated = @(Get-ChildItem (Join-Path $root "Localization") -Filter *.xml | Where-Object { $_.Name -ne 'en.xml' } | ForEach-Object { $_.BaseName })
+$nameFiles = @(Get-ChildItem (Join-Path $root "Localization\Countries") -Filter *.txt)
+# By its codes: PowerShell 5.1 reads this file as ANSI, so a literal range arrives mangled.
+$chinese = New-Object regex ("[" + [char]0x4E00 + "-" + [char]0x9FFF + "]")
+Check "every translation has the countries' names" (@($translated | Where-Object { $nameFiles.BaseName -notcontains $_ }) -join ", ") ""
+
+foreach ($file in $nameFiles) {
+    $seen = @{}
+    $wrong = @()
+    foreach ($line in [IO.File]::ReadAllLines($file.FullName, [Text.Encoding]::UTF8)) {
+        if (-not $line -or $line.StartsWith("#")) { continue }
+        if ($line -notmatch '^([a-z-]+)=(\S.*)$') { $wrong += "'$line'"; continue }
+        if ($codes -notcontains $Matches[1]) { $wrong += "$($Matches[1]) (no such flag)" }
+        if ($seen.ContainsKey($Matches[1])) { $wrong += "$($Matches[1]) (twice)" }
+        $seen[$Matches[1]] = $Matches[2]
+        # CLDR's mark for "the same as its parent locale" is never a name.
+        if ($Matches[2].IndexOf([char]0x2191) -ge 0) { $wrong += "$($Matches[1]) (an inherited mark)" }
+        if ($file.BaseName -eq 'zh' -and -not $chinese.IsMatch($Matches[2])) { $wrong += "$($Matches[1]) (no Chinese)" }
+    }
+    Check "$($file.Name): every flag once, and nothing else" ($wrong -join ", ") ""
+    Check "$($file.Name): $($codes.Count) names" $seen.Count $codes.Count
+}
+
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

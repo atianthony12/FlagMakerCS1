@@ -38,6 +38,66 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// The flags' names in one language: a Localization\Countries file's "code=name" lines, in that
+    /// language's order (tools\fetch-country-names.ps1 sorts them, as the game's Mono cannot). A flag
+    /// the file lacks keeps its English name, after the rest. Never saved: flags save their code. PURE.
+    /// </summary>
+    public sealed class FlagCountryNames
+    {
+        private readonly Dictionary<string, string> _names = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _folded = new Dictionary<string, string>();
+
+        /// <summary>Every flag, in this language's order: the picker's list.</summary>
+        public readonly FlagCountry[] Order;
+
+        public FlagCountryNames(string text)
+        {
+            var order = new List<FlagCountry>(FlagCountries.Count);
+            foreach (string raw in (text ?? string.Empty).Split('\n'))
+            {
+                string line = raw.Trim();
+                int cut = line.IndexOf('=');
+                if (line.Length == 0 || line[0] == '#' || cut <= 0 || cut == line.Length - 1)
+                    continue;
+
+                FlagCountry flag = FlagCountries.Find(line.Substring(0, cut));
+                if (flag == null || _names.ContainsKey(flag.Code))
+                    continue;
+
+                string name = line.Substring(cut + 1).Trim();
+                _names[flag.Code] = name;
+                _folded[flag.Code] = FlagCountries.Fold(name);
+                order.Add(flag);
+            }
+
+            foreach (FlagCountry flag in FlagCountries.ByName)
+            {
+                if (!_names.ContainsKey(flag.Code))
+                    order.Add(flag);
+            }
+
+            Order = order.ToArray();
+        }
+
+        /// <summary>The flag's name here, or its English one.</summary>
+        public string Of(FlagCountry flag)
+        {
+            string name;
+            return _names.TryGetValue(flag.Code, out name) ? name : flag.Name;
+        }
+
+        /// <summary>A search of this language's name, or the English name or the code (FlagCountries.Matches): "germany" finds Allemagne.</summary>
+        public bool Matches(FlagCountry flag, string query)
+        {
+            if (FlagCountries.Matches(flag, query))
+                return true;
+
+            string folded;
+            return _folded.TryGetValue(flag.Code, out folded) && FlagCountries.MatchesName(folded, query);
+        }
+    }
+
+    /// <summary>
     /// The world's flags as images (the table is FlagCountries.cs, written by
     /// tools/fetch-flags.ps1 from Flagpedia's public-domain set). PURE.
     /// </summary>
@@ -48,6 +108,9 @@ namespace RealFlag.Flags
     /// </remarks>
     public static partial class FlagCountries
     {
+        /// <summary>Where the CJK blocks begin: U+2E80, by its code (this file stays ASCII).</summary>
+        private const char FirstCjk = (char)0x2E80;
+
         private static Dictionary<string, int> _byCode;
         private static FlagCountry[] _byName;
 
@@ -134,10 +197,16 @@ namespace RealFlag.Flags
             if (flag.Code == q)
                 return true;
 
-            string[] words = q.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return MatchesName(flag.Folded, q);
+        }
+
+        /// <summary>Every word of the query starts a word of this folded name.</summary>
+        public static bool MatchesName(string folded, string query)
+        {
+            string[] words = Fold(query).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string w in words)
             {
-                if (!StartsAWord(flag.Folded, w))
+                if (!StartsAWord(folded, w))
                     return false;
             }
 
@@ -146,6 +215,10 @@ namespace RealFlag.Flags
 
         private static bool StartsAWord(string text, string word)
         {
+            // Chinese has no spaces, so no words to start: anywhere in the name will do.
+            if (word[0] >= FirstCjk)
+                return text.IndexOf(word, StringComparison.Ordinal) >= 0;
+
             int at = 0;
             while (true)
             {
@@ -185,6 +258,7 @@ namespace RealFlag.Flags
                 else if (u >= 0xF9 && u <= 0xFC) sb.Append('u');
                 else if (u == 0xFD || u == 0xFF) sb.Append('y');
                 else if (u == 0xDF) sb.Append("ss");
+                else if (u == 0x153) sb.Append("oe");
                 else if (u == 0x2019) sb.Append('\'');
                 else sb.Append(c);
             }

@@ -170,7 +170,7 @@ namespace RealFlag.UI
             FlagCountry country = FlagCountries.Find(e.Spec.Country);
             float shownWidth, shownHeight;
             FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
-            string design = country != null ? country.Name : e.Spec.HasImage ? e.Spec.Image : Localization.Get(PatternKey(e.Spec.Pattern));
+            string design = country != null ? CountryNames.Of(country) : e.Spec.HasImage ? e.Spec.Image : Localization.Get(PatternKey(e.Spec.Pattern));
             string text = FlagEditor.Title(e) + "  ·  " + design + ", " + Localization.Get("Unit.Size",
                 shownWidth.ToString("0.#", CultureInfo.InvariantCulture), shownHeight.ToString("0.#", CultureInfo.InvariantCulture));
 

@@ -29,6 +29,10 @@ The countries' flags in RealFlag/Resources/Flags are not covered by this licence
 the public domain, from Flagpedia.net (flagcdn.com), after Wikimedia Commons' vector files;
 see THIRD-PARTY-NOTICES.md.
 
+The countries' names in RealFlag/Localization/Countries are not covered by this licence: they
+are from the Unicode Common Locale Data Repository (cldr.unicode.org), Unicode License V3; see
+THIRD-PARTY-NOTICES.md.
+
 The panel's icons (RealFlag/Resources/PanelIcons.png, ModsLibCS1/sprites/sheet.png) are drawn
 from the path data of Lucide's icons (lucide.dev), ISC; see THIRD-PARTY-NOTICES.md.
 

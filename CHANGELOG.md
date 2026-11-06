@@ -50,7 +50,8 @@ The first release.
 - **The mod's icon** sits in Unified UI, on the Toolbar as a button of its own, or nowhere (the key
   still opens the panel): **Where to show mod icon** in the mod's options.
 - **In four languages**: English, Spanish, French and Simplified Chinese, following the game's
-  language or your choice in the options.
+  language or your choice in the options. The countries' names and their order are translated too,
+  from the Unicode standard's list, and the search finds a country in your language or in English.
 
 ### Saved with the city
 

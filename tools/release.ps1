@@ -263,6 +263,9 @@ $embedded += ,@("ModsLibCS1.sheet.txt", "ModsLibCS1\sprites\sheet.txt")
 foreach ($f in Get-ChildItem (Join-Path $root "RealFlag\Localization") -Filter *.xml) {
     $embedded += ,@("Localization.$($f.Name)", "RealFlag\Localization\$($f.Name)")
 }
+foreach ($f in Get-ChildItem (Join-Path $root "RealFlag\Localization\Countries") -Filter *.txt) {
+    $embedded += ,@("CountryNames.$($f.Name)", "RealFlag\Localization\Countries\$($f.Name)")
+}
 foreach ($e in $embedded) {
     $res = $e[0]
     if ($resourceNames -notcontains $res) { Stop-Release "$res is not embedded"; continue }

@@ -1687,6 +1687,35 @@ public static class ClothTests
         return "-";
     }
 
+    static string FirstIn(FlagCountryNames names, string query)
+    {
+        foreach (FlagCountry c in names.Order) if (names.Matches(c, query)) return c.Code;
+        return "-";
+    }
+
+    /// <summary>A language's names: its order kept, a flag it lacks after the rest in English, search by either name, Chinese anywhere in a name.</summary>
+    public static string LocalNames()
+    {
+        // Line ends as git may leave them, a comment, an unknown code, a second "de", half a line.
+        // By their codes: PowerShell 5.1 reads this file as ANSI, so a literal one arrives mangled.
+        string swiss = U(0x745E, 0x58EB), korea = U(0x5927, 0x97E9, 0x6C11, 0x56FD);
+        var names = new FlagCountryNames("# a comment\r\nfr=France\r\nde=Allemagne\nzz=Nowhere\nde=Twice\nes=\nch=" + swiss + "\nkr=" + korea
+            + "\nci=C" + U(0xF4) + "te d" + U(0x2019) + "Ivoire\nnl=" + U(0xCE) + "les\n");
+        FlagCountry france = FlagCountries.Find("fr"), germany = FlagCountries.Find("de"), spain = FlagCountries.Find("es");
+        return names.Order.Length + " " + names.Order[0].Code + " " + names.Order[1].Code + " " + names.Order[6].Code
+            + " " + names.Of(germany) + " " + names.Of(spain) + " " + (names.Of(france) == "France")
+            + " " + FirstIn(names, "allemagne") + " " + FirstIn(names, "germany") + " " + FirstIn(names, "de")
+            + " " + FirstIn(names, "cote d'iv") + " " + FirstIn(names, "iles")
+            + " " + FirstIn(names, U(0x745E)) + " " + FirstIn(names, U(0x97E9)) + " " + (FirstIn(names, U(0x7F8E)) == "-");
+    }
+
+    static string U(params int[] codes)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (int code in codes) text.Append((char)code);
+        return text.ToString();
+    }
+
     /// <summary>Every image the table names, as the cloth's and as the thumbnail, among the DLL's resources.</summary>
     public static string Images(string[] resources)
     {
@@ -4072,6 +4101,8 @@ $ctf = $ct[0] -split ","
 Check "the countries: 256, codes unique, proportions in range, found both ways" ($ctf[0] -eq "256" -and $ctf[1] -eq "True" -and $ctf[2] -eq "True" -and $ctf[3] -eq "True" -and $ctf[4] -eq "True" -and $ctf[5] -eq "True") ($ct[0])
 Check "the search: words of the name, accents aside, or the code" ($ct[1] -eq "ci gb gb-sct ci ci st") $ct[1]
 Check "their own proportions: Nepal taller than long, Qatar 11:28, Switzerland square; Svalbard flies Norway's" ($ct[2] -eq "1219 392 1000 no 1:2.55 2:3") $ct[2]
+$names = [ClothTests]::LocalNames()
+Check "a language's names: its order first, a flag it lacks after them in English, found by either name or the code, Chinese anywhere in a name" ($names -eq "256 fr de af Allemagne Spain True de de de ci nl ch kr True") $names
 $img = [ClothTests]::Images($asm.GetManifestResourceNames()) -split ","
 Check "every flag's image and thumbnail are in the DLL" ($img[1] -eq "0") ($img[0] + " images, " + $img[1] + " missing")
 Check "a spec from a save or a paste is pulled into range" ([ClothTests]::Sanitise() -eq "5,30.0,667,1.0,#123456,True") ([ClothTests]::Sanitise())

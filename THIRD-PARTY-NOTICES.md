@@ -48,10 +48,57 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
+| Asset | Source | Licence | Use |
+| --- | --- | --- | --- |
+| `RealFlag/Localization/Countries/*.txt` | The countries' names in Spanish, French and Simplified Chinese from the [Unicode Common Locale Data Repository](https://cldr.unicode.org) (CLDR, release 49: `common/main`, `common/subdivisions`); written by `tools/fetch-country-names.ps1`, which sorts them and takes CLDR's short form for Hong Kong, Macao and Palestine and its variant Costa de Marfil in Spanish; any correction is in `tools/country-names-fixes.txt` | Unicode License V3; its notice follows | The country picker and the flag list, embedded in the DLL |
+
+Unicode's licence, as published in CLDR's repository:
+
+```
+Copyright © 2001–2026 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
+
+SPDX-License-Identifier: Unicode-3.0
+```
+
 National flags are state symbols. Showing them flown, as a city-builder does, is their ordinary
 use; some countries have laws against their flag's misuse or its registration as a trademark
 (the Paris Convention's article 6ter), which a free mod that flies them does neither of. The
-list is Flagpedia's, ISO 3166-1's countries and territories, without judgement on any of them.
+list is Flagpedia's, ISO 3166-1's countries and territories, without judgement on any of them;
+its translated names are the Unicode standard's, likewise.
 
 ## Build-time only
 
