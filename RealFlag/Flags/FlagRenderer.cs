@@ -331,10 +331,13 @@ namespace RealFlag.Flags
         /// made again when it is next in view -- from a like flag's shape in 0.3 s, else in 1.5 s.
         /// Before, every flag within MovePixels (about 1.3 km for a 3 m flag) kept all of it for
         /// the session: 0.3-0.9 GB for 2000 flags (the sweep). PlanUnseen settles only flags this
-        /// big too, so nothing is let go and settled by turns.
+        /// big too, so nothing is let go and settled by turns. ReleaseSeconds was 30: the author's
+        /// run (2026-11-07 19:00-19:17, 22 flags) let 136 cloths go in 15 minutes of panning, each
+        /// flag settling again (1.5 s) about six times as the camera came and went; 120 s covers
+        /// a look elsewhere and back, and still bounds a city of thousands within two minutes.
         /// </summary>
         public const float KeepPixels = 24f;
-        public const float ReleaseSeconds = 30f;
+        public const float ReleaseSeconds = 120f;
 
         /// <summary>
         /// At most this many flags move in one frame, the biggest on the screen first. Was 48 until
