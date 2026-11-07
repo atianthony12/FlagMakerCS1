@@ -1885,12 +1885,27 @@ namespace RealFlag.UI
                 AfterChange = State("flags stop while the game is paused", OnOff(Settings.FreezeWhenPaused)),
             });
 
+            // The overall Quality (2026-11-07; the author: "an overall Quality Preset"): it sets the
+            // cloth detail, self-collision, shared motion and buildings as drawn below, and shows
+            // Custom when they are set otherwise (QualityPreset).
             Add(new Row
             {
                 Kind = RowKind.Choice,
                 Panel = PanelPage.Settings,
                 Options = OptionsPage.General,
                 Group = "Cloth",
+                Int = Settings.Quality,
+                DefaultInt = QualityPreset.High,
+                ChoiceValues = QualityPreset.Values,
+                ChoiceKeys = QualityPreset.NameKeys,
+                AfterChange = () => QualityPreset.Apply(Settings.Quality.value),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
                 Int = Settings.ClothDetail,
                 DefaultInt = Settings.Defaults.ClothDetail,
                 ChoiceValues = FlagCloth.Details,

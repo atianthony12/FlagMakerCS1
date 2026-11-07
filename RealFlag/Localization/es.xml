@@ -458,6 +458,14 @@
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Tela</String>
+  <String key="Quality.Label">Calidad</String>
+  <String key="Quality.Tooltip">Ajusta las opciones de tela de abajo.</String>
+  <String key="Quality.Low">Bajo</String>
+  <String key="Quality.Medium">Medio</String>
+  <String key="Quality.High">Alto</String>
+  <String key="Quality.VeryHigh">Muy alto</String>
+  <String key="Quality.Ultra">Ultra</String>
+  <String key="Quality.Custom">Personalizado</String>
   <String key="ClothDetail.Label">Detalle de la tela</String>
   <String key="ClothDetail.Tooltip">Más se ve mejor, cuesta más.</String>
   <String key="ClothDetail.Low">Bajo</String>

@@ -458,6 +458,10 @@ namespace RealFlag.Flags
             {
                 var found = new FlagSurroundings.Gathered();
                 grid = FlagSurroundings.Surface(Vector3.zero, hit.x, hit.z, SnapHalf, ref found);
+
+                // Drawn shapes not read yet: looked for again next frame, not kept.
+                if (found.Pending > 0)
+                    _snapFromSet = false;
             }
             catch (Exception e)
             {

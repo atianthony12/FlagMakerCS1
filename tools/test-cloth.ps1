@@ -3850,6 +3850,99 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The Quality preset (RealFlag.UI.QualityPreset.Of): the defaults are High (a file from
+    /// before reads as High); each level's own four make that level; one of them changed makes
+    /// Custom; Extreme's 64 cells are Custom at any setting. Returns: High from the defaults, the
+    /// levels round, the changes Custom, the 64-cell Custom.
+    /// </summary>
+    public static string Quality()
+    {
+        bool high = RealFlag.UI.QualityPreset.Of(32, true, true, true) == RealFlag.UI.QualityPreset.High;
+        bool round = true, custom = true;
+        for (int i = 0; i < RealFlag.UI.QualityPreset.Detail.Length; i++)
+        {
+            int d = RealFlag.UI.QualityPreset.Detail[i];
+            bool s = RealFlag.UI.QualityPreset.SelfCollision[i], m = RealFlag.UI.QualityPreset.SharedMotion[i], b = RealFlag.UI.QualityPreset.DrawnBuildings[i];
+            round &= RealFlag.UI.QualityPreset.Of(d, s, m, b) == i;
+            custom &= RealFlag.UI.QualityPreset.Of(d, !s, m, b) == RealFlag.UI.QualityPreset.Custom;
+            custom &= RealFlag.UI.QualityPreset.Of(d, s, m, !b) == RealFlag.UI.QualityPreset.Custom;
+        }
+        bool extreme = RealFlag.UI.QualityPreset.Of(64, true, false, true) == RealFlag.UI.QualityPreset.Custom &&
+                       RealFlag.UI.QualityPreset.Of(64, true, true, true) == RealFlag.UI.QualityPreset.Custom;
+        return high + "," + round + "," + custom + "," + extreme;
+    }
+
+    /// <summary>
+    /// TriangleIndex (the drawn shapes' cull, 2026-11-07): over random meshes -- small triangles,
+    /// a few spanning the whole mesh, some with indices past the vertices -- and random squares
+    /// (inside, across the border, outside, the whole), the triangles Near finds are exactly those
+    /// every triangle's own test finds, each once. Returns: the squares whose sets differed, the
+    /// duplicates, the squares tried; and the time of a 6 m square against every triangle of a
+    /// 20000-triangle mesh, index and all (us, .NET).
+    /// </summary>
+    public static string IndexNear()
+    {
+        var rnd = new Random(7);
+        int wrong = 0, dup = 0, tried = 0;
+        double indexed = 0, whole = 0;
+        var near = new List<int>();
+        for (int m = 0; m < 12; m++)
+        {
+            int count = m == 11 ? 20000 : 300 + rnd.Next(3000);
+            var v = new UnityEngine.Vector3[count * 3];
+            var t = new int[count * 3];
+            float sx = 10f + (float)rnd.NextDouble() * 60f, sz = 5f + (float)rnd.NextDouble() * 40f;
+            for (int i = 0; i < count; i++)
+            {
+                bool big = rnd.Next(100) == 0;
+                float cx = (float)rnd.NextDouble() * sx - 0.5f * sx, cz = (float)rnd.NextDouble() * sz - 0.5f * sz, r = big ? sx : 0.2f + (float)rnd.NextDouble() * 2f;
+                for (int k = 0; k < 3; k++)
+                {
+                    v[3 * i + k] = new UnityEngine.Vector3(cx + (float)(rnd.NextDouble() - 0.5) * r, (float)rnd.NextDouble() * 20f, cz + (float)(rnd.NextDouble() - 0.5) * r);
+                    t[3 * i + k] = 3 * i + k;
+                }
+                if (rnd.Next(500) == 0) t[3 * i + 1] = v.Length + 5;
+            }
+            UnityEngine.Vector3 lo = v[0], hi = v[0];
+            foreach (UnityEngine.Vector3 p in v) { lo = UnityEngine.Vector3.Min(lo, p); hi = UnityEngine.Vector3.Max(hi, p); }
+            TriangleIndex index = TriangleIndex.Build(v, t, lo, hi);
+            for (int q = 0; q < 60; q++)
+            {
+                float w = q == 0 ? 1e4f : 0.5f + (float)rnd.NextDouble() * 12f;
+                float x0 = q == 0 ? -5e3f : lo.x - 8f + (float)rnd.NextDouble() * (hi.x - lo.x + 16f), z0 = q == 0 ? -5e3f : lo.z - 8f + (float)rnd.NextDouble() * (hi.z - lo.z + 16f);
+                float x1 = x0 + w, z1 = z0 + w;
+                near.Clear();
+                index.Near(v, t, x0, z0, x1, z1, near);
+                var got = new HashSet<int>();
+                foreach (int i in near) if (!got.Add(i)) dup++;
+                var want = new HashSet<int>();
+                for (int i = 0; i + 2 < t.Length; i += 3)
+                {
+                    if ((uint)t[i] >= (uint)v.Length || (uint)t[i + 1] >= (uint)v.Length || (uint)t[i + 2] >= (uint)v.Length) continue;
+                    if (TriangleIndex.Reaches(v[t[i]], v[t[i + 1]], v[t[i + 2]], x0, z0, x1, z1)) want.Add(i);
+                }
+                if (!got.SetEquals(want)) wrong++;
+                tried++;
+            }
+
+            if (m == 11)
+            {
+                var sw = Stopwatch.StartNew();
+                for (int rep = 0; rep < 200; rep++) { near.Clear(); index.Near(v, t, -3f, -3f, 3f, 3f, near); }
+                indexed = sw.Elapsed.TotalMilliseconds * 1000.0 / 200;
+                sw = Stopwatch.StartNew();
+                int n = 0;
+                for (int rep = 0; rep < 200; rep++)
+                    for (int i = 0; i + 2 < t.Length; i += 3)
+                        if ((uint)t[i + 1] < (uint)v.Length && TriangleIndex.Reaches(v[t[i]], v[t[i + 1]], v[t[i + 2]], -3f, -3f, 3f, 3f)) n++;
+                whole = sw.Elapsed.TotalMilliseconds * 1000.0 / 200;
+            }
+        }
+
+        return wrong + "," + dup + "," + tried + "," + indexed.ToString("F0", Inv) + "," + whole.ToString("F0", Inv);
+    }
+
+    /// <summary>
     /// The tool's way since the drawn shapes (2026-11-07): the edge looked for on a SurfaceGrid
     /// gathered round the pointer (a box 17 m tall raised into it, its face at x = 5), the grid's
     /// height as top, off the grid "no fall". From 0.6 m in: found; how far outside the box's face
@@ -4858,6 +4951,10 @@ foreach ($case in @(@(-0.15, 0, 4, 90, "0.15 m out from the face, the wind at th
 }
 $re = [ClothTests]::RoofEdge(3, 0.3, 4, 90) -split ","
 Check "a banner from its top 0.3 m over a roof 3 m from its edge: no edge in reach, it lies on the roof as before" ($re[0] -eq "True" -and (N $re[3]) -eq 0 -and (N $re[4]) -eq 0 -and $re[2] -eq "False" -and (N $re[8]) -ge -0.01) ("draped " + $re[3] + " m, kept back " + $re[4] + " m; its lowest " + $re[8] + " m under the roof")
+$qp = [ClothTests]::Quality() -split ","
+Check "the Quality preset: the defaults read as High, each level's settings make it, any one changed is Custom, Extreme's 64 cells only Custom" (($qp | Where-Object { $_ -ne "True" }).Count -eq 0) ($qp -join ",")
+$ix = [ClothTests]::IndexNear() -split ","
+Check "the drawn shapes' triangle index finds exactly the triangles each one's own test finds, once each, over random meshes and squares" ($ix[0] -eq "0" -and $ix[1] -eq "0") ($ix[2] + " squares, " + $ix[0] + " differing, " + $ix[1] + " duplicates; a 6 m square of a 20000-triangle mesh " + $ix[3] + " us indexed, " + $ix[4] + " us every triangle (.NET)")
 $eg = [ClothTests]::EdgeSnapOnGrid() -split ","
 Check "snap on the surface the cloth keeps off (the drawn shapes): the edge found within the grid's wall band, square to it; none at the border of a roof wider than the grid" ($eg[0] -eq "True" -and (N $eg[1]) -ge -0.01 -and (N $eg[1]) -le 1.6 * (N $eg[4]) -and (N $eg[2]) -lt 1 -and $eg[3] -eq "17.0" -and $eg[5] -eq "True") ("the edge " + $eg[1] + " m outside the face (grid every " + $eg[4] + " m), its way out " + $eg[2] + " deg off, the roof at " + $eg[3] + " m; none on the wide roof: " + $eg[5])
 $es = [ClothTests]::EdgeSnap() -split ","

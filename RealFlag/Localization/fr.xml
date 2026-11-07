@@ -461,6 +461,14 @@
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Tissu</String>
+  <String key="Quality.Label">Qualité</String>
+  <String key="Quality.Tooltip">Règle les options du tissu ci-dessous.</String>
+  <String key="Quality.Low">Faible</String>
+  <String key="Quality.Medium">Moyen</String>
+  <String key="Quality.High">Élevé</String>
+  <String key="Quality.VeryHigh">Très élevé</String>
+  <String key="Quality.Ultra">Ultra</String>
+  <String key="Quality.Custom">Personnalisé</String>
   <String key="ClothDetail.Label">Détail du tissu</String>
   <String key="ClothDetail.Tooltip">Meilleur, mais plus coûteux.</String>
   <String key="ClothDetail.Low">Faible</String>

@@ -100,6 +100,13 @@ namespace RealFlag
         /// </summary>
         public static BoolSetting SharedMotion { get; private set; }
 
+        /// <summary>
+        /// The overall Quality (UI.QualityPreset: Low .. Ultra, or Custom), DERIVED from the cloth
+        /// detail, self-collision, shared motion and buildings as drawn -- never in the file;
+        /// choosing a level sets those four.
+        /// </summary>
+        public static IntSetting Quality { get; private set; }
+
         // ---- the wind (the panel's Settings tab) ----
 
         /// <summary>
@@ -312,7 +319,7 @@ namespace RealFlag
             public const bool SelfCollision = true;
             public const bool CityCollision = true;
 
-            /// <summary>On (2026-11-07), until the Quality preset sets it from its measured cost.</summary>
+            /// <summary>On (2026-11-07): part of the Quality preset's High (the defaults) and up (UI.QualityPreset).</summary>
             public const bool DetailedBuildings = true;
 
             /// <summary>Auto (the author's choice, 2026-10-31: players raise it themselves).</summary>
@@ -444,6 +451,7 @@ namespace RealFlag
                 DetailedBuildings = new BoolSetting("DetailedBuildings", Defaults.DetailedBuildings);
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
                 SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
+                Quality = new IntSetting("Quality", UI.QualityPreset.High, true);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);

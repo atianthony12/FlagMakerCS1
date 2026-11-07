@@ -169,6 +169,9 @@ namespace RealFlag
             if (!Settings.IsInitialised)
                 return;
 
+            // The Quality preset shows what the cloth options make, however they came to be.
+            UI.QualityPreset.Sync();
+
             float now = Time.realtimeSinceStartup;
 
             if (_dirty)

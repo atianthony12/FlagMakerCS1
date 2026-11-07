@@ -125,7 +125,7 @@ foreach ($enum in @('PanelPage')) {
 
 # Key-shaped literals anywhere in the code ("Status.Flags", "Pattern.Disc"...), including the
 # ones picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Reset|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Cut|Image|PanelSkin|IconPlace|Placing'
+$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Reset|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Cut|Image|PanelSkin|IconPlace|Placing|Quality'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)

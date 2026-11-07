@@ -3206,15 +3206,18 @@ namespace RealFlag.Flags
                 f.SurfaceOrigin = f.Anchor;
                 f.SurfaceSquare = new Vector3(reach.X, reach.Z, half);
                 f.SurfaceAt = time;
-                f.SurfaceStale = false;
+                // Drawn shapes not read yet (their LOD shapes stood in): gathered again, a frame on.
+                f.SurfaceStale = found.Pending > 0;
                 _surfaceGathers++;
                 _gatherMs += found.Milliseconds;
-                if (Log.Detailed && f.Surface != null && !ghost)
+                if (Log.Detailed && f.Surface != null && !ghost && found.Pending == 0)
                     Log.Detail("flags: the surface round " + Who(f) + ": " + f.Surface.Columns + "x" + f.Surface.Rows + " every " +
                                f.Surface.Spacing.ToString("F2") + " m, " + found.Buildings + " building(s) (" + found.Triangles +
                                " triangles; " + found.Detailed + " as drawn" + (found.BuildingProps > 0 ? " with " + found.BuildingProps + " prop(s)" : "") +
                                ", " + found.Simple + " by their simple shape" + (FlagSurroundings.DetailedShapes ? "" : ": the option off") +
-                               "; " + BuildingShapes.MeshesRead + " mesh(es) read so far, " + BuildingShapes.TrianglesHeld + " triangles kept), its top " + (f.Surface.Top + f.Anchor.y - f.Ground).ToString("F1") + " m over the ground here, in " +
+                               "; " + BuildingShapes.MeshesRead + " mesh(es) read so far in " + BuildingShapes.ReadMilliseconds.ToString("F0") +
+                               " ms (the longest " + BuildingShapes.LongestRead.ToString("F1") + ", " + BuildingShapes.PendingReads + " put off a frame), " +
+                               BuildingShapes.TrianglesHeld + " triangles kept), its top " + (f.Surface.Top + f.Anchor.y - f.Ground).ToString("F1") + " m over the ground here, in " +
                                found.Milliseconds.ToString("F2") + " ms");
             }
 

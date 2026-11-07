@@ -57,6 +57,9 @@ namespace RealFlag.Flags
 
             /// <summary>Of the buildings: raised by their drawn shape (BuildingShapes), by their LOD mesh (the option off, or the shape unreadable); their props raised with them.</summary>
             public int Detailed, Simple, BuildingProps;
+
+            /// <summary>Drawn meshes not read yet (BuildingShapes' reading time a frame spent): their LOD shapes stand in; gather again soon.</summary>
+            public int Pending;
             public double Milliseconds;
         }
 

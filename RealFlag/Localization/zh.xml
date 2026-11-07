@@ -451,6 +451,14 @@
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">布料</String>
+  <String key="Quality.Label">画质</String>
+  <String key="Quality.Tooltip">设置下面的布料选项。</String>
+  <String key="Quality.Low">低</String>
+  <String key="Quality.Medium">中</String>
+  <String key="Quality.High">高</String>
+  <String key="Quality.VeryHigh">很高</String>
+  <String key="Quality.Ultra">极高</String>
+  <String key="Quality.Custom">自定义</String>
   <String key="ClothDetail.Label">布料细节</String>
   <String key="ClothDetail.Tooltip">越高越好看，越耗性能。</String>
   <String key="ClothDetail.Low">低</String>

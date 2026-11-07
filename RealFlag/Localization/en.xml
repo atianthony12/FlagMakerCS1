@@ -457,6 +457,14 @@
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Cloth</String>
+  <String key="Quality.Label">Quality</String>
+  <String key="Quality.Tooltip">Sets the cloth options below.</String>
+  <String key="Quality.Low">Low</String>
+  <String key="Quality.Medium">Medium</String>
+  <String key="Quality.High">High</String>
+  <String key="Quality.VeryHigh">Very high</String>
+  <String key="Quality.Ultra">Ultra</String>
+  <String key="Quality.Custom">Custom</String>
   <String key="ClothDetail.Label">Cloth detail</String>
   <String key="ClothDetail.Tooltip">Higher looks better, costs more.</String>
   <String key="ClothDetail.Low">Low</String>
