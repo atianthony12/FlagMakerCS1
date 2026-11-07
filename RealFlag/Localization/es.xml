@@ -64,6 +64,8 @@
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">Bandera de tela</String>
   <String key="Prop.Description">Una bandera de tela que ondea. Edítala en el panel de Flag Maker.</String>
+  <String key="StringNet.Title">Guirnalda de banderas</String>
+  <String key="StringNet.Description">Banderas tendidas entre dos puntos. Edítala en el panel de Flag Maker.</String>
 
   <!-- ==================== El panel del juego (F6) ==================== -->
 

@@ -49,6 +49,13 @@ namespace RealFlag.Flags
         /// <summary>The largest side a player's picture is kept at on the cloth, pixels.</summary>
         public const int MaxUserSize = 2048;
 
+        /// <summary>
+        /// The most pixels a picture file may hold (its header's width x height) before it is
+        /// refused unread: 8192 x 8192, the largest texture Unity 5.6 makes anyway. Decoding one
+        /// bigger would take hundreds of MB of the engine's memory in one go (MakeUser).
+        /// </summary>
+        public const long MaxUserPixels = 8192L * 8192L;
+
         /// <summary>The panel's copy's largest side, pixels: its list's thumbnails and its crop view.</summary>
         public const int PreviewSize = 512;
 
@@ -273,6 +280,16 @@ namespace RealFlag.Flags
             int headerWidth, headerHeight;
             bool alpha;
             bool known = ImageHeader.TryRead(bytes, out headerWidth, out headerHeight, out alpha);
+
+            // LoadImage decodes the whole picture into the engine's memory before anything here
+            // can shrink it: one past MaxUserPixels (a poster scan, a decompression bomb) is refused
+            // by its header, never decoded.
+            if (known && (long)headerWidth * headerHeight > MaxUserPixels)
+            {
+                how = headerWidth + " x " + headerHeight + " is too big to decode (over " + (MaxUserPixels / 1000000) +
+                      " megapixels); make it smaller";
+                return null;
+            }
 
             var source = new Texture2D(2, 2, TextureFormat.RGBA32, true, false);
             if (!source.LoadImage(bytes, false))

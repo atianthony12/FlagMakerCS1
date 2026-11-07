@@ -76,6 +76,7 @@ namespace RealFlag.Flags
 
             _registered = null;
             FlagPrefab.UnhookLocale();
+            StringPrefab.UnhookLocale();
         }
 
         public void CheckReferences()

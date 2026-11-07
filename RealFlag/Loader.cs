@@ -72,24 +72,44 @@ namespace RealFlag
         {
             base.OnLevelUnloading();
 
-            // This city's flags go with it; the next city's come with its save.
-            FlagTool.Remove();
-            LineFlags.Forget();
-            FlagEditor.Clear();
-            FlagRegistry.Clear();
-            FlagSaveData.Forget();
-            FlagPrefab.Forget();
-            StringTool.Remove();
-            StringEditor.Clear();
-            StringRegistry.Clear();
-            StringSaveData.Forget();
-            StringPrefab.Forget();
+            // This city's flags go with it; the next city's come with its save. Each step on its
+            // own, and the controller destroyed whatever threw: one throw here would otherwise
+            // leave _root set, so the next city never got a controller (the mod dead until a
+            // restart) while this city's kept running in it (the 2026-11-07 sweep).
+            try
+            {
+                Step(FlagTool.Remove, "the flag tool");
+                Step(LineFlags.Forget, "Line Tool");
+                Step(FlagEditor.Clear, "the selection");
+                Step(FlagRegistry.Clear, "the flags' designs");
+                Step(FlagSaveData.Forget, "the flags' kept data");
+                Step(FlagPrefab.Forget, "the flag prefab");
+                Step(StringTool.Remove, "the string tool");
+                Step(StringEditor.Clear, "the strings' selection");
+                Step(StringRegistry.Clear, "the strings' designs");
+                Step(StringSaveData.Forget, "the strings' kept data");
+                Step(StringPrefab.Forget, "the string network");
+            }
+            finally
+            {
+                if (_root != null)
+                {
+                    Object.Destroy(_root);
+                    _root = null;
+                }
+            }
+        }
 
-            if (_root == null)
-                return;
-
-            Object.Destroy(_root);
-            _root = null;
+        private static void Step(Action step, string what)
+        {
+            try
+            {
+                step();
+            }
+            catch (Exception e)
+            {
+                Log.Error("unloading: letting go of " + what + " threw; the rest goes on", e);
+            }
         }
 
         /// <summary>

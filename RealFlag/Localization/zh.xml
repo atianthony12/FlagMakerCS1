@@ -57,6 +57,8 @@
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">布旗</String>
   <String key="Prop.Description">一面飘动的布旗。在 Flag Maker 面板中编辑。</String>
+  <String key="StringNet.Title">彩旗串</String>
+  <String key="StringNet.Description">两点之间拉起的一串旗帜。在 Flag Maker 面板中编辑。</String>
 
   <!-- ==================== The in-game panel (F6) ==================== -->
 

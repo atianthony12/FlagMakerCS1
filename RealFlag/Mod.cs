@@ -1,3 +1,4 @@
+using System.Reflection;
 using ICities;
 using RealFlag.Flags;
 using RealFlag.UI;
@@ -31,6 +32,7 @@ namespace RealFlag
         {
             Log.Start();
             Log.Msg("Mod enabled. Log file: " + Log.Path);
+            WarnOfSecondCopy();
 
             // Reads FlagMaker.xml and starts the saver that writes changes back and picks up edits
             // made to the file by hand.
@@ -46,6 +48,32 @@ namespace RealFlag
             // patches; the rest of the mod does without them.
             Patcher.EnsureHarmony();
             Patcher.PatchOnReady();
+        }
+
+        /// <summary>
+        /// Two copies of the mod enabled at once (a local Addons\Mods folder beside the Workshop's)
+        /// both run: both patch, both save, each keeps the designs it loaded. Nothing here can stop
+        /// the other one; it is said, so the log explains what follows (each copy says it).
+        /// </summary>
+        private static void WarnOfSecondCopy()
+        {
+            try
+            {
+                int copies = 0;
+                foreach (Assembly a in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (a.GetName().Name == "RealFlag")
+                        copies++;
+                }
+
+                if (copies > 1)
+                    Log.Warn(copies + " copies of Flag Maker are loaded (a local Addons\\Mods\\RealFlag beside the Workshop's?): " +
+                             "both run; disable one, or a city's flags may be saved by the wrong copy");
+            }
+            catch (System.Exception e)
+            {
+                Log.Warn("could not count the mod's loaded copies: " + e.Message);
+            }
         }
 
         /// <summary>Called by the game via reflection when the mod is disabled.</summary>

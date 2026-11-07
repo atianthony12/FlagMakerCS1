@@ -67,6 +67,8 @@
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">Drapeau en tissu</String>
   <String key="Prop.Description">Un drapeau en tissu qui flotte. Modifiez-le dans le panneau Flag Maker.</String>
+  <String key="StringNet.Title">Guirlande de drapeaux</String>
+  <String key="StringNet.Description">Des drapeaux tendus entre deux points. Modifiez-la dans le panneau Flag Maker.</String>
 
   <!-- ==================== The in-game panel (F6) ==================== -->
 

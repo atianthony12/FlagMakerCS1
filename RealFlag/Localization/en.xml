@@ -62,6 +62,8 @@
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">Cloth flag</String>
   <String key="Prop.Description">A waving cloth flag. Edit it in the Flag Maker panel.</String>
+  <String key="StringNet.Title">String of flags</String>
+  <String key="StringNet.Description">Flags strung between two points. Edit it in the Flag Maker panel.</String>
 
   <!-- ==================== The in-game panel (F6) ==================== -->
 

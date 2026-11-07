@@ -159,6 +159,8 @@ namespace RealFlag.Flags
             catch (Exception e)
             {
                 Handing = false;
+                _driving = false;
+                Restore(tool);
                 Fail("handing it the flag failed: " + e.Message);
                 BackToSingle();
             }
@@ -189,7 +191,22 @@ namespace RealFlag.Flags
                 return;
             }
 
-            Push(tool, false);
+            try
+            {
+                Push(tool, false);
+            }
+            catch (Exception e)
+            {
+                // A setter of Line Tool's that throws would throw here every frame, inside the
+                // renderer's frame, leaving every flag undrawn while Line Tool is out: the rows
+                // given up instead, said once (Fail), Line Tool's own settings put back.
+                _driving = false;
+                Restore(tool);
+                Fail("our rows could not reach it: " + e.Message);
+                BackToSingle();
+                return;
+            }
+
             if (FlagTool.Instance != null)
                 FlagTool.Instance.RaiseOverLine();
         }

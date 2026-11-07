@@ -143,20 +143,34 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
-                Log.Error("Move It's Convert to PO: testing for a flag threw.", e);
-                return true;
+                // Not knowing whether it is a flag, the conversion is refused (null: Move It
+                // keeps the object): going on would turn a flag into a placeholder and delete it.
+                if (_convertFailures++ == 0)
+                    Log.Error("Move It's Convert to PO: testing for a flag threw; the conversion is refused (said once).", e);
+                __result = null;
+                return false;
             }
         }
+
+        private static int _convertFailures;
 
         /// <summary>PO's button or key with the game's prop tool out: skipped when its prop is the flag.</summary>
         public static bool ToolPrefix(ToolBase tool)
         {
-            var props = tool as PropTool;
-            if (props == null || !FlagPrefab.IsFlag(props.m_prefab))
-                return true;
+            try
+            {
+                var props = tool as PropTool;
+                if (props == null || !FlagPrefab.IsFlag(props.m_prefab))
+                    return true;
 
-            Refuse("the flag in the prop tool", "Procedural Objects' Convert to PO");
-            return false;
+                Refuse("the flag in the prop tool", "Procedural Objects' Convert to PO");
+                return false;
+            }
+            catch (Exception e)
+            {
+                Log.Error("Procedural Objects' Convert to PO: testing for a flag threw.", e);
+                return true;
+            }
         }
 
         /// <summary>A request to PO for a flag: failed, never queued (PO's Update skips a failed one; TryRetrieveConverted answers 2).</summary>

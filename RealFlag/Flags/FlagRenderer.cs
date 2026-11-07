@@ -280,6 +280,16 @@ namespace RealFlag.Flags
     {
         public static FlagRenderer Instance { get; private set; }
 
+        /// <summary>
+        /// Drawing and stepping (the shader loaded, the thread not stuck). While false the flags
+        /// are not drawn, so a pick by their cloth would find nothing: the game's own test then
+        /// (FlagPatches), so the bulldozer and Move It still reach them.
+        /// </summary>
+        public bool Ready
+        {
+            get { return _ready; }
+        }
+
         /// <summary>One cloth step, seconds (FlagMesh draws between steps).</summary>
         public const float Step = 1f / 60f;
 
@@ -906,8 +916,20 @@ namespace RealFlag.Flags
             _cost.Reset();
             _cost.Start();
 
-            // The batch planned last frame: done, as a rule, while the game drew.
-            if (!Collect())
+            // The batch planned last frame: done, as a rule, while the game drew. Inside a try as
+            // the frame is: a throw here escaped LateUpdate every frame, Unity logging each one.
+            bool collected;
+            try
+            {
+                collected = Collect();
+            }
+            catch (Exception e)
+            {
+                FrameFailed(e);
+                return;
+            }
+
+            if (!collected)
                 return;
 
             float dt = Mathf.Clamp(Time.deltaTime, 0f, 0.25f);

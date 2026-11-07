@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Reflection;
 using ColossalFramework;
+using ColossalFramework.Globalization;
 using UnityEngine;
 
 namespace RealFlag.Flags
@@ -75,6 +77,7 @@ namespace RealFlag.Flags
                         if (!ReferenceEquals(existing, _info))
                             Log.Msg("strings: '" + Name + "' already in the network collection (index " + existing.m_prefabDataIndex + ")");
                         _info = existing;
+                        HookLocale();
                         return;
                     }
                 }
@@ -82,6 +85,7 @@ namespace RealFlag.Flags
                 NetInfo info = Build();
                 PrefabCollection<NetInfo>.InitializePrefabs("RealFlag", info, null);
                 _info = info;
+                HookLocale();
                 Log.Msg("strings: '" + Name + "' made and added to the network collection (initialised=" + info.m_prefabInitialized + ")" +
                         (bind ? "; binding the collection again" : ""));
 
@@ -103,6 +107,62 @@ namespace RealFlag.Flags
         public static void Forget()
         {
             _info = null;
+        }
+
+        private static bool _localeHooked;
+
+        /// <summary>
+        /// The network's name where the game or another mod shows one: "NET_TITLE" and "NET_DESC"
+        /// under the prefab's name, as FlagPrefab names the prop (without them the game logged
+        /// "NET_TITLE[RealFlag String] ... not found" twice at every city load), added again
+        /// whenever the game reloads its locale.
+        /// </summary>
+        private static void HookLocale()
+        {
+            AddLocale();
+            if (_localeHooked)
+                return;
+
+            _localeHooked = true;
+            LocaleManager.eventLocaleChanged += AddLocale;
+        }
+
+        /// <summary>Called on unload of the mod (FlagLoadingHook.Unregister), so a disabled mod leaves no handler behind.</summary>
+        public static void UnhookLocale()
+        {
+            if (!_localeHooked)
+                return;
+
+            _localeHooked = false;
+            LocaleManager.eventLocaleChanged -= AddLocale;
+        }
+
+        private static void AddLocale()
+        {
+            try
+            {
+                if (!LocaleManager.exists)
+                    return;
+
+                FieldInfo field = typeof(LocaleManager).GetField("m_Locale", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                Locale locale = field != null ? field.GetValue(LocaleManager.instance) as Locale : null;
+                if (locale == null)
+                    return;
+
+                Add(locale, "NET_TITLE", Localization.Get("StringNet.Title"));
+                Add(locale, "NET_DESC", Localization.Get("StringNet.Description"));
+            }
+            catch (Exception e)
+            {
+                Log.Warn("strings: could not name the network in the game's locale: " + e.Message);
+            }
+        }
+
+        private static void Add(Locale locale, string id, string text)
+        {
+            var key = new Locale.Key { m_Identifier = id, m_Key = Name };
+            if (!locale.Exists(key))
+                locale.AddLocalizedString(key, text);
         }
 
         /// <summary>The pick band: how far below the line between the nodes a span is found, how far above, and across.</summary>

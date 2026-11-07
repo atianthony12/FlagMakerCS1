@@ -75,6 +75,11 @@ namespace RealFlag.Flags
         private float _nextReport;
         private bool _loggedFirst;
 
+        // A frame that threw: counted, said with its stack for the first few (FrameFailed).
+        private int _frameFailures, _frameFailuresSaid;
+        private string _frameFailureLast;
+        private const int MaxFrameFailuresSaid = 5;
+
         private static readonly int IdAtlas = Shader.PropertyToID("_RFAtlas");
         private static readonly int IdAtlasGrid = Shader.PropertyToID("_RFAtlasGrid");
         private static readonly int IdAtlasInset = Shader.PropertyToID("_RFAtlasInset");
@@ -133,6 +138,10 @@ namespace RealFlag.Flags
 
         private void OnDestroy()
         {
+            // Whatever was only counted (see FrameFailed), said once with the city.
+            if (_frameFailures > _frameFailuresSaid)
+                Log.Warn("strings: in this city " + _frameFailures + " frame(s) threw");
+
             _worker.Wait();
             _worker.Stop();
             foreach (Span s in _spans.Values)
@@ -368,7 +377,7 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
-                Log.Error("strings: a frame threw.", e);
+                FrameFailed(e);
             }
 
             _worker.Run();
@@ -376,6 +385,24 @@ namespace RealFlag.Flags
             _costMs += _cost.Elapsed.TotalMilliseconds;
             _costFrames++;
             Report();
+        }
+
+        /// <summary>
+        /// The frame threw (the strings skip the rest of it): said with its stack the first time,
+        /// and again for each different error up to <see cref="MaxFrameFailuresSaid"/>; every one
+        /// counted (as FlagRenderer.FrameFailed). Before, every frame wrote the stack to both logs.
+        /// </summary>
+        private void FrameFailed(Exception e)
+        {
+            _frameFailures++;
+            string what = e.GetType().Name + ": " + e.Message;
+            if (what == _frameFailureLast || _frameFailuresSaid >= MaxFrameFailuresSaid)
+                return;
+
+            _frameFailureLast = what;
+            _frameFailuresSaid++;
+            Log.Error("strings: the frame threw; the strings are paused until the next frame" +
+                      (_frameFailuresSaid == MaxFrameFailuresSaid ? " (further errors are only counted)" : " (the same error again is only counted)"), e);
         }
 
         /// <summary>The network as it is: spans gone, moved or new; designs for spans made by others.</summary>
