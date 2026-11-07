@@ -173,10 +173,11 @@ namespace RealFlag.Flags
             public const float AngleStep = 15f, SlopeStep = 10f;
             public const double SpeedStep = 1.1;
 
-            /// <summary>Millimetres along the string and down from it; waviness x 1000; the detail; the wind's speed step and angle step; the slope's step; the motion slot; still (1) or waving (0).</summary>
-            public int Along, Hang, Waviness, Detail, Speed, Angle, Slope, Slot, Still;
+            /// <summary>Millimetres along the string and down from it; the cut (FlagCut) and its depth x 1000; waviness x 1000; the detail; the wind's speed step and angle step; the slope's step; the motion slot; still (1) or waving (0).</summary>
+            public int Along, Hang, Cut, CutDepth, Waviness, Detail, Speed, Angle, Slope, Slot, Still;
 
-            public static SourceKey For(float along, float hang, float waviness, int detail, float speed, float angleDegrees, float slopeDegrees, int slot, bool still)
+            public static SourceKey For(float along, float hang, int cut, float cutDepth, float waviness, int detail, float speed, float angleDegrees, float slopeDegrees,
+                                        int slot, bool still)
             {
                 float a = angleDegrees % 360f;
                 if (a < 0f)
@@ -186,6 +187,8 @@ namespace RealFlag.Flags
                 {
                     Along = (int)Math.Round(along * 1000f),
                     Hang = (int)Math.Round(hang * 1000f),
+                    Cut = FlagCut.Sanitise(cut),
+                    CutDepth = FlagCut.UsesDepth(cut) ? (int)Math.Round(FlagCut.SanitiseDepth(cutDepth) * 1000f) : 0,
                     Waviness = (int)Math.Round(waviness * 1000f),
                     Detail = detail,
                     Speed = still ? 0 : (int)Math.Round(Math.Log(Math.Max(speed, 0.3f)) / Math.Log(SpeedStep)),
@@ -216,7 +219,7 @@ namespace RealFlag.Flags
 
             public bool Equals(SourceKey o)
             {
-                return Along == o.Along && Hang == o.Hang && Waviness == o.Waviness && Detail == o.Detail && Speed == o.Speed &&
+                return Along == o.Along && Hang == o.Hang && Cut == o.Cut && CutDepth == o.CutDepth && Waviness == o.Waviness && Detail == o.Detail && Speed == o.Speed &&
                        Angle == o.Angle && Slope == o.Slope && Slot == o.Slot && Still == o.Still;
             }
 
@@ -231,6 +234,8 @@ namespace RealFlag.Flags
                 {
                     int h = Along;
                     h = h * 31 + Hang;
+                    h = h * 31 + Cut;
+                    h = h * 31 + CutDepth;
                     h = h * 31 + Waviness;
                     h = h * 31 + Detail;
                     h = h * 31 + Speed;
@@ -244,7 +249,7 @@ namespace RealFlag.Flags
 
             public override string ToString()
             {
-                return Along + "x" + Hang + " mm, wavy " + Waviness + ", detail " + Detail + ", " + SpeedOf.ToString("F1") + " m/s at " +
+                return Along + "x" + Hang + " mm" + (Cut != FlagCut.Rectangle ? " " + FlagCut.LogName(Cut) : "") + ", wavy " + Waviness + ", detail " + Detail + ", " + SpeedOf.ToString("F1") + " m/s at " +
                        (Angle * AngleStep).ToString("F0") + " deg, slope " + (Slope * SlopeStep).ToString("F0") + ", slot " + Slot + (Still == 1 ? ", still" : "");
             }
         }
@@ -277,8 +282,11 @@ namespace RealFlag.Flags
                 float hx = (float)Math.Cos(slope), hy = (float)Math.Sin(slope);
                 float dx, dz;
                 key.Direction(out dx, out dz);
-                // The fly hangs down from the string; the cloth's length is its fly, its height its hoist.
-                Cloth = new FlagCloth(key.Hang / 1000f, key.Along / 1000f, FlagFabric.Standard(key.Waviness / 1000f), dx, dz, key.Detail, hx, hy, 0f);
+                // The fly hangs down from the string; the cloth's length is its fly, its height its hoist;
+                // cut to the flags' outline (FlagCut: only the cells it touches are cloth).
+                float depth = key.CutDepth > 0 ? key.CutDepth / 1000f : FlagCut.DefaultDepth;
+                Cloth = new FlagCloth(key.Hang / 1000f, key.Along / 1000f, FlagFabric.Standard(key.Waviness / 1000f), dx, dz, key.Detail, hx, hy, 0f,
+                                      key.Cut, depth);
                 Cloth.LayOut(0f, -1f, 0f, key.Still == 0);
                 Record = new Ring(Cloth.Count);
                 FieldX = 137.1f * key.Slot + 11.3f * key.Angle;

@@ -607,13 +607,6 @@
   <String key="SelStrSwing.Label">摆动</String>
   <String key="SelStrSwing.Tooltip">风吹动的幅度</String>
 
-  <String key="StringShape.Rectangle">长方形</String>
-  <String key="StringShape.Swallowtail">燕尾</String>
-  <String key="StringShape.SwallowtailTongue">燕尾带舌</String>
-  <String key="StringShape.Pennant">三角旗</String>
-  <String key="StringShape.Burgee">燕尾三角旗</String>
-  <String key="StringShape.Pointed">尖角</String>
-  <String key="StringShape.Rounded">圆角</String>
   <String key="StringMount.Hoist">侧边（尖朝下）</String>
   <String key="StringMount.Top">上边（正立）</String>
   <String key="StringSpacing.Gap">间隔</String>

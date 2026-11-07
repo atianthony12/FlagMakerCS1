@@ -211,7 +211,7 @@ namespace RealFlag.Flags
                 float slope = Mathf.Atan2(t.y, new Vector2(t.x, t.z).magnitude);
                 int index = Index(k);
 
-                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Waviness, SourceDetail, _heldSpeed, _heldAngle,
+                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Shape, Spec.Depth, Spec.Waviness, SourceDetail, _heldSpeed, _heldAngle,
                                                                         HeldSlope(k, slope * Mathf.Rad2Deg), StringMotion.SlotFor(index, motions), still);
                 StringMotion.Source source = sourceFor(key);
                 float time = source.Clock - (still ? 0f : StringMotion.DelayFor(index, Segment));

@@ -120,8 +120,8 @@ namespace RealFlag.UI
                 Group = "StrFlags",
                 Int = t.Shape,
                 DefaultInt = d.Shape,
-                ChoiceValues = StringShape.Values,
-                ChoiceKeys = StringShape.NameKeys,
+                ChoiceValues = FlagCut.Values,
+                ChoiceKeys = FlagCut.NameKeys,
                 AfterChange = apply,
             });
 
@@ -133,7 +133,7 @@ namespace RealFlag.UI
                 DefaultFloat = d.Depth,
                 Min = 10f, Max = 60f, Step = 5f,
                 AfterChange = apply,
-                Enabled = () => StringShape.HasDepth(t.Shape.value),
+                Enabled = () => FlagCut.UsesDepth(t.Shape.value),
             });
 
             Add(new Row

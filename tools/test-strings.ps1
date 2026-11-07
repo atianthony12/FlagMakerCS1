@@ -255,18 +255,27 @@ public static class StringTests
         return string.Join(",", new[] { F(s.Width), F(s.Height), F(s.Sag), s.Kind.ToString(Inv), s.Designs.Length.ToString(Inv), string.Join("|", s.Countries), s.Lead, s.Motions.ToString(Inv), F(s.Gap) });
     }
 
-    // each shape on a 1 m fly, 1 m along: inside at points that tell them apart (1 in, 0 out)
-    public static string Shapes()
+    // the shared cloths take the string's cut (FlagCut; the cut itself is test-cloth's): a pennant
+    // string's and a rectangle's, their cuts, and the same key twice the same, another depth another
+    public static string Cuts()
     {
-        float[][] pts = { new[] { 0.95f, 0.5f }, new[] { 0.95f, 0.02f }, new[] { 0.5f, 0.5f }, new[] { 0.6f, 0.25f }, new[] { 0.05f, 0.02f } };
-        var r = new List<string>();
-        foreach (int shape in StringShape.Values)
-        {
-            string s = "";
-            foreach (float[] p in pts) s += StringShape.Inside(shape, p[0], p[1], 1f, 0.3f) > 0f ? "1" : "0";
-            r.Add(s);
-        }
-        return string.Join(",", r.ToArray());
+        var pennant = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.3f, 1f, 18, 5f, 90f, 0f, 0, false);
+        var swallow = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.3f, 1f, 18, 5f, 90f, 0f, 0, false);
+        var swallow2 = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.5f, 1f, 18, 5f, 90f, 0f, 0, false);
+        var pennantDeep = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.5f, 1f, 18, 5f, 90f, 0f, 0, false);
+        var rect = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Rectangle, 0.3f, 1f, 18, 5f, 90f, 0f, 0, false);
+        var a = new StringMotion.Source(pennant, 0f);
+        var b = new StringMotion.Source(rect, 0f);
+        return a.Cloth.Cut + "," + b.Cloth.Cut + "," + (swallow.Equals(swallow2) ? "same" : "differ") + "," + (pennant.Equals(pennantDeep) ? "same" : "differ");
+    }
+
+    // the default string: a pennant, of the flags' cuts
+    public static string DefaultCut()
+    {
+        StringSpec s = StringSpec.Default;
+        StringSpec bad = s; bad.Shape = 99; bad.Depth = float.NaN;
+        bad = bad.Sanitised();
+        return s.Shape + "," + bad.Shape + "," + bad.Depth.ToString("0.###", Inv);
     }
 
     // the ring: a cloth's steps kept, read between two
@@ -388,16 +397,12 @@ Check "flags of a newer format inside: refused, not misread" ($t[0] -eq [string]
 $t = [StringTests]::Sanitise() -split ","
 Check "a paste or a save pulled into range" (($t -join ",") -eq "0.3,3,0.002,0,8,fr|de,jp,8,0.08") ($t -join ",")
 
-# ---- the shapes -----------------------------------------------------------------------------
-# points (x from the string, t along): the fly's middle, the fly's corner, the middle, a quarter in, the hoist's corner
-$t = [StringTests]::Shapes() -split ","
-Check "rectangle: all inside" ($t[0] -eq "11111") $t[0]
-Check "swallowtail: notched at the middle of the fly, its tails whole" ($t[1] -eq "01111") $t[1]
-Check "swallowtail and tongue: the tongue and the tails reach, the notches between do not" ($t[2] -eq "11111" -and [RealFlag.Flags.StringShape]::Inside(2, 0.95, 0.25, 1, 0.3) -lt 0) ($t[2] + ", a notch at a quarter: out")
-Check "pennant: a point at the middle of the fly, its sides running in from the hoist's corners" ($t[3] -eq "10100") $t[3]
-Check "burgee: two tips, a notch between, the edges running in" ($t[4] -eq "00111" -and [RealFlag.Flags.StringShape]::Inside(4, 0.95, 0.15, 1, 0.3) -gt 0) ($t[4] + ", its tip: in")
-Check "pointed: the point reaches, the corners cut" ($t[5] -eq "10111") $t[5]
-Check "rounded: the middle reaches, the corners round" ($t[6] -eq "10111") $t[6]
+# ---- the cuts (the flags' own: FlagCut) -----------------------------------------------------
+$t = [StringTests]::Cuts() -split ","
+Check "the shared cloths take the string's cut: a pennant's cut, a rectangle's whole" ($t[0] -eq "3" -and $t[1] -eq "0") ("cuts " + $t[0] + ", " + $t[1])
+Check "a deeper notch is another cloth; a pennant has no depth to tell apart" ($t[2] -eq "differ" -and $t[3] -eq "same") ($t[2] + ", " + $t[3])
+$t = [StringTests]::DefaultCut() -split ","
+Check "a new string's flags are pennants; an unknown cut a rectangle, its depth the default" ($t[0] -eq "3" -and $t[1] -eq "0" -and $t[2] -eq "0.333") ($t -join ", ")
 
 # ---- shared motion's ring -------------------------------------------------------------------
 $t = [StringTests]::Ring() -split ","

@@ -11,14 +11,13 @@
 //   uv2 = colour 2, the cloth's length from the string (metres; NEGATIVE: hung by its top);
 //   uv3 = colour 3, the cloth's length along the string (metres);
 //   color = brightness (FlagSpec.Brightness), the image's see-through parts show the pattern (1)
-//         or are cut (0), the shape (StringShape: x / 8), its depth.
+//         or are cut (0), the cut (FlagCut: x / 8), its depth.
 // A country's flag or the player's picture is a cell of _RFAtlas (StringAtlas), the design
 // already baked into it; a pattern is drawn here, sharp at any distance.
 //
-// The SHAPE (swallowtail, pennant, burgee...) is cut out of the cloth by the alphatest, along
-// the cloth's own fly (from the string down): a pennant hung by its hoist points down. LOOK
-// ONLY for now: the cloth stepped is the whole rectangle (FlagCloth's per-particle mask is the
-// flag shapes round's).
+// The CUT (swallowtail, pennant, burgee...: the flags' own, FlagWear.cginc's RFCutEdge) is cut
+// out by the alphatest along the cloth's own fly (from the string down): a pennant hung by its
+// hoist points down. The shared cloths the flags play are cut the same (FlagCloth's cells).
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagString"
 {
@@ -42,6 +41,8 @@ Shader "RealFlag/FlagString"
         #pragma target 3.5
 
         #include "FlagPattern.cginc"
+        // For RFCutEdge: the flags' own outline (FlagCut), so a string's cuts are the flags'.
+        #include "FlagWear.cginc"
 
         sampler2D _RFAtlas;
         float4 _RFAtlasGrid;
@@ -102,34 +103,6 @@ Shader "RealFlag/FlagString"
             o.look = v.color;
         }
 
-        // How far inside the shape a point is, metres along the fly (> 0 inside): x from the
-        // string, t along it 0..1, the fly F long, the depth a share of F. StringShape's values.
-        float RFShapeInside(float shape, float x, float t, float F, float depth)
-        {
-            float c = abs(2.0 * t - 1.0);           // 0 at the middle of the edge, 1 at its corners
-            float D = depth * F;
-            float limit = F;
-            // 1 swallowtail: a V notch at the fly.
-            if (shape > 0.5 && shape < 1.5)
-                limit = F - D * (1.0 - c);
-            // 2 swallowtail and tongue: two notches, the tongue between.
-            if (shape > 1.5 && shape < 2.5)
-                limit = F - D * (1.0 - abs(fmod(4.0 * t, 2.0) - 1.0));
-            // 3 pennant: a triangle to a point at the fly.
-            if (shape > 2.5 && shape < 3.5)
-                limit = F * (1.0 - c);
-            // 4 burgee: a pennant with a notch -- two tips, its edges running in to them.
-            if (shape > 3.5 && shape < 4.5)
-                limit = min(F * saturate((1.0 - c) / 0.3), F - D * saturate(1.0 - c / 0.7));
-            // 5 pointed: a point at the middle of the fly.
-            if (shape > 4.5 && shape < 5.5)
-                limit = F - D * c;
-            // 6 rounded: a half ellipse at the fly.
-            if (shape > 5.5 && shape < 6.5)
-                limit = F - D + D * sqrt(saturate(1.0 - c * c));
-            return limit - x;
-        }
-
         // The heading along the string (a 2 cm band, off-white: bunting's tape or a flag's
         // heading) and the double-stitched hems of the other edges.
         float3 Make(float2 m, float hang, float along, float3 albedo)
@@ -182,8 +155,10 @@ Shader "RealFlag/FlagString"
             float wet = RFWetness();
             albedo *= lerp(1.0, lerp(1.0, 0.2, POROSITY), wet);
 
-            // The shape, anti-aliased over a pixel's footprint along the fly (the alphatest cuts at half).
-            float inside = RFShapeInside(floor(IN.look.z * 8.0 + 0.5), metres.x, IN.flagUV.y, hang, IN.look.w);
+            // The cut (FlagCut, the flags' own: RFCutEdge), anti-aliased over a pixel's footprint
+            // along the fly (the alphatest cuts at half).
+            float2 cut = float2(floor(IN.look.z * 8.0 + 0.5), IN.look.w);
+            float inside = RFCutEdge(cut, IN.flagUV.y) * hang - metres.x;
             float px = max(fwidth(metres.x), 1e-4);
             float shapeAlpha = saturate(0.5 + inside / px);
 

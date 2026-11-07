@@ -613,13 +613,6 @@
   <String key="SelStrSwing.Label">Swing</String>
   <String key="SelStrSwing.Tooltip">How far wind blows it</String>
 
-  <String key="StringShape.Rectangle">Rectangle</String>
-  <String key="StringShape.Swallowtail">Swallowtail</String>
-  <String key="StringShape.SwallowtailTongue">Swallowtail and tongue</String>
-  <String key="StringShape.Pennant">Pennant</String>
-  <String key="StringShape.Burgee">Burgee</String>
-  <String key="StringShape.Pointed">Pointed</String>
-  <String key="StringShape.Rounded">Rounded</String>
   <String key="StringMount.Hoist">Its side (points down)</String>
   <String key="StringMount.Top">Its top (upright)</String>
   <String key="StringSpacing.Gap">Gap</String>

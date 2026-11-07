@@ -187,10 +187,10 @@ public static class StringPreview
         s.Margin = F(o, "margin", s.Margin);
 
         string shape = S(o, "shape", "pennant");
-        for (int i = 0; i < StringShape.Values.Length; i++)
+        for (int i = 0; i < FlagCut.Values.Length; i++)
         {
-            if (StringShape.LogName(StringShape.Values[i]).Replace(" ", "") == shape.Replace(" ", ""))
-                s.Shape = StringShape.Values[i];
+            if (FlagCut.LogName(FlagCut.Values[i]).Replace(" ", "") == shape.Replace(" ", ""))
+                s.Shape = FlagCut.Values[i];
         }
 
         s.Mount = S(o, "mount", "hoist") == "top" ? StringMount.Top : StringMount.Hoist;

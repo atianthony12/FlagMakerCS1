@@ -31,90 +31,6 @@ namespace RealFlag.Flags
         }
     }
 
-    /// <summary>
-    /// The flags' outline (the flag shapes round's values, 2026-11-07: append only, PERMANENT),
-    /// cut along the cloth's fly -- from the string down -- so a pennant hung by its hoist points
-    /// down. <see cref="StringSpec.Depth"/> is a notch's or a point's depth, a share of the fly.
-    /// </summary>
-    public static class StringShape
-    {
-        public const int Rectangle = 0;
-        public const int Swallowtail = 1;
-        public const int SwallowtailTongue = 2;
-        public const int Pennant = 3;
-        public const int Burgee = 4;
-        public const int Pointed = 5;
-        public const int Rounded = 6;
-
-        public static readonly int[] Values = { Rectangle, Swallowtail, SwallowtailTongue, Pennant, Burgee, Pointed, Rounded };
-        public static readonly string[] NameKeys =
-        {
-            "StringShape.Rectangle", "StringShape.Swallowtail", "StringShape.SwallowtailTongue", "StringShape.Pennant",
-            "StringShape.Burgee", "StringShape.Pointed", "StringShape.Rounded",
-        };
-
-        public static bool IsKnown(int value)
-        {
-            return value >= Rectangle && value <= Rounded;
-        }
-
-        /// <summary>The shape has a depth to set (a rectangle and a pennant have none).</summary>
-        public static bool HasDepth(int value)
-        {
-            return value != Rectangle && value != Pennant;
-        }
-
-        public static string LogName(int value)
-        {
-            switch (value)
-            {
-                case Swallowtail: return "swallowtail";
-                case SwallowtailTongue: return "swallowtail and tongue";
-                case Pennant: return "pennant";
-                case Burgee: return "burgee";
-                case Pointed: return "pointed";
-                case Rounded: return "rounded";
-                default: return "rectangle";
-            }
-        }
-
-        /// <summary>
-        /// How far inside the outline a point is, metres along the fly (&gt; 0 inside): x from the
-        /// string, t along it 0..1, the fly <paramref name="fly"/> long. FlagString.shader's
-        /// RFShapeInside, the same arithmetic (the panels' little flags draw with it).
-        /// </summary>
-        public static float Inside(int shape, float x, float t, float fly, float depth)
-        {
-            float c = Math.Abs(2f * t - 1f), d = depth * fly, limit = fly;
-            switch (shape)
-            {
-                case Swallowtail:
-                    limit = fly - d * (1f - c);
-                    break;
-                case SwallowtailTongue:
-                {
-                    float m = (4f * t) % 2f;
-                    limit = fly - d * (1f - Math.Abs(m - 1f));
-                    break;
-                }
-                case Pennant:
-                    limit = fly * (1f - c);
-                    break;
-                case Burgee:
-                    limit = Math.Min(fly * Math.Min(1f, Math.Max(0f, (1f - c) / 0.3f)), fly - d * Math.Min(1f, Math.Max(0f, 1f - c / 0.7f)));
-                    break;
-                case Pointed:
-                    limit = fly - d * c;
-                    break;
-                case Rounded:
-                    limit = fly - d + d * (float)Math.Sqrt(Math.Max(0f, 1f - c * c));
-                    break;
-            }
-
-            return limit - x;
-        }
-    }
-
     /// <summary>How the flags are spaced: a gap between them, or a count each span.</summary>
     public static class StringSpacing
     {
@@ -328,7 +244,11 @@ namespace RealFlag.Flags
         /// <summary>A <see cref="StringMount"/> value.</summary>
         public int Mount;
 
-        /// <summary>A <see cref="StringShape"/> value, and its notch's or point's depth (a share of the fly, 0.1..0.6).</summary>
+        /// <summary>
+        /// The flags' cut: a <see cref="FlagCut"/> value (the flags' own, so one outline for both),
+        /// and its notch's or point's depth (a share of the fly). Cut along the cloth's fly -- from
+        /// the string down -- so a pennant hung by its hoist points down; the shared cloths take it.
+        /// </summary>
         public int Shape;
         public float Depth;
 
@@ -397,8 +317,8 @@ namespace RealFlag.Flags
                     Width = 0.3f,
                     Height = 0.25f,
                     Mount = StringMount.Hoist,
-                    Shape = StringShape.Pennant,
-                    Depth = 0.3f,
+                    Shape = FlagCut.Pennant,
+                    Depth = FlagCut.DefaultDepth,
                     Spacing = StringSpacing.Gap,
                     Gap = 0.08f,
                     Count = 30,
@@ -446,8 +366,8 @@ namespace RealFlag.Flags
             s.Width = Clamp(s.Width, MinFlag, MaxFlag, 0.3f);
             s.Height = Clamp(s.Height, MinFlag, MaxFlag, 0.25f);
             if (!StringMount.IsKnown(s.Mount)) s.Mount = StringMount.Hoist;
-            if (!StringShape.IsKnown(s.Shape)) s.Shape = StringShape.Rectangle;
-            s.Depth = Clamp(s.Depth, 0.1f, 0.6f, 0.3f);
+            s.Shape = FlagCut.Sanitise(s.Shape);
+            s.Depth = FlagCut.SanitiseDepth(s.Depth);
             if (!StringSpacing.IsKnown(s.Spacing)) s.Spacing = StringSpacing.Gap;
             s.Gap = Clamp(s.Gap, 0f, MaxGap, 0.08f);
             s.Count = Math.Max(1, Math.Min(s.Count, MaxCount));
@@ -520,7 +440,9 @@ namespace RealFlag.Flags
         {
             var sb = new StringBuilder();
             sb.Append(Width.ToString("0.##")).Append(" x ").Append(Height.ToString("0.##")).Append(" m flags");
-            sb.Append(Mount == StringMount.Top ? " upright" : " pointing down");
+            if (Shape != FlagCut.Rectangle)
+                sb.Append(", ").Append(FlagCut.LogName(Shape));
+            sb.Append(Mount == StringMount.Top ? ", upright" : ", pointing down");
             if (Spacing == StringSpacing.Count)
                 sb.Append(", ").Append(Count).Append(" a span");
             else

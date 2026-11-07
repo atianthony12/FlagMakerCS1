@@ -617,13 +617,6 @@
   <String key="SelStrSwing.Label">Balancement</String>
   <String key="SelStrSwing.Tooltip">Jusqu'où le vent la pousse</String>
 
-  <String key="StringShape.Rectangle">Rectangle</String>
-  <String key="StringShape.Swallowtail">Queue d'aronde</String>
-  <String key="StringShape.SwallowtailTongue">Queue d'aronde et langue</String>
-  <String key="StringShape.Pennant">Fanion</String>
-  <String key="StringShape.Burgee">Guidon</String>
-  <String key="StringShape.Pointed">Pointu</String>
-  <String key="StringShape.Rounded">Arrondi</String>
   <String key="StringMount.Hoist">Son côté (pointe en bas)</String>
   <String key="StringMount.Top">Son haut (debout)</String>
   <String key="StringSpacing.Gap">Écart</String>

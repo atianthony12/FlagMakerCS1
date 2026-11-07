@@ -614,13 +614,6 @@
   <String key="SelStrSwing.Label">Vaivén</String>
   <String key="SelStrSwing.Tooltip">Cuánto la empuja el viento</String>
 
-  <String key="StringShape.Rectangle">Rectángulo</String>
-  <String key="StringShape.Swallowtail">Cola de golondrina</String>
-  <String key="StringShape.SwallowtailTongue">Cola de golondrina y lengua</String>
-  <String key="StringShape.Pennant">Banderín</String>
-  <String key="StringShape.Burgee">Grímpola</String>
-  <String key="StringShape.Pointed">En punta</String>
-  <String key="StringShape.Rounded">Redondeada</String>
   <String key="StringMount.Hoist">Su lado (en punta hacia abajo)</String>
   <String key="StringMount.Top">Su borde de arriba (derecha)</String>
   <String key="StringSpacing.Gap">Hueco</String>
