@@ -54,9 +54,9 @@ namespace RealFlag.Flags
         public Exception Failure;
 
         /// <summary>
-        /// Work of another kind, no cloth of its own (string flags' posing and their cords,
-        /// StringSpan.SpanWork): run whole as the job, its results in its own fields. Every other
-        /// field is left alone.
+        /// Work of another kind, no cloth of its own: run whole as the job, its results in its own
+        /// fields; every other field is left alone. Nothing on main uses it: string flags' posing
+        /// did, and they wait on their own branch (2026-11-07).
         /// </summary>
         public IClothWork Work;
     }
@@ -1164,7 +1164,7 @@ namespace RealFlag.Flags
         /// </summary>
         public static long Execute(ref ClothJob job)
         {
-            // Work of another kind (string flags' posing): whole, on this thread.
+            // Work of another kind (ClothJob.Work): whole, on this thread.
             if (job.Work != null)
                 return job.Work.Run();
 

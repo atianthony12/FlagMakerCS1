@@ -260,6 +260,11 @@ namespace RealFlag.Flags
         /// <summary>The city is unloading: its tool goes with it, and Line Tool is looked for again in the next.</summary>
         public static void Forget()
         {
+            // Line Tool's own settings back first: the city can go with our rows still out, before
+            // a Tick has seen Line Tool put away (it kept the flag window's spacing for the session).
+            if (_was != null)
+                Restore(_tool);
+
             _driving = false;
             _tool = null;
             _was = null;

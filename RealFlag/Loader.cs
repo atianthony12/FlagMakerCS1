@@ -47,7 +47,15 @@ namespace RealFlag
 
             // Flags of a city saved before their heights were kept loaded at 0, under the map: stood
             // on the ground before anything reads where they are (FlagSaveData).
-            FlagSaveData.StandUnplaced();
+            try
+            {
+                FlagSaveData.StandUnplaced();
+            }
+            catch (Exception e)
+            {
+                // Not worth the city's controller: the flags stay where they loaded.
+                Log.Error("flags: standing the flags with no saved height on the ground threw; they stay where they loaded", e);
+            }
 
             if (!CanDraw())
             {
@@ -151,6 +159,20 @@ namespace RealFlag
             {
                 if (FlagProps.IsFlagProp(d.Key))
                     alive++;
+            }
+
+            // Unless the prefab was there in time for the save's props (FlagPrefab.InTime): then
+            // every flag in the save came back a flag, and designs with none were saved without
+            // their flags -- the city saved while the mod was off (the game let them go then).
+            // Nothing is left to keep for them; kept, the mod stayed off in that city for good,
+            // telling the player at every load not to save (the 2026-11-07 sweep; the author's
+            // call: "Let orphans go"). Invariant 18 holds for a load that went wrong.
+            if (designs.Count > 0 && alive == 0 && FlagPrefab.InTime)
+            {
+                Log.Warn("flags: the city was saved with " + designs.Count + " flag design(s) and none of their flags: it was saved " +
+                         "while Flag Maker was off, and the game let those flags go then. The designs are let go; Flag Maker runs here");
+                FlagRegistry.Clear();
+                return null;
             }
 
             if (designs.Count > 0 && alive == 0)

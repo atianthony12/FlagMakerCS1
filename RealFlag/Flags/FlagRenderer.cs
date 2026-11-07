@@ -955,6 +955,16 @@ namespace RealFlag.Flags
             catch (Exception e)
             {
                 FrameFailed(e);
+
+                // The batch's results let go, so the next frame plans afresh: left in place, the
+                // same throw came back on the same jobs every frame and every flag stood still for
+                // good (the 2026-11-07 sweep). Never while the thread still has them.
+                if (_worker != null && !_worker.Running)
+                {
+                    _worker.Clear();
+                    _batch.Clear();
+                }
+
                 return;
             }
 

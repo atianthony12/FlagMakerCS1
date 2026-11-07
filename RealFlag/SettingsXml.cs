@@ -130,7 +130,21 @@ namespace RealFlag
 
         private static void LoadAtStartup(string file, string verb)
         {
-            string text = File.ReadAllText(file);
+            string text;
+            try
+            {
+                text = File.ReadAllText(file);
+            }
+            catch (Exception e) when (file == Path)
+            {
+                // There but held (a sync tool, an editor that locks): run on the defaults and never
+                // save over it -- a change made meanwhile wrote the defaults over the player's file
+                // (the 2026-11-07 sweep). CheckFile reads it within a second of its letting go.
+                _broken = true;
+                Log.Warn("settings: " + file + " cannot be read now (" + e.Message + "). Running on the defaults, " +
+                         "and NOT saving over it; it is read again as soon as it can be.");
+                return;
+            }
             if (text.Trim().Length == 0)
             {
                 // Empty (a copy cut short, a tool that emptied it): nothing in it to keep, so it is
@@ -394,8 +408,16 @@ namespace RealFlag
                 }
             }
 
-            File.Copy(TempPath, Path, true);
-            File.Delete(TempPath);
+            try
+            {
+                File.Copy(TempPath, Path, true);
+            }
+            finally
+            {
+                // Gone even when the copy failed (a read-only file): a .tmp left behind came back as
+                // the "recovered" settings once the player deleted FlagMaker.xml to reset them.
+                File.Delete(TempPath);
+            }
         }
 
         /// <summary>What is now on disk, so our own write is not mistaken for an edit.</summary>

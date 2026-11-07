@@ -33,7 +33,13 @@ namespace RealFlag.Flags
             public int Width, Height;
             public bool Alpha;
             public bool Readable;
+
+            /// <summary>Held by another program at the last look (its header not read): tried again quietly at each look.</summary>
+            public bool Held;
         }
+
+        /// <summary>A picture bigger than this on disk is not read at all (File.ReadAllBytes takes it whole, on the main thread).</summary>
+        public const long MaxFileBytes = 256L * 1024 * 1024;
 
         private static readonly List<Entry> List = new List<Entry>();
         private static readonly Dictionary<string, Entry> ByName = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
@@ -140,7 +146,18 @@ namespace RealFlag.Flags
             try
             {
                 string file = Path.Combine(FolderPath, clean);
-                return File.Exists(file) ? File.ReadAllBytes(file) : null;
+                if (!File.Exists(file))
+                    return null;
+
+                long length = new FileInfo(file).Length;
+                if (length > MaxFileBytes)
+                {
+                    Log.Warn("flags: your image '" + clean + "' is " + (length >> 20) + " MB, over " + (MaxFileBytes >> 20) +
+                             " MB: not read (make it smaller)");
+                    return null;
+                }
+
+                return File.ReadAllBytes(file);
             }
             catch (Exception e)
             {
@@ -186,12 +203,39 @@ namespace RealFlag.Flags
                             continue;
                         }
 
-                        var info = new FileInfo(file);
+                        // Each file on its own: one gone since the folder was listed is left to the
+                        // next look (a throw here gave up the whole look, the list half made).
+                        long length;
+                        DateTime written;
+                        try
+                        {
+                            var info = new FileInfo(file);
+                            length = info.Length;
+                            written = info.LastWriteTimeUtc;
+                        }
+                        catch (Exception)
+                        {
+                            continue;
+                        }
+
                         Entry e;
                         if (ByName.TryGetValue(name, out e))
                         {
-                            if (e.Length == info.Length && e.Written == info.LastWriteTimeUtc)
+                            if (e.Length == length && e.Written == written)
+                            {
+                                // Held at the last look: tried again quietly, and "changed" only once it
+                                // reads (it was "changed" at every look while held: a log line and the
+                                // flags' copies let go each second -- the 2026-11-07 sweep).
+                                if (!e.Held)
+                                    continue;
+                                ReadHeader(e, file);
+                                if (e.Held)
+                                    continue;
+                                changed.Add(name);
+                                FlagImages.ForgetUser(name);
                                 continue;
+                            }
+
                             changed.Add(name);
                         }
                         else
@@ -202,8 +246,8 @@ namespace RealFlag.Flags
                             added.Add(name);
                         }
 
-                        e.Length = info.Length;
-                        e.Written = info.LastWriteTimeUtc;
+                        e.Length = length;
+                        e.Written = written;
                         ReadHeader(e, file);
 
                         // Made again from the new file (or looked for again, if a flag wanted it before it came).
@@ -270,13 +314,14 @@ namespace RealFlag.Flags
                     e.Width = w;
                     e.Height = h;
                     e.Alpha = alpha;
+                    e.Held = false;
                 }
             }
             catch (Exception)
             {
-                // Still being written, or held: its size unknown until the next look.
+                // Still being written, or held: tried again at the next look (Scan).
                 e.Readable = false;
-                e.Length = -1;
+                e.Held = true;
             }
         }
 

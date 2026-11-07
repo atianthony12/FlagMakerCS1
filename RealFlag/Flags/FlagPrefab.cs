@@ -48,6 +48,14 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The prefab was in the prop collection while this city loaded, ahead of its props being
+        /// bound (FlagLoadingHook's loading action): a flag in the save came back a flag. So designs
+        /// with no flag at all were saved without their flags -- the city saved without the mod --
+        /// not lost in this load (Loader.CannotKeep). False until then, and again after unload.
+        /// </summary>
+        public static bool InTime { get; private set; }
+
+        /// <summary>
         /// True if a prop's info index is the flag prefab's: the hot test (the Harmony raycast runs
         /// it for every prop along a ray). m_prefabDataIndex is what PropInstance.set_Info stores.
         /// </summary>
@@ -66,6 +74,7 @@ namespace RealFlag.Flags
         public static IEnumerator CreateDuringLoading()
         {
             EnsureCreated(false);
+            InTime = _info != null;
             yield return null;
         }
 
@@ -118,6 +127,7 @@ namespace RealFlag.Flags
         public static void Forget()
         {
             _info = null;
+            InTime = false;
         }
 
         private static PropInfo Build()

@@ -283,8 +283,15 @@ namespace RealFlag.Flags
 
             // LoadImage decodes the whole picture into the engine's memory before anything here
             // can shrink it: one past MaxUserPixels (a poster scan, a decompression bomb) is refused
-            // by its header, never decoded.
-            if (known && (long)headerWidth * headerHeight > MaxUserPixels)
+            // by its header, never decoded -- and so is one whose header says nothing (a PNG's
+            // width past 2^31 read as negative and went straight to LoadImage: the 2026-11-07 sweep).
+            if (!known)
+            {
+                how = "not a PNG or JPEG header it can read";
+                return null;
+            }
+
+            if ((long)headerWidth * headerHeight > MaxUserPixels)
             {
                 how = headerWidth + " x " + headerHeight + " is too big to decode (over " + (MaxUserPixels / 1000000) +
                       " megapixels); make it smaller";

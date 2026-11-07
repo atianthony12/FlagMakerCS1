@@ -245,6 +245,10 @@ namespace RealFlag.Flags
         /// <summary>Keeps a pattern under its name, in the place of one by that name. False if the file could not be written: nothing changed.</summary>
         public static bool Store(SavedPattern pattern)
         {
+            // The file as it is now, not as it was at the last look (up to a second ago): what
+            // another game or a hand edit added meanwhile was written over (the 2026-11-07 sweep).
+            Refresh();
+
             var list = new List<SavedPattern>(List);
             int at = list.FindIndex(p => string.Equals(p.Name, pattern.Name, StringComparison.OrdinalIgnoreCase));
             if (at >= 0)
@@ -262,6 +266,8 @@ namespace RealFlag.Flags
 
         public static bool Delete(string name)
         {
+            Refresh(); // as Store
+
             var list = new List<SavedPattern>(List);
             int removed = list.RemoveAll(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
             if (removed == 0 || !Commit(list))
@@ -277,6 +283,11 @@ namespace RealFlag.Flags
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
+
+                // The new file first: a save that cannot be written keeps no copy of the old one
+                // (each failed click of a read-only folder kept another Patterns.bad<n>.xml).
+                File.WriteAllText(temp, SavedPatternFile.Write(list), new UTF8Encoding(false));
+
                 if (_unreadParts && File.Exists(path))
                 {
                     string kept = KeepPath(path);
@@ -284,7 +295,6 @@ namespace RealFlag.Flags
                     Log.Warn("patterns: what could not be read of " + FileName + " is kept in " + Path.GetFileName(kept));
                 }
 
-                File.WriteAllText(temp, SavedPatternFile.Write(list), new UTF8Encoding(false));
                 if (!File.Exists(path))
                 {
                     File.Move(temp, path);
@@ -315,6 +325,16 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
+                // The file as it was stays; its unfinished copy goes.
+                try
+                {
+                    if (File.Exists(temp))
+                        File.Delete(temp);
+                }
+                catch (Exception)
+                {
+                }
+
                 Log.Error("patterns: could not write " + FileName, e);
                 return false;
             }
