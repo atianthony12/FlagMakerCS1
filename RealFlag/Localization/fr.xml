@@ -197,6 +197,10 @@
   <String key="NewWaviness.Tooltip">Combien il ondule.</String>
   <String key="SelWaviness.Label">Ondulation</String>
   <String key="SelWaviness.Tooltip">Combien il ondule.</String>
+  <String key="NewWindShare.Label">Vent reçu</String>
+  <String key="NewWindShare.Tooltip">Combien de vent l’atteint.</String>
+  <String key="SelWindShare.Label">Vent reçu</String>
+  <String key="SelWindShare.Tooltip">Combien de vent l’atteint.</String>
   <String key="NewDarkness.Label">Assombrir</String>
   <String key="NewDarkness.Tooltip">Adoucit les couleurs vives.</String>
   <String key="SelDarkness.Label">Assombrir</String>
@@ -297,6 +301,8 @@
   <String key="NewLineSpacing.Tooltip">Mètres entre les drapeaux.</String>
   <String key="NewLineAlong.Label">Pointer le long de la ligne</String>
   <String key="NewLineAlong.Tooltip">La rotation s’y ajoute.</String>
+  <String key="NewSnapEdges.Label">Coller aux bords</String>
+  <String key="NewSnapEdges.Tooltip">Pendre au bord du toit.</String>
 
   <String key="NewRotation.Label">Rotation</String>
   <String key="NewRotation.Tooltip">Vers où il pointe.</String>
@@ -338,6 +344,7 @@
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Cliquez pour placer. Clic droit pour tourner. {0} pour monter ou descendre (Maj plus vite, Alt plus fin).</String>
+  <String key="Tool.OnEdge">Au bord du toit.</String>
   <String key="Tool.Raised">Relevé de {0} m</String>
   <String key="Tool.Lowered">Abaissé de {0} m</String>
   <String key="Tool.NoPrefab">Impossible de placer des drapeaux ici. Voir le journal.</String>

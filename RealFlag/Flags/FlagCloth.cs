@@ -310,6 +310,22 @@ namespace RealFlag.Flags
         private const float MinWallShift = 0.5f;
 
         /// <summary>
+        /// A LEVEL hoist (a banner hoisted from its top, or from a crossbar: its line points down by
+        /// less than this share) hangs its whole cloth under its line, and stands on a roof's EDGE
+        /// when the surface under any of its held particles comes within the cloth's depth limit
+        /// (<see cref="DepthCells"/>, <see cref="MinDepth"/>) under it: the grid holds a building
+        /// as solid down to the ground, so the cloth under it would be carried up onto the roof
+        /// (2026-11-07: the author's banners "hoisted from the top are usually placed on the edges
+        /// of buildings or balconies ... flags sink into the building ... and don't appear anymore";
+        /// the preview, a 7 m banner 0.3 m in from a 17 m roof's edge: flapping on the roof). The
+        /// wall is kept back from it as from a pole against a wall (<see cref="HoistClear"/>), by as
+        /// much as <see cref="EdgeShift"/> metres, so the cloth hangs down the facade; further in,
+        /// the flag stands on the roof, and its cloth lies on it as before.
+        /// </summary>
+        private const float LevelHoist = 0.5f;
+        private const float EdgeShift = 1f;
+
+        /// <summary>
         /// A free particle that BEGINS a step inside the city -- deeper than this share of the
         /// surface's gap, or of a capsule's margin -- did not move there: a building or a tree
         /// swept into it (its flag dragged by Move It or the placing pointer: the cloth is carried
@@ -897,10 +913,43 @@ namespace RealFlag.Flags
         /// wall: links 30-60% long for seconds; reaching the wall from free air, 8-29% at worst).
         /// Laid through its own pole -- the wind's way, when it blows back over the pole -- it was
         /// found knotted again 2 s later, over and over (the knots harness: 199 relayouts in 400 s,
-        /// 2 laid clear of the pole). Returns the particles left in the way (0: clear).
+        /// 2 laid clear of the pole). A level hoist tries hanging straight down first. Returns the
+        /// particles left in the way (0: clear).
         /// </summary>
         public int LayOutClear(float dirX, float dirZ)
         {
+            // A level hoist (a banner from its top, a crossbar: LevelHoist) is laid HANGING first, as
+            // it hangs: laid level towards a wind blowing at the building it hangs from, it lay out
+            // over the roof and stayed there (the preview, 2026-11-07), the roof under it holding it.
+            if (HoistY > -LevelHoist)
+            {
+                LayOut(0f, -1f, 0f, true);
+                if (InTheWay() == 0)
+                    return 0;
+
+                // On a roof near its edge: along the roof to the edge, then down the wall.
+                if (DrapeDistance > 0f)
+                {
+                    LayDraped(_clearUX, _clearUZ, DrapeDistance);
+                    if (InTheWay() == 0)
+                        return 0;
+                }
+
+                // Its hoist in a wall's band: leaning off the band in front of it (HangsClear), a
+                // little more each time.
+                if (HoistOnEdge && WallShift > 0f)
+                {
+                    for (int a = 1; a <= 3; a++)
+                    {
+                        double lean = a * (Math.PI / 12);
+                        float s = (float)Math.Sin(lean), c = (float)Math.Cos(lean);
+                        LayOut(s * _clearUX, -c, s * _clearUZ, true);
+                        if (InTheWay() == 0)
+                            return 0;
+                    }
+                }
+            }
+
             int best = 0, fewest = int.MaxValue;
             for (int i = 0; i < 8; i++)
             {
@@ -922,6 +971,57 @@ namespace RealFlag.Flags
             Turned(best, dirX, dirZ, out bx, out bz);
             LayOut(bx, 0f, bz, true);
             return fewest;
+        }
+
+        /// <summary>
+        /// Laid as <see cref="LayOut"/> along (dirX, 0, dirZ) -- square to the hoist as near as it
+        /// can be -- for <paramref name="distance"/> metres measured along (dirX, dirZ), the rest
+        /// hanging straight down from there: a level hoist's cloth over a roof's edge.
+        /// </summary>
+        private const float DrapeClear = 0.02f;
+
+        private void LayDraped(float dirX, float dirZ, float distance)
+        {
+            LayOut(dirX, 0f, dirZ, true);
+
+            // The way it went (LayOut took the part along the hoist away) and how far along it
+            // the edge is: as far as the edge is along (dirX, dirZ), over its share of that way.
+            float fx = X[1] - X[0], fz = Z[1] - Z[0];
+            float len = (float)Math.Sqrt(fx * fx + fz * fz);
+            if (len < 1e-6f)
+                return;
+
+            fx /= len;
+            fz /= len;
+
+            // A hair past the edge, and the layout's noise only outwards: a hanging particle laid 1
+            // cm towards the wall was in the band's steep part (70 cm deep a centimetre in).
+            float d = (distance + DrapeClear) / Math.Max(fx * dirX + fz * dirZ, 0.3f);
+            for (int j = 0; j < Rows; j++)
+            {
+                for (int i = 1; i < Columns; i++)
+                {
+                    float u = i * CellU;
+                    int k = j * Columns + i, h = j * Columns;
+                    float off = Math.Abs(Y[k] - Y[h]);
+                    if (u <= d)
+                    {
+                        // Along the roof: its noise up, off the roof, not into it.
+                        Y[k] = Y[h] + off;
+                        PrevY[k] = Y[k];
+                        continue;
+                    }
+
+                    X[k] = X[h] + d * fx;
+                    Y[k] = Y[h] - (u - d);
+                    Z[k] = Z[h] + d * fz;
+                    X[k] += off * fx;
+                    Z[k] += off * fz;
+                    PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
+                }
+            }
+
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
         }
 
         /// <summary>The <paramref name="i"/>th way to try: 0, +45, -45, +90, -90, +135, -135, 180 degrees from (x, z).</summary>
@@ -2359,31 +2459,60 @@ namespace RealFlag.Flags
         /// that much further down the slope, as if the wall were built that much further off. A
         /// wall a node or two thick in the grid moves back whole, and so do the rest of the
         /// building and the ground round it, by no more than <see cref="WallShiftNodes"/> nodes.
-        /// False: the hoist is under a roof or inside a building -- the surface is left out.
+        /// A level hoist (<see cref="LevelHoist"/>) whose cloth would hang into a wall's band of the
+        /// grid is kept clear the same way (<see cref="HangsClear"/>), the wall stood back by as
+        /// much as <see cref="EdgeShift"/> more. One standing ON a roof near its edge keeps the
+        /// surface as it is, and its cloth is laid draped over the nearest edge
+        /// (<see cref="DrapeDistance"/>, <see cref="LayOutClear"/>): along the roof to it, then down
+        /// the wall, as a banner tied back from a parapet hangs; further in than EdgeShift, it lies
+        /// on the roof as before. False: the hoist is under a roof or inside a building -- the
+        /// surface is left out.
         /// </summary>
         private bool HoistClear(SurfaceGrid grid, out float ox, out float oz)
         {
             ox = _surfaceX;
             oz = _surfaceZ;
             float oy = _surfaceY;
-            float gx = 0f, gz = 0f;
-            bool under = false;
+            float gx = 0f, gz = 0f, ex = 0f, ez = 0f;
+            bool under = false, band = false, roof = false;
+            bool level = HoistY > -LevelHoist;
+            float hang = level ? Math.Max(MinDepth, DepthCells * Math.Max(CellU, CellV)) : 0f;
             for (int j = 0; j < Rows; j++)
             {
                 int k = j * Columns;
                 float h, sx, sz;
-                if (_invMass[k] == 0f && grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz) && Y[k] < h + oy - HoistUnder)
+                if (_invMass[k] != 0f || !grid.Sample(X[k] - ox, Z[k] - oz, out h, out sx, out sz))
+                    continue;
+
+                if (Y[k] < h + oy - HoistUnder)
                 {
                     gx += sx;
                     gz += sz;
                     under = true;
                 }
+                else if (level && !HangsClear(k, h, sx, sz, oy, hang))
+                {
+                    ex += sx;
+                    ez += sz;
+                    if (sx * sx + sz * sz >= WallSlope * WallSlope)
+                        band = true;
+                    else
+                        roof = true;
+                }
+            }
+
+            DrapeDistance = 0f;
+            if (!under && !band && !roof)
+            {
+                WallShift = 0f;
+                HoistOnEdge = false;
+                return true;
             }
 
             if (!under)
             {
-                WallShift = 0f;
-                return true;
+                gx = ex;
+                gz = ez;
             }
 
             // The same hoist on the same surface as last time: the same answer (the search below
@@ -2395,6 +2524,8 @@ namespace RealFlag.Flags
                 ox = _clearOX;
                 oz = _clearOZ;
                 WallShift = _clearShift;
+                HoistOnEdge = _clearEdge;
+                DrapeDistance = _clearDrape;
                 return _clearOk;
             }
 
@@ -2406,12 +2537,23 @@ namespace RealFlag.Flags
             // (KeepAboveSurface's: the particles beside the hoist are not pushed off it) -- down the
             // slope first (away from a wall), then the eight ways round: a hoist inside a wall's
             // band grown half a node out stands where the grid is level.
+            // A level hoist wants to hang clear (HangsClear), and may have the wall kept back
+            // further -- EdgeShift, and the grid's wall band besides (grown half a node out, a node
+            // wide) -- in at most 32 steps, sixteen ways round (the way it drapes, too).
             float g = (float)Math.Sqrt(gx * gx + gz * gz);
             float gap = SurfaceGap + SurfaceGapCells * Math.Min(CellU, CellV);
             float step = 0.125f * grid.Spacing, most = Math.Max(WallShiftNodes * grid.Spacing, MinWallShift);
+            int ways = 8;
+            if (level)
+            {
+                most = Math.Max(most, EdgeShift + 1.5f * grid.Spacing);
+                step = Math.Max(step, most / 32f);
+                ways = 16;
+            }
+
             for (float t = step; t <= most + 1e-4f; t += step)
             {
-                for (int w = 0; w < 9; w++)
+                for (int w = 0; w <= ways; w++)
                 {
                     float ux, uz;
                     if (w == 0)
@@ -2424,7 +2566,7 @@ namespace RealFlag.Flags
                     }
                     else
                     {
-                        double a = (w - 1) * (Math.PI / 4);
+                        double a = (w - 1) * (2.0 * Math.PI / ways);
                         ux = (float)Math.Cos(a);
                         uz = (float)Math.Sin(a);
                     }
@@ -2435,32 +2577,92 @@ namespace RealFlag.Flags
                     {
                         int k = j * Columns;
                         float h, sx, sz;
-                        if (_invMass[k] == 0f && grid.Sample(X[k] - tx, Z[k] - tz, out h, out sx, out sz) && Y[k] < h + oy + gap)
+                        if (_invMass[k] == 0f && grid.Sample(X[k] - tx, Z[k] - tz, out h, out sx, out sz) &&
+                            (level ? !HangsClear(k, h, sx, sz, oy, hang) : Y[k] < h + oy + gap))
                             clear = false;
                     }
 
-                    if (clear)
+                    if (!clear)
+                        continue;
+
+                    _clearOk = true;
+                    _clearUX = ux;
+                    _clearUZ = uz;
+                    if (under || band)
                     {
+                        // In a wall's band, or under the roof's edge: the wall kept back.
                         ox = tx;
                         oz = tz;
                         WallShift = t;
-                        _clearOk = true; _clearOX = ox; _clearOZ = oz; _clearShift = t;
-                        return true;
+                        HoistOnEdge = level;
+                        _clearOX = ox; _clearOZ = oz; _clearShift = t; _clearEdge = level; _clearDrape = 0f;
                     }
+                    else
+                    {
+                        // On the roof, its edge t away: the surface as it is, the cloth draped over it.
+                        WallShift = 0f;
+                        HoistOnEdge = false;
+                        DrapeDistance = t;
+                        _clearOX = ox; _clearOZ = oz; _clearShift = 0f; _clearEdge = false; _clearDrape = t;
+                    }
+
+                    return true;
                 }
             }
 
-            // Further in than that: under a roof, or inside the building.
+            // A level hoist over a roof, further in than that: it stands on the roof, the surface kept as it is.
             WallShift = 0f;
+            HoistOnEdge = false;
+            _clearEdge = false;
+            _clearDrape = 0f;
+            if (!under)
+            {
+                _clearOk = true; _clearOX = ox; _clearOZ = oz; _clearShift = 0f;
+                return true;
+            }
+
+            // Further in than that: under a roof, or inside the building.
             _clearOk = false; _clearOX = ox; _clearOZ = oz; _clearShift = 0f;
             return false;
+        }
+
+        /// <summary>
+        /// A held particle of a level hoist hangs clear of the surface sampled under it (h, slopes
+        /// sx, sz): the cloth's depth limit (<paramref name="hang"/>) free under it, and not over a
+        /// wall's band of the grid (a slope steeper than <see cref="WallSlope"/>) its cloth would
+        /// hang down into above its fly's reach -- over level ground, a lower roof, or the band's
+        /// foot. The wall kept back stops as soon as that holds: the band then stands IN FRONT of
+        /// the hoist, and the wind presses the cloth onto it there, never behind the hoist's line
+        /// (kept back past the whole band, the preview's banner 0.15 m off a facade was pressed 0.1
+        /// m into the building's drawn wall). Its cloth is laid out leaning off the band
+        /// (<see cref="LayOutClear"/>).
+        /// </summary>
+        private bool HangsClear(int k, float h, float sx, float sz, float oy, float hang)
+        {
+            if (Y[k] < h + oy + hang)
+                return false;
+
+            return sx * sx + sz * sz < WallSlope * WallSlope || Y[k] - Length >= h + oy;
         }
 
         /// <summary>HoistClear's last question and answer.</summary>
         private SurfaceGrid _clearGrid;
         private float _clearX, _clearY, _clearZ, _clearTopX, _clearTopY, _clearTopZ, _clearBottomX, _clearBottomY, _clearBottomZ;
-        private bool _clearOk;
+        private bool _clearOk, _clearEdge;
         private float _clearOX, _clearOZ, _clearShift;
+
+        /// <summary>The way the last wall kept back went, level: away from the building (what a level hoist's cloth is laid leaning or draped towards).</summary>
+        private float _clearUX, _clearUZ, _clearDrape;
+
+        /// <summary>
+        /// A level hoist standing on a roof near its edge (<see cref="HoistClear"/>): how far the
+        /// edge is, metres, along the way it drapes (0: not so). The surface is kept as it is; a
+        /// new or relaid cloth is laid over it (<see cref="LayOutClear"/>).
+        /// </summary>
+        public float DrapeDistance { get; private set; }
+
+        /// <summary>The last step's <see cref="WallShift"/> was a level hoist's on a roof's edge (<see cref="LevelHoist"/>), not a pole's against a wall.</summary>
+        public bool HoistOnEdge { get; private set; }
 
         /// <summary>
         /// How far the last step kept a wall back from the hoist standing in its slope, metres

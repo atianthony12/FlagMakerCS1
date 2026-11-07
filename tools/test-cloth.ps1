@@ -3655,6 +3655,130 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// A 7 m banner hoisted from its top (4.67 m along its crossbar, the heading +x) at a roof's
+    /// edge (2026-11-07: "flags that are hoisted from the top are usually placed on the edges of
+    /// buildings ... sink into the building ... and don't appear anymore"): the building a box
+    /// from <paramref name="inside"/> m behind the hoist's line (less than 0: in front of it, the
+    /// hoist that far out from the face) 10 m deep, its roof <paramref name="over"/> m under the
+    /// hoist, 17 m tall. 14 s in a wind from new, laid out as the game lays a new flag
+    /// (LayOutClear): finite; the particles buried by the layout; laid hanging (its fly corner
+    /// under half its length); the drape distance; the wall kept back; on an edge; how deep into
+    /// the box it went at most after 2 s (m, the drawn building's); the worst stretch; its lowest
+    /// particle under the roof at the end (m).
+    /// </summary>
+    public static string RoofEdge(float inside, float over, float wind, float yawDegrees)
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        float length = 7f, hoist = 7f * 2f / 3f, ground = -17f, roof = -over, face = -inside;
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw);
+        FlagCloth c = new FlagCloth(length, hoist, FlagFabric.Standard(1f), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz);
+        c.GroundY = ground;
+        // As FlagSurroundings lays it out: round the crossbar's middle, a quarter wider than FlagOutline's disc.
+        SurfaceGrid g = Grid(0.5f * hoist, 0f, 1.25f * (0.5f * hoist + 1.02f * length + 0.5f), ground);
+        RaiseBox(g, -6f, face, 10f, face + 10f, ground, roof);
+        g.Finish();
+        c.SetSurface(g, 0f, 0f, 0f);
+        int buried = c.LayOutClear(dirX, dirZ);
+        bool hanging = c.Y[c.Count - 1] < -0.5f * length;
+        float drape = c.DrapeDistance, shift = c.WallShift;
+        bool edge = c.HoistOnEdge;
+        float worst, low, high;
+        Fly(c, wind, yawDegrees, 14f, 2f, delegate(FlagCloth x)
+        {
+            float m = float.MinValue;
+            for (int k = 0; k < x.Count; k++)
+            {
+                float d = Math.Min(Math.Min(x.Z[k] - face, face + 10f - x.Z[k]), Math.Min(Math.Min(x.X[k] + 6f, 10f - x.X[k]), Math.Min(roof - x.Y[k], x.Y[k] - ground)));
+                if (d > m) m = d;
+            }
+            return m;
+        }, out worst, out low, out high);
+        float lowest = float.MaxValue;
+        for (int k = 0; k < c.Count; k++)
+            if (c.Y[k] < lowest) lowest = c.Y[k];
+        return c.IsFinite() + "," + buried + "," + hanging + "," + drape.ToString("F2", Inv) + "," + shift.ToString("F2", Inv) + "," + edge + "," +
+               high.ToString("F3", Inv) + "," + worst.ToString("F3", Inv) + "," + (lowest - roof).ToString("F2", Inv);
+    }
+
+    /// <summary>
+    /// FlagEdgeSnap on a roof 17 m up whose edge runs at 30 deg, 5 m from the origin, the pointer
+    /// 0.6 m in from it: found; the edge's point off the true nearest point (m); the way out off
+    /// the true one (deg); the roof's height; the raycasts it took; 2.5 m in, none found; Place
+    /// along the edge (the hoist's middle on the edge a gap off the face, heading along it), out
+    /// from the face, and out from it the other way round (its anchor the hoist's length out).
+    /// </summary>
+    public static string EdgeSnap()
+    {
+        double b = 30.0 * Math.PI / 180.0 + Math.PI / 2;
+        float nx = (float)Math.Cos(b), nz = (float)Math.Sin(b);
+        int[] calls = new int[1];
+        Func<float, float, float> top = delegate(float x, float z)
+        {
+            calls[0]++;
+            return x * nx + z * nz <= 5f && Math.Abs(x) < 50f && Math.Abs(z) < 50f ? 17f : 0f;
+        };
+        float ex, ez, ux, uz, roofY;
+        bool found = FlagEdgeSnap.Find(top, 4.4f * nx, 17f, 4.4f * nz, out ex, out ez, out ux, out uz, out roofY);
+        float off = (float)Math.Sqrt((ex - 5f * nx) * (ex - 5f * nx) + (ez - 5f * nz) * (ez - 5f * nz));
+        float turn = (float)(Math.Acos(Math.Max(-1.0, Math.Min(1.0, ux * nx + uz * nz))) * 180.0 / Math.PI);
+        int used = calls[0];
+        float fx, fz, fux, fuz, fy;
+        bool far = FlagEdgeSnap.Find(top, 2.5f * nx, 17f, 2.5f * nz, out fx, out fz, out fux, out fuz, out fy);
+
+        float hoist = 4f, ax, ay, az, heading;
+        float tx = -nz, tz = nx;
+        FlagEdgeSnap.Place(5f * nx, 17f, 5f * nz, nx, nz, (float)Math.Atan2(tz, tx) + 0.3f, hoist, out ax, out ay, out az, out heading);
+        float mx = ax + 0.5f * hoist * (float)Math.Cos(heading) - (5f + FlagEdgeSnap.Gap) * nx, mz = az + 0.5f * hoist * (float)Math.Sin(heading) - (5f + FlagEdgeSnap.Gap) * nz;
+        bool along = Math.Sqrt(mx * mx + mz * mz) < 1e-4 && Math.Abs(Math.Cos(heading) * tx + Math.Sin(heading) * tz - 1.0) < 1e-5 && ay == 17f;
+        FlagEdgeSnap.Place(5f * nx, 17f, 5f * nz, nx, nz, (float)Math.Atan2(nz, nx) - 0.3f, hoist, out ax, out ay, out az, out heading);
+        bool outward = Math.Abs(ax - (5f + FlagEdgeSnap.Gap) * nx) < 1e-4f && Math.Abs(az - (5f + FlagEdgeSnap.Gap) * nz) < 1e-4f &&
+                       Math.Abs(Math.Cos(heading) * nx + Math.Sin(heading) * nz - 1.0) < 1e-5;
+        FlagEdgeSnap.Place(5f * nx, 17f, 5f * nz, nx, nz, (float)Math.Atan2(-nz, -nx), hoist, out ax, out ay, out az, out heading);
+        bool back = Math.Abs(ax - (5f + FlagEdgeSnap.Gap + hoist) * nx) < 1e-4f && Math.Abs(az - (5f + FlagEdgeSnap.Gap + hoist) * nz) < 1e-4f &&
+                    Math.Abs(Math.Cos(heading) * nx + Math.Sin(heading) * nz + 1.0) < 1e-5;
+        return found + "," + off.ToString("F4", Inv) + "," + turn.ToString("F2", Inv) + "," + roofY.ToString("F1", Inv) + "," + used + "," + far + "," +
+               along + "," + outward + "," + back;
+    }
+
+    /// <summary>
+    /// "Wind on it" (FlagSpec.WindShare): all of it by default; through the save and Move It's
+    /// clipboard; a save of format 10 reads all of it; out of range pulled in (NaN and the
+    /// infinities all of it); the log's description says it.
+    /// </summary>
+    public static string CodecWindShare()
+    {
+        bool def = FlagSpec.Default.WindShare == 1f;
+        FlagSpec a = FlagSpec.Default; a.WindShare = 0.35f;
+        FlagSpec r;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out r) && Math.Abs(r.WindShare - 0.35f) < 1e-6f;
+        bool old;
+        // Format 14 puts the wind's share LAST, after format 13's cut: this format's bytes read as
+        // 13 are 467cd58's (the cut and its depth where 13 put them, all the wind), and as 10 too.
+        FlagSpec cutA = a; cutA.Cut = FlagCut.Swallowtail; cutA.CutDepth = 0.4f;
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, cutA);
+            w.Flush();
+            ms.Position = 0;
+            FlagSpec as13 = FlagCodec.Read(new System.IO.BinaryReader(ms), 13);
+            ms.Position = 0;
+            FlagSpec as10 = FlagCodec.Read(new System.IO.BinaryReader(ms), 10);
+            old = as13.WindShare == 1f && as13.Cut == FlagCut.Swallowtail && Math.Abs(as13.CutDepth - 0.4f) < 1e-6f &&
+                  as10.WindShare == 1f;
+        }
+        FlagSpec n = FlagSpec.Default; n.WindShare = float.NaN;
+        FlagSpec lo = FlagSpec.Default; lo.WindShare = -1f;
+        FlagSpec hi = FlagSpec.Default; hi.WindShare = 2f;
+        FlagSpec inf = FlagSpec.Default; inf.WindShare = float.NegativeInfinity;
+        bool pulled = n.Sanitised().WindShare == 1f && lo.Sanitised().WindShare == 0f && hi.Sanitised().WindShare == 1f && inf.Sanitised().WindShare == 1f;
+        bool said = a.Describe().Contains("35% of the wind on it") && !FlagSpec.Default.Describe().Contains("of the wind");
+        return def + "," + round + "," + old + "," + pulled + "," + said + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
     /// Cuts (FlagCut, 2026-11-07): the outlines -- a rectangle's edge 1 everywhere, a swallowtail's
     /// 1 - depth at its middle, a pennant's 0 at its top, a burgee's tips 1, the edges never past 1
     /// nor under 0 -- and each cut's cells on a 3 x 2 m cloth at 18 and 40 cells: fewer particles,
@@ -4417,6 +4541,9 @@ Check "a save of format 8 still reads as new; of format 9, worn but not torn; of
 Check "wear, torn, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%, infinity"
 Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop" ([int]$cw[5] -ge 250 -and $cw[6] -eq "0" -and $cw[7] -eq "255") ($cw[5] + " distinct seeds over props 0..999, " + $cw[6] + ".." + $cw[7])
 
+$cn = [ClothTests]::CodecWindShare() -split ","
+Check "Wind on it: all of it by default, through the save and Move It's clipboard; a format 13 save (its cut where it was) and a format 10 one read all of it; out of range pulled in; in the log" ($cn[0] -eq "True" -and $cn[1] -eq "True" -and $cn[2] -eq "True" -and $cn[3] -eq "True" -and $cn[4] -eq "True") ("format " + $cn[5] + ": 35%; NaN, -100%, 200%, -infinity")
+
 # ---- cuts (FlagCut: swallowtail, pennant...) -------------------------------------------------
 
 # (Variables named cut*: PowerShell's are case-insensitive, and the rest of this file has short ones.)
@@ -4566,6 +4693,27 @@ foreach ($case in @(@(6, 0, $false), @(6, 0, $true))) {
     $wl = [ClothTests]::Wall($case[0], $case[1], $case[2], $true) -split ","
     Check ("laid straight through a wall ({0}, {1} m/s): found buried, laid out afresh where it is free, then as the rest" -f $(if ($case[2]) { "a banner" } else { "a flag" }), $case[0]) ($wl[0] -eq "True" -and (N $wl[1]) -le 0.01 -and (N $wl[6]) -le (N $wl[9]) + 0.03 -and (N $wl[7]) -le 1 -and (N $wl[5]) -ge 1) ("laid out afresh " + $wl[5] + " time(s); at most " + $wl[1] + " m past its face after 1 s; stretch " + $wl[6] + " on average, over 30% for " + $wl[7] + "% of the time, " + $wl[3] + " at worst")
 }
+# A banner hoisted from its top at a roof's edge (2026-11-07: "flags sink into the building ... and
+# don't appear anymore"). The grid holds a building as solid to the ground: a hoist over the roof
+# carried the cloth up onto it, out of sight from the street (the preview: 7 m, 0.3 m in, flapping
+# on the roof). Now: a hoist in the wall's band keeps the wall back, the band in FRONT of it, so the
+# wind presses the cloth against it, never into the drawn building; a hoist on the roof near its
+# edge drapes over it (the surface as it is); further in, it lies on the roof as before.
+foreach ($case in @(@(-0.15, 0, 4, 90, "0.15 m out from the face, the wind at the wall"), @(-0.15, 0, 8, 270, "0.15 m out from the face, the wind away"),
+                    @(0.3, 0.1, 4, 90, "0.3 m in over the roof, the wind at the wall"), @(0.3, 0.1, 8, 90, "0.3 m in over the roof, 8 m/s at the wall"),
+                    @(0.3, 0.1, 8, 270, "0.3 m in over the roof, the wind away"))) {
+    $re = [ClothTests]::RoofEdge($case[0], $case[1], $case[2], $case[3]) -split ","
+    $okIn = if ($case[0] -gt 0) { (N $re[6]) -le $case[0] + 0.02 } else { (N $re[6]) -le 0.01 }
+    $okHang = ($case[3] -ne 90) -or ((N $re[8]) -lt -3.5)
+    # Over the roof: draped. Out from the face: the wall kept back, or (the hoist inside the half
+    # node the grid grows a wall by, level at the roof's height) draped over that.
+    $okWay = if ($case[0] -gt 0) { (N $re[3]) -gt 0 -and (N $re[4]) -eq 0 } else { (N $re[3]) -gt 0 -or ((N $re[4]) -gt 0 -and $re[5] -eq "True") }
+    Check ("a 7 m banner from its top on a roof's edge, " + $case[4] + ": laid hanging" + $(if ($case[0] -gt 0) { " over the edge" } else { "" }) + ", never into the building, hangs down the wall") ($re[0] -eq "True" -and $re[1] -eq "0" -and $re[2] -eq "True" -and $okIn -and $okHang -and $okWay -and (N $re[7]) -lt 1.15) ("laid hanging " + $re[2] + " (" + $re[1] + " in the way), draped " + $re[3] + " m, the wall kept back " + $re[4] + " m (on an edge: " + $re[5] + "); at most " + $re[6] + " m into the box; worst stretch " + $re[7] + "; its lowest " + $re[8] + " m under the roof")
+}
+$re = [ClothTests]::RoofEdge(3, 0.3, 4, 90) -split ","
+Check "a banner from its top 0.3 m over a roof 3 m from its edge: no edge in reach, it lies on the roof as before" ($re[0] -eq "True" -and (N $re[3]) -eq 0 -and (N $re[4]) -eq 0 -and $re[2] -eq "False" -and (N $re[8]) -ge -0.01) ("draped " + $re[3] + " m, kept back " + $re[4] + " m; its lowest " + $re[8] + " m under the roof")
+$es = [ClothTests]::EdgeSnap() -split ","
+Check "snap to a roof's edge (FlagEdgeSnap): the edge's point and its way out found from 0.6 m in, none from 2.5 m; along it, out from it, or back to it as the flag is turned" ($es[0] -eq "True" -and (N $es[1]) -lt 0.02 -and (N $es[2]) -lt 1 -and $es[3] -eq "17.0" -and $es[5] -eq "False" -and $es[6] -eq "True" -and $es[7] -eq "True" -and $es[8] -eq "True") ("the edge " + $es[1] + " m off, its way out " + $es[2] + " deg off, the roof at " + $es[3] + " m, " + $es[4] + " raycasts; from 2.5 m in: " + $es[5] + "; placed along / out / back: " + $es[6] + "/" + $es[7] + "/" + $es[8])
 # Dragged along a building (Move It, 7.5 m/s): the wall sweeps into the cloth, which is carried with
 # its anchor. Put out at once, 900-1300 particles jumped more than a cell in a sub-step and a link
 # tore 170% long -- in the game "the flag animation resets many times ... fighting for space" (the

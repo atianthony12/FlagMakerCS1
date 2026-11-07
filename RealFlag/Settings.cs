@@ -168,6 +168,9 @@ namespace RealFlag
         public static IntSetting NewCut { get; private set; }
         public static FloatSetting NewCutDepth { get; private set; }
 
+        /// <summary>How much of the wind a waving flag feels, 0..1 (FlagSpec.WindShare; the panel's "Wind on it", a percentage).</summary>
+        public static FloatSetting NewWindShare { get; private set; }
+
         /// <summary>How much darker the cloth is than its design, 0..0.8 (FlagSpec.Darkness; shown as a percentage).</summary>
         public static FloatSetting NewDarkness { get; private set; }
 
@@ -193,6 +196,9 @@ namespace RealFlag
 
         /// <summary>A row's flags point along its line, the Rotation on top; off, the Rotation alone.</summary>
         public static BoolSetting NewLineAlong { get; private set; }
+
+        /// <summary>A new banner hoisted from its top snaps to a roof's edge near the pointer (FlagEdgeSnap).</summary>
+        public static BoolSetting NewSnapEdges { get; private set; }
 
         /// <summary>
         /// The new flag's POLE HEIGHT: its length up its axis from its foot to the flag's top,
@@ -246,6 +252,7 @@ namespace RealFlag
         public static FloatSetting SelWaviness { get; private set; }
         public static IntSetting SelCut { get; private set; }
         public static FloatSetting SelCutDepth { get; private set; }
+        public static FloatSetting SelWindShare { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
         public static FloatSetting SelWear { get; private set; }
         public static FloatSetting SelDirt { get; private set; }
@@ -350,6 +357,9 @@ namespace RealFlag
             public const int Cut = FlagCut.Rectangle;
             public const float CutDepth = FlagCut.DefaultDepth;
 
+            /// <summary>All the wind where it stands.</summary>
+            public const float WindShare = 1f;
+
             /// <summary>The colours as designed.</summary>
             public const float Darkness = 0f;
 
@@ -362,6 +372,7 @@ namespace RealFlag
             public const float Rotation = 0f;
             public const float LineSpacing = 10f;
             public const bool LineAlong = true;
+            public const bool SnapEdges = true;
 
             /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
             public const float Height = 10f;
@@ -452,6 +463,7 @@ namespace RealFlag
                 NewWaviness = new FloatSetting("NewWaviness", Defaults.Waviness);
                 NewCut = new IntSetting("NewCut", Defaults.Cut);
                 NewCutDepth = new FloatSetting("NewCutDepth", Defaults.CutDepth);
+                NewWindShare = new FloatSetting("NewWindShare", Defaults.WindShare);
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
                 NewWear = new FloatSetting("NewWear", Defaults.Wear);
                 NewDirt = new FloatSetting("NewDirt", Defaults.Dirt);
@@ -462,6 +474,7 @@ namespace RealFlag
                 NewPlacing = new IntSetting("NewPlacing", LineFlags.Single, true);
                 NewLineSpacing = new FloatSetting("NewLineSpacing", Defaults.LineSpacing);
                 NewLineAlong = new BoolSetting("NewLineAlong", Defaults.LineAlong);
+                NewSnapEdges = new BoolSetting("NewSnapEdges", Defaults.SnapEdges);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
                 UnlockPoleHeight = new BoolSetting("UnlockPoleHeight", Defaults.UnlockPoleHeight);
                 NewPole = new IntSetting("NewPole", Defaults.Pole);
@@ -491,6 +504,7 @@ namespace RealFlag
                 SelWaviness = new FloatSetting("SelWaviness", Defaults.Waviness, true);
                 SelCut = new IntSetting("SelCut", Defaults.Cut, true);
                 SelCutDepth = new FloatSetting("SelCutDepth", Defaults.CutDepth, true);
+                SelWindShare = new FloatSetting("SelWindShare", Defaults.WindShare, true);
                 SelDarkness = new FloatSetting("SelDarkness", Defaults.Darkness, true);
                 SelWear = new FloatSetting("SelWear", Defaults.Wear, true);
                 SelDirt = new FloatSetting("SelDirt", Defaults.Dirt, true);
@@ -552,6 +566,7 @@ namespace RealFlag
             spec.HoistedFrom = NewHoistedFrom.value;
             spec.Motion = NewMotion.value;
             spec.Waviness = NewWaviness.value;
+            spec.WindShare = NewWindShare.value;
             spec.Cut = NewCut.value;
             spec.CutDepth = NewCutDepth.value;
             spec.Darkness = NewDarkness.value;

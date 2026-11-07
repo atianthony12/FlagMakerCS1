@@ -913,7 +913,8 @@ namespace RealFlag.UI
         /// </remarks>
         private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
                                       ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
-                                      IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting darkness,
+                                      IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting windShare,
+                                      FloatSetting darkness,
                                       FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes,
                                       IntSetting cut, FloatSetting cutDepth, Action changed, Func<bool> enabled)
         {
@@ -1182,6 +1183,20 @@ namespace RealFlag.UI
                 Enabled = () => (enabled == null || enabled()) && motion.value != FlagMotion.Flat,
             });
 
+            // Wind on it (the author, 2026-11-07: how much the flag moves, beside How wavy's
+            // ripples): the share of the wind where it stands (FlagSpec.WindShare). A waving flag's
+            // only (a still one's shape is made in its own breeze).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = windShare,
+                DefaultFloat = Settings.Defaults.WindShare,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = () => (enabled == null || enabled()) && motion.value == FlagMotion.Waves,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -1443,7 +1458,7 @@ namespace RealFlag.UI
 
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
-                      Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewDarkness,
+                      Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewWindShare, Settings.NewDarkness,
                       Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
                       Settings.NewCut, Settings.NewCutDepth, null, null);
 
@@ -1499,6 +1514,18 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.Rotation,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
+            });
+
+            // A banner hoisted from its top snaps to a roof's edge (the author, 2026-11-07: "snap to
+            // edge too"): one flag at a time, not Line Tool's rows.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.New,
+                Bool = Settings.NewSnapEdges,
+                DefaultBool = Settings.Defaults.SnapEdges,
+                AfterChange = State("snap to roof edges", OnOff(Settings.NewSnapEdges)),
+                Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && Settings.NewPlacing.value == LineFlags.Single,
             });
 
             Add(new Row
@@ -1642,7 +1669,7 @@ namespace RealFlag.UI
 
             AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
-                      Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelDarkness,
+                      Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelWindShare, Settings.SelDarkness,
                       Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles,
                       Settings.SelCut, Settings.SelCutDepth, FlagEditor.ApplyDesign, selected);
 

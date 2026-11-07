@@ -193,6 +193,10 @@
   <String key="NewWaviness.Tooltip">How much it ripples.</String>
   <String key="SelWaviness.Label">How wavy</String>
   <String key="SelWaviness.Tooltip">How much it ripples.</String>
+  <String key="NewWindShare.Label">Wind on it</String>
+  <String key="NewWindShare.Tooltip">How much wind reaches it.</String>
+  <String key="SelWindShare.Label">Wind on it</String>
+  <String key="SelWindShare.Tooltip">How much wind reaches it.</String>
   <String key="NewDarkness.Label">Darkness</String>
   <String key="NewDarkness.Tooltip">Tones down bright colors.</String>
   <String key="SelDarkness.Label">Darkness</String>
@@ -293,6 +297,8 @@
   <String key="NewLineSpacing.Tooltip">Meters between flags.</String>
   <String key="NewLineAlong.Label">Point along the line</String>
   <String key="NewLineAlong.Tooltip">Rotation adds to it.</String>
+  <String key="NewSnapEdges.Label">Snap to edges</String>
+  <String key="NewSnapEdges.Tooltip">Hang from roof edges.</String>
 
   <String key="NewRotation.Label">Rotation</String>
   <String key="NewRotation.Tooltip">Which way it points.</String>
@@ -334,6 +340,7 @@
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Click to place. Right-click to rotate. {0} to raise or lower (Shift for faster, Alt for finer).</String>
+  <String key="Tool.OnEdge">On the roof's edge.</String>
   <String key="Tool.Raised">Raised {0} m</String>
   <String key="Tool.Lowered">Lowered {0} m</String>
   <String key="Tool.NoPrefab">Can't place flags here. See the log.</String>

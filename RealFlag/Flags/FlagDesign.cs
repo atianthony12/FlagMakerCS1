@@ -678,6 +678,17 @@ namespace RealFlag.Flags
         public float Tear;
 
         /// <summary>
+        /// How much of the wind where it stands the flag feels, 0..1 (1: all of it, the default) --
+        /// the panel's "Wind on it" (the author, 2026-11-07: a slider for how much the flag moves,
+        /// beside How wavy, which shapes its ripples). A banner hanging against a facade stands in
+        /// the building's shelter, where the air is slower than in the open (EN 1991-1-4 7.4.2's
+        /// shelter factor for walls and fences, the idea): at a quarter of a breeze it mostly hangs
+        /// and sways. A waving flag's only: a still flag's shape is made in its own breeze
+        /// (StillPose), a flat one has none.
+        /// </summary>
+        public float WindShare;
+
+        /// <summary>
         /// How torn its top and bottom edges are, 0..1 (the panel's "Torn edges", the author,
         /// 2026-11-07: "right now the torn only goes on one side ... a secondary tear slider"):
         /// ripped in stretches, deeper towards the fly, with rips running in across the cloth, one
@@ -779,6 +790,7 @@ namespace RealFlag.Flags
                     Dirt = 0f,
                     Holes = 0f,
                     Tear = 0f,
+                    WindShare = 1f,
                     TearEdges = 0f,
                     Cut = FlagCut.Rectangle,
                     CutDepth = FlagCut.DefaultDepth,
@@ -876,6 +888,7 @@ namespace RealFlag.Flags
             s.Holes = Share(s.Holes);
             s.Tear = Share(s.Tear);
             s.TearEdges = Share(s.TearEdges);
+            s.WindShare = float.IsNaN(s.WindShare) || float.IsInfinity(s.WindShare) ? 1f : Share(s.WindShare);
             s.Cut = FlagCut.Sanitise(s.Cut);
             s.CutDepth = FlagCut.SanitiseDepth(s.CutDepth);
             return s;
@@ -996,6 +1009,8 @@ namespace RealFlag.Flags
                 text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom);
             if (Motion != FlagMotion.Waves)
                 text += ", " + FlagMotion.LogName(Motion);
+            if (WindShare < 1f)
+                text += ", " + (WindShare * 100f).ToString("F0", inv) + "% of the wind on it";
             if (Darkness > 0f)
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (IsWeathered)
@@ -1099,11 +1114,14 @@ namespace RealFlag.Flags
         /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
         /// FlagMotion). 9 (2026-11-03): the same, then its wear, dirt and holes (three floats,
         /// 0..1). 10 (2026-11-04): the same, then how torn (a float, 0..1). 11 (2026-11-07): the
-        /// same, then how torn its top and bottom edges are (a float, 0..1; older ones whole). 13
-        /// (2026-11-07): the same, then its cut (a byte, FlagCut) and the cut's depth (a float, a share
-        /// of the length; older ones rectangles). Every older one is still read.
+        /// same, then how torn its top and bottom edges are (a float, 0..1; older ones whole). 12:
+        /// never written by a commit (WindShare's while it was unpushed; read as 11). 13
+        /// (2026-11-07): the same as 11, then its cut (a byte, FlagCut) and the cut's depth (a
+        /// float, a share of the length; older ones rectangles). 14 (2026-11-07): the same, then
+        /// how much of the wind is on it (a float, 0..1; older ones all of it). Every older one is
+        /// still read.
         /// </summary>
-        public const byte Version = 13;
+        public const byte Version = 14;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1144,6 +1162,7 @@ namespace RealFlag.Flags
             w.Write(s.TearEdges);
             w.Write((byte)s.Cut);
             w.Write(s.CutDepth);
+            w.Write(s.WindShare);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1279,6 +1298,9 @@ namespace RealFlag.Flags
                 s.Cut = FlagCut.Rectangle;
                 s.CutDepth = FlagCut.DefaultDepth;
             }
+
+            // Before the wind's share: all of it.
+            s.WindShare = version >= 14 ? r.ReadSingle() : 1f;
 
             return s.Sanitised();
         }

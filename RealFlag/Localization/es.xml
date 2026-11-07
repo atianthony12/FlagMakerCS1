@@ -194,6 +194,10 @@
   <String key="NewWaviness.Tooltip">Cuánto se riza.</String>
   <String key="SelWaviness.Label">Cuánto ondea</String>
   <String key="SelWaviness.Tooltip">Cuánto se riza.</String>
+  <String key="NewWindShare.Label">Viento sobre ella</String>
+  <String key="NewWindShare.Tooltip">Cuánto viento le llega.</String>
+  <String key="SelWindShare.Label">Viento sobre ella</String>
+  <String key="SelWindShare.Tooltip">Cuánto viento le llega.</String>
   <String key="NewDarkness.Label">Oscuridad</String>
   <String key="NewDarkness.Tooltip">Oscurece los colores vivos.</String>
   <String key="SelDarkness.Label">Oscuridad</String>
@@ -294,6 +298,8 @@
   <String key="NewLineSpacing.Tooltip">Metros entre banderas.</String>
   <String key="NewLineAlong.Label">Apuntar según la línea</String>
   <String key="NewLineAlong.Tooltip">El giro se suma.</String>
+  <String key="NewSnapEdges.Label">Ajustar a bordes</String>
+  <String key="NewSnapEdges.Tooltip">Colgar del borde del tejado.</String>
 
   <String key="NewRotation.Label">Giro</String>
   <String key="NewRotation.Tooltip">Hacia dónde apunta.</String>
@@ -335,6 +341,7 @@
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Clic para poner. Clic derecho para girar. {0} para subir o bajar (Mayús para más rápido, Alt para más fino).</String>
+  <String key="Tool.OnEdge">En el borde del tejado.</String>
   <String key="Tool.Raised">Subida {0} m</String>
   <String key="Tool.Lowered">Bajada {0} m</String>
   <String key="Tool.NoPrefab">No se pueden poner banderas aquí. Mira el registro.</String>

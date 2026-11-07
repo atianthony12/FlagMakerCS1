@@ -68,7 +68,28 @@ namespace RealFlag.Flags
         // Written by SimulationStep (the simulation thread), read on the main thread.
         private volatile bool _hitValid;
         private Vector3 _hit;
+        private EdgeSnap _snap;
         private readonly object _hitLock = new object();
+
+        /// <summary>
+        /// A roof's edge near where the pointer is (FlagEdgeSnap.Find), found on the simulation
+        /// thread with the hit it belongs to: the edge's point (y the roof's), the way out from it.
+        /// </summary>
+        private struct EdgeSnap
+        {
+            public bool Valid;
+            public Vector3 Edge;
+            public float Nx, Nz;
+        }
+
+        // The simulation thread's own: the last edge looked for, and from where (looked for again
+        // only when the pointer moves: some 60 of the game's raycasts).
+        private Vector3 _snapFrom;
+        private bool _snapFromSet;
+        private EdgeSnap _snapLast;
+
+        /// <summary>The pointer moved at least this far, metres, before the edge is looked for again.</summary>
+        private const float SnapMove = 0.02f;
 
         private readonly FlagGizmo _gizmo = new FlagGizmo();
 
@@ -79,6 +100,7 @@ namespace RealFlag.Flags
         private float _turnFrom, _turnTo;
         private bool _turnHitValid;
         private Vector3 _turnHit;
+        private EdgeSnap _turnSnap;
 
         /// <summary>Degrees a drag turns the flag per unit of the "Mouse X" axis: PropTool.OnToolUpdate's DeltaAngle(axis x 10).</summary>
         private const float TurnPerMouseX = 10f;
@@ -357,11 +379,20 @@ namespace RealFlag.Flags
             if (Cast(_mouseRay, _mouseRayLength, out output))
             {
                 Vector3 hit = output.m_hitPos;
+                EdgeSnap snap = default(EdgeSnap);
                 if (CurrentMode == Mode.Place)
+                {
                     hit = SurfaceUnder(hit, _mouseRay.direction);
+                    if (SnapsToEdges)
+                        snap = EdgeNear(hit);
+                }
 
                 lock (_hitLock)
+                {
                     _hit = hit;
+                    _snap = snap;
+                }
+
                 _hitValid = true;
             }
             else
@@ -387,6 +418,56 @@ namespace RealFlag.Flags
             if (Cast(new Ray(from, Vector3.down), _mouseRayLength, out down) && down.m_hitPos.y <= from.y)
                 return down.m_hitPos;
             return hit;
+        }
+
+        /// <summary>
+        /// The new flag snaps to a roof's edge: a banner hoisted from its top (the author: "usually
+        /// placed on the edges of buildings or balconies"), the option on (Settings.NewSnapEdges).
+        /// Read on either thread (two settings' values).
+        /// </summary>
+        private static bool SnapsToEdges
+        {
+            get
+            {
+                return Settings.NewSnapEdges != null && Settings.NewSnapEdges.value && Settings.NewHoistedFrom != null &&
+                       Settings.NewHoistedFrom.value == FlagHoist.Top;
+            }
+        }
+
+        /// <summary>
+        /// On the simulation thread: the edge of the surface the pointer is on (FlagEdgeSnap.Find),
+        /// heights read with the game's raycast straight down from just above it -- the same
+        /// surface SurfaceUnder stands a flag on. Looked for again only once the pointer moves.
+        /// </summary>
+        private EdgeSnap EdgeNear(Vector3 hit)
+        {
+            if (_snapFromSet && (hit - _snapFrom).sqrMagnitude < SnapMove * SnapMove)
+                return _snapLast;
+
+            float y = hit.y, length = _mouseRayLength;
+            Func<float, float, float> top = (x, z) =>
+            {
+                var from = new Vector3(x, y + SurfaceProbeUp, z);
+                RaycastOutput down;
+                return Cast(new Ray(from, Vector3.down), length, out down) && down.m_hitPos.y <= from.y + 1e-3f
+                    ? down.m_hitPos.y
+                    : float.NegativeInfinity;
+            };
+
+            var snap = new EdgeSnap();
+            float ex, ez, nx, nz, roofY;
+            if (FlagEdgeSnap.Find(top, hit.x, y, hit.z, out ex, out ez, out nx, out nz, out roofY))
+            {
+                snap.Valid = true;
+                snap.Edge = new Vector3(ex, roofY, ez);
+                snap.Nx = nx;
+                snap.Nz = nz;
+            }
+
+            _snapFrom = hit;
+            _snapFromSet = true;
+            _snapLast = snap;
+            return snap;
         }
 
         /// <summary>The ground, the roofs and the roads (the game's ToolBase.RayCast, on the simulation thread).</summary>
@@ -419,9 +500,41 @@ namespace RealFlag.Flags
 
         private bool TryHit(out Vector3 hit)
         {
+            EdgeSnap snap;
+            return TryHit(out hit, out snap);
+        }
+
+        private bool TryHit(out Vector3 hit, out EdgeSnap snap)
+        {
             lock (_hitLock)
+            {
                 hit = _hit;
+                snap = _snap;
+            }
+
             return _hitValid && _mouseRayValid;
+        }
+
+        /// <summary>
+        /// Where the new flag goes and which way it heads: on a roof's edge the pointer is near
+        /// (FlagEdgeSnap.Place: along it or out from it, as its rotation is nearer, raised by the
+        /// keys), else standing on the surface under the pointer (<see cref="AnchorOver"/>). True: on
+        /// the edge.
+        /// </summary>
+        private bool GhostPlace(Vector3 hit, EdgeSnap snap, FlagSpec spec, out Vector3 anchor, out float angle)
+        {
+            if (snap.Valid && spec.HoistedFrom == FlagHoist.Top && SnapsToEdges)
+            {
+                float ax, ay, az;
+                FlagEdgeSnap.Place(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, NewAngle(), spec.Height,
+                                   out ax, out ay, out az, out angle);
+                anchor = new Vector3(ax, ay, az);
+                return true;
+            }
+
+            anchor = AnchorOver(hit, spec);
+            angle = NewAngle();
+            return false;
         }
 
         /// <summary>
@@ -456,13 +569,20 @@ namespace RealFlag.Flags
         /// <summary>Where the flag being placed stands: under the cursor, or where it held while a right drag turns it.</summary>
         private bool TryGhostHit(out Vector3 hit)
         {
+            EdgeSnap snap;
+            return TryGhostHit(out hit, out snap);
+        }
+
+        private bool TryGhostHit(out Vector3 hit, out EdgeSnap snap)
+        {
             if (_rightDown && _turned)
             {
                 hit = _turnHit;
+                snap = _turnSnap;
                 return _turnHitValid;
             }
 
-            return TryHit(out hit);
+            return TryHit(out hit, out snap);
         }
 
         /// <summary>Placing: the right button went down over the city. What it does is known when it moves or comes up (<see cref="UpdateTurn"/>).</summary>
@@ -471,7 +591,7 @@ namespace RealFlag.Flags
             _rightDown = true;
             _turned = false;
             _turnFrom = _turnTo = NewDegrees();
-            _turnHitValid = TryHit(out _turnHit);
+            _turnHitValid = TryHit(out _turnHit, out _turnSnap);
         }
 
         /// <summary>
@@ -687,11 +807,16 @@ namespace RealFlag.Flags
             {
                 Hovered = 0;
                 bool turning = UpdateTurn();
-                valid = TryGhostHit(out hit);
+                EdgeSnap snap;
+                valid = TryGhostHit(out hit, out snap);
+                bool onEdge = false;
                 if (valid && FlagRenderer.Instance != null)
                 {
                     FlagSpec spec = Settings.NewSpec();
-                    FlagRenderer.Instance.SetGhost(AnchorOver(hit, spec), NewAngle(), spec);
+                    Vector3 anchor;
+                    float angle;
+                    onEdge = GhostPlace(hit, snap, spec, out anchor, out angle);
+                    FlagRenderer.Instance.SetGhost(anchor, angle, spec);
                 }
 
                 // Raised or lowered off the surface: said while the keys work, and over the hint after.
@@ -700,6 +825,8 @@ namespace RealFlag.Flags
                             : ShowingRaise && _raisedFlag == 0 ? RaiseText(_lift)
                             : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys())
                             : Localization.Get("Tool.PlaceHint", RaiseKeys());
+                if (onEdge && FlagPrefab.Info != null)
+                    text = Localization.Get("Tool.OnEdge") + "\n" + text;
                 ShowToolInfo(valid, valid ? text : null, hit);
                 return;
             }
@@ -823,13 +950,15 @@ namespace RealFlag.Flags
             }
 
             Vector3 hit;
-            if (!TryGhostHit(out hit))
+            EdgeSnap snap;
+            if (!TryGhostHit(out hit, out snap))
                 return;
 
             // Its pole (if it stands) as tall as the Pole height says: the placed flag keeps it.
             FlagSpec spec = Settings.NewSpec();
-            Vector3 anchor = AnchorOver(hit, spec);
-            float angle = NewAngle();
+            Vector3 anchor;
+            float angle;
+            bool onEdge = GhostPlace(hit, snap, spec, out anchor, out angle);
             float lift = _lift;
 
             FlagProps.Create(anchor, angle, spec, prop =>
@@ -840,7 +969,7 @@ namespace RealFlag.Flags
                     Log.Msg("flags: flag #" + prop + " placed at (" + anchor.x.ToString("F0") + ", " + anchor.z.ToString("F0") + "), top of the hoist " +
                             anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over the surface under it" +
                             (Mathf.Abs(lift) > 1e-4f ? ", " + (lift > 0f ? "raised " : "lowered ") + Mathf.Abs(lift).ToString("0.###") + " m off it" : "") +
-                            "), " + (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
+                            (onEdge ? ", on a roof's edge" : "") + "), " + (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
             });
         }
 
@@ -858,8 +987,13 @@ namespace RealFlag.Flags
                 }
 
                 Vector3 hit;
-                if (!TryGhostHit(out hit))
+                EdgeSnap snap;
+                if (!TryGhostHit(out hit, out snap))
                     return;
+
+                // On a roof's edge: the ring on the edge it hangs from.
+                if (snap.Valid && SnapsToEdges)
+                    hit = snap.Edge;
 
                 // Where the flag stands (its pole's foot, or its hoist), on the ground or roof.
                 Singleton<RenderManager>.instance.OverlayEffect.DrawCircle(cameraInfo, PlaceColour, hit, 1.2f, hit.y - 20f, hit.y + 20f,

@@ -187,6 +187,10 @@
   <String key="NewWaviness.Tooltip">波纹有多大。</String>
   <String key="SelWaviness.Label">起伏程度</String>
   <String key="SelWaviness.Tooltip">波纹有多大。</String>
+  <String key="NewWindShare.Label">受风</String>
+  <String key="NewWindShare.Tooltip">吹到它的风有多大。</String>
+  <String key="SelWindShare.Label">受风</String>
+  <String key="SelWindShare.Tooltip">吹到它的风有多大。</String>
   <String key="NewDarkness.Label">暗度</String>
   <String key="NewDarkness.Tooltip">压暗鲜艳的颜色。</String>
   <String key="SelDarkness.Label">暗度</String>
@@ -287,6 +291,8 @@
   <String key="NewLineSpacing.Tooltip">旗帜之间的米数。</String>
   <String key="NewLineAlong.Label">沿线指向</String>
   <String key="NewLineAlong.Tooltip">朝向在此基础上叠加。</String>
+  <String key="NewSnapEdges.Label">吸附边缘</String>
+  <String key="NewSnapEdges.Tooltip">挂在屋顶边缘。</String>
 
   <String key="NewRotation.Label">朝向</String>
   <String key="NewRotation.Tooltip">指向哪边。</String>
@@ -328,6 +334,7 @@
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细）。</String>
+  <String key="Tool.OnEdge">在屋顶边缘。</String>
   <String key="Tool.Raised">已升高 {0} 米</String>
   <String key="Tool.Lowered">已降低 {0} 米</String>
   <String key="Tool.NoPrefab">这里无法放置旗帜。请查看日志。</String>

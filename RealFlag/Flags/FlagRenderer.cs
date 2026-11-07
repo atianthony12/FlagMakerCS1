@@ -1529,7 +1529,8 @@ namespace RealFlag.Flags
         private static bool Same(FlagSpec a, FlagSpec b)
         {
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
-                   a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && a.Motion == b.Motion && a.Name == b.Name &&
+                   a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && Mathf.Approximately(a.WindShare, b.WindShare) &&
+                   a.Motion == b.Motion && a.Name == b.Name &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
                    Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b) && a.SameWeather(b);
         }
@@ -2258,7 +2259,9 @@ namespace RealFlag.Flags
             Vector3 dir = wind.DirectionFor(f.Angle);
             f.WindDir = dir;
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
-            float at10 = FollowWind(f, wind.SpeedFor(f.Anchor, f.Ground));
+            // Its share of the wind where it stands (FlagSpec.WindShare, "Wind on it"): followed as
+            // the wind is, so a change on the slider eases in over FlagWind.FollowSeconds.
+            float at10 = FollowWind(f, wind.SpeedFor(f.Anchor, f.Ground) * f.Spec.WindShare);
             WindTerrain(f, ghost, height);
             float speed = FlagWind.ClothSpeed(at10, height, f.Roughness);
 
@@ -3096,11 +3099,21 @@ namespace RealFlag.Flags
                         "surface there out (the flat ground, props and trees still count)");
             }
 
+            if (cloth.DrapeDistance > 0f && !f.LoggedWall && !ghost)
+            {
+                f.LoggedWall = true;
+                Log.Msg("flags: " + Who(f) + " stands on a roof " + cloth.DrapeDistance.ToString("F2") + " m from its edge: its cloth is laid " +
+                        "over the edge, down the wall");
+            }
+
             if (cloth.WallShift > 0f && !f.LoggedWall && !ghost)
             {
                 f.LoggedWall = true;
-                Log.Msg("flags: " + Who(f) + "'s hoist stands against a wall: its cloth keeps the building, the wall kept " +
-                        cloth.WallShift.ToString("F2") + " m back from the hoist");
+                Log.Msg(cloth.HoistOnEdge
+                            ? "flags: " + Who(f) + " hangs from a roof's edge: its cloth hangs down the wall, the building kept " +
+                              cloth.WallShift.ToString("F2") + " m back from the hoist"
+                            : "flags: " + Who(f) + "'s hoist stands against a wall: its cloth keeps the building, the wall kept " +
+                              cloth.WallShift.ToString("F2") + " m back from the hoist");
             }
         }
 

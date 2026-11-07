@@ -540,6 +540,7 @@ public static class FlagPreview
         int buried = cloth.LayOutClear(Mathf.Cos(_windYaw * Mathf.Deg2Rad), Mathf.Sin(_windYaw * Mathf.Deg2Rad));
         return "city: " + Boxes.Count + " box(es), " + Posts.Count + " post(s), surface " + nodes + "x" + nodes + " every " +
                spacing.ToString("F2", CultureInfo.InvariantCulture) + " m, laid out " + (buried == 0 ? "clear" : buried + " in it") +
+               (cloth.Y[cloth.Count - 1] < -0.5f * cloth.Length ? " hanging" : "") +
                (cloth.SurfaceBlocked ? ", BLOCKED" : "");
     }
 
@@ -567,7 +568,9 @@ public static class FlagPreview
 
         var inv = CultureInfo.InvariantCulture;
         return "deepest in a box " + deepest.ToString("F3", inv) + " m" + (Posts.Count > 0 ? ", nearest a post " + nearest.ToString("F3", inv) + " m" : "") +
-               (cloth.Relaid > 0 ? ", laid out afresh " + cloth.Relaid : "");
+               (cloth.Relaid > 0 ? ", laid out afresh " + cloth.Relaid : "") +
+               (cloth.WallShift > 0f ? ", wall kept back " + cloth.WallShift.ToString("F2", inv) + " m" + (cloth.HoistOnEdge ? " (a roof's edge)" : "") : "") +
+               (cloth.SurfaceBlocked ? ", BLOCKED" : "");
     }
 
     /// <summary>
