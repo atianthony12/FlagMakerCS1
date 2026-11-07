@@ -263,7 +263,9 @@ namespace RealFlag.Flags
         {
             float inv = 1f / Spacing;
             float fx = (x - MinX) * inv, fz = (z - MinZ) * inv;
-            if (fx < 0f || fz < 0f || fx > Columns - 1 || fz > Rows - 1)
+            // Written so a NaN fails it too: (int)NaN indexed the array (the 2026-11-07 run: the
+            // new flag's cloth threw IndexOutOfRange here from HoistClear while Line Tool placed rows).
+            if (!(fx >= 0f && fz >= 0f && fx <= Columns - 1 && fz <= Rows - 1) || Columns < 2 || Rows < 2)
             {
                 height = 0f;
                 slopeX = 0f;

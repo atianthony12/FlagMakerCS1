@@ -127,6 +127,14 @@ namespace RealFlag.UI
             // builder may build more after these rows (the Pattern window's), as it was.
             float resetColumn = _ui.ResetColumn;
             _ui.ResetColumn = ResetColumn;
+
+            // The sliders' readouts as wide as this page's longest needs, not the skin's column
+            // (128 px, made for Volumetric Weather's "400% (every 0.8 s)"): our readouts are a few
+            // characters ("4.5 m", "100%"), and the 480 px windows gave the track only ~100 px --
+            // Line Tool's Spacing, 1-100 m, could hardly be set (the author, 2026-11-07: "the Spacing
+            // slider is too narrow ... There's still a lot of dead space"). Kept for the page's life
+            // (a readout redrawn later is held to it).
+            _ui.ValueWidth = ValueColumn(which);
             try
             {
                 return BuildPage(page, which, y);
@@ -135,6 +143,31 @@ namespace RealFlag.UI
             {
                 _ui.ResetColumn = resetColumn;
             }
+        }
+
+        /// <summary>
+        /// The readout column for <paramref name="which"/>'s sliders: the widest readout any of them
+        /// can show (each sampled across its whole range, and as it stands now), measured in this
+        /// skin (Builder.ReadoutWidth), within the skin's own column.
+        /// </summary>
+        private float ValueColumn(PanelPage which)
+        {
+            float most = _ui.Theme.ValueWidth;
+            float widest = 0f;
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                if (row.Panel != which || (row.Shown != null && !row.Shown()))
+                    continue;
+                if (row.Kind != RowKind.Percent && row.Kind != RowKind.Value)
+                    continue;
+
+                float lo = row.Min, hi = Mathf.Max(row.Max, row.Top);
+                for (int s = 0; s <= 8; s++)
+                    widest = Mathf.Max(widest, _ui.ReadoutWidth(ReadoutText(row, Mathf.Lerp(lo, hi, s / 8f))));
+                widest = Mathf.Max(widest, _ui.ReadoutWidth(ReadoutText(row, row.Display)));
+            }
+
+            return widest > 0f ? Mathf.Min(most, Mathf.Ceil(widest) + 6f) : most;
         }
 
         private float BuildPage(UIPanel page, PanelPage which, float y)

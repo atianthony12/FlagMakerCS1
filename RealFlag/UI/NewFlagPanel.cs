@@ -44,9 +44,11 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// The "+ New flag" button: opens the window (and the tool) on a flag of the defaults
-        /// (SettingsCatalog.ResetNewFlag), or closes it if it is open. Copy opens it with the
-        /// selected flag's design instead (<see cref="Open"/> alone).
+        /// The "+ New flag" button: opens the window (and the tool) on the last new flag's settings,
+        /// or closes it if it is open. Copy opens it with the selected flag's design instead
+        /// (<see cref="Open"/> alone). From 11-07 it started from the defaults; the same day the
+        /// author took it back ("+ New flag should actually remember the last settings as it did
+        /// before. I found that better UX-wise"): each row's reset icon puts one back.
         /// </summary>
         public static void Toggle()
         {
@@ -59,7 +61,6 @@ namespace RealFlag.UI
             if (FlagRenderer.Instance == null || FlagPrefab.Info == null)
                 return;
 
-            SettingsCatalog.ResetNewFlag();
             Open();
         }
 

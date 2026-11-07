@@ -1305,6 +1305,101 @@ public static class ClothTests
                worstStretch.ToString("F3", CultureInfo.InvariantCulture) + "," + knots;
     }
 
+    /// <summary>
+    /// SHARED MOTION ON ANOTHER GRID (2026-11-07: the detail left the key): a 3 x 2 m source at
+    /// High (32 cells) at 6 m/s, 240 frames recorded; followers at Low (18) and Very high (40)
+    /// play it 30 frames behind, turned 0.7 rad. Each frame: the follower's hoist column on the
+    /// source's (turned), its four corners on the source's corners, its places on the source's
+    /// surface (each against the source's bilinear surface at its share: exact by construction,
+    /// so this checks the indexing); its worst link against the source's. Then the 40-cell one
+    /// steps on its own for 3 s (Resume): first step against the source's mean, stretch, knots.
+    /// Returns: worst corner/hoist error m, worst stretch played (18, 40), source's worst,
+    /// first own step ratio, own worst stretch, knots.
+    /// </summary>
+    public static string SharedResampled()
+    {
+        float dt = 1f / 60f;
+        FlagCloth src = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32);
+        src.GroundY = -12f;
+        MotionRecord rec = new MotionRecord(src.Columns, src.Rows);
+        FlagCloth lo = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 18); lo.GroundY = -12f;
+        FlagCloth hi = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 40); hi.GroundY = -12f;
+        if (lo.Columns == src.Columns || hi.Columns == src.Columns) return "grids alike";
+        List<float> times = new List<float>();
+        float stepped = 0f, turn = 0.7f, c = (float)Math.Cos(turn), s = (float)Math.Sin(turn);
+        double corner = 0.0, moved = 0.0;
+        int movedN = 0;
+        float srcStretch = 0f, loStretch = 0f, hiStretch = 0f;
+        float[] lastX = null, lastZ = null;
+        List<float[]> hx = new List<float[]>(), hy = new List<float[]>(), hz = new List<float[]>();
+        for (int frame = 0; frame < 240; frame++)
+        {
+            ClothJob j = Job(src, stepped, 1); j.Speed = 6f; j.Record = rec;
+            ClothWorker.Execute(ref j);
+            stepped += dt;
+            times.Add(stepped);
+            hx.Add((float[])src.X.Clone()); hy.Add((float[])src.Y.Clone()); hz.Add((float[])src.Z.Clone());
+            srcStretch = Math.Max(srcStretch, src.MaxStretch());
+            if (lastX != null)
+                for (int k = 0; k < src.Count; k++) { moved += Math.Sqrt((src.X[k] - lastX[k]) * (src.X[k] - lastX[k]) + (src.Z[k] - lastZ[k]) * (src.Z[k] - lastZ[k])); movedN++; }
+            lastX = (float[])src.X.Clone(); lastZ = (float[])src.Z.Clone();
+
+            int idx = times.Count - 1 - 30;
+            if (idx < 0) continue;
+            int a, b; float w, span;
+            if (!rec.Find(times[idx], out a, out b, out w, out span)) return "not found";
+            foreach (FlagCloth f in new FlagCloth[] { lo, hi })
+            {
+                ClothJob p = new ClothJob();
+                p.Cloth = f; p.Play = rec; p.PlayA = a; p.PlayB = b; p.PlaySpan = span;
+                p.PlayCos = c; p.PlaySin = s; p.PlayBlend = 1f;
+                ClothWorker.Execute(ref p);
+                float[] bx = hx[idx + 1], by = hy[idx + 1], bz = hz[idx + 1];
+                int[] fk = { 0, f.Columns - 1, (f.Rows - 1) * f.Columns, f.Count - 1 };
+                int[] sk = { 0, src.Columns - 1, (src.Rows - 1) * src.Columns, src.Count - 1 };
+                for (int q = 0; q < 4; q++)
+                    corner = Math.Max(corner, Math.Abs(f.X[fk[q]] - (bx[sk[q]] * c - bz[sk[q]] * s)) + Math.Abs(f.Y[fk[q]] - by[sk[q]]) +
+                                              Math.Abs(f.Z[fk[q]] - (bx[sk[q]] * s + bz[sk[q]] * c)));
+                // The hoist column at the source's own rows' shares.
+                for (int r = 0; r < f.Rows; r++)
+                {
+                    float v = r * (src.Rows - 1f) / (f.Rows - 1f);
+                    int r0 = Math.Min((int)v, src.Rows - 2);
+                    float tv = v - r0;
+                    int s0 = r0 * src.Columns, s1 = s0 + src.Columns, k = r * f.Columns;
+                    float ex = bx[s0] * (1f - tv) + bx[s1] * tv, ey = by[s0] * (1f - tv) + by[s1] * tv, ez = bz[s0] * (1f - tv) + bz[s1] * tv;
+                    corner = Math.Max(corner, Math.Abs(f.X[k] - (ex * c - ez * s)) + Math.Abs(f.Y[k] - ey) + Math.Abs(f.Z[k] - (ex * s + ez * c)));
+                }
+                if (f == lo) loStretch = Math.Max(loStretch, f.MaxStretch());
+                else hiStretch = Math.Max(hiStretch, f.MaxStretch());
+            }
+        }
+
+        hi.Resume();
+        float ft = stepped;
+        float[] x0 = (float[])hi.X.Clone(), z0 = (float[])hi.Z.Clone();
+        int knots = FlagCloth.UnknottedAll;
+        float own = 0f;
+        double first = 0.0;
+        for (int q = 0; q < 180; q++)
+        {
+            ClothJob o = Job(hi, ft, 1); o.Speed = 6f; o.DirX = (float)Math.Cos(turn); o.DirZ = (float)Math.Sin(turn);
+            ClothWorker.Execute(ref o);
+            ft += dt;
+            if (q == 0)
+            {
+                for (int k = 0; k < hi.Count; k++) first += Math.Sqrt((hi.X[k] - x0[k]) * (hi.X[k] - x0[k]) + (hi.Z[k] - z0[k]) * (hi.Z[k] - z0[k]));
+                first /= hi.Count;
+            }
+            own = Math.Max(own, hi.MaxStretch());
+        }
+        knots = FlagCloth.UnknottedAll - knots;
+        double mean = moved / Math.Max(1, movedN);
+        return corner.ToString("E1", CultureInfo.InvariantCulture) + "," + loStretch.ToString("F3", CultureInfo.InvariantCulture) + "," +
+               hiStretch.ToString("F3", CultureInfo.InvariantCulture) + "," + srcStretch.ToString("F3", CultureInfo.InvariantCulture) + "," +
+               (first / mean).ToString("F2", CultureInfo.InvariantCulture) + "," + own.ToString("F3", CultureInfo.InvariantCulture) + "," + knots;
+    }
+
     /// <summary>The ring's edges: none with fewer than two steps; before the oldest, the oldest pair at 0; past the newest, the newest pair at 1; between, the share.</summary>
     public static string RecordEdges()
     {
@@ -1450,9 +1545,12 @@ public static class ClothTests
     }
 
     /// <summary>
-    /// ShareKey: another design or colours alike; another length, waviness, detail or a halyard
-    /// not; the wind within its 10% step alike, past it not; the angle round 360 alike (upright,
-    /// 15 deg steps); a tilted flag 10 deg off not (5 deg steps).
+    /// ShareKey (2026-11-07): another design or colours alike, and another DETAIL (a follower
+    /// plays on its own grid); another length, waviness, pole or self-collision not; the wind
+    /// within its 25% step alike, past it not; an upright flag on a pole's angle in 30 deg steps
+    /// round 360, one without a pole any angle; a tilted flag 15 deg off not (10 deg steps).
+    /// Near: a group's wind within 30% and its angle within 25 deg (pole), any (no pole), 7 deg
+    /// (tilted); SameCloth / Cloth leave the wind out.
     /// </summary>
     public static string ShareKeys()
     {
@@ -1461,16 +1559,25 @@ public static class ClothTests
         FlagSpec longer = a; longer.Length = 2.7f;
         FlagSpec calmer = a; calmer.Waviness = 1.5f;
         FlagSpec tilted = a; tilted.Tilt = 30f;
-        ShareKey k = ShareKey.For(a, 24, 5f, 2f, 0f, 0f, true);
-        bool design = k.Equals(ShareKey.For(b, 24, 5f, 2f, 0f, 0f, true)) && k.GetHashCode() == ShareKey.For(b, 24, 5f, 2f, 0f, 0f, true).GetHashCode();
-        bool other = !k.Equals(ShareKey.For(longer, 24, 5f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(calmer, 24, 5f, 2f, 0f, 0f, true)) &&
-                     !k.Equals(ShareKey.For(a, 32, 5f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(a, 24, 5f, 2f, 0.05f, 0.04f, true)) &&
-                     !k.Equals(ShareKey.For(a, 24, 5f, 2f, 0f, 0f, false));
-        bool wind = k.Equals(ShareKey.For(a, 24, 5.2f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(a, 24, 6f, 2f, 0f, 0f, true));
-        bool round = k.Equals(ShareKey.For(a, 24, 5f, 358f, 0f, 0f, true)) && k.Equals(ShareKey.For(a, 24, 5f, -3f, 0f, 0f, true));
-        ShareKey t = ShareKey.For(tilted, 24, 5f, 2f, 0f, 0f, true);
-        bool turned = !t.Equals(ShareKey.For(tilted, 24, 5f, 12f, 0f, 0f, true)) && t.Equals(ShareKey.For(tilted, 24, 5f, 1f, 0f, 0f, true));
-        return design + "," + other + "," + wind + "," + round + "," + turned;
+        float off = 0.05f, rad = 0.04f;
+        ShareKey k = ShareKey.For(a, 5f, 2f, off, rad, true);
+        bool design = k.Equals(ShareKey.For(b, 5f, 2f, off, rad, true)) && k.GetHashCode() == ShareKey.For(b, 5f, 2f, off, rad, true).GetHashCode();
+        bool other = !k.Equals(ShareKey.For(longer, 5f, 2f, off, rad, true)) && !k.Equals(ShareKey.For(calmer, 5f, 2f, off, rad, true)) &&
+                     !k.Equals(ShareKey.For(a, 5f, 2f, 0f, 0f, true)) && !k.Equals(ShareKey.For(a, 5f, 2f, off, rad, false));
+        bool wind = k.Equals(ShareKey.For(a, 5.2f, 2f, off, rad, true)) && k.Equals(ShareKey.For(a, 4.8f, 2f, off, rad, true)) &&
+                    !k.Equals(ShareKey.For(a, 7f, 2f, off, rad, true));
+        bool round = k.Equals(ShareKey.For(a, 5f, 358f, off, rad, true)) && k.Equals(ShareKey.For(a, 5f, -10f, off, rad, true)) &&
+                     !k.Equals(ShareKey.For(a, 5f, 40f, off, rad, true)) &&
+                     ShareKey.For(a, 5f, 2f, 0f, 0f, true).Equals(ShareKey.For(a, 5f, 170f, 0f, 0f, true));
+        ShareKey t = ShareKey.For(tilted, 5f, 2f, 0f, 0f, true);
+        bool turned = !t.Equals(ShareKey.For(tilted, 5f, 17f, 0f, 0f, true)) && t.Equals(ShareKey.For(tilted, 5f, 1f, 0f, 0f, true));
+        ShareKey bare = ShareKey.For(a, 5f, 2f, 0f, 0f, true);
+        bool near = k.Near(6.4f, 20f, 5f, 0f, true) && !k.Near(6.8f, 0f, 5f, 0f, true) && !k.Near(3.7f, 0f, 5f, 0f, true) &&
+                    k.Near(5f, 350f, 5f, 10f, true) && !k.Near(5f, 40f, 5f, 10f, true) &&
+                    bare.Near(5f, 180f, 5f, 0f, true) && t.Near(5f, 6f, 5f, 0f, false) && !t.Near(5f, 9f, 5f, 0f, false);
+        bool cloth = k.SameCloth(ShareKey.For(a, 9f, 120f, off, rad, true)) && !k.SameCloth(ShareKey.For(longer, 5f, 2f, off, rad, true)) &&
+                     k.Cloth.Equals(ShareKey.For(a, 9f, 120f, off, rad, true).Cloth);
+        return design + "," + other + "," + wind + "," + round + "," + turned + "," + near + "," + cloth;
     }
 
     /// <summary>
@@ -3970,8 +4077,8 @@ public static class ClothTests
         FlagSpec p1 = FlagSpec.Default; p1.Cut = FlagCut.Pennant; p1.CutDepth = 0.2f;
         FlagSpec p2 = FlagSpec.Default; p2.Cut = FlagCut.Pennant; p2.CutDepth = 0.5f;
         bool shape = !a.SameShape(FlagSpec.Default) && p1.SameShape(p2) && !a.SamePose(FlagSpec.Default) &&
-                     !ShareKey.For(a, 18, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(FlagSpec.Default, 18, 6f, 0f, 0f, 0f, true)) &&
-                     ShareKey.For(p1, 18, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(p2, 18, 6f, 0f, 0f, 0f, true));
+                     !ShareKey.For(a, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(FlagSpec.Default, 6f, 0f, 0f, 0f, true)) &&
+                     ShareKey.For(p1, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(p2, 6f, 0f, 0f, 0f, true));
         bool said = a.Describe().Contains("cut swallowtail 40% deep") && !FlagSpec.Default.Describe().Contains("cut ");
         return round + "," + old + "," + pulled + "," + shape + "," + said + "," + FlagCodec.Version;
     }
@@ -4433,6 +4540,9 @@ Check "and never slower than a quarter (the turns below it)" ((N $ld[2]) -eq 8 -
 $sh = [ClothTests]::Shared() -split ","
 Check "shared motion: six followers play their source back on four threads, each frame the source's own turned to them" ($sh[0] -eq "True" -and [int]$sh[2] -gt 1500) ("400 frames, the ring wrapped twice: right " + $sh[0] + ", worst " + $sh[1] + " m over " + $sh[2] + " playbacks")
 Check "a follower that steps on its own goes on from where it was shown: no jump, no tear, no knot" ((N $sh[3]) -le 2.0 -and (N $sh[4]) -le 1.15 -and [int]$sh[5] -eq 0) ("first own step " + $sh[3] + "x the source's mean, worst stretch " + $sh[4] + " in 3 s, " + $sh[5] + " knot(s)")
+$sr = [ClothTests]::SharedResampled() -split ","
+Check "shared motion on other grids: a Low and a Very high follower play a High source, hoist and corners on the source's, no link stretched past the source's" ((N $sr[0]) -le 1e-4 -and (N $sr[1]) -le (N $sr[3]) + 0.02 -and (N $sr[2]) -le (N $sr[3]) + 0.02) ("hoist/corners within " + $sr[0] + " m; worst stretch 18: " + $sr[1] + ", 40: " + $sr[2] + ", the source's " + $sr[3])
+Check "and the finer one steps on its own from there: no jump, no tear, no knot" ((N $sr[4]) -le 2.0 -and (N $sr[5]) -le 1.15 -and [int]$sr[6] -eq 0) ("first own step " + $sr[4] + "x the source's mean, worst stretch " + $sr[5] + " in 3 s, " + $sr[6] + " knot(s)")
 $re = [ClothTests]::RecordEdges() -split ","
 Check "the record's edges: none under two steps, 192 kept, held to the oldest and newest, the share between, cleared" (($re -join ",") -eq "True,True,True,True,True,True") ($re -join ",")
 $dl = [ClothTests]::Delays() -split ","
@@ -4444,7 +4554,7 @@ Check "and flies on from it: no jump, no tear, no knot, as far out as one settle
 $ss = [ClothTests]::SettleStepRule()
 Check "a settle's steps: a thread's share at its cost, within the budget's room, one at least, never past what is left" ($ss -eq "11,2,1,3,0,1") $ss
 $ky = [ClothTests]::ShareKeys() -split ","
-Check "the share key: designs and colours alike; length, waviness, detail, pole, self-collision not; wind in 10% steps; angles round 360; a tilted flag's 5 deg" (($ky -join ",") -eq "True,True,True,True,True") ($ky -join ",")
+Check "the share key: designs, colours and details alike; length, waviness, pole, self-collision not; wind in 25% steps; a pole's angles in 30 deg round 360, none without; a tilted flag's 10 deg; joined within 30% and 25 / any / 7 deg" (($ky -join ",") -eq "True,True,True,True,True,True,True") ($ky -join ",")
 $ls = [ClothTests]::LoadShared() -split "\|"
 $lw = $ls[0] -split ","; $lo = $ls[1] -split ","
 Check "40 like flags at 2x the budget: they share before any goes coarser, and fit" ((N $lw[0]) -gt 10 -and (N $lw[1]) -eq 1 -and (N $lw[2]) -le 1.0) ("at 5 s the smallest under " + $lw[0] + " px follow, scale " + $lw[1] + ", " + $lw[2] + " of the budget")

@@ -594,38 +594,6 @@ namespace RealFlag.UI
             RefreshAllUIs();
         }
 
-        /// <summary>
-        /// The "+ New flag" button: the next flag starts from the defaults -- its design, picture,
-        /// pattern and colours, size, pole, rotation -- since Copy is there to start from another
-        /// (the author, 2026-11-07: "When New Flag is clicked, everything needs to be reset. Because
-        /// Copy already does copy another flag's properties"). Kept: how rows of flags are laid
-        /// (Line Tool's spacing and point along the line) and the switches the Flags tab shares
-        /// (width and height together, taller poles). Logged when anything changed.
-        /// </summary>
-        public static void ResetNewFlag()
-        {
-            int changed = 0;
-            foreach (Row row in Rows)
-            {
-                if (!row.HasSetting || !IsNewFlagDesign(row) || row.IsAtDefault)
-                    continue;
-
-                row.ResetToDefault();
-                changed++;
-            }
-
-            if (changed > 0)
-                Log.Msg("flags: the new flag starts from the defaults (" + changed + " setting(s) put back)");
-        }
-
-        /// <summary>A setting of the new flag's own (its name begins "New"), not how rows of them are laid.</summary>
-        private static bool IsNewFlagDesign(Row row)
-        {
-            string name = row.Name;
-            return name != null && name.StartsWith("New", StringComparison.Ordinal) &&
-                   row.Int != Settings.NewPlacing && row.Float != Settings.NewLineSpacing && row.Bool != Settings.NewLineAlong;
-        }
-
         /// <summary>Stores a checkbox, asking first where the row says to ask (only ever when switching ON).</summary>
         public static void ApplyToggle(Row row, bool value)
         {
