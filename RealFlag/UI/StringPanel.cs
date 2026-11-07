@@ -54,7 +54,11 @@ namespace RealFlag.UI
             get { return _newMode ? StringTarget.New : StringTarget.Selected; }
         }
 
-        /// <summary>"+ New string": the window on a string of the defaults, the tool placing; again, it closes.</summary>
+        /// <summary>
+        /// "+ New string": the window on the last new string's settings (as "+ New flag" keeps the
+        /// last flag's: the author, 2026-11-07, "remember the last settings ... better UX-wise"; each
+        /// row's reset icon puts one back), the tool placing; again, it closes.
+        /// </summary>
         public static void ToggleNew()
         {
             if (IsOpenNew)
@@ -66,7 +70,6 @@ namespace RealFlag.UI
             if (StringRenderer.Instance == null || StringPrefab.Info == null)
                 return;
 
-            SettingsCatalog.ResetNewString();
             OpenNew();
         }
 

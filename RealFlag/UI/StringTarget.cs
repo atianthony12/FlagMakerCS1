@@ -7,8 +7,8 @@ namespace RealFlag.UI
     /// <summary>
     /// What one String window works on -- the next string's design (<see cref="New"/>) or the
     /// selected string's (<see cref="Selected"/>) -- as the panel's rows see it: a transient
-    /// setting for each part of a StringSpec (never written to FlagMaker.xml: "+ New string" starts
-    /// from the defaults, as "+ New flag" does), the designs and the countries' list kept beside
+    /// setting for each part of a StringSpec (never written to FlagMaker.xml: the new string keeps
+    /// the last one's settings while the game runs), the designs and the countries' list kept beside
     /// them, and the one design the design rows edit (<see cref="Design"/>).
     /// </summary>
     public sealed class StringTarget

@@ -532,13 +532,5 @@ namespace RealFlag.UI
                 });
             }
         }
-
-        /// <summary>"+ New string" starts from the defaults (as "+ New flag" does); Copy keeps the copied design.</summary>
-        public static void ResetNewString()
-        {
-            StringTarget.Init();
-            StringTarget.New.Load(StringSpec.Default);
-            Log.Msg("strings: the new string starts from the defaults (" + StringSpec.Default.Describe() + ")");
-        }
     }
 }
