@@ -137,6 +137,30 @@ namespace RealFlag.Flags
             Log.Msg("strings: the new string takes the selected one's design");
         }
 
+        /// <summary>Deletes the selected string, once the player says yes (the panel's button and the Delete key).</summary>
+        public static void ConfirmDelete()
+        {
+            if (Selected == 0)
+                return;
+
+            ushort asked = Selected;
+            try
+            {
+                ConfirmPanel.ShowModal(Mod.DisplayName, Localization.Get("StrSelDelete.Confirm"), (component, result) =>
+                {
+                    // The same string still selected: a click elsewhere meanwhile is not a yes to it.
+                    if (result != 1 || Selected != asked)
+                        return;
+                    Delete();
+                    SettingsCatalog.RefreshAllUIs();
+                });
+            }
+            catch (Exception e)
+            {
+                Log.Error("strings: could not ask about deleting the string, so it was not deleted.", e);
+            }
+        }
+
         public static void Delete()
         {
             if (Selected == 0)

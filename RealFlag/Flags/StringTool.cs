@@ -313,6 +313,14 @@ namespace RealFlag.Flags
                 return;
             }
 
+            // Delete: the selected string, after the panel's own question (not while typing or asked something).
+            if (Input.GetKeyDown(KeyCode.Delete) && StringEditor.HasSelection &&
+                !ColossalFramework.UI.UIView.HasInputFocus() && !ColossalFramework.UI.UIView.HasModalInput())
+            {
+                StringEditor.ConfirmDelete();
+                return;
+            }
+
             StringRenderer r = StringRenderer.Instance;
             Vector3 point;
             ushort join;

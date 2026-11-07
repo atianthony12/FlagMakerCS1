@@ -461,6 +461,7 @@
   <String key="StrSelCopy.Tooltip">New string like this</String>
   <String key="StrSelDelete.Label">Delete this string</String>
   <String key="StrSelDelete.Tooltip">All its spans</String>
+  <String key="StrSelDelete.Confirm">Delete this string?</String>
 
   <String key="Group.StrFlags">Flags</String>
   <String key="Group.StrSpacing">Spacing</String>

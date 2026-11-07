@@ -455,6 +455,7 @@
   <String key="StrSelCopy.Tooltip">新建一串同样的</String>
   <String key="StrSelDelete.Label">删除这串</String>
   <String key="StrSelDelete.Tooltip">它的所有段</String>
+  <String key="StrSelDelete.Confirm">删除这串旗帜？</String>
 
   <String key="Group.StrFlags">旗</String>
   <String key="Group.StrSpacing">间距</String>

@@ -827,6 +827,14 @@ namespace RealFlag.Flags
                 return;
             }
 
+            // Delete: the selected flag, after the panel's own question (not while typing or asked something).
+            if (Input.GetKeyDown(KeyCode.Delete) && FlagEditor.HasSelection &&
+                !ColossalFramework.UI.UIView.HasInputFocus() && !ColossalFramework.UI.UIView.HasModalInput())
+            {
+                FlagEditor.ConfirmDelete();
+                return;
+            }
+
             Vector3 hit;
             bool valid;
 

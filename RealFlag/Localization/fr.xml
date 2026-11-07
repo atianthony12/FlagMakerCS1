@@ -465,6 +465,7 @@
   <String key="StrSelCopy.Tooltip">Une nouvelle guirlande pareille</String>
   <String key="StrSelDelete.Label">Supprimer cette guirlande</String>
   <String key="StrSelDelete.Tooltip">Toutes ses portées</String>
+  <String key="StrSelDelete.Confirm">Supprimer cette guirlande ?</String>
 
   <String key="Group.StrFlags">Drapeaux</String>
   <String key="Group.StrSpacing">Espacement</String>

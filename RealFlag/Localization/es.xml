@@ -462,6 +462,7 @@
   <String key="StrSelCopy.Tooltip">Una nueva igual a esta</String>
   <String key="StrSelDelete.Label">Eliminar esta guirnalda</String>
   <String key="StrSelDelete.Tooltip">Todos sus tramos</String>
+  <String key="StrSelDelete.Confirm">¿Eliminar esta guirnalda?</String>
 
   <String key="Group.StrFlags">Banderas</String>
   <String key="Group.StrSpacing">Separación</String>

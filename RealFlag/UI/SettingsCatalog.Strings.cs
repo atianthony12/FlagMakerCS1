@@ -107,7 +107,7 @@ namespace RealFlag.UI
                     Kind = RowKind.Button,
                     Panel = flags,
                     Id = "StrSelDelete",
-                    OnClick = StringEditor.Delete,
+                    OnClick = StringEditor.ConfirmDelete,
                     Enabled = () => StringEditor.HasSelection,
                 });
             }
