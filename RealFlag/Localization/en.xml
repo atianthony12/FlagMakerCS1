@@ -469,6 +469,8 @@
   <String key="SelfCollision.Tooltip">Stops folds passing through.</String>
   <String key="CityCollision.Label">Cloth avoids buildings, props and trees</String>
   <String key="CityCollision.Tooltip">Stops it passing through.</String>
+  <String key="DetailedBuildings.Label">Detailed building shapes</String>
+  <String key="DetailedBuildings.Tooltip">Cloth avoids buildings as drawn.</String>
   <String key="ClothThreads.Label">CPU threads for cloth</String>
   <String key="ClothThreads.Tooltip">More moving flags, more CPU.</String>
   <!-- {0}: how many threads Auto takes on this machine. -->

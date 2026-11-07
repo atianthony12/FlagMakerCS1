@@ -473,6 +473,8 @@
   <String key="SelfCollision.Tooltip">Évite que les plis se traversent.</String>
   <String key="CityCollision.Label">Le tissu évite bâtiments, objets et arbres</String>
   <String key="CityCollision.Tooltip">Empêche de les traverser.</String>
+  <String key="DetailedBuildings.Label">Formes détaillées des bâtiments</String>
+  <String key="DetailedBuildings.Tooltip">Le tissu évite les bâtiments tels qu’ils sont dessinés.</String>
   <String key="ClothThreads.Label">Threads CPU pour le tissu</String>
   <String key="ClothThreads.Tooltip">Plus de mouvements, plus de CPU.</String>
   <!-- {0}: how many threads Auto takes on this machine. -->

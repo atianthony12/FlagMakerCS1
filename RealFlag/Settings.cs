@@ -82,6 +82,9 @@ namespace RealFlag
         /// <summary>The cloth keeps off the city (FlagSurroundings): the ground, water and roofs under it, walls, props and trees.</summary>
         public static BoolSetting CityCollision { get; private set; }
 
+        /// <summary>Buildings keep the cloth off by their drawn shapes (BuildingShapes), not their simple LOD ones.</summary>
+        public static BoolSetting DetailedBuildings { get; private set; }
+
         /// <summary>
         /// The threads that step the cloth (ClothWorker.ThreadChoices): 0 = Auto (one per six
         /// processors, at most four), else the player's number -- more threads, more flags moving
@@ -309,6 +312,9 @@ namespace RealFlag
             public const bool SelfCollision = true;
             public const bool CityCollision = true;
 
+            /// <summary>On (2026-11-07), until the Quality preset sets it from its measured cost.</summary>
+            public const bool DetailedBuildings = true;
+
             /// <summary>Auto (the author's choice, 2026-10-31: players raise it themselves).</summary>
             public const int ClothThreads = 0;
             public const bool SharedMotion = true;
@@ -435,6 +441,7 @@ namespace RealFlag
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
                 CityCollision = new BoolSetting("CityCollision", Defaults.CityCollision);
+                DetailedBuildings = new BoolSetting("DetailedBuildings", Defaults.DetailedBuildings);
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
                 SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
 

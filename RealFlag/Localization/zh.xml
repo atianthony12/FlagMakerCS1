@@ -463,6 +463,8 @@
   <String key="SelfCollision.Tooltip">防止褶皱互相穿过。</String>
   <String key="CityCollision.Label">布料避开建筑、道具和树木</String>
   <String key="CityCollision.Tooltip">防止穿过。</String>
+  <String key="DetailedBuildings.Label">精细建筑形状</String>
+  <String key="DetailedBuildings.Tooltip">布料按建筑的实际外形避让。</String>
   <String key="ClothThreads.Label">布料使用的 CPU 线程</String>
   <String key="ClothThreads.Tooltip">飘动的旗帜更多，占用更多 CPU。</String>
   <!-- {0}: how many threads Auto takes on this machine. -->

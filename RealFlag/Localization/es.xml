@@ -470,6 +470,8 @@
   <String key="SelfCollision.Tooltip">Evita que los pliegues se atraviesen.</String>
   <String key="CityCollision.Label">La tela evita edificios, objetos y árboles</String>
   <String key="CityCollision.Tooltip">Evita que los atraviese.</String>
+  <String key="DetailedBuildings.Label">Formas detalladas de edificios</String>
+  <String key="DetailedBuildings.Tooltip">La tela evita los edificios tal como se ven.</String>
   <String key="ClothThreads.Label">Hilos de CPU para la tela</String>
   <String key="ClothThreads.Tooltip">Más banderas en movimiento, más CPU.</String>
   <!-- {0}: how many threads Auto takes on this machine. -->

@@ -1930,6 +1930,24 @@ namespace RealFlag.UI
                 },
             });
 
+            // Buildings as drawn (the author, 2026-11-07: "a lot of assets don't have proper
+            // collision"): their meshes, not their LOD shapes. Every surface gathered again.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Bool = Settings.DetailedBuildings,
+                DefaultBool = Settings.Defaults.DetailedBuildings,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: the cloth keeps off buildings as drawn = " + OnOff(Settings.DetailedBuildings)());
+                    Flags.FlagSurroundings.AllStale();
+                    FlagTool.ForgetSnap();
+                },
+                Enabled = () => Settings.CityCollision == null || Settings.CityCollision.value,
+            });
+
             // The cloth's threads (2026-10-31; the author: "give an option for More threads ... users
             // can choose willingly to utilize their hardware"): Auto as before, or a number up to the
             // machine's processors. Applied between batches (FlagRenderer.ApplyOptions).

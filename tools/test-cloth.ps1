@@ -3850,6 +3850,42 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The tool's way since the drawn shapes (2026-11-07): the edge looked for on a SurfaceGrid
+    /// gathered round the pointer (a box 17 m tall raised into it, its face at x = 5), the grid's
+    /// height as top, off the grid "no fall". From 0.6 m in: found; how far outside the box's face
+    /// (m, the grid grows a wall half a node out); the way out off +x (deg); the roof's height.
+    /// Near the grid's border with no building there: no edge.
+    /// </summary>
+    public static string EdgeSnapOnGrid()
+    {
+        float half = FlagEdgeSnap.Reach + FlagEdgeSnap.Step + 0.6f;
+        SurfaceGrid g = Grid(4.4f, 0f, half, 0f);
+        RaiseBox(g, -20f, -20f, 5f, 20f, 0f, 17f);
+        g.Finish();
+        Func<float, float, float> top = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return g.Sample(x, z, out h, out sx, out sz) ? h : 17f;
+        };
+        float ex, ez, nx, nz, roofY;
+        bool found = FlagEdgeSnap.Find(top, 4.4f, 17f, 0f, out ex, out ez, out nx, out nz, out roofY);
+        float turn = (float)(Math.Acos(Math.Max(-1.0, Math.Min(1.0, nx))) * 180.0 / Math.PI);
+
+        // A flat roof wider than the grid: nothing falls within it, nor at its border.
+        SurfaceGrid flat = Grid(0f, 0f, half, 0f);
+        RaiseBox(flat, -50f, -50f, 50f, 50f, 0f, 17f);
+        flat.Finish();
+        Func<float, float, float> flatTop = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return flat.Sample(x, z, out h, out sx, out sz) ? h : 17f;
+        };
+        float fx, fz, fnx, fnz, fy;
+        bool none = !FlagEdgeSnap.Find(flatTop, 1.5f, 17f, 0f, out fx, out fz, out fnx, out fnz, out fy);
+        return found + "," + (ex - 5f).ToString("F3", Inv) + "," + turn.ToString("F2", Inv) + "," + roofY.ToString("F1", Inv) + "," + g.Spacing.ToString("F3", Inv) + "," + none;
+    }
+
+    /// <summary>
     /// "Wind on it" (FlagSpec.WindShare): all of it by default; through the save and Move It's
     /// clipboard; a save of format 10 reads all of it; out of range pulled in (NaN and the
     /// infinities all of it); the log's description says it.
@@ -4822,6 +4858,8 @@ foreach ($case in @(@(-0.15, 0, 4, 90, "0.15 m out from the face, the wind at th
 }
 $re = [ClothTests]::RoofEdge(3, 0.3, 4, 90) -split ","
 Check "a banner from its top 0.3 m over a roof 3 m from its edge: no edge in reach, it lies on the roof as before" ($re[0] -eq "True" -and (N $re[3]) -eq 0 -and (N $re[4]) -eq 0 -and $re[2] -eq "False" -and (N $re[8]) -ge -0.01) ("draped " + $re[3] + " m, kept back " + $re[4] + " m; its lowest " + $re[8] + " m under the roof")
+$eg = [ClothTests]::EdgeSnapOnGrid() -split ","
+Check "snap on the surface the cloth keeps off (the drawn shapes): the edge found within the grid's wall band, square to it; none at the border of a roof wider than the grid" ($eg[0] -eq "True" -and (N $eg[1]) -ge -0.01 -and (N $eg[1]) -le 1.6 * (N $eg[4]) -and (N $eg[2]) -lt 1 -and $eg[3] -eq "17.0" -and $eg[5] -eq "True") ("the edge " + $eg[1] + " m outside the face (grid every " + $eg[4] + " m), its way out " + $eg[2] + " deg off, the roof at " + $eg[3] + " m; none on the wide roof: " + $eg[5])
 $es = [ClothTests]::EdgeSnap() -split ","
 Check "snap to a roof's edge (FlagEdgeSnap): the edge's point and its way out found from 0.6 m in, none from 2.5 m; along it, out from it, or back to it as the flag is turned" ($es[0] -eq "True" -and (N $es[1]) -lt 0.02 -and (N $es[2]) -lt 1 -and $es[3] -eq "17.0" -and $es[5] -eq "False" -and $es[6] -eq "True" -and $es[7] -eq "True" -and $es[8] -eq "True") ("the edge " + $es[1] + " m off, its way out " + $es[2] + " deg off, the roof at " + $es[3] + " m, " + $es[4] + " raycasts; from 2.5 m in: " + $es[5] + "; placed along / out / back: " + $es[6] + "/" + $es[7] + "/" + $es[8])
 # Dragged along a building (Move It, 7.5 m/s): the wall sweeps into the cloth, which is carried with

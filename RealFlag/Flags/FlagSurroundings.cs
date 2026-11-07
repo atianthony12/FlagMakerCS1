@@ -15,7 +15,9 @@ namespace RealFlag.Flags
     /// <remarks>
     /// THE SURFACE: the terrain and the water (TerrainManager.SampleRawHeightSmoothWithWater's
     /// Vector3 overload, as the flag's ground always was) at least every metre, bilinear between
-    /// -- the heightmap is 16 m -- raised to the buildings' LOD meshes: the triangles the game picks
+    /// -- the heightmap is 16 m -- raised to the buildings' drawn shapes (BuildingShapes: their
+    /// meshes, sub-meshes and props always there, as drawn; Settings.DetailedBuildings), or, that
+    /// off or unreadable, to their LOD meshes: the triangles the game picks
     /// a building by (Building.RayCast's IL: the ray taken into the building's frame -- less its
     /// position, turned by -m_angle, CalculateLocalMeshOffset added along z -- and tested against
     /// every triangle of m_lodMeshData), found through the building grid as BuildingManager.RayCast
@@ -52,7 +54,23 @@ namespace RealFlag.Flags
         public struct Gathered
         {
             public int Buildings, Triangles, Props, Trees;
+
+            /// <summary>Of the buildings: raised by their drawn shape (BuildingShapes), by their LOD mesh (the option off, or the shape unreadable); their props raised with them.</summary>
+            public int Detailed, Simple, BuildingProps;
             public double Milliseconds;
+        }
+
+        /// <summary>Buildings are raised by their drawn shapes (Settings.DetailedBuildings, BuildingShapes), else by their LOD meshes.</summary>
+        public static bool DetailedShapes
+        {
+            get { return Settings.DetailedBuildings == null || Settings.DetailedBuildings.value; }
+        }
+
+        /// <summary>Every surface gathered is stale (the option changed): the next TakeChanges says so.</summary>
+        public static void AllStale()
+        {
+            lock (ChangeLock)
+                _overflow = true;
         }
 
         /// <summary>Each building's LOD mesh's box in its own frame (x0, z0, x1, z1), read once: a building the flag's square misses is passed over.</summary>
@@ -157,7 +175,7 @@ namespace RealFlag.Flags
                     int guard = 0;
                     while (id != 0)
                     {
-                        int triangles = Raise(grid, origin, ref buffer[id], x0, z0, x1, z1);
+                        int triangles = Raise(grid, origin, ref buffer[id], x0, z0, x1, z1, ref found);
                         if (triangles > 0)
                         {
                             found.Buildings++;
@@ -175,9 +193,12 @@ namespace RealFlag.Flags
         /// <summary>
         /// One building's LOD mesh into the grid, as Building.RayCast places it: a vertex v of the
         /// mesh is at m_position + turned by m_angle (v.x, v.z - offset), v.y up. The triangles
-        /// raised (0: none reach the square, or it is not one the pole's cast would meet).
+        /// raised (0: none reach the square, or it is not one the pole's cast would meet). With
+        /// <see cref="DetailedShapes"/>, its drawn shape instead (BuildingShapes), the LOD mesh only
+        /// where that cannot be read.
         /// </summary>
-        private static int Raise(SurfaceGrid grid, Vector3 origin, ref Building building, float x0, float z0, float x1, float z1)
+        private static int Raise(SurfaceGrid grid, Vector3 origin, ref Building building, float x0, float z0, float x1, float z1,
+                                 ref Gathered found)
         {
             const Building.Flags wanted = Building.Flags.Created;
             const Building.Flags mask = Building.Flags.Created | Building.Flags.Deleted | Building.Flags.Hidden | Building.Flags.Collapsed;
@@ -188,6 +209,26 @@ namespace RealFlag.Flags
             if (info == null || info.m_class == null || (info.m_class.m_layer & ItemClass.Layer.Default) == 0)
                 return 0;
 
+            if (DetailedShapes)
+            {
+                int drawn = BuildingShapes.Raise(grid, origin, ref building, info, x0, z0, x1, z1, ref found);
+                if (drawn >= 0)
+                {
+                    if (drawn > 0)
+                        found.Detailed++;
+                    return drawn;
+                }
+            }
+
+            int simple = RaiseLod(grid, origin, ref building, info, x0, z0, x1, z1);
+            if (simple > 0)
+                found.Simple++;
+            return simple;
+        }
+
+        /// <summary>The building's LOD mesh into the grid (<see cref="Raise"/>).</summary>
+        private static int RaiseLod(SurfaceGrid grid, Vector3 origin, ref Building building, BuildingInfo info, float x0, float z0, float x1, float z1)
+        {
             RenderGroup.MeshData data = info.m_lodMeshData;
             if (data == null || data.m_vertices == null || data.m_triangles == null)
                 return 0;
@@ -473,6 +514,7 @@ namespace RealFlag.Flags
             }
 
             MeshBoxes.Clear();
+            BuildingShapes.Clear();
         }
 
         /// <summary>On the simulation thread: where a building was made, moved to or let go, and how far it reaches.</summary>

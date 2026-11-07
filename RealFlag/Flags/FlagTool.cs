@@ -68,12 +68,11 @@ namespace RealFlag.Flags
         // Written by SimulationStep (the simulation thread), read on the main thread.
         private volatile bool _hitValid;
         private Vector3 _hit;
-        private EdgeSnap _snap;
         private readonly object _hitLock = new object();
 
         /// <summary>
-        /// A roof's edge near where the pointer is (FlagEdgeSnap.Find), found on the simulation
-        /// thread with the hit it belongs to: the edge's point (y the roof's), the way out from it.
+        /// A roof's edge near where the pointer is (FlagEdgeSnap.Find), found on the MAIN thread
+        /// for the hit it belongs to: the edge's point (y the roof's), the way out from it.
         /// </summary>
         private struct EdgeSnap
         {
@@ -82,14 +81,24 @@ namespace RealFlag.Flags
             public float Nx, Nz;
         }
 
-        // The simulation thread's own: the last edge looked for, and from where (looked for again
-        // only when the pointer moves: some 60 of the game's raycasts).
+        // The main thread's own: the last edge looked for, and from where (looked for again only
+        // when the pointer moves: a surface gathered round it, as the cloth's is).
         private Vector3 _snapFrom;
         private bool _snapFromSet;
         private EdgeSnap _snapLast;
 
         /// <summary>The pointer moved at least this far, metres, before the edge is looked for again.</summary>
         private const float SnapMove = 0.02f;
+
+        /// <summary>The edge is looked for on a surface this far either side of the pointer, metres (FlagEdgeSnap's reach, a step and its points beside).</summary>
+        private const float SnapHalf = FlagEdgeSnap.Reach + FlagEdgeSnap.Step + 0.6f;
+
+        /// <summary>The edge found so far is forgotten (the buildings' shapes option changed).</summary>
+        public static void ForgetSnap()
+        {
+            if (Instance != null)
+                Instance._snapFromSet = false;
+        }
 
         private readonly FlagGizmo _gizmo = new FlagGizmo();
 
@@ -379,19 +388,11 @@ namespace RealFlag.Flags
             if (Cast(_mouseRay, _mouseRayLength, out output))
             {
                 Vector3 hit = output.m_hitPos;
-                EdgeSnap snap = default(EdgeSnap);
                 if (CurrentMode == Mode.Place)
-                {
                     hit = SurfaceUnder(hit, _mouseRay.direction);
-                    if (SnapsToEdges)
-                        snap = EdgeNear(hit);
-                }
 
                 lock (_hitLock)
-                {
                     _hit = hit;
-                    _snap = snap;
-                }
 
                 _hitValid = true;
             }
@@ -435,26 +436,48 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// On the simulation thread: the edge of the surface the pointer is on (FlagEdgeSnap.Find),
-        /// heights read with the game's raycast straight down from just above it -- the same
-        /// surface SurfaceUnder stands a flag on. Looked for again only once the pointer moves.
+        /// On the MAIN thread: the edge of the surface the pointer is on (FlagEdgeSnap.Find), on
+        /// the surface the cloth itself keeps off (FlagSurroundings.Surface, the buildings as drawn
+        /// when that option is on): where the banner hangs is where its cloth finds the wall. The
+        /// game's raycasts met only the LOD shapes (the 2026-11-07 run: a banner snapped to a
+        /// 28-triangle box, its cloth behind the drawn cornice and frames). Looked for again only
+        /// once the pointer moves.
         /// </summary>
         private EdgeSnap EdgeNear(Vector3 hit)
         {
             if (_snapFromSet && (hit - _snapFrom).sqrMagnitude < SnapMove * SnapMove)
                 return _snapLast;
 
-            float y = hit.y, length = _mouseRayLength;
+            var snap = new EdgeSnap();
+            _snapFrom = hit;
+            _snapFromSet = true;
+            _snapLast = snap;
+
+            SurfaceGrid grid;
+            try
+            {
+                var found = new FlagSurroundings.Gathered();
+                grid = FlagSurroundings.Surface(Vector3.zero, hit.x, hit.z, SnapHalf, ref found);
+            }
+            catch (Exception e)
+            {
+                if (!_loggedSnapFailure)
+                {
+                    _loggedSnapFailure = true;
+                    Log.Error("flags: could not read the city round the pointer for a roof's edge (no snapping)", e);
+                }
+
+                return snap;
+            }
+
+            // Off the surface read: no fall there (never an edge at the square's border).
+            float y = hit.y;
             Func<float, float, float> top = (x, z) =>
             {
-                var from = new Vector3(x, y + SurfaceProbeUp, z);
-                RaycastOutput down;
-                return Cast(new Ray(from, Vector3.down), length, out down) && down.m_hitPos.y <= from.y + 1e-3f
-                    ? down.m_hitPos.y
-                    : float.NegativeInfinity;
+                float h, sx, sz;
+                return grid.Sample(x, z, out h, out sx, out sz) ? h : y;
             };
 
-            var snap = new EdgeSnap();
             float ex, ez, nx, nz, roofY;
             if (FlagEdgeSnap.Find(top, hit.x, y, hit.z, out ex, out ez, out nx, out nz, out roofY))
             {
@@ -464,11 +487,11 @@ namespace RealFlag.Flags
                 snap.Nz = nz;
             }
 
-            _snapFrom = hit;
-            _snapFromSet = true;
             _snapLast = snap;
             return snap;
         }
+
+        private bool _loggedSnapFailure;
 
         /// <summary>The ground, the roofs and the roads (the game's ToolBase.RayCast, on the simulation thread).</summary>
         private static bool Cast(Ray ray, float length, out RaycastOutput output)
@@ -504,15 +527,15 @@ namespace RealFlag.Flags
             return TryHit(out hit, out snap);
         }
 
+        /// <summary>The MAIN thread's: the hit, and the roof's edge near it (looked for here, once per move: EdgeNear).</summary>
         private bool TryHit(out Vector3 hit, out EdgeSnap snap)
         {
             lock (_hitLock)
-            {
                 hit = _hit;
-                snap = _snap;
-            }
 
-            return _hitValid && _mouseRayValid;
+            bool valid = _hitValid && _mouseRayValid;
+            snap = valid && CurrentMode == Mode.Place && SnapsToEdges ? EdgeNear(hit) : default(EdgeSnap);
+            return valid;
         }
 
         /// <summary>
