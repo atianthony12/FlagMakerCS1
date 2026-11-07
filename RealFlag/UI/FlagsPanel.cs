@@ -42,12 +42,7 @@ namespace RealFlag.UI
         private const float IconTabHeight = 36f;
         private const float Margin = 14f;
 
-        private static readonly PanelPage[] Tabs = { PanelPage.Existing, PanelPage.Strings, PanelPage.Settings };
-
-        /// <summary>The Strings tab's place among the tabs (2026-11-07).</summary>
-        private const int StringsTab = 1;
-
-        private StringListView _stringList;
+        private static readonly PanelPage[] Tabs = { PanelPage.Existing, PanelPage.Settings };
 
         /// <summary>
         /// A tab's icon in the new looks: a Lucide name drawn into this mod's own sheet
@@ -58,7 +53,6 @@ namespace RealFlag.UI
             switch (page)
             {
                 case PanelPage.Existing: return "flag";
-                case PanelPage.Strings: return "flag-triangle-right";
                 case PanelPage.Settings: return "settings";
                 default: return null;
             }
@@ -107,19 +101,6 @@ namespace RealFlag.UI
             _instance.RefreshValues();
         }
 
-        /// <summary>A string was picked: show the Strings tab.</summary>
-        public static void ShowStrings()
-        {
-            if (_instance == null)
-                return;
-
-            if (!_instance.isVisible)
-                _instance.Show();
-            if (_instance._page != StringsTab)
-                _instance.SelectPage(StringsTab);
-            _instance.RefreshValues();
-        }
-
         /// <summary>
         /// Esc has gone down with the flag tool out: the panel takes the focus, so the key comes to
         /// it and it steps the tool back, instead of the game opening its pause menu (the game's Esc
@@ -164,21 +145,7 @@ namespace RealFlag.UI
                                     _tabNames, SelectPage, icons);
 
             foreach (PanelPage page in Tabs)
-            {
-                UIPanel built = AddPage();
-                float content = _rows.BuildRows(built, page, 0f);
-
-                // The Strings tab's list of the city's strings, under its rows.
-                if (page == PanelPage.Strings)
-                {
-                    _stringList = built.AddUIComponent<StringListView>();
-                    _stringList.relativePosition = new Vector3(0f, content + 4f);
-                    _stringList.Build(built.width, _ui);
-                    content += StringListView.RowHeight * StringListView.VisibleRows + 16f;
-                }
-
-                _contentHeights.Add(content);
-            }
+                _contentHeights.Add(_rows.BuildRows(AddPage(), page, 0f));
 
             SelectPage(0);
 
@@ -197,9 +164,6 @@ namespace RealFlag.UI
 
                 // Closed: the tool (and with it the selection), the New flag window and the pickers go with it.
                 FlagTool.PutAway();
-                StringTool.PutAway();
-                StringPanel.Close();
-                CountryListPicker.Close();
                 LineFlags.PutAway();
                 NewFlagPanel.Close();
                 ColourPicker.Close();
@@ -212,11 +176,11 @@ namespace RealFlag.UI
             eventKeyDown += (component, p) =>
             {
                 bool rows = LineFlags.Driving;
-                if (p.used || p.keycode != KeyCode.Escape || (!FlagTool.IsOut && !rows && !StringTool.IsOut))
+                if (p.used || p.keycode != KeyCode.Escape || (!FlagTool.IsOut && !rows))
                     return;
 
                 p.Use();
-                string step = rows ? LineFlags.PutAway() : StringTool.IsOut ? StringTool.StepBack() : FlagTool.StepBack();
+                string step = rows ? LineFlags.PutAway() : FlagTool.StepBack();
                 Unfocus();
                 Log.Msg("flags: Esc: " + step + " (the key kept from the game's pause menu)");
             };
@@ -239,8 +203,6 @@ namespace RealFlag.UI
             _rows.RefreshStatus();
             if (_rows.List != null)
                 _rows.List.Refresh();
-            if (_stringList != null && _page == StringsTab)
-                _stringList.Refresh();
 
             RefreshValues();
         }
@@ -251,7 +213,6 @@ namespace RealFlag.UI
             if (_rows != null)
                 _rows.RefreshValues();
             NewFlagPanel.RefreshOpen();
-            StringPanel.RefreshOpen();
             PolePanel.RefreshOpen();
             ImagePanel.RefreshOpen();
             PatternPanel.RefreshOpen();
@@ -293,22 +254,6 @@ namespace RealFlag.UI
                 PatternPanel.CloseIf(PanelPage.Existing);
             }
 
-            // The selected string and its window belong to the Strings tab (the new string's window stands on its own).
-            if (index != StringsTab)
-            {
-                if (StringTool.IsPicking)
-                    StringTool.PutAway();
-                if (StringEditor.HasSelection)
-                {
-                    StringEditor.Deselect();
-                    StringPanel.Close();
-                }
-            }
-            else if (_stringList != null)
-            {
-                _stringList.Refresh();
-            }
-
             if (!NewFlagPanel.IsOpen)
             {
                 ColourPicker.Close();
@@ -333,8 +278,6 @@ namespace RealFlag.UI
             PatternPanel.DestroyPanel();
             PolePanel.DestroyPanel();
             NewFlagPanel.DestroyPanel();
-            StringPanel.DestroyPanel();
-            CountryListPicker.DestroyPicker();
 
             if (_instance == this)
                 _instance = null;

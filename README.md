@@ -348,18 +348,6 @@ Written from scratch after these, with thanks (no code from them is included):
   F. K. Musgrave et al., *Texturing and Modeling: A Procedural Approach* (1994) -- fractal noise
   for the frayed fly and the grime; I. Quilez's 2-D signed distance functions -- the holes' and
   tears' shapes; forensic science's "bullet wipe" -- the dark ring round a bullet hole in cloth.
-- Strings of flags: the catenary (Huygens, Leibniz and Johann Bernoulli, 1691) -- how a span
-  hangs between its ends, any heights; overhead-line design's conductor swing angle
-  (tan φ = the wind's load over the weight, EN 50341-1 / IEC 60826) -- how far the wind blows a
-  string out; the compound pendulum -- how it swings there; S. F. Hoerner, *Fluid-Dynamic Drag*
-  (1965) -- the flags' drag; B. Dudash, *Animated Crowd Rendering* (as above) -- every flag of a
-  string playing one of a few shared cloths at its own delay; M. Roberts, *The Unreasonable
-  Effectiveness of Quasirandom Sequences* (2018) -- the plastic number's sequence choosing which;
-  R. Durstenfeld's form of the Fisher-Yates shuffle (1964) and G. Marsaglia's xorshift (2003) --
-  the shuffled orders; NVIDIA, *Improve Batching Using Texture Atlases* (2004) -- a span's
-  flags in one draw.
-- The countries' parts of the world: the [Unicode Common Locale Data Repository](https://cldr.unicode.org)'s
-  territory containment (the UN M49 groups), Unicode License V3.
 - The countries' flags: [Flagpedia.net](https://flagpedia.net) (flagcdn.com), after
   Wikimedia Commons' vector files -- public domain, with thanks.
 - The countries' names in Spanish, French and Chinese: the

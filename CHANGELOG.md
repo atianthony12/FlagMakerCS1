@@ -36,23 +36,6 @@ The first release.
 - **Shared motion** (Settings tab, on by default): with many like flags in view, the smallest
   share one cloth's motion, each at its own delay, before any goes coarser.
 
-### Strings of flags
-
-- **Bunting and strings of national flags**, strung between walls, roofs and the ground from the
-  Strings tab: each click strings a span from the last, Page Up and Page Down raise the next point,
-  the right button ends the string. Each span hangs as a real chain does and swings in the wind.
-- **Every flag a shape**: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed
-  or rounded, hung by its side (pennants pointing down) or by its top (upright); its size, the gap
-  between flags or a count per span, and the bare string at each end.
-- **What they are**: one design, up to eight in turn (in turn, back and forth, or shuffled), or
-  countries' flags -- all of them, a region, or your own list -- A to Z, by region, shuffled or as
-  picked, with a lead flag first and again every few flags. The order carries on along the string.
-- **The string itself**: cord, tape, rope or wire, its color, thickness, sag and how far the wind
-  swings it.
-- **Move It** moves a string's points and spans, copies and pastes them with their designs.
-- **Light on the CPU and GPU**: a string's flags share a few cloths, each flag playing one at its
-  own delay, and all of a span's flags are drawn at once.
-
 ### Placing and editing
 
 - **+ New flag**: the flag follows the pointer and stands on what is under it; the right button

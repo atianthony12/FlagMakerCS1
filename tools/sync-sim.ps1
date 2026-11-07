@@ -12,10 +12,7 @@ New-Item -ItemType Directory -Force $simDir | Out-Null
 
 $files = "Flags\FlagNoise.cs", "Flags\FlagWind.cs", "Flags\FlagCloth.cs", "Flags\FlagDesign.cs", "Flags\FlagMesh.cs", "Flags\ClothWorker.cs", "Flags\ClothShare.cs",
          "Flags\FlagCountry.cs", "Flags\FlagCountries.cs", "Flags\FlagImages.cs", "Flags\ClothSurface.cs", "Flags\FlagPole.cs",
-         "Flags\FlagPoleMesh.cs", "Flags\FlagPicture.cs", "Flags\ClothColliders.cs", "Flags\FlagCut.cs",
-         # String flags (2026-11-07): Assets\Editor\StringPreview.cs.
-         "Flags\StringDesign.cs", "Flags\FlagRegions.cs", "Flags\StringMotion.cs", "Flags\StringMesh.cs", "Flags\StringSpan.cs",
-         "Flags\StringAtlas.cs", "Flags\FlagPatternView.cs"
+         "Flags\FlagPoleMesh.cs", "Flags\FlagPicture.cs", "Flags\ClothColliders.cs", "Flags\FlagCut.cs"
 $names = @()
 foreach ($f in $files) {
     $name = Split-Path $f -Leaf

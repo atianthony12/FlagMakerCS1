@@ -46,7 +46,6 @@ namespace RealFlag
             SettingsCatalog.LogLayout();
 
             gameObject.AddComponent<FlagRenderer>();
-            gameObject.AddComponent<StringRenderer>();
 
             CreatePanel();
 

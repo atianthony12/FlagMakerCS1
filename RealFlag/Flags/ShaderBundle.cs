@@ -30,9 +30,6 @@ namespace RealFlag.Flags
         /// <summary>The selected flag's move and turn handles (FlagGizmo.shader).</summary>
         public const string Gizmo = "RealFlag/FlagGizmo";
 
-        /// <summary>The flags on a string, a span's in one mesh (FlagString.shader).</summary>
-        public const string String = "RealFlag/FlagString";
-
         private const string ResourcePrefix = "RealFlag.Resources.realflag-";
         private const string ResourceSuffix = ".bundle";
 
