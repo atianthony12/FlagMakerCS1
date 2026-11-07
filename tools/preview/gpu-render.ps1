@@ -19,7 +19,7 @@
 #   ... -NoCollide                 self-collision off (on in the game by default)
 #   ... -Countries "fr,us,np"      countries' flags (their images) instead of -Patterns
 #   ... -Darkness "0,20,40"        each design once per cloth darkness (percent, the panel's)
-#   ... -Worn "0,0,0|60,40,30,50"  each design once per wear,dirt,holes[,torn] (percent, the panel's); -WearSeed 0..255
+#   ... -Worn "0,0,0|60,40,30,50"  each design once per wear,dirt,holes[,torn[,torn edges]] (percent, the panel's); -WearSeed 0..255
 #   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)

@@ -39,7 +39,7 @@ using Debug = UnityEngine.Debug;
 ///   RF_COLLIDE "0"      self-collision off (on, as in the game, by default)
 ///   RF_COUNTRIES "fr,us,np"  countries' flags instead of RF_PATTERNS (images from RealFlag\Resources\Flags)
 ///   RF_DARKNESS "0,20,40"    the cloth's darkness, percent (FlagSpec.Darkness): each design once per value
-///   RF_WORN "0,0,0|60,40,30,50" each design once per wear,dirt,holes[,torn] (percent: FlagSpec.Wear, Dirt, Holes, Tear); RF_WEARSEED 0..255
+///   RF_WORN "0,0,0|60,40,30,50" each design once per wear,dirt,holes[,torn[,torn edges]] (percent: FlagSpec.Wear, Dirt, Holes, Tear, TearEdges); RF_WEARSEED 0..255
 ///   RF_SUN 1.3            the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
 ///   RF_WET 0..1              the game's ground wetness (_WeatherParams.w): the cloth wet in the rain
 ///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
@@ -323,6 +323,7 @@ public static class FlagPreview
                     flag.Dirt = w3.Length > 1 ? w3[1] / 100f : 0f;
                     flag.Holes = w3.Length > 2 ? w3[2] / 100f : 0f;
                     flag.Tear = w3.Length > 3 ? w3[3] / 100f : 0f;
+                    flag.TearEdges = w3.Length > 4 ? w3[4] / 100f : 0f;
                     weathered.Add(flag.Sanitised());
                 }
             }
@@ -452,7 +453,8 @@ public static class FlagPreview
                               (flag.IsWeathered ? ", wear/dirt/holes " + (flag.Wear * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
                                                   (flag.Dirt * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
                                                   (flag.Holes * 100f).ToString("0", CultureInfo.InvariantCulture) + "% torn " +
-                                                  (flag.Tear * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
+                                                  (flag.Tear * 100f).ToString("0", CultureInfo.InvariantCulture) + "% edges " +
+                                                  (flag.TearEdges * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
                               (city.Length > 0 ? " | " + city + ", " + CityProbe(cloth, anchor) : "") +
                               " | " + info);
                     col++;

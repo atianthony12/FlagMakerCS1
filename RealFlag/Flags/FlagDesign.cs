@@ -677,6 +677,14 @@ namespace RealFlag.Flags
         /// </summary>
         public float Tear;
 
+        /// <summary>
+        /// How torn its top and bottom edges are, 0..1 (the panel's "Torn edges", the author,
+        /// 2026-11-07: "right now the torn only goes on one side ... a secondary tear slider"):
+        /// ripped in stretches, deeper towards the fly, with rips running in across the cloth, one
+        /// edge worse than the other (each flag's own). Its look only, as <see cref="Tear"/>.
+        /// </summary>
+        public float TearEdges;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -759,6 +767,7 @@ namespace RealFlag.Flags
                     Dirt = 0f,
                     Holes = 0f,
                     Tear = 0f,
+                    TearEdges = 0f,
                 };
             }
         }
@@ -852,6 +861,7 @@ namespace RealFlag.Flags
             s.Dirt = Share(s.Dirt);
             s.Holes = Share(s.Holes);
             s.Tear = Share(s.Tear);
+            s.TearEdges = Share(s.TearEdges);
             return s;
         }
 
@@ -866,14 +876,14 @@ namespace RealFlag.Flags
         /// <summary>Worn, dirty or holed at all (the shader's weathering runs).</summary>
         public bool IsWeathered
         {
-            get { return Wear > 0f || Dirt > 0f || Holes > 0f || Tear > 0f; }
+            get { return Wear > 0f || Dirt > 0f || Holes > 0f || Tear > 0f || TearEdges > 0f; }
         }
 
         /// <summary>The same wear, tear, dirt and holes (only the property block changes when not).</summary>
         public bool SameWeather(FlagSpec other)
         {
             return Math.Abs(Wear - other.Wear) < 1e-5f && Math.Abs(Dirt - other.Dirt) < 1e-5f && Math.Abs(Holes - other.Holes) < 1e-5f &&
-                   Math.Abs(Tear - other.Tear) < 1e-5f;
+                   Math.Abs(Tear - other.Tear) < 1e-5f && Math.Abs(TearEdges - other.TearEdges) < 1e-5f;
         }
 
         /// <summary>A place on a picture: finite, and near it (FlagCrop.ClampCentre holds it to the window's own range when it is used).</summary>
@@ -966,7 +976,8 @@ namespace RealFlag.Flags
                 text += ", darkness " + (Darkness * 100f).ToString("F0", inv) + "%";
             if (IsWeathered)
                 text += ", wear " + (Wear * 100f).ToString("F0", inv) + "% dirt " + (Dirt * 100f).ToString("F0", inv) + "% holes " +
-                        (Holes * 100f).ToString("F0", inv) + "% torn " + (Tear * 100f).ToString("F0", inv) + "%";
+                        (Holes * 100f).ToString("F0", inv) + "% torn " + (Tear * 100f).ToString("F0", inv) + "% torn edges " +
+                        (TearEdges * 100f).ToString("F0", inv) + "%";
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
@@ -1063,10 +1074,11 @@ namespace RealFlag.Flags
         /// the flag's middle is on it and its zoom (three floats), its turn and what its see-through
         /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
         /// FlagMotion). 9 (2026-11-03): the same, then its wear, dirt and holes (three floats,
-        /// 0..1). 10 (2026-11-04): the same, then how torn (a float, 0..1). Every older one is still
-        /// read.
+        /// 0..1). 10 (2026-11-04): the same, then how torn (a float, 0..1). 11 (2026-11-07): the
+        /// same, then how torn its top and bottom edges are (a float, 0..1; older ones whole). Every
+        /// older one is still read.
         /// </summary>
-        public const byte Version = 10;
+        public const byte Version = 11;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1104,6 +1116,7 @@ namespace RealFlag.Flags
             w.Write(s.Dirt);
             w.Write(s.Holes);
             w.Write(s.Tear);
+            w.Write(s.TearEdges);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1224,6 +1237,9 @@ namespace RealFlag.Flags
 
             // Before torn flags: whole.
             s.Tear = version >= 10 ? r.ReadSingle() : 0f;
+
+            // Before torn edges: whole.
+            s.TearEdges = version >= 11 ? r.ReadSingle() : 0f;
 
             return s.Sanitised();
         }

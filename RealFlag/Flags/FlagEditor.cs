@@ -137,6 +137,7 @@ namespace RealFlag.Flags
                     Settings.SelDirt.value = e.Spec.Dirt;
                     Settings.SelHoles.value = e.Spec.Holes;
                     Settings.SelTear.value = e.Spec.Tear;
+                    Settings.SelTearEdges.value = e.Spec.TearEdges;
                     Settings.SelPole.value = e.Spec.Pole;
                     Settings.SelRopes.value = e.Spec.Ropes;
                     Settings.SelPoleColour.value = (int)e.Spec.PoleColour;
@@ -202,6 +203,7 @@ namespace RealFlag.Flags
             spec.Dirt = Settings.SelDirt.value;
             spec.Holes = Settings.SelHoles.value;
             spec.Tear = Settings.SelTear.value;
+            spec.TearEdges = Settings.SelTearEdges.value;
             spec.Pole = Settings.SelPole.value;
             spec.Ropes = Settings.SelRopes.value;
             spec.PoleColour = (uint)Settings.SelPoleColour.value;
@@ -506,6 +508,7 @@ namespace RealFlag.Flags
             Settings.NewDirt.value = e.Spec.Dirt;
             Settings.NewHoles.value = e.Spec.Holes;
             Settings.NewTear.value = e.Spec.Tear;
+            Settings.NewTearEdges.value = e.Spec.TearEdges;
             Settings.NewPole.value = e.Spec.Pole;
             Settings.NewRopes.value = e.Spec.Ropes;
             Settings.NewPoleColour.value = (int)e.Spec.PoleColour;

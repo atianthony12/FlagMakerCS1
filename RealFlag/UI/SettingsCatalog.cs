@@ -910,7 +910,7 @@ namespace RealFlag.UI
         private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
                                       ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
                                       IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting darkness,
-                                      FloatSetting wear, FloatSetting tear, FloatSetting dirt, FloatSetting holes, Action changed,
+                                      FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes, Action changed,
                                       Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
@@ -1179,6 +1179,19 @@ namespace RealFlag.UI
                 Enabled = enabled,
             });
 
+            // Torn edges (the author, 2026-11-07: "right now the torn only goes on one side ... a
+            // secondary tear slider"): the top and bottom edges ripped, one worse than the other.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = tearEdges,
+                DefaultFloat = Settings.Defaults.TearEdges,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = enabled,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -1390,7 +1403,7 @@ namespace RealFlag.UI
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewDarkness,
-                      Settings.NewWear, Settings.NewTear, Settings.NewDirt, Settings.NewHoles, null, null);
+                      Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles, null, null);
 
             // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
             // Elevation of its own. Its pole's height is in the Flagpole popup.
@@ -1588,7 +1601,7 @@ namespace RealFlag.UI
             AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelDarkness,
-                      Settings.SelWear, Settings.SelTear, Settings.SelDirt, Settings.SelHoles, FlagEditor.ApplyDesign, selected);
+                      Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles, FlagEditor.ApplyDesign, selected);
 
             // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
             // in the Flagpole popup; Page Up, Page Down and the gizmo move the whole flag.

@@ -47,7 +47,7 @@
 //   Where the picture is smaller than the flag (zoomed out) the pattern shows round it, its
 //   edge anti-aliased over a pixel (fwidth, as the patterns' are); its see-through parts are cut
 //   out as a country's are, or (_RFImageThrough 1) the pattern shows through them;
-// - worn, dirty, holed (FlagWear.cginc, _RFWear and _RFWearSeed): faded dyes and a frayed fly,
+// - worn, dirty, holed, torn (FlagWear.cginc, _RFWear, _RFWearSeed, _RFTear): faded dyes and a frayed fly,
 //   grime and rain's streaks, bullet holes, burns and tears cut out by the same alphatest.
 //
 // A flag drawn finer than its particles (_RFUseGrid 1: the flags big on the screen) takes its
@@ -85,7 +85,7 @@ Shader "RealFlag/FlagCloth"
         _RFBrightness ("Brightness (linear, 1 as designed)", Float) = 1
         _RFWear ("Wear, dirt, holes (0..1); 1 hoisted from its top", Vector) = (0, 0, 0, 0)
         _RFWearSeed ("Wear's scatter (0..255)", Float) = 0
-        _RFTear ("Torn (0..1)", Float) = 0
+        _RFTear ("Torn: x the fly, y the edges (0..1)", Vector) = (0, 0, 0, 0)
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
         _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
         _RFUseGrid ("Shape from the particles' texture", Float) = 0
@@ -119,7 +119,7 @@ Shader "RealFlag/FlagCloth"
         float _RFBrightness;
         float4 _RFWear;
         float _RFWearSeed;
-        float _RFTear;
+        float4 _RFTear;
         sampler2D _RFGrid;
         float4 _RFGridSize;
         float _RFUseGrid;

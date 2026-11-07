@@ -192,6 +192,10 @@
   <String key="NewTear.Tooltip">Hecha jirones.</String>
   <String key="SelTear.Label">Rasgada</String>
   <String key="SelTear.Tooltip">Hecha jirones.</String>
+  <String key="NewTearEdges.Label">Bordes rasgados</String>
+  <String key="NewTearEdges.Tooltip">Arriba y abajo, rotos.</String>
+  <String key="SelTearEdges.Label">Bordes rasgados</String>
+  <String key="SelTearEdges.Tooltip">Arriba y abajo, rotos.</String>
   <String key="NewDirt.Label">Suciedad</String>
   <String key="NewDirt.Tooltip">Mugre y marcas de lluvia.</String>
   <String key="SelDirt.Label">Suciedad</String>

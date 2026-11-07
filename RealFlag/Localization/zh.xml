@@ -185,6 +185,10 @@
   <String key="NewTear.Tooltip">撕成碎条。</String>
   <String key="SelTear.Label">撕裂</String>
   <String key="SelTear.Tooltip">撕成碎条。</String>
+  <String key="NewTearEdges.Label">边缘撕裂</String>
+  <String key="NewTearEdges.Tooltip">上下边缘撕破。</String>
+  <String key="SelTearEdges.Label">边缘撕裂</String>
+  <String key="SelTearEdges.Tooltip">上下边缘撕破。</String>
   <String key="NewDirt.Label">脏污</String>
   <String key="NewDirt.Tooltip">污垢和雨痕。</String>
   <String key="SelDirt.Label">脏污</String>

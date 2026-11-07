@@ -2415,13 +2415,15 @@ public static class ClothTests
     /// </summary>
     public static string CodecWear()
     {
-        FlagSpec a = FlagSpec.Default; a.Wear = 0.35f; a.Dirt = 0.6f; a.Holes = 1f; a.Tear = 0.8f; a.Country = "us";
+        FlagSpec a = FlagSpec.Default; a.Wear = 0.35f; a.Dirt = 0.6f; a.Holes = 1f; a.Tear = 0.8f; a.TearEdges = 0.45f; a.Country = "us";
         FlagSpec b;
         bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out b) && Math.Abs(b.Wear - 0.35f) < 1e-6f &&
-                     Math.Abs(b.Dirt - 0.6f) < 1e-6f && b.Holes == 1f && Math.Abs(b.Tear - 0.8f) < 1e-6f && b.Country == "us" &&
-                     b.IsWeathered && b.SameWeather(a);
+                     Math.Abs(b.Dirt - 0.6f) < 1e-6f && b.Holes == 1f && Math.Abs(b.Tear - 0.8f) < 1e-6f &&
+                     Math.Abs(b.TearEdges - 0.45f) < 1e-6f && b.Country == "us" && b.IsWeathered && b.SameWeather(a);
         FlagSpec onlyTorn = FlagSpec.Default; onlyTorn.Tear = 0.5f;
         round = round && onlyTorn.IsWeathered && !onlyTorn.SameWeather(FlagSpec.Default);
+        FlagSpec onlyEdges = FlagSpec.Default; onlyEdges.TearEdges = 0.5f;
+        round = round && onlyEdges.IsWeathered && !onlyEdges.SameWeather(FlagSpec.Default) && !onlyEdges.SameWeather(onlyTorn);
 
         var all = new List<KeyValuePair<uint, FlagSpec>> { new KeyValuePair<uint, FlagSpec>(7u, a) };
         string problem;
@@ -2461,12 +2463,35 @@ public static class ClothTests
                   Math.Abs(c9.Holes - 0.75f) < 1e-6f && c9.Tear == 0f && c9.Motion == FlagMotion.Still;
         v8 = v8 && v9;
 
-        FlagSpec bad = FlagSpec.Default; bad.Wear = 3f; bad.Dirt = float.NaN; bad.Holes = -1f; bad.Tear = float.PositiveInfinity;
+        // Format 10: then a tear -- and no torn edges; format 11: then the edges torn.
+        byte[] ten = w9.ToArray();
+        ten[0] = 10;
+        var w10 = new System.IO.MemoryStream();
+        w10.Write(ten, 0, ten.Length);
+        var b10 = new System.IO.BinaryWriter(w10);
+        b10.Write(0.6f);
+        b10.Flush();
+        FlagSpec c10;
+        bool v10 = FlagCodec.TryDecodeOne(w10.ToArray(), out c10) && Math.Abs(c10.Tear - 0.6f) < 1e-6f && c10.TearEdges == 0f &&
+                   Math.Abs(c10.Holes - 0.75f) < 1e-6f;
+        byte[] eleven = w10.ToArray();
+        eleven[0] = 11;
+        var w11 = new System.IO.MemoryStream();
+        w11.Write(eleven, 0, eleven.Length);
+        var b11 = new System.IO.BinaryWriter(w11);
+        b11.Write(0.5f);
+        b11.Flush();
+        FlagSpec c11;
+        bool v11 = FlagCodec.TryDecodeOne(w11.ToArray(), out c11) && Math.Abs(c11.Tear - 0.6f) < 1e-6f &&
+                   Math.Abs(c11.TearEdges - 0.5f) < 1e-6f;
+        v8 = v8 && v10 && v11;
+
+        FlagSpec bad = FlagSpec.Default; bad.Wear = 3f; bad.Dirt = float.NaN; bad.Holes = -1f; bad.Tear = float.PositiveInfinity; bad.TearEdges = 2f;
         FlagSpec s = bad.Sanitised();
-        bool pulled = s.Wear == 1f && s.Dirt == 0f && s.Holes == 0f && s.Tear == 0f;
+        bool pulled = s.Wear == 1f && s.Dirt == 0f && s.Holes == 0f && s.Tear == 0f && s.TearEdges == 1f;
 
         FlagSpec plain = FlagSpec.Default;
-        FlagSpec worn = plain; worn.Wear = 1f; worn.Dirt = 1f; worn.Holes = 1f; worn.Tear = 1f;
+        FlagSpec worn = plain; worn.Wear = 1f; worn.Dirt = 1f; worn.Holes = 1f; worn.Tear = 1f; worn.TearEdges = 1f;
         bool pose = plain.SamePose(worn) && !plain.SameWeather(worn) && !plain.IsWeathered;
 
         var seen = new HashSet<float>();
@@ -4189,8 +4214,8 @@ $cm = [ClothTests]::CodecMotion() -split ","
 Check "a still or flat flag stays so through the save; a format 7 save reads as waving; an unknown motion waves" ($cm[0] -eq "True" -and $cm[1] -eq "True" -and $cm[2] -eq "True") ("format " + $cm[4])
 Check "a still flag's shape is its size, hoist, waviness, motion and halyard's: not its pole's length or thickness, nor its colours" ($cm[3] -eq "True") $cm[3]
 $cw = [ClothTests]::CodecWear() -split ","
-Check "wear, torn, dirt and holes survive the save and Move It's clipboard" ($cw[0] -eq "True" -and $cw[1] -eq "True") ("format " + $cw[8] + ": 35% / 80% / 60% / 100% on the US flag")
-Check "a save of format 8 still reads as new; of format 9, worn but not torn" ($cw[2] -eq "True") "formats 8 and 9, byte by byte: a still cross on a ball-topped pole"
+Check "wear, torn, torn edges, dirt and holes survive the save and Move It's clipboard" ($cw[0] -eq "True" -and $cw[1] -eq "True") ("format " + $cw[8] + ": 35% / 80% / 45% / 60% / 100% on the US flag")
+Check "a save of format 8 still reads as new; of format 9, worn but not torn; of 10, edges whole; of 11, edges torn" ($cw[2] -eq "True") "formats 8 to 11, byte by byte: a still cross on a ball-topped pole"
 Check "wear, torn, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%, infinity"
 Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop" ([int]$cw[5] -ge 250 -and $cw[6] -eq "0" -and $cw[7] -eq "255") ($cw[5] + " distinct seeds over props 0..999, " + $cw[6] + ".." + $cw[7])
 

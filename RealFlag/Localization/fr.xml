@@ -195,6 +195,10 @@
   <String key="NewTear.Tooltip">Déchiré en lambeaux.</String>
   <String key="SelTear.Label">Déchiré</String>
   <String key="SelTear.Tooltip">Déchiré en lambeaux.</String>
+  <String key="NewTearEdges.Label">Bords déchirés</String>
+  <String key="NewTearEdges.Tooltip">Haut et bas déchirés.</String>
+  <String key="SelTearEdges.Label">Bords déchirés</String>
+  <String key="SelTearEdges.Tooltip">Haut et bas déchirés.</String>
   <String key="NewDirt.Label">Saleté</String>
   <String key="NewDirt.Tooltip">Crasse et traces de pluie.</String>
   <String key="SelDirt.Label">Saleté</String>
