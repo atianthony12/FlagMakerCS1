@@ -452,6 +452,7 @@
   <String key="ResetAll.Label">重置所有设置</String>
   <String key="ResetAll.Tooltip">旗帜保持不变。</String>
   <String key="ResetAll.Confirm">将每项设置恢复默认？旗帜保留。</String>
+  <String key="Reset.Default">恢复默认值</String>
 
   <!-- ==================== No row in either UI ==================== -->
 

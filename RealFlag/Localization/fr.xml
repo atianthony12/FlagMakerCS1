@@ -462,6 +462,7 @@
   <String key="ResetAll.Label">Réinitialiser tous les réglages</String>
   <String key="ResetAll.Tooltip">Vos drapeaux restent intacts.</String>
   <String key="ResetAll.Confirm">Remettre tous les réglages par défaut ? Vos drapeaux restent.</String>
+  <String key="Reset.Default">Revenir à la valeur par défaut</String>
 
   <!-- ==================== No row in either UI ==================== -->
 

@@ -161,6 +161,14 @@ namespace RealFlag.UI
         public Func<float> Get;
         public Action<float> Set;
 
+        /// <summary>
+        /// A row's reset icon over no setting of its own, or one that needs more than its value
+        /// put back (the width and height: the default size; the shape; a picture let go):
+        /// whether it stands at its default, and what puts it there. Null: the setting's default.
+        /// </summary>
+        public Func<bool> AtDefault;
+        public Action ResetTo;
+
         /// <summary>Shape rows: the shapes offered (height over width x 1000, as seen), which is the flag's now, the edge it is hoisted from (drawn on each), and what a click on one does.</summary>
         public int[] Presets;
         public Func<int, bool> PresetActive;
@@ -390,6 +398,32 @@ namespace RealFlag.UI
             if (Int != null) Int.value = DefaultInt;
             if (Key != null) Key.value = DefaultKey;
         }
+
+        /// <summary>The row can be put back by its reset icon: a setting of its own, or a way back (<see cref="ResetTo"/>).</summary>
+        public bool CanReset
+        {
+            get { return ResetTo != null || HasSetting; }
+        }
+
+        /// <summary>At its default: what fades the row's reset icon.</summary>
+        public bool IsAtDefault
+        {
+            get
+            {
+                if (AtDefault != null) return AtDefault();
+                if (Float != null && Math.Abs(Float.value - DefaultFloat) > 1e-4f * Math.Max(1f, Math.Abs(DefaultFloat))) return false;
+                if (Bool != null && Bool.value != DefaultBool) return false;
+                if (Int != null && Int.value != DefaultInt) return false;
+                if (Key != null && Key.value != DefaultKey) return false;
+                return true;
+            }
+        }
+
+        /// <summary>The row's reset icon's words.</summary>
+        public string ResetHint
+        {
+            get { return Localization.Get("Reset.Default"); }
+        }
     }
 
     /// <summary>
@@ -508,6 +542,84 @@ namespace RealFlag.UI
 
             SettingsXml.SaveNow();
             Log.Msg("settings: RESET to defaults (" + Rows.Count + " rows)");
+        }
+
+        /// <summary>
+        /// A row's reset icon (Real Glass's and Volumetric Weather's): that row back to its default
+        /// as if the player had moved it there -- its live hook run (the selected flag redesigned),
+        /// saved now, every UI refreshed. A switch goes through <see cref="ApplyToggle"/> like a
+        /// click. A line of colours has one icon for its swatches: the ones off their default go back.
+        /// </summary>
+        public static void ResetRows(IList<Row> rows)
+        {
+            var reset = new List<Row>();
+            foreach (Row row in rows)
+            {
+                if (row != null && row.CanReset && row.IsEnabled && !row.IsAtDefault)
+                    reset.Add(row);
+            }
+
+            if (reset.Count == 0)
+                return;
+
+            var hooks = new List<Action>();
+            foreach (Row row in reset)
+            {
+                Log.Msg("setting: " + row.Name + " back to its default (the row's reset icon)");
+
+                if (row.Kind == RowKind.Toggle && row.Bool != null)
+                {
+                    ApplyToggle(row, row.DefaultBool);
+                    continue;
+                }
+
+                if (row.ResetTo != null)
+                    row.ResetTo();
+                else
+                    row.ResetToDefault();
+
+                // Once each: a line of colours shares the window's.
+                if (row.AfterChange != null && !hooks.Contains(row.AfterChange))
+                    hooks.Add(row.AfterChange);
+            }
+
+            SettingsXml.SaveNow();
+            foreach (Action hook in hooks)
+                hook();
+
+            RefreshAllUIs();
+        }
+
+        /// <summary>
+        /// The "+ New flag" button: the next flag starts from the defaults -- its design, picture,
+        /// pattern and colours, size, pole, rotation -- since Copy is there to start from another
+        /// (the author, 2026-11-07: "When New Flag is clicked, everything needs to be reset. Because
+        /// Copy already does copy another flag's properties"). Kept: how rows of flags are laid
+        /// (Line Tool's spacing and point along the line) and the switches the Flags tab shares
+        /// (width and height together, taller poles). Logged when anything changed.
+        /// </summary>
+        public static void ResetNewFlag()
+        {
+            int changed = 0;
+            foreach (Row row in Rows)
+            {
+                if (!row.HasSetting || !IsNewFlagDesign(row) || row.IsAtDefault)
+                    continue;
+
+                row.ResetToDefault();
+                changed++;
+            }
+
+            if (changed > 0)
+                Log.Msg("flags: the new flag starts from the defaults (" + changed + " setting(s) put back)");
+        }
+
+        /// <summary>A setting of the new flag's own (its name begins "New"), not how rows of them are laid.</summary>
+        private static bool IsNewFlagDesign(Row row)
+        {
+            string name = row.Name;
+            return name != null && name.StartsWith("New", StringComparison.Ordinal) &&
+                   row.Int != Settings.NewPlacing && row.Float != Settings.NewLineSpacing && row.Bool != Settings.NewLineAlong;
         }
 
         /// <summary>Stores a checkbox, asking first where the row says to ask (only ever when switching ON).</summary>
@@ -664,6 +776,12 @@ namespace RealFlag.UI
         {
             FlagCountry flag = country != null ? FlagCountries.At(country.value) : null;
             return flag != null ? flag.Proportion : proportion != null ? proportion.value : Settings.Defaults.Proportion;
+        }
+
+        /// <summary>The default shape as seen with the edge it is hoisted from (a banner's is the default turned).</summary>
+        private static int DefaultShape(IntSetting hoistedFrom)
+        {
+            return FlagSize.ShownProportion(Settings.Defaults.Proportion, hoistedFrom.value);
         }
 
         /// <summary>The flag's width (or height) as it is seen, metres (FlagSize.Shown).</summary>
@@ -906,9 +1024,23 @@ namespace RealFlag.UI
                     length.value = newLength;
                     proportion.value = newProportion;
                 },
+                // Its reset: the default shape as seen, as a click on that little flag gives it.
+                AtDefault = () => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, DefaultShape(hoistedFrom)),
+                ResetTo = () =>
+                {
+                    float newLength;
+                    int newProportion;
+                    FlagSize.Reshape(length.value, proportion.value, hoistedFrom.value, DefaultShape(hoistedFrom), out newLength, out newProportion);
+                    length.value = newLength;
+                    proportion.value = newProportion;
+                },
                 AfterChange = resized,
                 Enabled = shapeFree,
             });
+
+            // The width's and the height's reset: the default size (its length) at the shape it has.
+            Func<bool> sizeAtDefault = () => Math.Abs(length.value - Settings.Defaults.Length) < 0.005f;
+            Action sizeToDefault = () => length.value = Settings.Defaults.Length;
 
             Add(new Row
             {
@@ -917,6 +1049,8 @@ namespace RealFlag.UI
                 Id = widthId,
                 Get = () => ShownSide(false, country, length, proportion, hoistedFrom),
                 Set = v => ResizeTo(false, v, country, length, proportion, hoistedFrom, pictures),
+                AtDefault = sizeAtDefault,
+                ResetTo = sizeToDefault,
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
                 Format = Metres,
                 AfterChange = resized,
@@ -930,6 +1064,8 @@ namespace RealFlag.UI
                 Id = heightId,
                 Get = () => ShownSide(true, country, length, proportion, hoistedFrom),
                 Set = v => ResizeTo(true, v, country, length, proportion, hoistedFrom, pictures),
+                AtDefault = sizeAtDefault,
+                ResetTo = sizeToDefault,
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
                 Format = HeightText(country, proportion, hoistedFrom),
                 AfterChange = resized,
@@ -1477,6 +1613,7 @@ namespace RealFlag.UI
                 Kind = RowKind.Value,
                 Panel = PanelPage.Existing,
                 Float = Settings.SelRotation,
+                DefaultFloat = Settings.Defaults.Rotation,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
                 AfterChange = FlagEditor.ApplyRotation,

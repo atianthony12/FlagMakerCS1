@@ -457,6 +457,7 @@
   <String key="ResetAll.Label">Reset all settings</String>
   <String key="ResetAll.Tooltip">Your flags stay untouched.</String>
   <String key="ResetAll.Confirm">Reset every setting to default? Your flags stay.</String>
+  <String key="Reset.Default">Back to the default</String>
 
   <!-- ==================== No row in either UI ==================== -->
 

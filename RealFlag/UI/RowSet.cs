@@ -29,6 +29,13 @@ namespace RealFlag.UI
         private readonly UIComponent _owner;
         private readonly Builder _ui;
         private readonly List<Control> _controls = new List<Control>();
+        private readonly List<ColourLine> _lines = new List<ColourLine>();
+
+        /// <summary>
+        /// The reset icon's column at the right end of each row with a setting, gap included (Real
+        /// Glass's and Volumetric Weather's): every row's parts end before it.
+        /// </summary>
+        public const float ResetColumn = 28f;
 
         /// <summary>
         /// Guards the refresh against its own callbacks: a row set from its setting must never write
@@ -56,6 +63,19 @@ namespace RealFlag.UI
             get { return _ui.LabelWidth + _ui.Theme.Gap; }
         }
 
+        /// <summary>Where a row's parts end: before the reset icon's column.</summary>
+        private static float Right(UIComponent page)
+        {
+            return page.width - ResetColumn;
+        }
+
+        /// <summary>A line of colour swatches (up to three rows) and its one reset icon, for the swatches off their default.</summary>
+        private class ColourLine
+        {
+            public readonly List<Row> Rows = new List<Row>();
+            public UIButton Reset;
+        }
+
         /// <summary>One built row: whatever components it made, so they can be refreshed and greyed.</summary>
         private class Control
         {
@@ -67,6 +87,9 @@ namespace RealFlag.UI
             public UIButton Swatch;
             public UIButton Button;
             public UIButton Second;
+
+            /// <summary>The row's reset icon (null: none, or the library's sheet missing).</summary>
+            public UIButton Reset;
 
             /// <summary>A country row: its button (the country's name) and the flag's image beside it, and the number they show.</summary>
             public UIButton Country;
@@ -97,7 +120,23 @@ namespace RealFlag.UI
         /// <summary>Draws every catalog row that belongs on this page, in catalog order, from <paramref name="y"/>; returns the height used.</summary>
         public float BuildRows(UIPanel page, PanelPage which, float y)
         {
-            UIPanel coloursLine = null;
+            // The library's sliders, switches and choices end before the reset icon too; the
+            // builder may build more after these rows (the Pattern window's), as it was.
+            float resetColumn = _ui.ResetColumn;
+            _ui.ResetColumn = ResetColumn;
+            try
+            {
+                return BuildPage(page, which, y);
+            }
+            finally
+            {
+                _ui.ResetColumn = resetColumn;
+            }
+        }
+
+        private float BuildPage(UIPanel page, PanelPage which, float y)
+        {
+            ColourLine coloursLine = null;
             int coloursInLine = 0;
             float rowHeight = _ui.RowHeight;
 
@@ -112,17 +151,26 @@ namespace RealFlag.UI
                     y += _ui.Theme.HeadingHeight;
                 }
 
-                // A design's colours share one line: "Colours [1] [2] [3]".
+                // A design's colours share one line: "Colours [1] [2] [3]", one reset icon for them.
                 if (row.Kind == RowKind.Colour)
                 {
                     if (coloursLine == null || coloursInLine >= 3)
                     {
-                        coloursLine = page;
+                        coloursLine = new ColourLine();
                         coloursInLine = 0;
                         _ui.AddName(page, Localization.Get("Colours.Label"), new Vector3(0f, y + 8f), _ui.LabelWidth);
+                        coloursLine.Reset = _ui.AddReset(page, y, row.ResetHint);
+                        if (coloursLine.Reset != null)
+                        {
+                            ColourLine captured = coloursLine;
+                            coloursLine.Reset.eventClick += (component, e) => SettingsCatalog.ResetRows(captured.Rows);
+                        }
+
+                        _lines.Add(coloursLine);
                         y += rowHeight;
                     }
 
+                    coloursLine.Rows.Add(row);
                     Control swatch = BuildSwatch(page, row, y - rowHeight, coloursInLine);
                     _controls.Add(swatch);
                     coloursInLine++;
@@ -132,6 +180,7 @@ namespace RealFlag.UI
                 coloursLine = null;
 
                 Control control = Build(page, row, y);
+                AddReset(page, row, y, control);
                 _controls.Add(control);
 
                 switch (row.Kind)
@@ -231,6 +280,20 @@ namespace RealFlag.UI
 
                     if (control.Options.Count > 0)
                         RefreshOptions(control);
+
+                    if (control.Reset != null)
+                        Builder.SetResetEnabled(control.Reset, ResetWanted(row));
+                }
+
+                foreach (ColourLine line in _lines)
+                {
+                    if (line.Reset == null)
+                        continue;
+
+                    bool wanted = false;
+                    foreach (Row row in line.Rows)
+                        wanted |= ResetWanted(row);
+                    Builder.SetResetEnabled(line.Reset, wanted);
                 }
             }
             finally
@@ -239,6 +302,30 @@ namespace RealFlag.UI
             }
 
             RefreshEnabled();
+        }
+
+        /// <summary>A row's reset icon is lit while the row is off its default and not greyed out (Real Glass's).</summary>
+        private static bool ResetWanted(Row row)
+        {
+            return row.CanReset && row.IsEnabled && !row.IsAtDefault;
+        }
+
+        /// <summary>
+        /// The row's reset icon at its right end: every row with a setting or a way back, not a
+        /// button, a status line or the list. A click puts that row back (SettingsCatalog.ResetRows).
+        /// </summary>
+        private void AddReset(UIPanel page, Row row, float y, Control control)
+        {
+            if (!row.CanReset || row.Kind == RowKind.Button || row.Kind == RowKind.Status || row.Kind == RowKind.FlagList)
+                return;
+
+            control.Reset = _ui.AddReset(page, y, row.ResetHint);
+            if (control.Reset == null)
+                return;
+
+            Row captured = row;
+            control.Reset.eventClick += (component, e) => SettingsCatalog.ResetRows(new[] { captured });
+            Builder.SetResetEnabled(control.Reset, ResetWanted(row));
         }
 
         /// <summary>A shape or segmented row: the button of the shape the flag has (or the choice made) lit, the little flags hoisted as it is.</summary>
@@ -313,7 +400,10 @@ namespace RealFlag.UI
         private Control BuildSwatch(UIPanel page, Row row, float y, int index)
         {
             var control = new Control { Source = row };
-            const float width = 70f, gap = 8f;
+            const float gap = 8f;
+
+            // 70 px as before where it fits; narrower in the Pattern window, before the reset icon.
+            float width = Mathf.Min(70f, Mathf.Floor((Right(page) - Column - 2f * gap) / 3f));
             UIButton swatch = FlagWidgets.AddSwatch(page, new Vector2(width, 22f), new Vector3(Column + index * (width + gap), y + 6f),
                                                     row.Int != null ? (uint)row.Int.value : 0xFFFFFFu);
             swatch.tooltip = row.Label + ": " + row.Tooltip;
@@ -393,7 +483,7 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
 
                     const float imageWidth = 42f;
-                    float width = page.width - column - imageWidth - 8f;
+                    float width = Right(page) - column - imageWidth - 8f;
                     UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
                     button.tooltip = row.Tooltip;
                     Row captured = row;
@@ -424,7 +514,7 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
 
                     const float imageWidth = 42f, folderWidth = 30f, gap = 6f;
-                    float width = page.width - column - imageWidth - folderWidth - 2f * gap;
+                    float width = Right(page) - column - imageWidth - folderWidth - 2f * gap;
                     UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
                     button.tooltip = row.Tooltip;
                     Row captured = row;
@@ -439,7 +529,7 @@ namespace RealFlag.UI
                     image.relativePosition = new Vector3(column + width + gap, y + 3f);
                     image.isInteractive = false;
 
-                    UIButton folder = _ui.AddButton(page, string.Empty, new Vector2(folderWidth, 26f), new Vector3(page.width - folderWidth, y + 3f));
+                    UIButton folder = _ui.AddButton(page, string.Empty, new Vector2(folderWidth, 26f), new Vector3(Right(page) - folderWidth, y + 3f));
                     folder.tooltip = Localization.Get("Image.OpenTip");
                     new FolderIcon(folder, new Vector3(6f, 6f), new Vector2(18f, 14f));
                     folder.eventClick += (component, e) => FlagImageFolder.Open();
@@ -458,7 +548,7 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
 
                     const float imageWidth = 42f;
-                    float width = page.width - column - imageWidth - 8f;
+                    float width = Right(page) - column - imageWidth - 8f;
                     UIButton button = NameButton(page, width, new Vector3(column, y + 3f));
                     button.tooltip = row.Tooltip;
                     Row captured = row;
@@ -486,7 +576,7 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
                     int count = row.Presets != null ? row.Presets.Length : 0;
                     const float gap = 4f, height = 28f;
-                    float width = count > 0 ? Mathf.Floor((page.width - column - gap * (count - 1)) / count) : 0f;
+                    float width = count > 0 ? Mathf.Floor((Right(page) - column - gap * (count - 1)) / count) : 0f;
                     Row captured = row;
                     for (int i = 0; i < count; i++)
                     {
@@ -519,7 +609,7 @@ namespace RealFlag.UI
                     AddRowLabel(page, row, y, control);
                     int count = row.ChoiceValues != null ? row.ChoiceValues.Length : 0;
                     const float gap = 6f, height = 28f;
-                    float width = count > 0 ? Mathf.Floor((page.width - column - gap * (count - 1)) / count) : 0f;
+                    float width = count > 0 ? Mathf.Floor((Right(page) - column - gap * (count - 1)) / count) : 0f;
                     Row captured = row;
                     for (int i = 0; i < count; i++)
                     {

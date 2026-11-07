@@ -459,6 +459,7 @@
   <String key="ResetAll.Label">Restablecer todos los ajustes</String>
   <String key="ResetAll.Tooltip">Tus banderas no se tocan.</String>
   <String key="ResetAll.Confirm">¿Restablecer todos los ajustes? Tus banderas se quedan.</String>
+  <String key="Reset.Default">Volver al valor predeterminado</String>
 
   <!-- ==================== Sin fila en ninguna interfaz ==================== -->
 

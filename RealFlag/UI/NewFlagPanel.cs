@@ -43,13 +43,24 @@ namespace RealFlag.UI
             get { return _instance != null && _instance.isVisible; }
         }
 
-        /// <summary>The "+ New flag" button: opens the window (and the tool), or closes it if it is open.</summary>
+        /// <summary>
+        /// The "+ New flag" button: opens the window (and the tool) on a flag of the defaults
+        /// (SettingsCatalog.ResetNewFlag), or closes it if it is open. Copy opens it with the
+        /// selected flag's design instead (<see cref="Open"/> alone).
+        /// </summary>
         public static void Toggle()
         {
             if (IsOpen)
+            {
                 Close();
-            else
-                Open();
+                return;
+            }
+
+            if (FlagRenderer.Instance == null || FlagPrefab.Info == null)
+                return;
+
+            SettingsCatalog.ResetNewFlag();
+            Open();
         }
 
         /// <summary>Opens the window beside the panel and takes the tool out to place (a selected flag is let go: placing takes the tool).</summary>
