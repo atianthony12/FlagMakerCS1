@@ -659,7 +659,10 @@ namespace RealFlag.Flags
             _col = new int[Count];
             _row = new int[Count];
 
-            int max = 2 * Count * 6;
+            // The most links BuildLinks makes: (C-1)R + (R-1)C structural, 2(C-1)(R-1) shear,
+            // (C-2)R + (R-2)C bend = 6CR - 5(C+R) + 2, under six a particle; a cut cloth fewer. It
+            // was sized at twice that (a third of a cloth's memory, with hundreds of flags).
+            int max = 6 * Count;
             _a = new int[max];
             _b = new int[max];
             _rest = new float[max];

@@ -76,6 +76,14 @@ namespace RealFlag.Flags
         public const float KeepSeconds = 300f;
 
         /// <summary>
+        /// A source whose biggest flag on the screen is at least this many pixels steps at the full
+        /// rate (<see cref="Step"/>); smaller, at half (steps twice as long, half as many), as the
+        /// flags on poles do under FlagRenderer.FullRatePixels. A span's flags are posed at the
+        /// same two rates (StringSpan).
+        /// </summary>
+        public const float FullRatePixels = 30f;
+
+        /// <summary>
         /// The wind on a string's flags, from where it blows: <c>degrees</c> from the span's X
         /// towards its Z (90 = square to the string, towards +Z). Every source flies across;
         /// the angle only scales the speed fed to it and picks the side the flags fly out to.
@@ -141,16 +149,24 @@ namespace RealFlag.Flags
             public const int Capacity = 192;
 
             public readonly int Count;
+            private readonly int _slots;
             private readonly float[] _x, _y, _z;
-            private readonly float[] _time = new float[Capacity];
+            private readonly float[] _time;
             private int _head = -1, _filled;
 
-            public Ring(int count)
+            public Ring(int count) : this(count, Capacity)
+            {
+            }
+
+            /// <summary>A ring of <paramref name="slots"/> entries: one for a still source, which holds its one shape (2.3 KB a particle saved).</summary>
+            public Ring(int count, int slots)
             {
                 Count = count;
-                _x = new float[Capacity * count];
-                _y = new float[Capacity * count];
-                _z = new float[Capacity * count];
+                _slots = Math.Max(1, slots);
+                _time = new float[_slots];
+                _x = new float[_slots * count];
+                _y = new float[_slots * count];
+                _z = new float[_slots * count];
             }
 
             public int Filled
@@ -165,7 +181,7 @@ namespace RealFlag.Flags
 
             public float Oldest
             {
-                get { return _filled > 0 ? _time[(_head - _filled + 1 + Capacity) % Capacity] : 0f; }
+                get { return _filled > 0 ? _time[(_head - _filled + 1 + _slots) % _slots] : 0f; }
             }
 
             public float Span
@@ -175,14 +191,14 @@ namespace RealFlag.Flags
 
             public void Add(FlagCloth cloth, float time)
             {
-                int slot = (_head + 1) % Capacity;
+                int slot = (_head + 1) % _slots;
                 int o = slot * Count;
                 Array.Copy(cloth.X, 0, _x, o, Count);
                 Array.Copy(cloth.Y, 0, _y, o, Count);
                 Array.Copy(cloth.Z, 0, _z, o, Count);
                 _time[slot] = time;
                 _head = slot;
-                if (_filled < Capacity)
+                if (_filled < _slots)
                     _filled++;
             }
 
@@ -206,7 +222,7 @@ namespace RealFlag.Flags
                     a = -1;
                     for (int n = 1; n < _filled; n++)
                     {
-                        int older = (_head - n + Capacity) % Capacity;
+                        int older = (_head - n + _slots) % _slots;
                         if (_time[older] <= time)
                         {
                             a = older;
@@ -324,9 +340,12 @@ namespace RealFlag.Flags
             /// <summary>The speed it flies in (m/s at the flags, eased); -1 before it is first wanted.</summary>
             public float Speed = -1f;
 
-            /// <summary>This frame's wanted speeds (its spans'), summed and counted.</summary>
-            private float _wantSum;
+            /// <summary>This frame's wanted speeds (its spans'), summed and counted; the biggest flag playing it, pixels.</summary>
+            private float _wantSum, _wantPixels;
             private int _wantCount;
+
+            /// <summary>The biggest flag that played it in the frame <see cref="Due"/> last took (pixels): the renderer's order when the batch is short of room.</summary>
+            public float WantedPixels { get; private set; }
 
             /// <summary>Where in the wind's field it flies: each slot its own patch, so slots do not move alike.</summary>
             public readonly float FieldX, FieldZ;
@@ -344,7 +363,8 @@ namespace RealFlag.Flags
                 // Small flags in a crowd: no self-collision (the author let strings go cheaper to stay steady).
                 Cloth.SelfCollision = false;
                 Cloth.LayOut(0f, -1f, 0f, key.Still == 0);
-                Record = new Ring(Cloth.Count);
+                // A still source holds one shape: one slot (a full ring is 192 x 12 bytes a particle).
+                Record = new Ring(Cloth.Count, key.Still == 1 ? 1 : Ring.Capacity);
                 FieldX = 137.1f * key.Slot + 22.6f;
                 FieldZ = 91.7f * key.Slot - 15.8f;
                 Clock = 0f;
@@ -365,23 +385,35 @@ namespace RealFlag.Flags
                 get { return Key.Still == 1 || Record.Span >= MaxDelay + 0.1f; }
             }
 
-            /// <summary>A flag plays it this frame, in a wind of <paramref name="speed"/> m/s (the finder marks LastWanted).</summary>
+            /// <summary>A flag plays it this frame, in a wind of <paramref name="speed"/> m/s (the finder marks LastWanted); the flag is big on the screen.</summary>
             public void Want(float speed)
+            {
+                Want(speed, float.MaxValue);
+            }
+
+            /// <summary>A flag <paramref name="pixels"/> big on the screen plays it this frame, in a wind of <paramref name="speed"/> m/s.</summary>
+            public void Want(float speed, float pixels)
             {
                 if (float.IsNaN(speed) || speed < 0f)
                     return;
                 _wantSum += speed;
                 _wantCount++;
+                if (pixels > _wantPixels)
+                    _wantPixels = pixels;
             }
 
             /// <summary>
-            /// This frame's job: the steps due in real time (at most <paramref name="maxSteps"/>, the
-            /// rest let go), more while it warms up, in the wind its spans wanted (their mean, followed
-            /// over FlagWind.FollowSeconds). False when nothing is due (or it is still).
+            /// The frame's wants taken (the speed followed over FlagWind.FollowSeconds), and the steps
+            /// due in real time: at most <paramref name="maxSteps"/>, more while it warms up, each of
+            /// <paramref name="size"/> seconds (the full rate, or half while no big flag plays it:
+            /// <see cref="FullRatePixels"/>). 0 when nothing is due, no flag plays it (held as it is,
+            /// not stepped: it carries on from there when looked at again, never from rest), or it
+            /// is still. Nothing is committed: <see cref="Commit"/> when the batch has room for it;
+            /// otherwise the time waits (up to four steps' worth) and the flags playing it hold.
             /// </summary>
-            public bool Plan(float dt, int maxSteps, int warmSteps, float gusts, bool gustInSpeed, out ClothJob job)
+            public int Due(float dt, int maxSteps, int warmSteps, out float size)
             {
-                job = default(ClothJob);
+                size = Step;
                 bool wanted = _wantCount > 0;
                 if (wanted)
                 {
@@ -389,39 +421,51 @@ namespace RealFlag.Flags
                     Speed = Speed < 0f || !Ready ? mean : FlagWind.Follow(Speed, mean, dt);
                 }
 
+                WantedPixels = wanted ? _wantPixels : 0f;
                 _wantSum = 0f;
                 _wantCount = 0;
+                _wantPixels = 0f;
                 if (Key.Still == 1)
-                    return false;
+                    return 0;
 
-                // No flag plays it this frame (out of view, far): held as it is, not stepped -- it
-                // carries on from there when looked at again, never from rest.
                 if (!wanted)
                 {
                     Pending = 0f;
-                    return false;
+                    return 0;
                 }
 
+                if (WantedPixels < FullRatePixels)
+                    size = 2f * Step;
                 Pending += dt;
-                int steps = (int)Math.Floor(Pending / Step + 1e-4);
+                if (Pending > 4f * size)
+                    Pending = 4f * size;
+                int steps = (int)Math.Floor(Pending / size + 1e-4);
                 int most = Ready ? maxSteps : Math.Max(maxSteps, warmSteps);
                 if (!Ready)
                     steps = Math.Max(steps, warmSteps);
                 if (steps > most)
                     steps = most;
-                Pending = Math.Max(0f, Pending - steps * Step);
-                if (Pending > 4f * Step)
-                    Pending = 4f * Step;
-                if (steps <= 0)
-                    return false;
+                return Math.Max(0, steps);
+            }
 
+            /// <summary>The work <paramref name="steps"/> steps of <paramref name="size"/> seconds would be, in particle steps (the sub-steps for its speed), for the batch's budget.</summary>
+            public long WorkFor(int steps, float size)
+            {
+                int sub = Cloth.SubStepsFor(FlagWind.ClothSpeed(Math.Max(0f, Speed), 10f, 0f), size);
+                return (long)steps * sub * Cloth.Count;
+            }
+
+            /// <summary>The job for steps <see cref="Due"/> found due: the time taken off, the clock moved on.</summary>
+            public ClothJob Commit(int steps, float size, float gusts, bool gustInSpeed)
+            {
+                Pending = Math.Max(0f, Pending - steps * size);
                 float dx, dz;
                 Key.Direction(out dx, out dz);
-                job = new ClothJob
+                var job = new ClothJob
                 {
                     Cloth = Cloth,
                     Steps = steps,
-                    Size = Step,
+                    Size = size,
                     Time = Clock,
                     Speed = Math.Max(0f, Speed),
                     Gusts = gusts,
@@ -436,7 +480,23 @@ namespace RealFlag.Flags
                     Roughness = 0f,
                     Record = null,
                 };
-                Clock += steps * Step;
+                Clock += steps * size;
+                return job;
+            }
+
+            /// <summary>
+            /// This frame's job in one (the preview and the tests): the steps due, committed. False
+            /// when nothing is due (or it is still).
+            /// </summary>
+            public bool Plan(float dt, int maxSteps, int warmSteps, float gusts, bool gustInSpeed, out ClothJob job)
+            {
+                job = default(ClothJob);
+                float size;
+                int steps = Due(dt, maxSteps, warmSteps, out size);
+                if (steps <= 0)
+                    return false;
+
+                job = Commit(steps, size, gusts, gustInSpeed);
                 return true;
             }
 

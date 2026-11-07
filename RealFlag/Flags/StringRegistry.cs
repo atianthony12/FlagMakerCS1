@@ -12,6 +12,10 @@ namespace RealFlag.Flags
         private static readonly object Lock = new object();
         private static readonly Dictionary<ushort, StringSpec> Specs = new Dictionary<ushort, StringSpec>();
 
+        /// <summary>The spans Set since the renderer last asked (TakeChanged), or every span (a Load or Clear).</summary>
+        private static readonly List<ushort> Changed = new List<ushort>();
+        private static bool _changedAll = true;
+
         public static int Version { get; private set; }
 
         public static int Count
@@ -41,7 +45,27 @@ namespace RealFlag.Flags
             lock (Lock)
             {
                 Specs[segment] = spec;
+                Changed.Add(segment);
                 Version++;
+            }
+        }
+
+        /// <summary>
+        /// The spans Set since the last call, for the renderer; true when every span may have
+        /// changed (a Load or Clear). Comparing every span's design on every change (two encodes
+        /// each) cost a frame of a slider drag on a long chain with the spans' count squared.
+        /// </summary>
+        public static bool TakeChanged(List<ushort> into)
+        {
+            into.Clear();
+            lock (Lock)
+            {
+                bool all = _changedAll;
+                _changedAll = false;
+                if (!all)
+                    into.AddRange(Changed);
+                Changed.Clear();
+                return all;
             }
         }
 
@@ -62,6 +86,8 @@ namespace RealFlag.Flags
             lock (Lock)
             {
                 Specs.Clear();
+                Changed.Clear();
+                _changedAll = true;
                 Version++;
             }
         }
@@ -73,6 +99,8 @@ namespace RealFlag.Flags
                 Specs.Clear();
                 foreach (KeyValuePair<ushort, StringSpec> s in spans)
                     Specs[s.Key] = s.Value.Sanitised();
+                Changed.Clear();
+                _changedAll = true;
                 Version++;
             }
         }

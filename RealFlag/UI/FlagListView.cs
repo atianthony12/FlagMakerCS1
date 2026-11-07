@@ -13,10 +13,19 @@ namespace RealFlag.UI
     /// scrolling box. A click selects the flag (FlagEditor) and the controls below take it over; a
     /// double click also takes the camera to it.
     /// </summary>
+    /// <remarks>
+    /// Virtual, as CountryPicker and ImagePanel: <see cref="Slots"/> rows exist whatever the city's
+    /// count, each relabelled with the flag at the list's offset as the list scrolls, and the
+    /// scrollbar sized to all of them. A thousand flags cost what five do. The rows sit in a view
+    /// that clips them to the five in the box; the spares lie below its edge and are never seen.
+    /// </remarks>
     public class FlagListView : UIPanel
     {
         public const float RowHeight = 24f;
         public const int VisibleRows = 5;
+
+        /// <summary>Row components: the visible ones plus two spares below the view's edge.</summary>
+        private const int Slots = VisibleRows + 2;
 
         /// <summary>Rows a notch of the wheel moves (the Image window's: 2 of its 7).</summary>
         private const int WheelRows = 2;
@@ -29,19 +38,25 @@ namespace RealFlag.UI
         private const float DoubleClickSeconds = 0.5f;
 
         private Builder _ui;
-        private UIScrollablePanel _list;
+        private UIPanel _view;
         private UIScrollbar _bar;
         private UILabel _empty;
 
+        // The city's flags in prop order, from the last Refresh; the rows show a window of them.
         private readonly List<FlagEntry> _entries = new List<FlagEntry>();
-        private readonly List<UIButton> _rows = new List<UIButton>();
-        private readonly List<uint> _shown = new List<uint>();
-        // Per row: what it shows (its text and its colours or picture), and the sprites at its right.
-        private readonly List<string> _looks = new List<string>();
-        private readonly List<List<UIComponent>> _decorations = new List<List<UIComponent>>();
+        private readonly UIButton[] _rows = new UIButton[Slots];
+        // Per slot: the prop it shows, what it shows (its text and its colours or picture; null: the
+        // slot is empty and hidden), and the sprites at its right.
+        private readonly uint[] _slotProp = new uint[Slots];
+        private readonly string[] _looks = new string[Slots];
+        private readonly List<UIComponent>[] _decorations = new List<UIComponent>[Slots];
+        private int _offset;
+        private int _shownCount = -1;
         private int _shownVersion = -1;
         private int _shownImages = -1;
         private uint _shownSelected = uint.MaxValue;
+        // Set while the bar is moved by code, so its value event does not scroll again.
+        private bool _refreshing;
         // The flag of the last single click and when, for DoubleClickSeconds; 0: none waiting.
         private uint _clicked;
         private float _clickedAt;
@@ -53,25 +68,50 @@ namespace RealFlag.UI
             size = new Vector2(width, RowHeight * VisibleRows + 6f);
             PanelLook.DressListBox(ui, this);
 
-            _list = AddUIComponent<UIScrollablePanel>();
-            _list.size = new Vector2(width - 16f, height - 6f);
-            _list.relativePosition = new Vector3(3f, 3f);
-            _list.autoLayout = true;
-            _list.autoLayoutDirection = LayoutDirection.Vertical;
-            _list.autoLayoutPadding = new RectOffset(0, 0, 0, 0);
-            _list.scrollWheelDirection = UIOrientation.Vertical;
-            // UIScrollablePanel.OnMouseWheel does nothing without this (off by default); the rows
-            // pass the wheel up to it. With a scrollbar a notch moves the bar's incrementAmount.
-            _list.builtinKeyNavigation = true;
-            _list.clipChildren = true;
+            _view = AddUIComponent<UIPanel>();
+            _view.size = new Vector2(width - 16f, RowHeight * VisibleRows);
+            _view.relativePosition = new Vector3(3f, 3f);
+            _view.clipChildren = true;
+            _view.eventMouseWheel += (component, p) => OnWheel(p);
+
+            for (int i = 0; i < Slots; i++)
+            {
+                UIButton row = _view.AddUIComponent<UIButton>();
+                PanelLook.DressListRow(ui, row);
+                row.size = new Vector2(_view.width, RowHeight);
+                row.relativePosition = new Vector3(0f, i * RowHeight);
+                row.textScale = 0.72f;
+                row.textHorizontalAlignment = UIHorizontalAlignment.Left;
+                row.textPadding = new RectOffset(8, 64, 4, 0);
+                row.isVisible = false;
+
+                // A click selects the flag the row shows now; a click on the selected one lets it go.
+                // The game sends the second click of a quick pair as a double click INSTEAD of a click
+                // (UIInput), so a slower pair arrives here as two clicks: both go to the flag.
+                int slot = i;
+                row.eventClick += (component, p) => Click(slot);
+                row.eventDoubleClick += (component, p) =>
+                {
+                    if (_looks[slot] != null)
+                        GoTo(_slotProp[slot]);
+                };
+                row.eventMouseWheel += (component, p) => OnWheel(p);
+
+                _rows[i] = row;
+                _decorations[i] = new List<UIComponent>();
+            }
 
             float barWidth = PanelLook.ListBarWidth(ui);
             _bar = PanelLook.AddListBar(ui, this, new Vector2(barWidth, height - 6f), new Vector3(width - 2f - barWidth, 3f));
             _bar.value = 0f;
-            _bar.incrementAmount = RowHeight * WheelRows;
+            // The arrows move a whole row's worth as the wheel does: the bar counts rows now.
+            _bar.incrementAmount = WheelRows;
             _bar.autoHide = true;
-
-            _list.verticalScrollbar = _bar;
+            _bar.eventValueChanged += (component, value) =>
+            {
+                if (!_refreshing)
+                    SetOffset(Mathf.RoundToInt(value));
+            };
 
             _empty = ui.AddLabel(this, Localization.Get("Existing.Empty"), new Vector3(10f, 10f), 0.75f);
             _empty.autoSize = false;
@@ -84,16 +124,33 @@ namespace RealFlag.UI
         public void Refresh()
         {
             FlagRenderer renderer = FlagRenderer.Instance;
-            if (_list == null)
+            if (_view == null)
                 return;
+
+            // Read before the list is taken: a change made meanwhile moves the version again and
+            // shows at the next refresh.
+            int version = FlagRegistry.Version;
+            int images = FlagImages.UserVersion;
 
             if (renderer == null)
                 _entries.Clear();
             else
                 renderer.List(_entries);
 
-            if (Changed())
-                Sync();
+            if (_entries.Count != _shownCount)
+            {
+                _shownCount = _entries.Count;
+                _offset = Mathf.Clamp(_offset, 0, MaxOffset());
+                SyncBar();
+            }
+
+            // A design or a registry change may move any shown row's text or colours (a slider on
+            // the selected flag moves the version up to four times a second): those rows are made
+            // again, the rest only where the flag in a slot changed.
+            bool moved = version != _shownVersion || images != _shownImages;
+            _shownVersion = version;
+            _shownImages = images;
+            FillRows(moved);
 
             if (_shownSelected != FlagEditor.Selected)
                 Highlight();
@@ -101,100 +158,120 @@ namespace RealFlag.UI
             _empty.isVisible = _entries.Count == 0;
         }
 
-        /// <summary>A flag came or went, or one's design changed (the registry's version moved).</summary>
-        private bool Changed()
+        /// <summary>The most rows the list can scroll: the count less the view's five.</summary>
+        private int MaxOffset()
         {
-            // A picture's textures made again (its file changed): its thumbnail with them.
-            if (_shownVersion != FlagRegistry.Version || _shownImages != FlagImages.UserVersion || _entries.Count != _shown.Count)
-                return true;
+            return Mathf.Max(0, _entries.Count - VisibleRows);
+        }
 
-            for (int i = 0; i < _entries.Count; i++)
+        /// <summary>Moves the list to a row offset (the wheel, the bar's arrows and track).</summary>
+        private void SetOffset(int offset)
+        {
+            int to = Mathf.Clamp(offset, 0, MaxOffset());
+            if (to == _offset)
+                return;
+
+            _offset = to;
+            SyncBar();
+            FillRows(false);
+        }
+
+        private void Scroll(int rows)
+        {
+            SetOffset(_offset + rows);
+        }
+
+        private void OnWheel(UIMouseEventParameter p)
+        {
+            Scroll(p.wheelDelta > 0 ? -WheelRows : WheelRows);
+            p.Use();
+        }
+
+        /// <summary>The bar's range and place: all the rows as the count, the view's five as the page.</summary>
+        private void SyncBar()
+        {
+            _refreshing = true;
+            try
             {
-                if (_entries[i].Prop != _shown[i])
-                    return true;
+                _bar.maxValue = MaxOffset();
+                _bar.scrollSize = VisibleRows;
+                _bar.value = _offset;
             }
-
-            return false;
+            finally
+            {
+                _refreshing = false;
+            }
         }
 
         /// <summary>
-        /// The rows brought to <see cref="_entries"/>: rows are added or taken away at the end only,
-        /// and a row is drawn again only if what it shows changed. The list arranges ALL its rows
-        /// each time one is added or removed (UIScrollablePanel.OnComponentAdded/Removed call
-        /// AutoArrange, its IL), and a slider on the selected flag moves the registry's version up to
-        /// four times a second: making every row again each time grew as the square of the flags.
+        /// Each slot shows the flag at the offset plus its index. A slot is drawn again only if its
+        /// flag changed (its prop), or <paramref name="force"/> says the registry or the pictures did.
         /// </summary>
-        private void Sync()
+        private void FillRows(bool force)
         {
-            while (_rows.Count < _entries.Count)
-                AddRow();
-
-            while (_rows.Count > _entries.Count)
+            int count = _entries.Count;
+            for (int i = 0; i < Slots; i++)
             {
-                int last = _rows.Count - 1;
-                _list.RemoveUIComponent(_rows[last]);
-                Object.Destroy(_rows[last].gameObject);
-                _rows.RemoveAt(last);
-                _shown.RemoveAt(last);
-                _looks.RemoveAt(last);
-                _decorations.RemoveAt(last);
-            }
-
-            for (int i = 0; i < _entries.Count; i++)
-                Show(i, _entries[i]);
-
-            _shownVersion = FlagRegistry.Version;
-            _shownImages = FlagImages.UserVersion;
-            _shownSelected = uint.MaxValue;
-            Highlight();
-        }
-
-        /// <summary>A row at the end of the list, empty until <see cref="Show"/> fills it.</summary>
-        private void AddRow()
-        {
-            int index = _rows.Count;
-            UIButton row = _list.AddUIComponent<UIButton>();
-            PanelLook.DressListRow(_ui, row);
-            row.size = new Vector2(_list.width, RowHeight);
-            row.textScale = 0.72f;
-            row.textHorizontalAlignment = UIHorizontalAlignment.Left;
-            row.textPadding = new RectOffset(8, 64, 4, 0);
-
-            // A click selects the flag the row shows now; a click on the selected one lets it go.
-            // The game sends the second click of a quick pair as a double click INSTEAD of a click
-            // (UIInput), so a slower pair arrives here as two clicks: both go to the flag.
-            row.eventClick += (component, p) =>
-            {
-                if (index >= _shown.Count)
-                    return;
-
-                uint prop = _shown[index];
-                float now = Time.realtimeSinceStartup;
-                if (prop == _clicked && now - _clickedAt < DoubleClickSeconds)
+                int at = _offset + i;
+                if (at >= count)
                 {
-                    GoTo(prop);
-                    return;
+                    if (_looks[i] != null)
+                        Empty(i);
+                    continue;
                 }
 
-                _clicked = prop;
-                _clickedAt = now;
-                if (FlagEditor.Selected == prop)
-                    FlagEditor.Deselect();
-                else
-                    FlagEditor.Select(prop);
-                Highlight();
-            };
+                FlagEntry e = _entries[at];
+                if (!force && _looks[i] != null && _slotProp[i] == e.Prop)
+                    continue;
 
-            row.eventDoubleClick += (component, p) =>
+                Show(i, e);
+            }
+        }
+
+        /// <summary>A slot with no flag: hidden, its sprites gone.</summary>
+        private void Empty(int i)
+        {
+            _rows[i].isVisible = false;
+            _looks[i] = null;
+            ClearDecorations(i);
+        }
+
+        private void ClearDecorations(int i)
+        {
+            List<UIComponent> decoration = _decorations[i];
+            foreach (UIComponent old in decoration)
             {
-                if (index < _shown.Count)
-                    GoTo(_shown[index]);
-            };
+                _rows[i].RemoveUIComponent(old);
+                Object.Destroy(old.gameObject);
+            }
 
-            _rows.Add(row);
-            _shown.Add(0u);
-            _looks.Add(null);
-            _decorations.Add(new List<UIComponent>());
+            decoration.Clear();
+        }
+
+        /// <summary>
+        /// A click on a slot: selects its flag, or lets it go if it is the selected one. A second
+        /// click within DoubleClickSeconds is the double click (GoTo).
+        /// </summary>
+        private void Click(int slot)
+        {
+            if (_looks[slot] == null)
+                return;
+
+            uint prop = _slotProp[slot];
+            float now = Time.realtimeSinceStartup;
+            if (prop == _clicked && now - _clickedAt < DoubleClickSeconds)
+            {
+                GoTo(prop);
+                return;
+            }
+
+            _clicked = prop;
+            _clickedAt = now;
+            if (FlagEditor.Selected == prop)
+                FlagEditor.Deselect();
+            else
+                FlagEditor.Select(prop);
+            Highlight();
         }
 
         /// <summary>
@@ -210,9 +287,14 @@ namespace RealFlag.UI
             Highlight();
         }
 
-        /// <summary>Row <paramref name="i"/> shows <paramref name="e"/>: drawn again only if its text, colours or picture changed.</summary>
+        /// <summary>Slot <paramref name="i"/> shows <paramref name="e"/>: drawn again only if its text, colours or picture changed.</summary>
         private void Show(int i, FlagEntry e)
         {
+            UIButton row = _rows[i];
+            _slotProp[i] = e.Prop;
+            row.isVisible = true;
+            PanelLook.SetListLit(_ui, row, e.Prop == FlagEditor.Selected);
+
             FlagCountry country = FlagCountries.Find(e.Spec.Country);
             float shownWidth, shownHeight;
             FlagSize.Shown(e.Spec.Length, e.Spec.Proportion, e.Spec.HoistedFrom, out shownWidth, out shownHeight);
@@ -227,23 +309,14 @@ namespace RealFlag.UI
                 ? "t" + thumb.GetInstanceID()
                 : "c" + used + "," + e.Spec.Colour1 + "," + e.Spec.Colour2 + "," + e.Spec.Colour3);
 
-            _shown[i] = e.Prop;
             if (look == _looks[i])
                 return;
 
             _looks[i] = look;
-            UIButton row = _rows[i];
             row.text = text;
+            ClearDecorations(i);
 
             List<UIComponent> decoration = _decorations[i];
-            foreach (UIComponent old in decoration)
-            {
-                row.RemoveUIComponent(old);
-                Object.Destroy(old.gameObject);
-            }
-
-            decoration.Clear();
-
             float width = row.width;
             if (thumb != null)
             {
@@ -267,11 +340,13 @@ namespace RealFlag.UI
             }
         }
 
+        /// <summary>The shown rows lit where their flag is the selected one.</summary>
         private void Highlight()
         {
-            for (int i = 0; i < _rows.Count && i < _shown.Count; i++)
+            for (int i = 0; i < Slots; i++)
             {
-                PanelLook.SetListLit(_ui, _rows[i], _shown[i] == FlagEditor.Selected);
+                if (_looks[i] != null)
+                    PanelLook.SetListLit(_ui, _rows[i], _slotProp[i] == FlagEditor.Selected);
             }
 
             _shownSelected = FlagEditor.Selected;

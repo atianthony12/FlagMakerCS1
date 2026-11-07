@@ -32,6 +32,12 @@ namespace RealFlag.Flags
         /// <summary>Its longer side on the screen, pixels, this frame (FlagRenderer.DrawPixels and the rest go by it).</summary>
         public float Pixels;
 
+        /// <summary>In the renderer's in-view order (FlagRenderer.InView keeps last frame's: the sort then has little to do).</summary>
+        public bool InOrder;
+
+        /// <summary>Real time since when it has been out of view and small (FlagRenderer.KeepPixels); 0 while not. Its cloth is let go after FlagRenderer.ReleaseSeconds.</summary>
+        public float UnseenSince;
+
         /// <summary>Time not yet stepped, seconds, and the length of this flag's steps (1/60 s, 1/30 s when small on the screen).</summary>
         public float Pending;
         public float StepSize = FlagRenderer.Step;
@@ -309,6 +315,26 @@ namespace RealFlag.Flags
         public const float DrawPixels = 2f;
         public const float MovePixels = 6f;
         public const float FullRatePixels = 30f;
+
+        /// <summary>
+        /// A flag casts a shadow while at least this big on the screen: a 3 m flag within about
+        /// 325 m of the game's camera. Below it the shadow is a speck no one sees, and every
+        /// shadowed draw costs the shadow passes (the 2026-11-07 sweep: a city of specks drawn
+        /// with shadows to 3.9 km).
+        /// </summary>
+        public const float ShadowPixels = 24f;
+
+        /// <summary>
+        /// A flag out of view keeps its cloth (settled, ready for a turn of the camera) while it is
+        /// at least this big on the screen were the camera turned to it; smaller than that for
+        /// <see cref="ReleaseSeconds"/>, its cloth, mesh and city are let go (ReleaseUnseen) and
+        /// made again when it is next in view -- from a like flag's shape in 0.3 s, else in 1.5 s.
+        /// Before, every flag within MovePixels (about 1.3 km for a 3 m flag) kept all of it for
+        /// the session: 0.3-0.9 GB for 2000 flags (the sweep). PlanUnseen settles only flags this
+        /// big too, so nothing is let go and settled by turns.
+        /// </summary>
+        public const float KeepPixels = 24f;
+        public const float ReleaseSeconds = 30f;
 
         /// <summary>
         /// At most this many flags move in one frame, the biggest on the screen first. Was 48 until
@@ -1209,6 +1235,7 @@ namespace RealFlag.Flags
         private void Refresh(Vector3 eye, Plane[] planes)
         {
             _gone.Clear();
+            float now = Time.realtimeSinceStartup;
 
             foreach (FlagInstance f in _flags)
             {
@@ -1239,6 +1266,7 @@ namespace RealFlag.Flags
 
                 Place(f, anchor, angle);
                 Cull(f, eye, planes);
+                KeepOrRelease(f, now);
                 ChooseDetail(f);
                 ChooseRefine(f);
                 UpdatePole(f, planes);
@@ -1246,6 +1274,87 @@ namespace RealFlag.Flags
 
             foreach (uint prop in _gone)
                 Remove(prop);
+        }
+
+        /// <summary>
+        /// A flag out of view and under <see cref="KeepPixels"/> for <see cref="ReleaseSeconds"/>
+        /// lets its cloth go (<see cref="ReleaseUnseen"/>); in view, or big enough, it keeps it.
+        /// Never the selected flag, one being handled, or one whose still shape is being made.
+        /// </summary>
+        private void KeepOrRelease(FlagInstance f, float now)
+        {
+            if (f.Visible || f.Pixels >= KeepPixels)
+            {
+                f.UnseenSince = 0f;
+                return;
+            }
+
+            if (f.Cloth == null && f.Pose == null)
+                return;
+
+            if (f.UnseenSince == 0f)
+            {
+                f.UnseenSince = now;
+                return;
+            }
+
+            if (now - f.UnseenSince < ReleaseSeconds || f.Prop == FlagEditor.Selected || f.AwakeUntil > now || f.Pose != null)
+                return;
+
+            ReleaseUnseen(f);
+        }
+
+        /// <summary>
+        /// The flag's cloth, mesh, city and pole let go, and everything that would hold a reference
+        /// to them (a kept shape for like flags, a shared motion), the flag put back to how a new
+        /// one stands before its cloth is made: PlanFlag makes it again when the flag is next in
+        /// view (its pick volume gone meanwhile, the game's own test finds it: FlagPatches).
+        /// </summary>
+        private void ReleaseUnseen(FlagInstance f)
+        {
+            Release(f);
+            ForgetSettled(f);
+            f.Follow = null;
+            f.FollowCloth = null;
+            f.FollowShown = float.NaN;
+            f.FromX = f.FromY = f.FromZ = null;
+            f.Settled = false;
+            f.SettleLeft = SettleTime;
+            f.SurfaceAt = 0f;
+            f.SurfaceStale = false;
+            f.CapsulesAt = 0f;
+            f.CapsulesTopFor = null;
+            f.LaidOut = false;
+            f.PoseWanted = true;
+            f.WindAt10 = -1f;
+            f.Waiting = false;
+            f.WaitedLast = false;
+            f.Pending = 0f;
+            f.Fresh = false;
+            f.MeshDirty = true;
+            f.BlockReady = false;
+            f.UnseenSince = 0f;
+            _released++;
+        }
+
+        private readonly List<ShareKey> _pruneKeys = new List<ShareKey>();
+        private int _released;
+
+        /// <summary>The shapes kept for like flags no longer name this flag (its cloth is going).</summary>
+        private void ForgetSettled(FlagInstance f)
+        {
+            if (_settledLike.Count == 0)
+                return;
+
+            _pruneKeys.Clear();
+            foreach (KeyValuePair<ShareKey, SettledLike> kv in _settledLike)
+            {
+                if (kv.Value.Flag == f)
+                    _pruneKeys.Add(kv.Key);
+            }
+
+            foreach (ShareKey k in _pruneKeys)
+                _settledLike.Remove(k);
         }
 
         /// <summary>A paused game steps this flag for a moment: it is being handled (ClothPlan.PausedTime).</summary>
@@ -1580,6 +1689,13 @@ namespace RealFlag.Flags
                 return;
 
             Release(f);
+            ForgetSettled(f);
+            // Last frame's in-view order may still hold it (InView): nothing of it is planned again.
+            f.HasAnchor = false;
+            f.Visible = false;
+            f.InOrder = false;
+            f.Follow = null;
+            f.FollowCloth = null;
             _byProp.Remove(prop);
             _flags.Remove(f);
             _heightFixed.Remove(prop);
@@ -1839,7 +1955,9 @@ namespace RealFlag.Flags
             int n = 0;
             foreach (FlagInstance f in _flags)
             {
-                if (!f.HasAnchor || f.Visible || f.Pixels < MovePixels)
+                // Only the flags big enough to keep their cloth out of view (KeepPixels): smaller
+                // ones would be settled here and let go again by turns.
+                if (!f.HasAnchor || f.Visible || f.Pixels < KeepPixels)
                     continue;
 
                 bool due = f.Spec.Motion == FlagMotion.Waves ? f.Cloth == null || !f.Settled : f.Cloth == null || f.Pose != null;
@@ -2009,7 +2127,21 @@ namespace RealFlag.Flags
         /// </summary>
         private int InView()
         {
+            // Last frame's order first, less the flags no longer in view (or gone): the ones still
+            // there keep their places, so the insertion sort below moves only what the frame moved.
+            // The first version refilled it from the flags' list each frame (prop order: random in
+            // size), so the sort was the count squared every frame: a million moves at 2000 in
+            // view (the 2026-11-07 sweep).
             int n = 0;
+            for (int i = 0; i < _orderUsed; i++)
+            {
+                FlagInstance f = _order[i];
+                if (f.HasAnchor && f.Visible)
+                    _order[n++] = f;
+                else
+                    f.InOrder = false;
+            }
+
             foreach (FlagInstance f in _flags)
             {
                 if (!f.HasAnchor)
@@ -2019,9 +2151,14 @@ namespace RealFlag.Flags
                 {
                     f.Pending = 0f;
                     f.Waiting = false;
+                    f.InOrder = false;
                     continue;
                 }
 
+                if (f.InOrder)
+                    continue;
+
+                f.InOrder = true;
                 if (n == _order.Length)
                     Array.Resize(ref _order, n * 2);
                 _order[n++] = f;
@@ -2309,6 +2446,18 @@ namespace RealFlag.Flags
             }
 
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
+
+            // Settled and not moving this frame (small on the screen, or past MaxMoving): nothing
+            // of the city, the wind or the air is worth reading for it -- its city is read again
+            // when it next moves (KeepOffCity: old or stale by then), its wind taken afresh
+            // (FollowWind's gap). The pick volume's axis alone. Every flag in view paid for all of
+            // it each frame before, the thousands past the 160 that move included (the sweep).
+            if (f.Settled && !moving)
+            {
+                f.WindDir = wind.DirectionFor(f.Angle);
+                f.Pending = 0f;
+                return;
+            }
 
             // The city round it: at once for a flag about to settle (it must not settle through a
             // roof), while the frame has room for those reads; a new cloth laid out the first way
@@ -3461,10 +3610,11 @@ namespace RealFlag.Flags
                 f.ImageVersion = FlagImages.UserVersion;
             }
 
-            // The particles' texture: the shape the vertex program lays the drawn grid on.
+            // The particles' texture: the shape the vertex program lays the drawn grid on. A shadow
+            // only while the flag is big enough on the screen for one to be seen (ShadowPixels).
             f.Mesh.Bind(f.Block);
             Graphics.DrawMesh(f.Mesh.Mesh, Matrix4x4.TRS(f.Anchor, Quaternion.identity, Vector3.one), _material, _layer, _camera, 0,
-                              f.Block, true, true);
+                              f.Block, f.Pixels >= ShadowPixels, true);
 
             if (!_loggedFirstDraw)
             {
@@ -3506,7 +3656,7 @@ namespace RealFlag.Flags
             }
 
             Graphics.DrawMesh(f.PoleMesh, FlagPoleMesh.Placement(f.Anchor, f.PoleShape, f.Hoist, f.Fly), _poleMaterial, _layer, _camera, 0,
-                              f.PoleBlock, true, true);
+                              f.PoleBlock, f.Pixels >= ShadowPixels, true);
         }
 
         /// <summary>
@@ -3707,7 +3857,8 @@ namespace RealFlag.Flags
                 }
 
                 Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept), " +
-                           VisibleCount + " in view (" + unshown + " not drawn yet: settling), settled in " + seconds.ToString("F0") + " s: " +
+                           VisibleCount + " in view (" + unshown + " not drawn yet: settling" +
+                           (_released > 0 ? "; " + _released + " cloth(s) let go out of view so far" : "") + "), settled in " + seconds.ToString("F0") + " s: " +
                            _settledSeen + " in view, " + _settledUnseen + " out of view, " + _settleCopies + " from a like flag's shape; " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
                            (_costMs / frames).ToString("F3") + " ms a frame (" + (_waitMs / frames).ToString("F3") +

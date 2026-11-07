@@ -52,6 +52,23 @@ namespace RealFlag.Flags
 
         /// <summary>Set by the thread: what a job threw (its cloth is laid out again by the owner).</summary>
         public Exception Failure;
+
+        /// <summary>
+        /// Work of another kind, no cloth of its own (string flags' posing and their cords,
+        /// StringSpan.SpanWork): run whole as the job, its results in its own fields. Every other
+        /// field is left alone.
+        /// </summary>
+        public IClothWork Work;
+    }
+
+    /// <summary>
+    /// A job that is not a cloth's steps (ClothJob.Work), run whole on the cloth's thread: managed
+    /// maths only, nothing of the engine in it (Invariant 1). Returns its work in particle steps'
+    /// worth (a playback's scale, ClothWorker.PlayShare), for the batch's cost.
+    /// </summary>
+    public interface IClothWork
+    {
+        long Run();
     }
 
     /// <summary>
@@ -1147,6 +1164,10 @@ namespace RealFlag.Flags
         /// </summary>
         public static long Execute(ref ClothJob job)
         {
+            // Work of another kind (string flags' posing): whole, on this thread.
+            if (job.Work != null)
+                return job.Work.Run();
+
             FlagCloth cloth = job.Cloth;
             long work = 0;
 

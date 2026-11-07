@@ -41,6 +41,12 @@ namespace RealFlag.Flags
             Mesh.MarkDynamic();
         }
 
+        /// <summary>A flag's vertices (its grid's particles).</summary>
+        public int VerticesPerFlag
+        {
+            get { return _count; }
+        }
+
         /// <summary>How many flags of a grid this size one mesh can hold.</summary>
         public static int MostFlags(int columns, int rows)
         {
@@ -142,6 +148,28 @@ namespace RealFlag.Flags
             Mesh.SetColors(_colors);
         }
 
+        /// <summary>Flag <paramref name="f"/>'s atlas cell alone (its design otherwise as it was): the atlas moved on.</summary>
+        public void Cell(int f, int pattern, int cell)
+        {
+            if (f >= Flags)
+                return;
+
+            float code = pattern + 16f * cell;
+            int o = f * _count;
+            for (int k = o; k < o + _count; k++)
+            {
+                Vector4 v = _uv1[k];
+                v.w = code;
+                _uv1[k] = v;
+            }
+        }
+
+        /// <summary>The cells to the GPU, after Cell for every flag: the one channel they live in.</summary>
+        public void ApplyCells()
+        {
+            Mesh.SetUVs(1, _uv1);
+        }
+
         /// <summary>
         /// Flag <paramref name="f"/> where it hangs: its source's places at <paramref name="time"/>
         /// (the source's frame: a level hoist along X, the fly down, Z square), z times
@@ -235,6 +263,19 @@ namespace RealFlag.Flags
         private readonly List<Vector2> _uv = new List<Vector2>();
         private readonly List<int> _triangles = new List<int>();
         private int _points = -1, _kind = -1;
+        private bool _topology, _filled;
+
+        /// <summary>The tube's ring, once: each side's cosine and sine (twelve trig calls a point, every frame, before).</summary>
+        private static readonly float[] RingCos = new float[Sides], RingSin = new float[Sides];
+
+        static StringCordMesh()
+        {
+            for (int s = 0; s < Sides; s++)
+            {
+                RingCos[s] = Mathf.Cos(s * 2f * Mathf.PI / Sides);
+                RingSin[s] = Mathf.Sin(s * 2f * Mathf.PI / Sides);
+            }
+        }
 
         public StringCordMesh()
         {
@@ -245,9 +286,21 @@ namespace RealFlag.Flags
         /// <summary>
         /// The cord through <paramref name="points"/> (relative to the origin), each with the
         /// direction it hangs (<paramref name="downs"/>, unit, square to the string), of this kind,
-        /// thickness (a tape's width) and part (FlagPole.shader: 0 painted, 2 rope).
+        /// thickness (a tape's width) and part (FlagPole.shader: 0 painted, 2 rope): filled and
+        /// sent to the GPU in one (the preview).
         /// </summary>
         public void Build(List<Vector3> points, List<Vector3> downs, int kind, float thickness, Bounds bounds)
+        {
+            Fill(points, downs, kind, thickness);
+            Apply(bounds);
+        }
+
+        /// <summary>
+        /// The cord's vertices, normals and uvs into this object's lists (managed maths only: the
+        /// cloth's thread does it, StringSpan.SpanWork); <see cref="Apply"/> sends them. The
+        /// triangles are made again only when the point count or the kind changed.
+        /// </summary>
+        public void Fill(List<Vector3> points, List<Vector3> downs, int kind, float thickness)
         {
             int n = points.Count;
             if (n < 2)
@@ -255,7 +308,7 @@ namespace RealFlag.Flags
 
             bool tape = kind == StringKind.Tape;
             int ring = tape ? 4 : Sides;
-            bool topology = n != _points || kind != _kind;
+            _topology |= n != _points || kind != _kind;
             _points = n;
             _kind = kind;
 
@@ -290,15 +343,14 @@ namespace RealFlag.Flags
                     float radius = 0.5f * thickness;
                     for (int s = 0; s < Sides; s++)
                     {
-                        float a = s * 2f * Mathf.PI / Sides;
                         _vertices.Add(points[p]);
-                        _normals.Add(side * Mathf.Cos(a) + down * Mathf.Sin(a));
+                        _normals.Add(side * RingCos[s] + down * RingSin[s]);
                         _uv.Add(new Vector2(part, radius));
                     }
                 }
             }
 
-            if (topology)
+            if (_topology)
             {
                 _triangles.Clear();
                 for (int p = 0; p + 1 < n; p++)
@@ -322,7 +374,21 @@ namespace RealFlag.Flags
                         _triangles.Add(o + s1); _triangles.Add(q + s); _triangles.Add(q + s1);
                     }
                 }
+            }
 
+            _filled = true;
+        }
+
+        /// <summary>What <see cref="Fill"/> made, to the GPU (the main thread): the uvs and triangles only with a new topology (they do not change with the swing).</summary>
+        public void Apply(Bounds bounds)
+        {
+            if (!_filled)
+                return;
+
+            _filled = false;
+            if (_topology)
+            {
+                _topology = false;
                 Mesh.Clear();
                 Mesh.SetVertices(_vertices);
                 Mesh.SetNormals(_normals);
@@ -333,7 +399,6 @@ namespace RealFlag.Flags
             {
                 Mesh.SetVertices(_vertices);
                 Mesh.SetNormals(_normals);
-                Mesh.SetUVs(0, _uv);
             }
 
             Mesh.bounds = bounds;

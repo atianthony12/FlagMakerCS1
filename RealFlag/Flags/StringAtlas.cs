@@ -42,10 +42,15 @@ namespace RealFlag.Flags
         private readonly HashSet<string> _queued = new HashSet<string>();
         private readonly HashSet<string> _failed = new HashSet<string>();
         private int _next;
-        private bool _dirty;
+        private bool _dirty, _versionDue;
         private float _nextUpload;
 
-        /// <summary>Moves on when a cell is added: the spans' meshes take their cells again.</summary>
+        /// <summary>
+        /// Moves on when cells were added AND the texture carrying them has gone to the GPU (at most
+        /// every UploadInterval), or the atlas was made again: the spans' meshes take their cells
+        /// again. It moved on at every bake before, so while 150 countries baked (one a frame)
+        /// every span in view was redesigned every frame for 150 frames (the 2026-11-07 sweep).
+        /// </summary>
         public int Version { get; private set; }
 
         public Texture2D Texture
@@ -129,13 +134,18 @@ namespace RealFlag.Flags
             }
 
             if (baked > 0)
-                Version++;
+                _versionDue = true;
 
             if (_dirty && now >= _nextUpload && _texture != null)
             {
                 _texture.Apply(false, false);
                 _dirty = false;
                 _nextUpload = now + UploadInterval;
+                if (_versionDue)
+                {
+                    _versionDue = false;
+                    Version++;
+                }
             }
         }
 

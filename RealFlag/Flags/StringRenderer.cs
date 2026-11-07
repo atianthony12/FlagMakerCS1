@@ -36,6 +36,14 @@ namespace RealFlag.Flags
         /// <summary>Most steps a source takes a frame (catching up after a slow frame), and while it warms up.</summary>
         public const int MaxSourceSteps = 4, WarmSteps = 12;
 
+        /// <summary>
+        /// The batch's room: this many milliseconds of each thread per 1/60 s of frame (the flags'
+        /// FlagRenderer.BatchBudget), more in a longer frame. The spans' posing is spent first
+        /// (what is drawn), then the sources' steps, the biggest on the screen first; a source the
+        /// room runs out before holds its time, up to four steps, and its flags hold with it.
+        /// </summary>
+        public const double BatchBudget = 8.0;
+
         /// <summary>The buffer's segments looked at a frame for spans the renderer does not know yet.</summary>
         public const int ScanPerFrame = 2048;
 
@@ -45,8 +53,27 @@ namespace RealFlag.Flags
         private bool _ready;
         private readonly ClothWorker _worker = new ClothWorker();
         private readonly List<StringMotion.Source> _planned = new List<StringMotion.Source>();
-        private readonly List<ClothJob> _plannedJobs = new List<ClothJob>();
+        private readonly List<Span> _works = new List<Span>();
+        private readonly List<Due> _due = new List<Due>();
+        private readonly List<ushort> _changed = new List<ushort>();
         private readonly Dictionary<ushort, Span> _spans = new Dictionary<ushort, Span>();
+
+        /// <summary>A source with steps due this frame, before the room is shared out.</summary>
+        private struct Due
+        {
+            public StringMotion.Source Source;
+            public int Steps;
+            public float Size, Pixels;
+            public bool Warming;
+        }
+
+        /// <summary>The biggest on the screen first (one delegate, kept: List.Sort with a new lambda allocates on Mono).</summary>
+        private static readonly Comparison<Due> ByPixels = (a, b) => b.Pixels.CompareTo(a.Pixels);
+
+        /// <summary>The cost of a particle step on the thread, ms (the flags' FlagRenderer measures its own the same way): a slow average over the batches.</summary>
+        private double _unitCost = 0.0015;
+        private long _sampleWork;
+        private double _sampleMs;
         private readonly Dictionary<StringMotion.SourceKey, StringMotion.Source> _sources = new Dictionary<StringMotion.SourceKey, StringMotion.Source>();
         private readonly List<StringMotion.SourceKey> _drop = new List<StringMotion.SourceKey>();
         private readonly StringAtlas _atlas = new StringAtlas();
@@ -69,11 +96,12 @@ namespace RealFlag.Flags
         private ushort _hovered;
 
         // The 5 s line.
-        private readonly Stopwatch _cost = new Stopwatch();
-        private double _costMs;
-        private int _costFrames, _drawnSpans, _drawnFlags, _stillFlags, _stepped;
+        private readonly Stopwatch _cost = new Stopwatch(), _wait = new Stopwatch();
+        private double _costMs, _waitMs;
+        private int _costFrames, _drawnSpans, _drawnFlags, _stillFlags, _stepped, _posedSpans, _halfSpans, _held;
         private float _nextReport;
         private bool _loggedFirst;
+        private int _stepFailures, _workFailures;
 
         // A frame that threw: counted, said with its stack for the first few (FrameFailed).
         private int _frameFailures, _frameFailuresSaid;
@@ -109,8 +137,13 @@ namespace RealFlag.Flags
             _cordMaterial = new Material(cord) { name = "RealFlag string" };
             _layer = PropLayerOf();
 
+            // As many threads as the flags' (the "CPU threads for cloth" option, Auto = one per six
+            // processors): they step the sources and pose every span in view.
             string problem;
-            string stepping = _worker.Start(1, out problem) ? "its cloth on a thread of its own" : "its cloth on the main thread (" + problem + ")";
+            int threads = ClothWorker.ThreadsFor(SystemInfo.processorCount, Settings.ClothThreads != null ? Settings.ClothThreads.value : Settings.Defaults.ClothThreads);
+            string stepping = _worker.Start(threads, out problem)
+                ? "its cloth and its posing on " + _worker.Threads + " thread(s) of their own"
+                : "its cloth on the main thread (" + problem + ")";
             _ready = true;
             Log.Msg("strings: renderer ready -- shader '" + flags.name + "' (" + _flagMaterial.passCount + " passes), " + StringRegistry.Count +
                     " saved span design(s), network " + (StringPrefab.Info != null ? "index " + StringPrefab.Info.m_prefabDataIndex : "MISSING") + ", " + stepping);
@@ -249,6 +282,13 @@ namespace RealFlag.Flags
             {
                 if (s.Points.Count < 2)
                     continue;
+                // Its box first, grown by the pick's reach at its distance (the flags' hang is in
+                // it already): every cord point of every span was tested before.
+                var box = new Bounds(s.Bounds.center + s.A, s.Bounds.size);
+                float far = Mathf.Sqrt(box.SqrDistance(ray.origin)) + box.extents.magnitude;
+                box.Expand(2f * pixels / ppr * far);
+                if (!box.IntersectRay(ray))
+                    continue;
                 for (int i = 0; i + 1 < s.Points.Count; i++)
                 {
                     Vector3 p = s.A + s.Points[i], q = s.A + s.Points[i + 1];
@@ -318,25 +358,61 @@ namespace RealFlag.Flags
             _cost.Reset();
             _cost.Start();
 
-            if (!_worker.Wait())
+            _wait.Reset();
+            _wait.Start();
+            bool back = _worker.Wait();
+            _wait.Stop();
+            _waitMs += _wait.Elapsed.TotalMilliseconds;
+            if (!back)
             {
                 Log.Warn("strings: the cloth's thread did not come back; strings stop moving");
                 _ready = false;
                 return;
             }
 
-            // The batch's jobs as the thread left them (in the order they were added: the planned sources').
+            // The batch's jobs as the thread left them, in the order they were added: the planned
+            // sources' first, then the spans' work (StringSpan.SpanWork).
             ClothJob[] done = _worker.Jobs;
-            for (int i = 0; i < _planned.Count && i < _worker.Count; i++)
+            int count = _worker.Count;
+            for (int i = 0; i < _planned.Count && i < count; i++)
             {
                 ClothJob job = done[i];
-                if (job.Failure != null)
-                    Log.Warn("strings: a source's step threw: " + job.Failure.Message);
+                if (job.Failure != null && _stepFailures++ == 0)
+                    Log.Error("strings: a source's step threw (said once; the source is laid out again)", job.Failure);
                 _planned[i].Took(ref job);
             }
 
+            for (int i = _planned.Count; i < count; i++)
+            {
+                if (done[i].Failure != null && _workFailures++ == 0)
+                    Log.Error("strings: posing a span on the thread threw (said once; the span keeps its last pose)", done[i].Failure);
+            }
+
+            foreach (Span s in _works)
+            {
+                if (s.WorkOut)
+                    s.TakeWork();
+                else
+                    s.DropWork();
+            }
+
+            // The cost of a particle step (a posed vertex a share of one: StringSpan.PoseShare),
+            // sampled every 2000 of them: the room a source's steps take (PlanBatch).
+            if (count > 0 && _worker.LastParticleSteps > 0)
+            {
+                _sampleWork += _worker.LastParticleSteps;
+                _sampleMs += _worker.LastMilliseconds;
+                if (_sampleWork >= 2000)
+                {
+                    double sample = Math.Max(1e-5, Math.Min(_sampleMs / _sampleWork, 0.05));
+                    _unitCost = 0.9 * _unitCost + 0.1 * sample;
+                    _sampleWork = 0;
+                    _sampleMs = 0.0;
+                }
+            }
+
+            _works.Clear();
             _planned.Clear();
-            _plannedJobs.Clear();
             _worker.Clear();
 
             try
@@ -373,7 +449,7 @@ namespace RealFlag.Flags
                 for (int i = 0; i < _ghostCount; i++)
                     Frame(_ghosts[i], dt, planes, eye);
 
-                PlanSources(dt);
+                PlanBatch(dt, realDt);
             }
             catch (Exception e)
             {
@@ -408,11 +484,15 @@ namespace RealFlag.Flags
         /// <summary>The network as it is: spans gone, moved or new; designs for spans made by others.</summary>
         private void Sync()
         {
-            // The registry's spans (the tool's, Move It's pastes, the save's): known at once.
+            // The registry's spans (the tool's, Move It's pastes, the save's): known at once. Only
+            // the spans Set since last time are compared (a slider on a long chain Sets every span
+            // of it, four times a second: comparing them all against all, twice encoded each,
+            // grew as the square).
             int version = StringRegistry.Version;
             if (version != _registryVersion)
             {
                 _registryVersion = version;
+                bool all = StringRegistry.TakeChanged(_changed);
                 StringRegistry.KeysTo(_keys);
                 foreach (ushort k in _keys)
                 {
@@ -420,20 +500,18 @@ namespace RealFlag.Flags
                         Join(k);
                 }
 
-                foreach (Span s in _spans.Values)
+                if (all)
                 {
-                    StringSpec spec;
-                    if (StringRegistry.TryGet(s.Segment, out spec) && !spec.Same(s.Spec))
+                    foreach (Span s in _spans.Values)
+                        Redesign(s);
+                }
+                else
+                {
+                    foreach (ushort k in _changed)
                     {
-                        bool shape = spec.Along != s.Spec.Along || spec.Hang != s.Spec.Hang || spec.Spacing != s.Spec.Spacing || spec.Gap != s.Spec.Gap ||
-                                     spec.Count != s.Spec.Count || spec.Margin != s.Spec.Margin || spec.Sag != s.Spec.Sag;
-                        s.Spec = spec;
-                        s.DesignsDirty = true;
-                        if (shape)
-                        {
-                            Lay(s);
-                            _chainsDirty = true;
-                        }
+                        Span s;
+                        if (_spans.TryGetValue(k, out s))
+                            Redesign(s);
                     }
                 }
             }
@@ -490,6 +568,25 @@ namespace RealFlag.Flags
 
             if (_gone.Count > 0 && Log.Detailed)
                 Log.Detail("strings: " + _gone.Count + " span(s) gone (bulldozed, moved away by another tool, or removed)");
+        }
+
+        /// <summary>A span whose design the registry may have changed: taken if it did, laid again if its shape did.</summary>
+        private void Redesign(Span s)
+        {
+            StringSpec spec;
+            if (!StringRegistry.TryGet(s.Segment, out spec) || spec.Same(s.Spec))
+                return;
+
+            bool shape = spec.Along != s.Spec.Along || spec.Hang != s.Spec.Hang || spec.Spacing != s.Spec.Spacing || spec.Gap != s.Spec.Gap ||
+                         spec.Count != s.Spec.Count || spec.Margin != s.Spec.Margin || spec.Sag != s.Spec.Sag;
+            s.Spec = spec;
+            s.DesignsDirty = true;
+            s.CordDirty = true;
+            if (shape)
+            {
+                Lay(s);
+                _chainsDirty = true;
+            }
         }
 
         /// <summary>A span the renderer did not know: its design from the registry, or -- made by another tool -- the new string's.</summary>
@@ -559,6 +656,13 @@ namespace RealFlag.Flags
 
         private void Frame(Span s, float dt, Plane[] planes, Vector3 eye)
         {
+            // Out of view by its ends and its sag alone: nothing of it this frame (its swing waits where it is).
+            if (!s.QuickVisible(planes))
+            {
+                s.Visible = false;
+                return;
+            }
+
             StringSpec spec = s.Spec;
             Vector3 chord = s.B - s.A;
 
@@ -592,18 +696,34 @@ namespace RealFlag.Flags
             Vector4 highlight = s.Segment != 0 && _hovered == s.Segment ? new Vector4(0.45f, 0.35f, 0.05f, 1f)
                               : s.Segment != 0 && _selected.Contains(s.Segment) ? new Vector4(0.25f, 0.2f, 0.03f, 1f) : Vector4.zero;
 
-            DrawCord(s, highlight);
+            // The cord and the flags as the thread last filled them (the frame before); what they
+            // need next is set up for this frame's batch (StringSpan: the thread's part of the frame).
+            bool work = s.PrepareCord();
+            if (s.CordReady)
+                DrawCord(s, highlight);
 
-            if (flagPixels < DrawPixels || s.Layout.Count == 0)
-                return;
+            if (flagPixels >= DrawPixels && s.Layout.Count > 0)
+            {
+                bool still = spec.Motion != FlagMotion.Waves || flagPixels < WavePixels;
+                int flags;
+                if (s.PrepareFlags(SourceFor, _atlas, CountryNames.Order, speed, angle, still, flagPixels, out flags))
+                {
+                    work = true;
+                    _posedSpans++;
+                    if (!still && flagPixels < StringMotion.FullRatePixels)
+                        _halfSpans++;
+                }
 
-            bool still = spec.Motion != FlagMotion.Waves || flagPixels < WavePixels;
-            DrawFlags(s, speed, angle, still, highlight);
+                if (s.FlagsReady)
+                    DrawFlags(s, flags, still, highlight);
+            }
+
+            if (work)
+                _works.Add(s);
         }
 
         private void DrawCord(Span s, Vector4 highlight)
         {
-            s.BuildCord();
             if (s.CordBlock == null)
                 s.CordBlock = new MaterialPropertyBlock();
             Vector4 colour = FlagLook.Linear(s.Spec.Colour);
@@ -613,24 +733,20 @@ namespace RealFlag.Flags
             Graphics.DrawMesh(s.Cord.Mesh, Matrix4x4.TRS(s.A, Quaternion.identity, Vector3.one), _cordMaterial, _layer, _camera, 0, s.CordBlock, true, true);
         }
 
-        private void DrawFlags(Span s, float speed, float angle, bool still, Vector4 highlight)
+        private void DrawFlags(Span s, int flags, bool still, Vector4 highlight)
         {
-            int posed;
-            if (!s.PoseFlags(SourceFor, _atlas, CountryNames.Order, speed, angle, still, out posed))
-                return;
-
             if (s.Block == null)
                 s.Block = new MaterialPropertyBlock();
             s.Block.SetVector(IdHighlight, highlight);
             Graphics.DrawMesh(s.Flags.Mesh, Matrix4x4.TRS(s.A, Quaternion.identity, Vector3.one), _flagMaterial, _layer, _camera, 0, s.Block, true, true);
             _drawnSpans++;
-            _drawnFlags += posed;
+            _drawnFlags += flags;
             if (still)
-                _stillFlags += posed;
+                _stillFlags += flags;
             if (!_loggedFirst)
             {
                 _loggedFirst = true;
-                Log.Msg("strings: first string drawn (" + posed + " flags of " + s.Columns + "x" + s.Rows + " particles, " + s.Spec.Describe() + ")");
+                Log.Msg("strings: first string drawn (" + flags + " flags of " + s.Columns + "x" + s.Rows + " particles, " + s.Spec.Describe() + ")");
             }
         }
 
@@ -651,9 +767,15 @@ namespace RealFlag.Flags
             return source;
         }
 
-        private void PlanSources(float dt)
+        /// <summary>
+        /// The frame's batch: the sources with steps due, the biggest on the screen first while the
+        /// room lasts (<see cref="BatchBudget"/>; the spans' posing is spent first, being what is
+        /// drawn), then the spans' work. The sources' jobs go in first: Took reads them back by index.
+        /// </summary>
+        private void PlanBatch(float dt, float realDt)
         {
             _drop.Clear();
+            _due.Clear();
             foreach (KeyValuePair<StringMotion.SourceKey, StringMotion.Source> kv in _sources)
             {
                 StringMotion.Source source = kv.Value;
@@ -663,22 +785,44 @@ namespace RealFlag.Flags
                     continue;
                 }
 
-                ClothJob job;
-                if (!source.Plan(dt, MaxSourceSteps, WarmSteps, _wind.Gusts, _wind.FromWeatherMod, out job))
+                float size;
+                int steps = source.Due(dt, MaxSourceSteps, WarmSteps, out size);
+                if (steps <= 0)
                     continue;
 
-                _planned.Add(source);
-                _plannedJobs.Add(job);
-                _stepped += job.Steps;
+                _due.Add(new Due { Source = source, Steps = steps, Size = size, Pixels = source.WantedPixels, Warming = !source.Ready });
             }
 
             foreach (StringMotion.SourceKey k in _drop)
                 _sources.Remove(k);
 
-            // The worker keeps its own copies: the planned jobs come back through it.
-            for (int i = 0; i < _plannedJobs.Count; i++)
+            double budget = BatchBudget * Math.Max(1, _worker.Threads) * Mathf.Clamp(realDt * 60f, 1f, 4f);
+            double spent = 0.0;
+            foreach (Span s in _works)
+                spent += s.PredictedWork * _unitCost;
+
+            _due.Sort(ByPixels);
+            foreach (Due d in _due)
             {
-                ClothJob job = _plannedJobs[i];
+                double cost = d.Source.WorkFor(d.Steps, d.Size) * _unitCost;
+                // A new source warms up whatever the room (its flags hang from rest until it has); the rest wait their turn.
+                if (!d.Warming && spent > 0.0 && spent + cost > budget)
+                {
+                    _held++;
+                    continue;
+                }
+
+                spent += cost;
+                ClothJob job = d.Source.Commit(d.Steps, d.Size, _wind.Gusts, _wind.FromWeatherMod);
+                _planned.Add(d.Source);
+                _worker.Add(ref job);
+                _stepped += d.Steps;
+            }
+
+            foreach (Span s in _works)
+            {
+                s.WorkOut = true;
+                var job = new ClothJob { Work = s.Work };
                 _worker.Add(ref job);
             }
         }
@@ -694,19 +838,23 @@ namespace RealFlag.Flags
             _nextReport = _now + 5f;
             if (first || !Log.Detailed || _costFrames == 0)
             {
-                _costMs = 0;
+                _costMs = _waitMs = 0;
                 _costFrames = 0;
-                _drawnSpans = _drawnFlags = _stillFlags = _stepped = 0;
+                _drawnSpans = _drawnFlags = _stillFlags = _stepped = _posedSpans = _halfSpans = _held = 0;
                 return;
             }
 
-            Log.Detail("strings: " + _spans.Count + " span(s), drawn " + (_drawnSpans / Math.Max(1, _costFrames)) + " a frame with " +
-                       (_drawnFlags / Math.Max(1, _costFrames)) + " flags (" + (_stillFlags / Math.Max(1, _costFrames)) + " still: far or not waving); " +
-                       _sources.Count + " shared cloth(s), " + (_stepped / 5) + " steps/s on the thread (" + _worker.LastMilliseconds.ToString("F2") +
-                       " ms the last batch); main thread " + (_costMs / _costFrames).ToString("F2") + " ms a frame; atlas " + _atlas.Count + " design(s)");
-            _costMs = 0;
+            int frames = Math.Max(1, _costFrames);
+            Log.Detail("strings: " + _spans.Count + " span(s), drawn " + (_drawnSpans / frames) + " a frame with " +
+                       (_drawnFlags / frames) + " flags (" + (_stillFlags / frames) + " still: far or not waving), posed " + (_posedSpans / frames) +
+                       " a frame (" + (_halfSpans / frames) + " at half rate); " +
+                       _sources.Count + " shared cloth(s), " + (_stepped / 5) + " steps/s on " + Math.Max(1, _worker.Threads) + " thread(s) (" +
+                       _worker.LastMilliseconds.ToString("F2") + " ms the last batch, " + (_unitCost * 1000.0).ToString("F2") + " us a particle step, " +
+                       (_held / frames) + " source(s) a frame held for room); main thread " + (_costMs / frames).ToString("F2") + " ms a frame (" +
+                       (_waitMs / frames).ToString("F2") + " of it waiting for the thread); atlas " + _atlas.Count + " design(s)");
+            _costMs = _waitMs = 0;
             _costFrames = 0;
-            _drawnSpans = _drawnFlags = _stillFlags = _stepped = 0;
+            _drawnSpans = _drawnFlags = _stillFlags = _stepped = _posedSpans = _halfSpans = _held = 0;
         }
     }
 }
