@@ -32,6 +32,9 @@ namespace RealFlag.Flags
 
         private float[] _x = new float[0], _y = new float[0], _z = new float[0];
 
+        /// <summary>A source's sample, before it is mirrored and sheared into _x, _y, _z.</summary>
+        private float[] _sx = new float[0], _sy = new float[0], _sz = new float[0];
+
         public StringFlagsMesh()
         {
             Mesh = new Mesh { name = "RealFlag string flags" };
@@ -141,29 +144,45 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Flag <paramref name="f"/> where it hangs: its source's places at <paramref name="time"/>
-        /// (the source's frame: hoist along its slope in X-Y, Z square), turned by
-        /// <paramref name="residual"/> in X-Y (the string's slope less the source's), set in the
-        /// frame (ex, ey, ez) at <paramref name="anchor"/> (relative to the mesh's origin).
+        /// (the source's frame: a level hoist along X, the fly down, Z square), mirrored when its
+        /// wind comes from the other side (<paramref name="mirrorZ"/>: z negated; <paramref name="mirrorX"/>:
+        /// the hoist reversed), SHEARED to its string's slope (<paramref name="tanSlope"/>: the hoist
+        /// follows the string, the fly stays plumb, as cloth hangs), set in the frame (ex, ey, ez) at
+        /// <paramref name="anchor"/> (relative to the mesh's origin).
         /// </summary>
-        public bool Pose(int f, StringMotion.Source source, float time, float residual, Vector3 anchor, Vector3 ex, Vector3 ey, Vector3 ez)
+        public bool Pose(int f, StringMotion.Source source, float time, float tanSlope, bool mirrorX, bool mirrorZ, Vector3 anchor, Vector3 ex, Vector3 ey, Vector3 ez)
         {
             if (f >= Flags || source == null || source.Cloth.Count != _count)
                 return false;
-            if (!source.Record.Sample(time, _x, _y, _z))
+            if (_sx.Length < _count)
+            {
+                _sx = new float[_count];
+                _sy = new float[_count];
+                _sz = new float[_count];
+            }
+
+            if (!source.Record.Sample(time, _sx, _sy, _sz))
                 return false;
 
-            float cr = Mathf.Cos(residual), sr = Mathf.Sin(residual);
+            int cols = Columns, rows = Rows;
+            float hoist = source.Cloth.Height, zSign = mirrorZ ? -1f : 1f;
             int o = f * _count;
-            for (int k = 0; k < _count; k++)
+            for (int j = 0; j < rows; j++)
             {
-                float x = _x[k] * cr - _y[k] * sr, y = _x[k] * sr + _y[k] * cr, z = _z[k];
-                _x[k] = x;
-                _y[k] = y;
-                _vertices[o + k] = anchor + ex * x + ey * y + ez * z;
+                int from = (mirrorX ? rows - 1 - j : j) * cols, to = j * cols;
+                for (int i = 0; i < cols; i++)
+                {
+                    float x = mirrorX ? hoist - _sx[from + i] : _sx[from + i];
+                    float y = _sy[from + i] + x * tanSlope, z = _sz[from + i] * zSign;
+                    int k = to + i;
+                    _x[k] = x;
+                    _y[k] = y;
+                    _z[k] = z;
+                    _vertices[o + k] = anchor + ex * x + ey * y + ez * z;
+                }
             }
 
             // Normals from the grid (central differences; one-sided at the edges), in the same frame.
-            int cols = Columns, rows = Rows;
             for (int j = 0; j < rows; j++)
             {
                 int j0 = Math.Max(0, j - 1), j1 = Math.Min(rows - 1, j + 1);

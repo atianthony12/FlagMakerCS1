@@ -31,7 +31,7 @@ namespace RealFlag.Flags
         public const float WavePixels = 6f, DrawPixels = 1.5f;
 
         /// <summary>A source not wanted for this long is let go, seconds.</summary>
-        public const float SourceIdle = 5f;
+        public const float SourceIdle = 20f;
 
         /// <summary>Most steps a source takes a frame (catching up after a slow frame), and while it warms up.</summary>
         public const int MaxSourceSteps = 4, WarmSteps = 12;

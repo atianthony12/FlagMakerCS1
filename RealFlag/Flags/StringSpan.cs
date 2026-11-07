@@ -50,43 +50,13 @@ namespace RealFlag.Flags
         public readonly List<Vector3> Downs = new List<Vector3>();
         private Vector3 _swung = Vector3.down;
 
-        /// <summary>
-        /// The wind the flags' sources are found by, HELD: changed only when the wind at the span
-        /// has moved well past it (a quarter in speed, 22.5 degrees in angle), so a gusty wind
-        /// does not flick the flags from one shared cloth to another (each change a jump).
-        /// </summary>
-        private float _heldSpeed = -1f, _heldAngle;
+        /// <summary>The span's wind class (StringMotion.WindClass), held past its edges: -1 before the first.</summary>
+        private int _windClass = -1;
 
-        /// <summary>Each flag's slope step, held the same way (half a step past its edge before it changes).</summary>
-        private int[] _slopeStep = new int[0];
-
-        public const float HoldSpeed = 1.25f, HoldAngle = 22.5f;
-
-        private void HoldWind(float speed, float angle)
+        /// <summary>The span's wind class now, for the log and the tests.</summary>
+        public int WindClass
         {
-            if (_heldSpeed < 0f || speed > _heldSpeed * HoldSpeed || speed < _heldSpeed / HoldSpeed)
-                _heldSpeed = speed;
-            if (_heldSpeed == speed || Mathf.Abs(Mathf.DeltaAngle(angle, _heldAngle)) > HoldAngle)
-                _heldAngle = angle;
-        }
-
-        /// <summary>Flag k's slope, in the sources' steps, held: a new step only half a step past the old one's edge.</summary>
-        private float HeldSlope(int k, float degrees)
-        {
-            if (_slopeStep.Length <= k)
-            {
-                int was = _slopeStep.Length;
-                Array.Resize(ref _slopeStep, Math.Max(k + 1, Layout.Count));
-                for (int i = was; i < _slopeStep.Length; i++)
-                    _slopeStep[i] = int.MinValue;
-            }
-
-            float step = StringMotion.SourceKey.SlopeStep;
-            int now = Mathf.RoundToInt(degrees / step);
-            int held = _slopeStep[k];
-            if (held == int.MinValue || Mathf.Abs(degrees - held * step) > step)
-                _slopeStep[k] = held = now;
-            return held * step;
+            get { return _windClass; }
         }
 
         /// <summary>The curve and the flags' places along it, from the ends and the design.</summary>
@@ -100,7 +70,6 @@ namespace RealFlag.Flags
             Z = Vector3.Cross(X, Vector3.up);
             ShapeDirty = true;
             DesignsDirty = true;
-            _slopeStep = new int[0];
         }
 
         /// <summary>
@@ -201,21 +170,30 @@ namespace RealFlag.Flags
                 Designs(atlas, order, n);
 
             int motions = Spec.Motions > 0 ? Spec.Motions : StringMotion.AutoMotions(ChainLength > 1 ? n * 2 : n);
-            HoldWind(speed, angle);
+            // The wind's class across this span, held; from the other side, the same cloths mirrored.
+            bool mirrorZ, mirrorX;
+            float folded = StringMotion.WindClass.Fold(angle, out mirrorZ, out mirrorX);
+            _windClass = StringMotion.WindClass.For(folded, _windClass);
+            if (still)
+                mirrorZ = mirrorX = false;
+
             for (int k = 0; k < n; k++)
             {
                 float s0 = Layout.First + k * Layout.Pitch;
                 Vector3 a = Place(Curve.XAt(s0));
                 Vector3 e = Place(Curve.XAt(s0 + Layout.Along));
                 Vector3 t = e - a;
-                float slope = Mathf.Atan2(t.y, new Vector2(t.x, t.z).magnitude);
+                float level = new Vector2(t.x, t.z).magnitude;
+                float tanSlope = level > 1e-4f ? Mathf.Clamp(t.y / level, -3f, 3f) : 0f;
                 int index = Index(k);
 
-                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Shape, Spec.Depth, Spec.Waviness, SourceDetail, _heldSpeed, _heldAngle,
-                                                                        HeldSlope(k, slope * Mathf.Rad2Deg), StringMotion.SlotFor(index, motions), still);
+                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Shape, Spec.Depth, Spec.Waviness, SourceDetail, _windClass,
+                                                                        StringMotion.SlotFor(index, motions), still);
                 StringMotion.Source source = sourceFor(key);
+                source.Want(speed);
                 float time = source.Clock - (still ? 0f : StringMotion.DelayFor(index, Segment));
-                if (Flags.Pose(k, source, time, slope - key.SlopeRadians, a, X, Vector3.up, Z))
+                // Mirrored in the sample, not the frame: each flag's rows (and so its design) stay where they are on the string.
+                if (Flags.Pose(k, source, time, tanSlope, mirrorX, mirrorZ, a, X, Vector3.up, Z))
                     posed++;
             }
 
