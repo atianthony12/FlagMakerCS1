@@ -20,28 +20,44 @@ The first release.
   its weather or of its Now tab, its direction, and the gusts that bend its trees passing each flag.
 - **Designs**: every country's and territory's flag, fifteen patterns in your colours (previewed,
   and saved under a name for any city), or your own pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
-  stretched); width and height from 0.5 to 30 m, any shape from 1:5 to 5:1; hoisted from its side
-  or its top; waving, still or flat; how wavy, how dark.
+  stretched); width and height from 0.5 to 30 m, any proportions from 1:5 to 5:1; hoisted from its
+  side or its top; waving, still or flat; how wavy, how much of the wind reaches it (**Wind on it**:
+  a banner can hang and sway instead of standing out), how dark.
+- **Seven shapes**: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed or
+  rounded, with a Cut depth. The cloth itself is cut: a swallowtail's tails flap apart, a pennant's
+  point flies free, and the shadow is cut too.
 - **Wear and tear**: any flag worn (faded, its fly frayed), torn (its fly ripped to tatters like a
-  pirate's flag, pieces missing), dirty (grime, rain streaks) or holed (bullet holes, burns, tears;
-  through its shadow too), each flag its own.
+  pirate's flag, pieces missing; **Torn edges** rips its top and bottom too), dirty (grime, rain
+  streaks) or holed (bullet holes, burns, tears; through its shadow too), each flag its own.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
   Allow taller poles). The cloth keeps off its pole. A banner hoisted from its top has no pole.
-- **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default).
-- **Cloth detail** from Low to Extreme, finer near the camera. With more flags in view than the
-  CPU has time for, the smallest on the screen go coarser and slower first, so every flag keeps
-  moving.
+- **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default), with
+  **Detailed building shapes** reading buildings as they are drawn -- cornices, frames, columns --
+  not only their simple shapes. A banner hoisted from its top near a roof's edge hangs down the
+  facade instead of lying on the roof.
+- **Quality** (Settings tab): Low, Medium, High, Very high or Ultra sets the cloth's options at
+  once, or Custom. **Cloth detail** goes from Low to Extreme, finer near the camera. With more flags
+  in view than the CPU has time for, the smallest on the screen go coarser and slower first, so
+  every flag keeps moving.
 - **Cloth threads** (Settings tab): Auto, or more threads for more flags at full detail.
 - **Shared motion** (Settings tab, on by default): with many like flags in view, the smallest
-  share one cloth's motion, each at its own delay, before any goes coarser.
+  share one cloth's motion, each at its own delay, before any goes coarser. A crowd of six or more
+  like flags always does, so a street or a roundabout full of them stays smooth.
+- **Hundreds of flags**: a flag far out of view lets its cloth go after two minutes, and takes it
+  up again from a like flag's shape when it comes back into view.
 
 ### Placing and editing
 
 - **+ New flag**: the flag follows the pointer and stands on what is under it; the right button
-  turns it, Page Up and Page Down raise it.
+  turns it, Page Up and Page Down raise it. It starts from the last flag's settings. With **Snap to
+  edges**, a banner hoisted from its top snaps to the roof's edge under the pointer, along it or out
+  from it.
 - **The Flags tab** lists the city's flags (a double click takes the camera to one); a selected
   flag carries handles to move, turn, tilt and lean it, and every design setting applies to it live.
+  **Go to**, **Copy** (its design into the New flag window) and **Delete** (or the Del key; it asks
+  first).
+- **A reset icon** on every setting puts it back to its default.
 - **Line Tool**: with that mod on, the New flag window places rows of flags in a line, a curve,
   freeform or a circle, each flag previewed before the click.
 - **Move It** moves, copies, pastes and undoes flags with their designs. Procedural Objects'
@@ -57,8 +73,10 @@ The first release.
 
 ### Saved with the city
 
-- Every flag's design is saved with the city. A city whose flags this copy cannot read is left
-  untouched, and the mod stands down there with a message.
+- Every flag's design and height is saved with the city. A city whose flags this copy cannot read
+  is left untouched, and the mod stands down there with a message.
+- A city saved while the mod was off has lost its flags (the game lets go of props it has no
+  prefab for). With the mod back on, it runs in that city and lets the lost flags' designs go.
 
 ### Known at release
 
