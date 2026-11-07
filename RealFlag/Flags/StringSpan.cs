@@ -50,13 +50,25 @@ namespace RealFlag.Flags
         public readonly List<Vector3> Downs = new List<Vector3>();
         private Vector3 _swung = Vector3.down;
 
-        /// <summary>The span's wind class (StringMotion.WindClass), held past its edges: -1 before the first.</summary>
-        private int _windClass = -1;
+        /// <summary>The side its flags fly out to (StringMotion.OnString): the target (+1 / -1, held; 0 before the first) and where they are now, eased between.</summary>
+        private float _sideTarget, _side;
 
-        /// <summary>The span's wind class now, for the log and the tests.</summary>
-        public int WindClass
+        /// <summary>Where its flags are between the two sides now (+1: out to +Z), for the log and the tests.</summary>
+        public float Side
         {
-            get { return _windClass; }
+            get { return _side; }
+        }
+
+        /// <summary>
+        /// The side its flags fly out to, a step on, the wind blowing <paramref name="angle"/>
+        /// degrees from X towards Z: swung round over OnString.SideSeconds when the wind has come
+        /// round to the other side (and is SideHold past the string's line). The first call takes it at once.
+        /// </summary>
+        public void Steer(float dt, float angle)
+        {
+            bool first = _sideTarget == 0f;
+            _sideTarget = StringMotion.OnString.SideFor(angle, _sideTarget);
+            _side = first ? _sideTarget : StringMotion.OnString.Ease(_side, _sideTarget, dt);
         }
 
         /// <summary>The curve and the flags' places along it, from the ends and the design.</summary>
@@ -170,12 +182,12 @@ namespace RealFlag.Flags
                 Designs(atlas, order, n);
 
             int motions = Spec.Motions > 0 ? Spec.Motions : StringMotion.AutoMotions(ChainLength > 1 ? n * 2 : n);
-            // The wind's class across this span, held; from the other side, the same cloths mirrored.
-            bool mirrorZ, mirrorX;
-            float folded = StringMotion.WindClass.Fold(angle, out mirrorZ, out mirrorX);
-            _windClass = StringMotion.WindClass.For(folded, _windClass);
-            if (still)
-                mirrorZ = mirrorX = false;
+            // Every source flies across: the wind's angle scales the speed it is fed and picks the
+            // side the flags fly out to (never which cloth they play).
+            if (_sideTarget == 0f)
+                Steer(0f, angle);
+            float zScale = still ? 1f : StringMotion.OnString.ZScale(_side);
+            float fed = speed * StringMotion.OnString.Share(angle);
 
             for (int k = 0; k < n; k++)
             {
@@ -187,13 +199,13 @@ namespace RealFlag.Flags
                 float tanSlope = level > 1e-4f ? Mathf.Clamp(t.y / level, -3f, 3f) : 0f;
                 int index = Index(k);
 
-                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Shape, Spec.Depth, Spec.Waviness, SourceDetail, _windClass,
+                StringMotion.SourceKey key = StringMotion.SourceKey.For(Spec.Along, Spec.Hang, Spec.Shape, Spec.Depth, Spec.Waviness, SourceDetail,
                                                                         StringMotion.SlotFor(index, motions), still);
                 StringMotion.Source source = sourceFor(key);
-                source.Want(speed);
+                source.Want(fed);
                 float time = source.Clock - (still ? 0f : StringMotion.DelayFor(index, Segment));
-                // Mirrored in the sample, not the frame: each flag's rows (and so its design) stay where they are on the string.
-                if (Flags.Pose(k, source, time, tanSlope, mirrorX, mirrorZ, a, X, Vector3.up, Z))
+                // The side in the sample, not the frame: each flag's rows (and so its design) stay where they are on the string.
+                if (Flags.Pose(k, source, time, tanSlope, zScale, a, X, Vector3.up, Z))
                     posed++;
             }
 

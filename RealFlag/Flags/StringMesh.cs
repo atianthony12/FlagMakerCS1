@@ -144,13 +144,13 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Flag <paramref name="f"/> where it hangs: its source's places at <paramref name="time"/>
-        /// (the source's frame: a level hoist along X, the fly down, Z square), mirrored when its
-        /// wind comes from the other side (<paramref name="mirrorZ"/>: z negated; <paramref name="mirrorX"/>:
-        /// the hoist reversed), SHEARED to its string's slope (<paramref name="tanSlope"/>: the hoist
-        /// follows the string, the fly stays plumb, as cloth hangs), set in the frame (ex, ey, ez) at
-        /// <paramref name="anchor"/> (relative to the mesh's origin).
+        /// (the source's frame: a level hoist along X, the fly down, Z square), z times
+        /// <paramref name="zScale"/> (the span's side, StringMotion.OnString.ZScale: -1 the wind from
+        /// the other side, between while the flags swing round), SHEARED to its string's slope
+        /// (<paramref name="tanSlope"/>: the hoist follows the string, the fly stays plumb, as cloth
+        /// hangs), set in the frame (ex, ey, ez) at <paramref name="anchor"/> (relative to the mesh's origin).
         /// </summary>
-        public bool Pose(int f, StringMotion.Source source, float time, float tanSlope, bool mirrorX, bool mirrorZ, Vector3 anchor, Vector3 ex, Vector3 ey, Vector3 ez)
+        public bool Pose(int f, StringMotion.Source source, float time, float tanSlope, float zScale, Vector3 anchor, Vector3 ex, Vector3 ey, Vector3 ez)
         {
             if (f >= Flags || source == null || source.Cloth.Count != _count)
                 return false;
@@ -165,15 +165,14 @@ namespace RealFlag.Flags
                 return false;
 
             int cols = Columns, rows = Rows;
-            float hoist = source.Cloth.Height, zSign = mirrorZ ? -1f : 1f;
             int o = f * _count;
             for (int j = 0; j < rows; j++)
             {
-                int from = (mirrorX ? rows - 1 - j : j) * cols, to = j * cols;
+                int from = j * cols, to = j * cols;
                 for (int i = 0; i < cols; i++)
                 {
-                    float x = mirrorX ? hoist - _sx[from + i] : _sx[from + i];
-                    float y = _sy[from + i] + x * tanSlope, z = _sz[from + i] * zSign;
+                    float x = _sx[from + i];
+                    float y = _sy[from + i] + x * tanSlope, z = _sz[from + i] * zScale;
                     int k = to + i;
                     _x[k] = x;
                     _y[k] = y;

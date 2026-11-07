@@ -10,22 +10,30 @@ namespace RealFlag.Flags
     /// played by many instances at their own time offsets (crowd animation's way, GPU Gems 3 ch. 2,
     /// Dudash 2007; the mod's ClothShare does the same for like flags on poles).
     /// A source is found by its <see cref="SourceKey"/>: the flag itself (size, cut, waviness,
-    /// detail), which of three ways the wind crosses its span (along, oblique, across: a
-    /// <see cref="WindClass"/>), and which of the span's motions it is (<see cref="SourceKey.Slot"/>:
-    /// each slot's air is its own patch of the wind's field). NOT the wind of the moment: its speed
-    /// is fed to each source as it steps, eased (<see cref="Source.Want"/>), so a gust or a turning
-    /// wind changes how a cloth flies, never which cloth a flag plays -- the first version keyed the
-    /// speed (10% steps), the angle (15 degrees) and the string's slope (10 degrees), and the
-    /// author's run (2026-11-07 15:32-15:39, Volumetric Weather's gusts) made 1446 sources for two
-    /// spans, each starting from rest: "the cloth animation seems to be resetting every few
-    /// seconds". PURE.
+    /// detail) and which of the span's motions it is (<see cref="SourceKey.Slot"/>: each slot's
+    /// air is its own patch of the wind's field). NOTHING OF THE WIND: every source flies across
+    /// its string (<see cref="OnString.Angle"/>), in a speed fed to it as it steps, eased
+    /// (<see cref="Source.Want"/>) -- the wind's share across the string (<see cref="OnString.Share"/>,
+    /// the independence principle of yawed flow: the load goes with the normal component) -- and a
+    /// wind from the other side swings the flags round to it (<see cref="OnString.Ease"/>). So a gust
+    /// or a turning wind changes how a cloth flies, never which cloth a flag plays.
+    /// The first version keyed the speed (10% steps), the angle (15 degrees) and the slope (10
+    /// degrees): 1446 sources for two spans in the author's run (2026-11-07 15:32-15:39), each
+    /// starting from rest -- "the cloth animation seems to be resetting every few seconds". The
+    /// second kept three wind classes (along / oblique / across, mirrored): Volumetric Weather's
+    /// turning wind still crossed them every 10-40 s (16:09-16:13, one span: 'wind oblique',
+    /// 'along', 'across', 'oblique' ...), each a fresh cloth from rest -- "the animation keeps
+    /// resetting" (the author: "I don't mind turning down the quality / collision /
+    /// interactiveness of string flags much to make it work"). A source no flag plays this frame
+    /// (its spans out of view or far) is NOT stepped and kept as it is for <see cref="KeepSeconds"/>,
+    /// so looking back finds it where it was, not new. PURE.
     /// </summary>
     /// <remarks>
     /// A source's frame: its anchor (the top corner on the string) at the origin, the span's level
     /// direction along +X, up +Y, +Z square to the span (X x Y). Its hoist runs level along X and
-    /// the cloth hangs from it; the wind blows at its class's angle from X towards +Z. A flag takes
-    /// the sample in its span's axes, mirrored when its wind comes from the other side (-Z: z
-    /// negated; from -X: its hoist reversed), and sheared to its string's slope (the hoist follows
+    /// the cloth hangs from it; the wind blows <see cref="OnString.Angle"/> from X towards +Z. A flag
+    /// takes the sample in its span's axes, z times its span's side (+1 the wind from -Z's side
+    /// blowing to +Z, -1 the other, eased between), sheared to its string's slope (the hoist follows
     /// the string, the fly stays plumb): StringFlagsMesh.Pose.
     /// </remarks>
     public static class StringMotion
@@ -64,52 +72,61 @@ namespace RealFlag.Flags
             return flags <= 6 ? 1 : flags <= 20 ? 2 : flags <= 60 ? 3 : 4;
         }
 
+        /// <summary>A source no flag plays is kept (not stepped) this long, seconds, then let go.</summary>
+        public const float KeepSeconds = 300f;
+
         /// <summary>
-        /// How the wind crosses a span, folded by the cloth's two mirrors (from -Z it is the same
-        /// cloth with z negated; from -X, with its hoist reversed) into 0..90 degrees from the
-        /// string, in three classes -- along (0-30), oblique (30-60), across (60-90) -- each a
-        /// source's own steady direction (<see cref="Angle"/>). A span keeps its class until the
-        /// wind is <see cref="Hold"/> past the class's edge.
+        /// The wind on a string's flags, from where it blows: <c>degrees</c> from the span's X
+        /// towards its Z (90 = square to the string, towards +Z). Every source flies across;
+        /// the angle only scales the speed fed to it and picks the side the flags fly out to.
         /// </summary>
-        public static class WindClass
+        public static class OnString
         {
-            public const int Along = 0, Oblique = 1, Across = 2;
+            /// <summary>The direction every source flies in, degrees from the string (X) towards +Z (the old "across" class's).</summary>
+            public const float Angle = 75f;
 
-            /// <summary>Degrees past a class's edge before a span takes another.</summary>
-            public const float Hold = 7.5f;
+            /// <summary>The share of the wind's speed a string's flags fly in when it blows along the string: they still stir.</summary>
+            public const float AlongShare = 0.3f;
 
-            /// <summary>The direction a class's sources fly in, degrees from the string (X) towards +Z.</summary>
-            public static float Angle(int windClass)
+            /// <summary>Degrees past the string's line the wind must come from before the flags swing round to the other side.</summary>
+            public const float SideHold = 15f;
+
+            /// <summary>Seconds the flags take to swing round from one side to the other.</summary>
+            public const float SideSeconds = 2f;
+
+            /// <summary>The share of the wind's speed the flags fly in: AlongShare along the string, all of it square to it.</summary>
+            public static float Share(float degrees)
             {
-                return windClass == Along ? 15f : windClass == Oblique ? 45f : 75f;
+                float s = Math.Abs((float)Math.Sin(degrees * Math.PI / 180.0));
+                return AlongShare + (1f - AlongShare) * s;
             }
 
-            /// <summary>
-            /// The wind blowing <paramref name="degrees"/> from the span's X towards its Z, folded:
-            /// the angle in 0..90, and whether the sample is mirrored in z (wind from -Z) and in x (from -X).
-            /// </summary>
-            public static float Fold(float degrees, out bool mirrorZ, out bool mirrorX)
+            /// <summary>The side the flags fly out to (+1: +Z, -1: -Z), <paramref name="held"/> kept until the wind is SideHold past the string's line (0: none yet).</summary>
+            public static float SideFor(float degrees, float held)
             {
-                float a = degrees % 360f;
-                if (a < 0f)
-                    a += 360f;
-                mirrorZ = a > 180f;
-                if (mirrorZ)
-                    a = 360f - a;
-                mirrorX = a > 90f;
-                if (mirrorX)
-                    a = 180f - a;
-                return a;
+                float s = (float)Math.Sin(degrees * Math.PI / 180.0);
+                float hold = (float)Math.Sin(SideHold * Math.PI / 180.0);
+                if (held > 0f)
+                    return s < -hold ? -1f : 1f;
+                if (held < 0f)
+                    return s > hold ? 1f : -1f;
+                return s >= 0f ? 1f : -1f;
             }
 
-            /// <summary>The class for a folded angle, held: <paramref name="held"/> kept until the angle is Hold past its edges (-1: none yet).</summary>
-            public static int For(float folded, int held)
+            /// <summary>The side a step on, towards <paramref name="target"/>, over SideSeconds from one side to the other.</summary>
+            public static float Ease(float side, float target, float dt)
             {
-                int now = folded < 30f ? Along : folded < 60f ? Oblique : Across;
-                if (held < Along || held > Across || held == now)
-                    return now;
-                float lo = held * 30f - Hold, hi = (held + 1) * 30f + Hold;
-                return folded >= lo && folded <= hi ? held : now;
+                float step = 2f * Math.Max(0f, dt) / SideSeconds;
+                if (side < target)
+                    return Math.Min(target, side + step);
+                return Math.Max(target, side - step);
+            }
+
+            /// <summary>The z scale a side gives the sample: smooth at both ends (the odd smoothstep), 0 halfway round.</summary>
+            public static float ZScale(float side)
+            {
+                float s = Math.Max(-1f, Math.Min(1f, side));
+                return s * (1.5f - 0.5f * s * s);
             }
         }
 
@@ -222,13 +239,13 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>What makes two flags' cloth move alike (see the class): the flag, its wind's class, its slot.</summary>
+        /// <summary>What makes two flags' cloth move alike (see the class): the flag and its slot -- nothing of the wind.</summary>
         public struct SourceKey : IEquatable<SourceKey>
         {
-            /// <summary>Millimetres along the string and down from it; the cut (FlagCut) and its depth x 1000; waviness x 1000; the detail; the wind's class; the motion slot; still (1) or waving (0).</summary>
-            public int Along, Hang, Cut, CutDepth, Waviness, Detail, Wind, Slot, Still;
+            /// <summary>Millimetres along the string and down from it; the cut (FlagCut) and its depth x 1000; waviness x 1000; the detail; the motion slot; still (1) or waving (0).</summary>
+            public int Along, Hang, Cut, CutDepth, Waviness, Detail, Slot, Still;
 
-            public static SourceKey For(float along, float hang, int cut, float cutDepth, float waviness, int detail, int windClass, int slot, bool still)
+            public static SourceKey For(float along, float hang, int cut, float cutDepth, float waviness, int detail, int slot, bool still)
             {
                 return new SourceKey
                 {
@@ -238,16 +255,15 @@ namespace RealFlag.Flags
                     CutDepth = FlagCut.UsesDepth(cut) ? (int)Math.Round(FlagCut.SanitiseDepth(cutDepth) * 1000f) : 0,
                     Waviness = (int)Math.Round(waviness * 1000f),
                     Detail = detail,
-                    Wind = still ? 0 : Math.Max(WindClass.Along, Math.Min(WindClass.Across, windClass)),
                     Slot = still ? 0 : slot,
                     Still = still ? 1 : 0,
                 };
             }
 
-            /// <summary>The direction its source flies in, in the source's frame.</summary>
+            /// <summary>The direction its source flies in, in the source's frame: OnString.Angle, every source alike.</summary>
             public void Direction(out float x, out float z)
             {
-                double a = WindClass.Angle(Wind) * Math.PI / 180.0;
+                double a = OnString.Angle * Math.PI / 180.0;
                 x = (float)Math.Cos(a);
                 z = (float)Math.Sin(a);
             }
@@ -255,7 +271,7 @@ namespace RealFlag.Flags
             public bool Equals(SourceKey o)
             {
                 return Along == o.Along && Hang == o.Hang && Cut == o.Cut && CutDepth == o.CutDepth && Waviness == o.Waviness && Detail == o.Detail &&
-                       Wind == o.Wind && Slot == o.Slot && Still == o.Still;
+                       Slot == o.Slot && Still == o.Still;
             }
 
             public override bool Equals(object obj)
@@ -273,7 +289,6 @@ namespace RealFlag.Flags
                     h = h * 31 + CutDepth;
                     h = h * 31 + Waviness;
                     h = h * 31 + Detail;
-                    h = h * 31 + Wind;
                     h = h * 31 + Slot;
                     h = h * 31 + Still;
                     return h;
@@ -282,9 +297,8 @@ namespace RealFlag.Flags
 
             public override string ToString()
             {
-                string wind = Wind == WindClass.Along ? "along" : Wind == WindClass.Oblique ? "oblique" : "across";
                 return Along + "x" + Hang + " mm" + (Cut != FlagCut.Rectangle ? " " + FlagCut.LogName(Cut) : "") + ", wavy " + Waviness + ", detail " + Detail +
-                       (Still == 1 ? ", still" : ", wind " + wind + ", slot " + Slot);
+                       (Still == 1 ? ", still" : ", slot " + Slot);
             }
         }
 
@@ -327,10 +341,12 @@ namespace RealFlag.Flags
                 float depth = key.CutDepth > 0 ? key.CutDepth / 1000f : FlagCut.DefaultDepth;
                 Cloth = new FlagCloth(key.Hang / 1000f, key.Along / 1000f, FlagFabric.Standard(key.Waviness / 1000f), dx, dz, key.Detail, 1f, 0f, 0f,
                                       key.Cut, depth);
+                // Small flags in a crowd: no self-collision (the author let strings go cheaper to stay steady).
+                Cloth.SelfCollision = false;
                 Cloth.LayOut(0f, -1f, 0f, key.Still == 0);
                 Record = new Ring(Cloth.Count);
-                FieldX = 137.1f * key.Slot + 11.3f * key.Wind;
-                FieldZ = 91.7f * key.Slot - 7.9f * key.Wind;
+                FieldX = 137.1f * key.Slot + 22.6f;
+                FieldZ = 91.7f * key.Slot - 15.8f;
                 Clock = 0f;
                 LastWanted = now;
 
@@ -366,16 +382,25 @@ namespace RealFlag.Flags
             public bool Plan(float dt, int maxSteps, int warmSteps, float gusts, bool gustInSpeed, out ClothJob job)
             {
                 job = default(ClothJob);
-                if (_wantCount > 0)
+                bool wanted = _wantCount > 0;
+                if (wanted)
                 {
-                    float wanted = _wantSum / _wantCount;
-                    Speed = Speed < 0f || !Ready ? wanted : FlagWind.Follow(Speed, wanted, dt);
+                    float mean = _wantSum / _wantCount;
+                    Speed = Speed < 0f || !Ready ? mean : FlagWind.Follow(Speed, mean, dt);
                 }
 
                 _wantSum = 0f;
                 _wantCount = 0;
                 if (Key.Still == 1)
                     return false;
+
+                // No flag plays it this frame (out of view, far): held as it is, not stepped -- it
+                // carries on from there when looked at again, never from rest.
+                if (!wanted)
+                {
+                    Pending = 0f;
+                    return false;
+                }
 
                 Pending += dt;
                 int steps = (int)Math.Floor(Pending / Step + 1e-4);

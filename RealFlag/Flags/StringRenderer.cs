@@ -30,8 +30,8 @@ namespace RealFlag.Flags
         /// <summary>On-screen size of a flag, pixels: below WavePixels its still shape, below DrawPixels none.</summary>
         public const float WavePixels = 6f, DrawPixels = 1.5f;
 
-        /// <summary>A source not wanted for this long is let go, seconds.</summary>
-        public const float SourceIdle = 20f;
+        /// <summary>A source not wanted for this long is let go, seconds (meanwhile kept as it was, not stepped: StringMotion.Source.Plan).</summary>
+        public const float SourceIdle = StringMotion.KeepSeconds;
 
         /// <summary>Most steps a source takes a frame (catching up after a slow frame), and while it warms up.</summary>
         public const int MaxSourceSteps = 4, WarmSteps = 12;
@@ -548,6 +548,7 @@ namespace RealFlag.Flags
             // The swing: blown out across the span, its gusts slow and broad (the big ones of FlagWind).
             float gust = Mathf.Max(0f, 1f + 0.3f * _wind.Gusts * FlagNoise.Value1(_clock * 0.25f + s.Seed, 11));
             s.StepSwing(dt, across * speed * gust);
+            s.Steer(dt, angle);
             s.Hang();
 
             var world = new Bounds(s.Bounds.center + s.A, s.Bounds.size);
@@ -614,7 +615,6 @@ namespace RealFlag.Flags
             if (!_sources.TryGetValue(key, out source))
             {
                 source = new StringMotion.Source(key, _now);
-                source.Cloth.SelfCollision = Settings.SelfCollision == null || Settings.SelfCollision.value;
                 _sources[key] = source;
                 if (Log.Detailed)
                     Log.Detail("strings: a new shared cloth (" + key + "), " + _sources.Count + " in all");

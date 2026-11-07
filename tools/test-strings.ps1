@@ -259,64 +259,86 @@ public static class StringTests
     // string's and a rectangle's, their cuts, and the same key twice the same, another depth another
     public static string Cuts()
     {
-        var pennant = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.3f, 1f, 18, 2, 0, false);
-        var swallow = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.3f, 1f, 18, 2, 0, false);
-        var swallow2 = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.5f, 1f, 18, 2, 0, false);
-        var pennantDeep = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.5f, 1f, 18, 2, 0, false);
-        var rect = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Rectangle, 0.3f, 1f, 18, 2, 0, false);
+        var pennant = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.3f, 1f, 18, 0, false);
+        var swallow = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.3f, 1f, 18, 0, false);
+        var swallow2 = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Swallowtail, 0.5f, 1f, 18, 0, false);
+        var pennantDeep = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.5f, 1f, 18, 0, false);
+        var rect = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Rectangle, 0.3f, 1f, 18, 0, false);
         var a = new StringMotion.Source(pennant, 0f);
         var b = new StringMotion.Source(rect, 0f);
         return a.Cloth.Cut + "," + b.Cloth.Cut + "," + (swallow.Equals(swallow2) ? "same" : "differ") + "," + (pennant.Equals(pennantDeep) ? "same" : "differ");
     }
 
-    // The author's run (2026-11-07): 1446 sources for two spans, each starting from rest. A gusty,
-    // turning wind (a minute of Volumetric Weather-like gusts, 2-9 m/s, the direction wandering
-    // 60 degrees) on a 10 m span of 30 pennants: the keys its flags ask for, and so the sources.
+    // The author's runs (2026-11-07): 1446 sources for two spans (the wind's speed and angle in the
+    // key), then a fresh cloth every 10-40 s as Volumetric Weather's wind crossed three wind
+    // classes. Ten minutes of a gusty wind wandering ALL the way round (2-9 m/s) on a span of 30
+    // pennants: the keys its flags ask for (only the slots now), and how often the flags swing
+    // round to the other side (held 15 deg past the string's line).
     public static string Churn()
     {
         var keys = new HashSet<StringMotion.SourceKey>();
-        int held = -1, classes = 0, last = -1;
+        float side = 0f;
+        int swings = 0;
         var rnd = new Random(11);
         double dir = 80.0;
-        for (int f = 0; f < 3600; f++)
+        for (int f = 0; f < 36000; f++)
         {
             double t = f / 60.0;
-            dir += (rnd.NextDouble() - 0.5) * 2.0 + 0.5 * Math.Sin(t * 0.2);
-            dir = Math.Max(50.0, Math.Min(110.0, dir));
-            bool mz, mx;
-            float folded = StringMotion.WindClass.Fold((float)dir, out mz, out mx);
-            held = StringMotion.WindClass.For(folded, held);
-            if (held != last) { classes++; last = held; }
+            dir += (rnd.NextDouble() - 0.5) * 2.0 + 0.6 * Math.Sin(t * 0.05);
+            float was = side;
+            side = StringMotion.OnString.SideFor((float)dir, side);
+            if (was != 0f && was != side) swings++;
             for (int k = 0; k < 30; k++)
-                keys.Add(StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.33f, 1f, 18, held, StringMotion.SlotFor(k, StringMotion.AutoMotions(30)), false));
+                keys.Add(StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.33f, 1f, 18, StringMotion.SlotFor(k, StringMotion.AutoMotions(30)), false));
         }
-        return keys.Count + "," + classes;
+        double turned = Math.Abs(dir - 80.0);
+        return keys.Count + "," + swings + "," + F(turned);
     }
 
-    // folding: from +Z and -Z, +X and -X, the same class; across 85 and 95 the same
-    public static string Fold()
+    // the side: from -Z's side out to +Z (+1) and back; held until 15 deg past the string's line
+    public static string Side()
     {
-        var r = new List<string>();
-        foreach (float a in new[] { 10f, 170f, 190f, 350f, 45f, 135f, 225f, 315f, 85f, 95f, 265f, 275f })
-        {
-            bool mz, mx;
-            float f = StringMotion.WindClass.Fold(a, out mz, out mx);
-            r.Add(StringMotion.WindClass.For(f, -1) + (mz ? "z" : "") + (mx ? "x" : ""));
-        }
-        return string.Join(" ", r.ToArray());
+        float[] v = {
+            StringMotion.OnString.SideFor(90f, 0f), StringMotion.OnString.SideFor(270f, 0f),
+            StringMotion.OnString.SideFor(350f, 1f), StringMotion.OnString.SideFor(340f, 1f),
+            StringMotion.OnString.SideFor(190f, -1f), StringMotion.OnString.SideFor(160f, -1f) };
+        var r = new string[v.Length];
+        for (int i = 0; i < v.Length; i++) r[i] = v[i].ToString(Inv);
+        return string.Join(",", r);
     }
 
-    // hysteresis: held at oblique until well past 60
-    public static string Hold()
+    // swinging round: 2 s from one side to the other at 60 fps, smooth at the ends; the speed's share
+    public static string SwingRound()
     {
-        return StringMotion.WindClass.For(62f, StringMotion.WindClass.Oblique) + "," + StringMotion.WindClass.For(68f, StringMotion.WindClass.Oblique) + "," +
-               StringMotion.WindClass.For(28f, StringMotion.WindClass.Oblique) + "," + StringMotion.WindClass.For(20f, StringMotion.WindClass.Oblique);
+        float side = 1f;
+        int steps = 0;
+        while (side > -1f && steps < 10000) { side = StringMotion.OnString.Ease(side, -1f, 1f / 60f); steps++; }
+        return steps + "," + F(StringMotion.OnString.ZScale(1f)) + "," + F(StringMotion.OnString.ZScale(0f)) + "," + F(StringMotion.OnString.ZScale(0.5f)) + "," +
+               F(StringMotion.OnString.Share(0f)) + "," + F(StringMotion.OnString.Share(90f)) + "," + F(StringMotion.OnString.Share(180f)) + "," + F(StringMotion.OnString.Share(-90f));
+    }
+
+    // a source nobody plays is held, not stepped, and carries on from there when played again (no
+    // fresh cloth, no rest); no self-collision on string cloths
+    public static string Held()
+    {
+        var key = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.33f, 1f, 18, 0, false);
+        var s = new StringMotion.Source(key, 0f);
+        ClothJob job;
+        for (int i = 0; i < 400; i++) { s.Want(5f); if (s.Plan(1f / 60f, 4, 12, 1f, false, out job)) { ClothWorker.Execute(ref job); s.Took(ref job); } }
+        float clock = s.Clock, x = s.Cloth.X[s.Cloth.Count - 1];
+        int planned = 0;
+        for (int i = 0; i < 600; i++) { if (s.Plan(1f / 60f, 4, 12, 1f, false, out job)) planned++; }
+        bool still = s.Clock == clock && s.Cloth.X[s.Cloth.Count - 1] == x && s.Ready;
+        s.Want(5f);
+        bool again = s.Plan(1f / 60f, 4, 12, 1f, false, out job);
+        int steps = again ? job.Steps : 0;
+        return planned + "," + (still ? "held" : "moved") + "," + steps + "," + (s.Cloth.SelfCollision ? "collides" : "no-self");
     }
 
     // a source's wind: what its flags want, eased (not jumping with a gust), never a new cloth
     public static string Eased()
     {
-        var key = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.33f, 1f, 18, 2, 0, false);
+        var key = StringMotion.SourceKey.For(0.25f, 0.3f, FlagCut.Pennant, 0.33f, 1f, 18, 0, false);
         var s = new StringMotion.Source(key, 0f);
         ClothJob job;
         for (int i = 0; i < 400; i++) { s.Want(4f); if (s.Plan(1f / 60f, 4, 12, 1f, false, out job)) { ClothWorker.Execute(ref job); s.Took(ref job); } }
@@ -464,11 +486,14 @@ Check "a new string's flags are pennants; an unknown cut a rectangle, its depth 
 
 # ---- the shared cloths stay put in a changing wind ----------------------------------------
 $t = [StringTests]::Churn() -split ","
-Check "a minute of gusty, turning wind on 30 pennants: a handful of cloths, not hundreds" ([int]$t[0] -le 8) ("$($t[0]) cloth(s), the class taken $($t[1]) time(s)")
-$t = [StringTests]::Fold()
-Check "the wind folded: the same class from either side, mirrored" ($t -eq "0 0x 0zx 0z 1 1x 1zx 1z 2 2x 2zx 2z") $t
-$t = [StringTests]::Hold() -split ","
-Check "a class held until the wind is 7.5 deg past its edge" (($t -join ",") -eq "1,2,1,0") ($t -join ",")
+Check "ten minutes of gusty wind all the way round on 30 pennants: one cloth a slot, never another" ([int]$t[0] -eq 3) ("$($t[0]) cloth(s); the flags swung round $($t[1]) time(s), the wind turned $($t[2]) deg")
+$t = [StringTests]::Side()
+Check "the side: out to +Z / -Z, held until 15 deg past the string's line" ($t -eq "1,-1,1,-1,-1,1") $t
+$t = [StringTests]::SwingRound() -split ","
+Check "swung round in 2 s, smooth at the ends, flat halfway" ([int]$t[0] -ge 120 -and [int]$t[0] -le 121 -and $t[1] -eq "1" -and $t[2] -eq "0" -and $t[3] -eq "0.6875") ($t[0..3] -join ",")
+Check "the wind's share: 30% along the string, all of it across, either side" (($t[4..7] -join ",") -eq "0.3,1,0.3,1") ($t[4..7] -join ",")
+$t = [StringTests]::Held() -split ","
+Check "a source nobody plays is held, then carries on (no fresh cloth); no self-collision" ($t[0] -eq "0" -and $t[1] -eq "held" -and [int]$t[2] -ge 1 -and $t[3] -eq "no-self") ($t -join ",")
 $t = [StringTests]::Eased() -split ","
 Check "a gust eases the cloth's wind, the same cloth" ([math]::Abs((N $t[0]) - 4) -lt 0.01 -and (N $t[1]) -gt 4 -and (N $t[1]) -lt 4.2 -and $t[2] -eq "ready") ("4 m/s, then a 12 m/s gust: " + $t[1] + " m/s after a step, " + $t[2])
 
