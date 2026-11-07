@@ -531,20 +531,16 @@ The compiled shaders are in the repo, so a normal build only needs the second li
 
 ## Credits
 
-<sub>
-
-Flag Maker is written from scratch, but it builds on a lot of research and on a few ideas from
+<sub>Flag Maker is written from scratch, but it builds on a lot of research and on a few ideas from
 other mods, all credited in the notes below (no code from them is included). Country flags are from
 [Flagpedia.net](https://flagpedia.net) (flagcdn.com), based on Wikimedia Commons' files, public
 domain. Country names in Spanish, French and Chinese are from the [Unicode CLDR](https://cldr.unicode.org)
 (Unicode License V3). The panel's icons are based on [Lucide](https://lucide.dev)'s (ISC). Includes
 UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks
-to all three. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+to all three. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
 
-This mod was made with substantial help from AI. I set the goals, made the design decisions, and
-did all of the in-game testing and tuning.
-
-</sub>
+<sub>This mod was made with substantial help from AI. I set the goals, made the design decisions,
+and did all of the in-game testing and tuning.</sub>
 
 ## License
 
