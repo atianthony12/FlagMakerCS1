@@ -212,4 +212,135 @@ namespace RealFlag.UI
             }
         }
     }
+
+    /// <summary>
+    /// A little 2:3 flag cut to a FlagCut on a button -- the Shape row's (FlagCut's outlines,
+    /// drawn from FlagCut.Edge): the cloth light as <see cref="FlagIcon"/>'s with its gilt bar,
+    /// hoisted from the flag's own edge, at twice the UI's units (sharp at 4K), the edge
+    /// anti-aliased (4 x 4 samples a pixel). Drawn again only when what it shows changes. It owns
+    /// its texture.
+    /// </summary>
+    public sealed class CutIcon
+    {
+        private const int PixelsPerUnit = 2;
+        private static readonly Color32 ClothColour = new Color32(214, 226, 238, 255);
+        private static readonly Color32 BarColour = new Color32(212, 175, 55, 255);
+
+        private readonly OwnedTextureSprite _sprite;
+        private readonly Vector2 _box;
+        private int _cut = -1, _hoist = -1;
+        private float _depth = -1f;
+
+        /// <param name="parent">The button it is drawn on.</param>
+        /// <param name="at">The box's top left corner on it.</param>
+        /// <param name="box">Its size.</param>
+        public CutIcon(UIComponent parent, Vector3 at, Vector2 box)
+        {
+            _box = box;
+            _sprite = parent.AddUIComponent<OwnedTextureSprite>();
+            _sprite.isInteractive = false;
+            _sprite.size = box;
+            _sprite.relativePosition = at;
+        }
+
+        public void Show(int cut, float depth, int hoist)
+        {
+            Texture2D texture = _sprite.Own;
+            if (cut == _cut && hoist == _hoist && Mathf.Abs(depth - _depth) < 1e-3f && texture != null)
+                return;
+
+            _cut = cut;
+            _depth = depth;
+            _hoist = hoist;
+            int w = Mathf.Max(4, Mathf.RoundToInt(_box.x * PixelsPerUnit)), h = Mathf.Max(4, Mathf.RoundToInt(_box.y * PixelsPerUnit));
+            if (texture == null || texture.width != w || texture.height != h)
+            {
+                _sprite.Release();
+                texture = new Texture2D(w, h, TextureFormat.RGBA32, false, false)
+                {
+                    name = "RealFlag cut icon",
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp,
+                    hideFlags = HideFlags.HideAndDontSave,
+                };
+                _sprite.Own = texture;
+            }
+
+            bool top = hoist == Flags.FlagHoist.Top;
+
+            // The flag 2:3 as seen (a banner from its top 3:2 tall), as large as the box takes,
+            // the bar's two pixels kept clear on the hoist's side.
+            float seen = top ? 1.5f : 2f / 3f;
+            float bar = 2f * PixelsPerUnit;
+            float fw = w - bar - 2f, fh = fw * seen;
+            if (fh > h - 2f)
+            {
+                fh = h - 2f;
+                fw = fh / seen;
+            }
+
+            float fx = top ? Mathf.Round(0.5f * (w - fw)) : Mathf.Round(0.5f * (w - fw - bar)) + bar;
+            float fy = top ? Mathf.Round(0.5f * (h - fh - bar)) + bar : Mathf.Round(0.5f * (h - fh));
+            var pixels = new Color32[w * h];
+            const int S = 4;
+            for (int row = 0; row < h; row++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    // The bar the flag hangs from, a pixel proud of the cloth.
+                    float py = h - 1 - row;
+                    bool onBar = top ? py >= fy - bar && py < fy && x >= fx - 2f && x < fx + fw + 2f
+                                     : x >= fx - bar && x < fx && py >= fy - 2f && py < fy + fh + 2f;
+                    if (onBar)
+                    {
+                        pixels[row * w + x] = BarColour;
+                        continue;
+                    }
+
+                    int inside = 0;
+                    for (int sy = 0; sy < S; sy++)
+                    {
+                        for (int sx = 0; sx < S; sx++)
+                        {
+                            float ax = (x + (sx + 0.5f) / S - fx) / fw, ay = (py + (sy + 0.5f) / S - fy) / fh;
+                            if (ax < 0f || ax >= 1f || ay < 0f || ay >= 1f)
+                                continue;
+
+                            // From the top, the cloth's u runs down and its v across.
+                            float u = top ? ay : ax, v = top ? ax : ay;
+                            if (Flags.FlagCut.Inside(cut, depth, u, v))
+                                inside++;
+                        }
+                    }
+
+                    Color32 c = ClothColour;
+                    c.a = (byte)(255 * inside / (S * S));
+                    pixels[row * w + x] = c;
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false);
+            _sprite.texture = texture;
+        }
+    }
+
+    /// <summary>A texture sprite that owns its texture: destroyed with it (a <see cref="CutIcon"/>'s).</summary>
+    public class OwnedTextureSprite : UITextureSprite
+    {
+        public Texture2D Own;
+
+        public void Release()
+        {
+            if (Own != null)
+                Object.Destroy(Own);
+            Own = null;
+        }
+
+        public override void OnDestroy()
+        {
+            Release();
+            base.OnDestroy();
+        }
+    }
 }

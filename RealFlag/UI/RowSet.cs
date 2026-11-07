@@ -109,6 +109,9 @@ namespace RealFlag.UI
             public readonly List<UIButton> Options = new List<UIButton>();
             public readonly List<FlagIcon> Icons = new List<FlagIcon>();
             public int IconsHoist = -1;
+
+            /// <summary>A cut row (Row.CutIcons): the little cut flag on each button.</summary>
+            public readonly List<CutIcon> CutIcons = new List<CutIcon>();
             public readonly List<int> Lit = new List<int>();
 
             public readonly List<UIComponent> Parts = new List<UIComponent>();
@@ -342,6 +345,15 @@ namespace RealFlag.UI
                     for (int i = 0; i < control.Icons.Count && i < row.Presets.Length; i++)
                         control.Icons[i].Show(FlagSize.Ratio(row.Presets[i]), hoist);
                 }
+            }
+
+            // The cut row's little flags: hoisted as the flag is, at its depth (each redraws only on a change).
+            if (row.CutIcons)
+            {
+                int hoist = row.PresetHoist != null ? row.PresetHoist() : Flags.FlagHoist.Side;
+                float depth = row.CutDepth != null ? row.CutDepth.value : Flags.FlagCut.DefaultDepth;
+                for (int i = 0; i < control.CutIcons.Count && i < row.ChoiceValues.Length; i++)
+                    control.CutIcons[i].Show(row.ChoiceValues[i], depth, hoist);
             }
 
             for (int i = 0; i < control.Options.Count; i++)
@@ -614,9 +626,18 @@ namespace RealFlag.UI
                     for (int i = 0; i < count; i++)
                     {
                         int value = row.ChoiceValues[i];
-                        bool drawn = row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]);
+                        bool drawn = row.CutIcons || (row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]));
                         UIButton button = _ui.AddButton(page, drawn ? string.Empty : row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
                         button.tooltip = drawn ? row.ChoiceName(i) : row.Tooltip;
+                        if (row.CutIcons)
+                        {
+                            // "Shape   [▭] [⊲] [⋲] [▷] ...": the cut as a little flag, its name the tooltip.
+                            var cutIcon = new CutIcon(button, new Vector3(Mathf.Round(0.5f * (width - 26f)), 3f), new Vector2(26f, 22f));
+                            cutIcon.Show(value, row.CutDepth != null ? row.CutDepth.value : Flags.FlagCut.DefaultDepth,
+                                         row.PresetHoist != null ? row.PresetHoist() : Flags.FlagHoist.Side);
+                            control.CutIcons.Add(cutIcon);
+                        }
+                        else
                         if (drawn)
                             FlagWidgets.AddIcon(button, row.ChoiceIcons[i], new Vector3(Mathf.Round(0.5f * (width - 20f)), 4f), 20f);
 
@@ -784,7 +805,8 @@ namespace RealFlag.UI
             float seen = Mathf.Max(target.Seen, 0.01f);
             float w = Mathf.Min(42f, 26f / seen);
             control.PatternImage.size = new Vector2(Mathf.Max(1f, Mathf.Round(w)), Mathf.Max(1f, Mathf.Round(w * seen)));
-            control.PatternImage.Show(target.Pattern.value, target.Proportion.value, target.HoistedFromTop, target.C1, target.C2, target.C3);
+            control.PatternImage.Show(target.Pattern.value, target.Proportion.value, target.HoistedFromTop, target.C1, target.C2, target.C3,
+                                      target.CutValue, target.CutDepthValue);
         }
 
         /// <summary>A row's name on the left, as a slider row has it (greyed with the row).</summary>

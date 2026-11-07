@@ -62,7 +62,7 @@
 //
 // Per flag, in a MaterialPropertyBlock: _RFColor1..3 (LINEAR), _RFPattern, _RFAspect (height /
 // length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage,
-// _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFWear, _RFWearSeed,
+// _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFWear, _RFWearSeed, _RFCut,
 // _RFGrid and _RFGridSize.
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagCloth"
@@ -86,6 +86,7 @@ Shader "RealFlag/FlagCloth"
         _RFWear ("Wear, dirt, holes (0..1); 1 hoisted from its top", Vector) = (0, 0, 0, 0)
         _RFWearSeed ("Wear's scatter (0..255)", Float) = 0
         _RFTear ("Torn: x the fly, y the edges (0..1)", Vector) = (0, 0, 0, 0)
+        _RFCut ("Cut: x the outline (FlagCut), y its depth (share of the length)", Vector) = (0, 0.3333, 0, 0)
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
         _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
         _RFUseGrid ("Shape from the particles' texture", Float) = 0
@@ -120,6 +121,7 @@ Shader "RealFlag/FlagCloth"
         float4 _RFWear;
         float _RFWearSeed;
         float4 _RFTear;
+        float4 _RFCut;
         sampler2D _RFGrid;
         float4 _RFGridSize;
         float _RFUseGrid;
@@ -264,8 +266,8 @@ Shader "RealFlag/FlagCloth"
             float ring = min(abs(length(g1) - 0.011), abs(length(g2) - 0.011)) - 0.004;
             albedo = lerp(albedo, float3(0.30, 0.29, 0.27), RFInside(ring, w));
 
-            // Hems: a faint stitch line 1.5 cm in from the fly, the top and the bottom.
-            float edge = min(len - m.x, min(m.y, height - m.y));
+            // Hems: a faint stitch line 1.5 cm in from the fly (its cut's outline), the top and the bottom.
+            float edge = min(RFFlyDistance(m, float2(len, height), _RFCut.xy), min(m.y, height - m.y));
             float stitch = RFInside(abs(edge - 0.015) - 0.0015, w);
             albedo *= 1.0 - 0.18 * stitch * (1.0 - heading);
             return albedo;
@@ -300,7 +302,13 @@ Shader "RealFlag/FlagCloth"
             float2 mw = fwidth(metres);
             float px = max(max(mw.x, mw.y), 1e-4);
             float sheenLeft = 1.0;
-            float kept = RFWeather(metres, size, px, _RFWear, _RFWearSeed, _RFTear, albedo, sheenLeft);
+            float kept = RFWeather(metres, size, px, _RFWear, _RFWearSeed, _RFTear, _RFCut.xy, albedo, sheenLeft);
+
+            // The cut (FlagSpec.Cut): what is past the fly's outline is not cloth -- the cloth's
+            // own cells stop a cell short of nothing (FlagCloth's), this cuts the exact edge,
+            // anti-aliased by its own derivative, in every pass and the shadow.
+            float cutIn = RFCutEdge(_RFCut.xy, IN.flagUV.y) * size.x - metres.x;
+            kept = min(kept, saturate(0.5 + cutIn / max(fwidth(cutIn), 1e-5)));
             albedo *= saturate(_RFBrightness);
 
             // Wet: darker (Lagarde's diffuse factor), and the water's film on it reflects -- as

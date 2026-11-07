@@ -3655,6 +3655,204 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// Cuts (FlagCut, 2026-11-07): the outlines -- a rectangle's edge 1 everywhere, a swallowtail's
+    /// 1 - depth at its middle, a pennant's 0 at its top, a burgee's tips 1, the edges never past 1
+    /// nor under 0 -- and each cut's cells on a 3 x 2 m cloth at 18 and 40 cells: fewer particles,
+    /// the hoist's column all cloth, fewer links, the area kept (share of the rectangle's).
+    /// </summary>
+    public static string CutShapes()
+    {
+        var inv = Inv;
+        bool edges = FlagCut.Edge(FlagCut.Rectangle, 0.33f, 0.3f) == 1f &&
+                     Math.Abs(FlagCut.Edge(FlagCut.Swallowtail, 1f / 3f, 0.5f) - 2f / 3f) < 1e-5f &&
+                     FlagCut.Edge(FlagCut.Swallowtail, 1f / 3f, 0f) == 1f &&
+                     FlagCut.Edge(FlagCut.Pennant, 0.33f, 0f) == 0f && FlagCut.Edge(FlagCut.Pennant, 0.33f, 0.5f) == 1f &&
+                     Math.Abs(FlagCut.Edge(FlagCut.Burgee, 1f / 3f, 0.25f) - 1f) < 1e-5f &&
+                     Math.Abs(FlagCut.Edge(FlagCut.Tongued, 1f / 3f, 0.25f) - 2f / 3f) < 1e-5f &&
+                     Math.Abs(FlagCut.Edge(FlagCut.Pointed, 1f / 3f, 0f) - 2f / 3f) < 1e-5f &&
+                     Math.Abs(FlagCut.Edge(FlagCut.Rounded, 1f / 3f, 0f) - 2f / 3f) < 1e-5f;
+        bool range = true;
+        foreach (int cut in FlagCut.Values)
+        {
+            foreach (float d in new[] { FlagCut.MinDepth, FlagCut.DefaultDepth, FlagCut.MaxDepth })
+            {
+                for (int s = 0; s <= 200; s++)
+                {
+                    float e = FlagCut.Edge(cut, d, s / 200f);
+                    if (e < 0f || e > 1f || float.IsNaN(e))
+                        range = false;
+                }
+            }
+        }
+
+        bool cells = true;
+        var parts = new List<string>();
+        foreach (int cut in FlagCut.Values)
+        {
+            foreach (int detail in new[] { 18, 40 })
+            {
+                FlagCloth r = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, detail);
+                FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, detail, 0f, -1f, 0f, cut, FlagCut.DefaultDepth);
+                bool hoist = true;
+                for (int j = 0; j < c.Rows; j++)
+                    hoist &= c.IsCloth(j * c.Columns);
+                bool fewer = cut == FlagCut.Rectangle ? c.ClothCount == c.Count && c.LinkCount == r.LinkCount
+                                                      : c.ClothCount < c.Count && c.LinkCount < r.LinkCount;
+                if (!hoist || !fewer)
+                    cells = false;
+                if (detail == 18)
+                    parts.Add(FlagCut.LogName(cut) + " " + (FlagCut.Area(cut, FlagCut.DefaultDepth) * 100f).ToString("F0", inv) + "% " +
+                              c.ClothCount + "/" + c.Count);
+            }
+        }
+
+        return edges + "," + range + "," + cells + "," + string.Join("; ", parts.ToArray());
+    }
+
+    /// <summary>
+    /// A cut 3 x 2 m flag 10 m up for 12 s in a wind (as Run does): finite (cloth and the out
+    /// particles' fill); the worst link; laid afresh as knotted; the out particles no farther from
+    /// the anchor than twice the length; the fly tips' distance apart (row 0's and the last row's
+    /// last cloth particle), its spread (sd, m) over the last 6 s -- the tails of a swallowtail
+    /// free, a rectangle's corners held by the cloth between; the rms speed of the fly's middle
+    /// cloth particle (a pennant's point) over the same.
+    /// </summary>
+    public static string CutRun(int cut, float wind, int detail)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, detail, 0f, -1f, 0f, cut, FlagCut.DefaultDepth);
+        c.GroundY = -12f;
+        float height = 12f;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        int steps = (int)(12f / dt);
+        int knots0 = c.Unknotted;
+        float worst = 1f;
+        int top = LastCloth(c, 0), bottom = LastCloth(c, c.Rows - 1), middle = LastCloth(c, c.Rows / 2);
+        double sum = 0, sum2 = 0, speed2 = 0;
+        int n = 0;
+        float far = 0f;
+        for (int s = 0; s < steps; s++)
+        {
+            FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, height, 1f, 3f, s * dt, 0f, 0f);
+            c.Step(dt, ref air);
+            if (s * dt > 6f)
+            {
+                worst = Math.Max(worst, c.MaxStretch());
+                float dx = c.X[top] - c.X[bottom], dy = c.Y[top] - c.Y[bottom], dz = c.Z[top] - c.Z[bottom];
+                double d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                sum += d; sum2 += d * d;
+                speed2 += c.Vx[middle] * c.Vx[middle] + c.Vy[middle] * c.Vy[middle] + c.Vz[middle] * c.Vz[middle];
+                n++;
+                for (int k = 0; k < c.Count; k++)
+                {
+                    float r = (float)Math.Sqrt(c.X[k] * c.X[k] + c.Y[k] * c.Y[k] + c.Z[k] * c.Z[k]);
+                    if (r > far)
+                        far = r;
+                }
+            }
+        }
+
+        double mean = sum / n;
+        double sd = Math.Sqrt(Math.Max(0.0, sum2 / n - mean * mean));
+        return c.IsFinite() + "," + worst.ToString("F3", Inv) + "," + (c.Unknotted - knots0) + "," + (far <= 2f * c.Length) + "," +
+               sd.ToString("F3", Inv) + "," + Math.Sqrt(speed2 / n).ToString("F2", Inv) + "," + far.ToString("F2", Inv);
+    }
+
+    /// <summary>The last particle of row j that is cloth.</summary>
+    static int LastCloth(FlagCloth c, int j)
+    {
+        int k = j * c.Columns + c.Columns - 1;
+        while (!c.IsCloth(k) && k > j * c.Columns)
+            k--;
+        return k;
+    }
+
+    /// <summary>
+    /// Cuts and the rest of the cloth: an uncut cloth made through the cut constructor steps bit for
+    /// bit as one made the old way (3 s at 6 m/s); a waving rectangle given a swallowtail's cut
+    /// (TakeShape, as a redesign does) flies on: finite, worst link after 4 s; CopyMotion refuses
+    /// another cut; a still swallowtail's shape is made (StillPose) and finite.
+    /// </summary>
+    public static string CutCloth()
+    {
+        FlagCloth a = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 24);
+        FlagCloth b = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 24, 0f, -1f, 0f, FlagCut.Rectangle, 0.5f);
+        a.GroundY = -12f; b.GroundY = -12f;
+        float dt = 1f / 60f;
+        for (int s = 0; s < 180; s++)
+        {
+            FlagAir air = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, 3f, s * dt, 0f, 0f);
+            a.Step(dt, ref air);
+            FlagAir air2 = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, 3f, s * dt, 0f, 0f);
+            b.Step(dt, ref air2);
+        }
+
+        float off = 0f;
+        for (int k = 0; k < a.Count; k++)
+            off = Math.Max(off, Math.Abs(a.X[k] - b.X[k]) + Math.Abs(a.Y[k] - b.Y[k]) + Math.Abs(a.Z[k] - b.Z[k]));
+
+        FlagCloth cut = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 24, 0f, -1f, 0f, FlagCut.Swallowtail, FlagCut.DefaultDepth);
+        cut.GroundY = -12f;
+        cut.TakeShape(a, true);
+        float worst = 1f;
+        for (int s = 0; s < 240; s++)
+        {
+            FlagAir air = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, 3f, 3f + s * dt, 0f, 0f);
+            cut.Step(dt, ref air);
+            if (s > 120)
+                worst = Math.Max(worst, cut.MaxStretch());
+        }
+
+        FlagCloth other = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 24, 0f, -1f, 0f, FlagCut.Pennant, FlagCut.DefaultDepth);
+        bool refused = !other.CopyMotion(cut, 0f) && !a.CopyMotion(cut, 0f);
+        FlagCloth like = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 24, 0f, -1f, 0f, FlagCut.Swallowtail, FlagCut.DefaultDepth);
+        bool copied = like.CopyMotion(cut, 0.3f);
+
+        FlagCloth still = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, FlagCloth.CellsAlong, 0f, -1f, 0f, FlagCut.Swallowtail, FlagCut.DefaultDepth);
+        StillPose.Make(still, FlagMotion.Still, false, 1f, 0f, 0f, 1f, 3f);
+
+        return off.ToString("R", Inv) + "," + cut.IsFinite() + "," + worst.ToString("F3", Inv) + "," + refused + "," + copied + "," + still.IsFinite() +
+               "," + still.MaxStretch().ToString("F3", Inv);
+    }
+
+    /// <summary>
+    /// The cut through the save: a swallowtail 40% deep round trips (and Move It's clipboard); a
+    /// format 12 save reads a rectangle; an unknown cut a rectangle, a depth out of range pulled in
+    /// (NaN the default); another cut is another shape (SameShape: a new cloth) and another
+    /// ShareKey; the pennant's depth changes nothing; the log's description says it.
+    /// </summary>
+    public static string CodecCut()
+    {
+        FlagSpec a = FlagSpec.Default; a.Cut = FlagCut.Swallowtail; a.CutDepth = 0.4f;
+        FlagSpec r;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out r) && r.Cut == FlagCut.Swallowtail && Math.Abs(r.CutDepth - 0.4f) < 1e-6f;
+        bool old;
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, a);
+            w.Flush();
+            ms.Position = 0;
+            FlagSpec o = FlagCodec.Read(new System.IO.BinaryReader(ms), 12);
+            old = o.Cut == FlagCut.Rectangle && Math.Abs(o.CutDepth - FlagCut.DefaultDepth) < 1e-6f;
+        }
+
+        FlagSpec u = FlagSpec.Default; u.Cut = 99; u.CutDepth = float.NaN;
+        FlagSpec deep = FlagSpec.Default; deep.Cut = FlagCut.Pointed; deep.CutDepth = 5f;
+        FlagSpec shallow = FlagSpec.Default; shallow.Cut = FlagCut.Pointed; shallow.CutDepth = -1f;
+        bool pulled = u.Sanitised().Cut == FlagCut.Rectangle && Math.Abs(u.Sanitised().CutDepth - FlagCut.DefaultDepth) < 1e-6f &&
+                      deep.Sanitised().CutDepth == FlagCut.MaxDepth && shallow.Sanitised().CutDepth == FlagCut.MinDepth;
+
+        FlagSpec p1 = FlagSpec.Default; p1.Cut = FlagCut.Pennant; p1.CutDepth = 0.2f;
+        FlagSpec p2 = FlagSpec.Default; p2.Cut = FlagCut.Pennant; p2.CutDepth = 0.5f;
+        bool shape = !a.SameShape(FlagSpec.Default) && p1.SameShape(p2) && !a.SamePose(FlagSpec.Default) &&
+                     !ShareKey.For(a, 18, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(FlagSpec.Default, 18, 6f, 0f, 0f, 0f, true)) &&
+                     ShareKey.For(p1, 18, 6f, 0f, 0f, 0f, true).Equals(ShareKey.For(p2, 18, 6f, 0f, 0f, 0f, true));
+        bool said = a.Describe().Contains("cut swallowtail 40% deep") && !FlagSpec.Default.Describe().Contains("cut ");
+        return round + "," + old + "," + pulled + "," + shape + "," + said + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
     /// A post (a prop's capsule: 0.15 m round, from the ground to 1 m over the anchor) 0.5 m behind
     /// the hoist, the wind from behind blowing the flag back round it: 12 s: finite; the nearest
     /// particle to the post's axis after 3 s, less its radius (m); without the post; the worst stretch.
@@ -4218,6 +4416,35 @@ Check "wear, torn, torn edges, dirt and holes survive the save and Move It's cli
 Check "a save of format 8 still reads as new; of format 9, worn but not torn; of 10, edges whole; of 11, edges torn" ($cw[2] -eq "True") "formats 8 to 11, byte by byte: a still cross on a ball-topped pole"
 Check "wear, torn, dirt or holes out of range are pulled in; they shape no still pose" ($cw[3] -eq "True" -and $cw[4] -eq "True") "300%, NaN, -100%, infinity"
 Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop" ([int]$cw[5] -ge 250 -and $cw[6] -eq "0" -and $cw[7] -eq "255") ($cw[5] + " distinct seeds over props 0..999, " + $cw[6] + ".." + $cw[7])
+
+# ---- cuts (FlagCut: swallowtail, pennant...) -------------------------------------------------
+
+# (Variables named cut*: PowerShell's are case-insensitive, and the rest of this file has short ones.)
+$cutShapes = [ClothTests]::CutShapes() -split ","
+Check "each cut's outline as drawn: the swallowtail's notch, the pennant's point, the burgee's tips; never past the rectangle" ($cutShapes[0] -eq "True" -and $cutShapes[1] -eq "True") "7 cuts at 10/33/60% deep"
+Check "a cut cloth has fewer particles and links, its hoist all cloth; a rectangle all of it" ($cutShapes[2] -eq "True") $cutShapes[3]
+$cutCodec = [ClothTests]::CodecCut() -split ","
+Check "a cut survives the save and Move It's clipboard; a format 12 save reads a rectangle; out of range pulled in" ($cutCodec[0] -eq "True" -and $cutCodec[1] -eq "True" -and $cutCodec[2] -eq "True") ("format " + $cutCodec[5] + ": a swallowtail 40% deep; cut 99, NaN, 500%, -100%")
+Check "another cut is another cloth, pose and shared motion; a pennant's depth changes nothing; in the log" ($cutCodec[3] -eq "True" -and $cutCodec[4] -eq "True") "SameShape, SamePose, ShareKey, Describe"
+$cutCloth = [ClothTests]::CutCloth() -split ","
+Check "an uncut cloth through the cut constructor steps bit for bit as before" ($cutCloth[0] -eq "0") ("3 s at 6 m/s: " + $cutCloth[0] + " m off")
+Check "a waving flag given a swallowtail's cut flies on; another cut's motion is refused, a like one's taken; a still swallowtail is made" ($cutCloth[1] -eq "True" -and (N $cutCloth[2]) -le 1.15 -and $cutCloth[3] -eq "True" -and $cutCloth[4] -eq "True" -and $cutCloth[5] -eq "True" -and (N $cutCloth[6]) -le 1.15) ("worst link " + $cutCloth[2] + " after TakeShape, still " + $cutCloth[6])
+$cutRectSd = @{}; $cutRectTip = @{}
+foreach ($cutWind in @(6, 12)) {
+    $cutRect = [ClothTests]::CutRun(0, $cutWind, 18) -split ","
+    $cutRectSd[$cutWind] = N $cutRect[4]; $cutRectTip[$cutWind] = N $cutRect[5]
+}
+foreach ($cutKind in 1..6) {
+    foreach ($cutWind in @(6, 12)) {
+        foreach ($cutDetail in @(18, 32)) {
+            $cutRes = [ClothTests]::CutRun($cutKind, $cutWind, $cutDetail) -split ","
+            $cutName = [RealFlag.Flags.FlagCut]::LogName($cutKind)
+            Check "a $cutName flies whole at $cutWind m/s, $cutDetail cells: finite, its links held, no knot, nothing of it flung off" ($cutRes[0] -eq "True" -and (N $cutRes[1]) -le 1.15 -and $cutRes[2] -eq "0" -and $cutRes[3] -eq "True") ("worst link " + $cutRes[1] + ", knots " + $cutRes[2] + ", farthest particle " + $cutRes[6] + " m; tips apart sd " + $cutRes[4] + " m (rectangle " + $cutRectSd[$cutWind].ToString("F3", $inv) + "), the fly's middle " + $cutRes[5] + " m/s (rectangle " + $cutRectTip[$cutWind].ToString("F2", $inv) + ")")
+        }
+    }
+}
+$cutTails = [ClothTests]::CutRun(1, 12, 18) -split ","
+Check "a swallowtail's tails fly apart: at 12 m/s their tips' distance swings more than a rectangle's corners'" ((N $cutTails[4]) -gt $cutRectSd[12]) ("sd " + $cutTails[4] + " m against " + $cutRectSd[12].ToString("F3", $inv))
 
 # ---- still and flat flags (FlagMotion, StillPose) ------------------------------------------
 

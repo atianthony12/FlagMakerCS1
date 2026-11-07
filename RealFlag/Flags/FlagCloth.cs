@@ -386,6 +386,69 @@ namespace RealFlag.Flags
         public readonly int Detail;
 
         /// <summary>
+        /// The cut it was made to (FlagCut: the fly's outline) and the cut's depth. A cut cloth is
+        /// the same grid of particles, but only the cells the outline touches are cloth
+        /// (FlagCut.Cells): the particles of no such cell are OUT -- held still (inverse mass 0,
+        /// so every loop over the free particles passes them by), in no link, no pair of the
+        /// self-collision, with no air -- and after each step put where the cloth beside them
+        /// would carry on to (<see cref="FillCut"/>), so the normals, the drawn mesh and its
+        /// Catmull-Rom patches near the edge see a surface that goes on smoothly; the shader cuts
+        /// the outline (FlagWear.cginc's RFCutEdge) and nothing of an out cell is ever drawn. So a
+        /// swallowtail's tails, a cell apart past the notch's apex, fly apart; a pennant's point,
+        /// with nothing past it, whips -- as the cloth, not a picture on a rectangle. A held
+        /// particle is one of inverse mass 0 THAT IS CLOTH (Invariant 10): the hoist's column is
+        /// always cloth (every cut keeps some of each row).
+        /// </summary>
+        public readonly int Cut;
+        public readonly float CutDepth;
+
+        /// <summary>FlagCut.Cells for the grid (null: a rectangle, every cell cloth), and whether there is a cut at all.</summary>
+        private readonly bool[] _cells;
+        private readonly bool _shaped;
+
+        /// <summary>A cut cloth's: each particle out of the cloth; the span of cloth down its column through it (metres, the air's added mass); the out particles in the order they are filled, each with the cloth beside it to carry on from (<see cref="FillCut"/>).</summary>
+        private bool[] _out;
+        private float[] _span;
+        private int[] _fillOrder, _fillStart, _fillA, _fillB;
+
+        /// <summary>Cut the same way (the same cloth cells, on a grid of the same size).</summary>
+        public bool SameCut(FlagCloth other)
+        {
+            return other != null && other.Cut == Cut && (!FlagCut.UsesDepth(Cut) || Math.Abs(other.CutDepth - CutDepth) < 1e-4f);
+        }
+
+        /// <summary>Whether particle k is cloth (always, uncut).</summary>
+        public bool IsCloth(int k)
+        {
+            return _out == null || !_out[k];
+        }
+
+        /// <summary>Whether cell (i, j) -- between columns i, i + 1 and rows j, j + 1 -- is cloth (always, uncut).</summary>
+        public bool IsClothCell(int i, int j)
+        {
+            return _cells == null || _cells[j * (Columns - 1) + i];
+        }
+
+        /// <summary>The particles that are cloth (<see cref="Count"/> uncut).</summary>
+        public int ClothCount
+        {
+            get
+            {
+                if (_out == null)
+                    return Count;
+
+                int n = 0;
+                for (int k = 0; k < Count; k++)
+                {
+                    if (!_out[k])
+                        n++;
+                }
+
+                return n;
+            }
+        }
+
+        /// <summary>
         /// Keeps the cloth out of itself (<see cref="CollisionThickness"/>). On by default; set
         /// between steps (the main thread, when the option changes).
         /// </summary>
@@ -534,6 +597,16 @@ namespace RealFlag.Flags
         /// </summary>
         public FlagCloth(float length, float height, FlagFabric fabric, float dirX, float dirZ, int detail,
                          float hoistX, float hoistY, float hoistZ)
+            : this(length, height, fabric, dirX, dirZ, detail, hoistX, hoistY, hoistZ, FlagCut.Rectangle, FlagCut.DefaultDepth)
+        {
+        }
+
+        /// <summary>
+        /// The same, cut to <paramref name="cut"/> (FlagCut) at <paramref name="cutDepth"/>: only the
+        /// grid's cells the outline touches are cloth (<see cref="Cut"/>).
+        /// </summary>
+        public FlagCloth(float length, float height, FlagFabric fabric, float dirX, float dirZ, int detail,
+                         float hoistX, float hoistY, float hoistZ, int cut, float cutDepth)
         {
             SetHoistDirection(hoistX, hoistY, hoistZ);
             Length = Math.Max(length, 0.1f);
@@ -543,6 +616,10 @@ namespace RealFlag.Flags
             Count = Columns * Rows;
             CellU = Length / (Columns - 1);
             CellV = Height / (Rows - 1);
+            Cut = FlagCut.Sanitise(cut);
+            CutDepth = FlagCut.SanitiseDepth(cutDepth);
+            _cells = FlagCut.Cells(Cut, CutDepth, Columns, Rows);
+            _shaped = _cells != null;
 
             // A cell at Normal; finer, the geometric mean of its cell and Normal's.
             int normalColumns, normalRows;
@@ -601,6 +678,9 @@ namespace RealFlag.Flags
                     _tetherBottom[k] = (float)Math.Sqrt(u * u + down * down);
                 }
             }
+
+            if (_shaped)
+                PrepareCut();
 
             BuildLinks();
             SetFabric(fabric);
@@ -1111,7 +1191,7 @@ namespace RealFlag.Flags
         /// </summary>
         public bool CopyMotion(FlagCloth from, float radians)
         {
-            if (from == null || from == this || from.Columns != Columns || from.Rows != Rows || from._clipped != _clipped)
+            if (from == null || from == this || from.Columns != Columns || from.Rows != Rows || from._clipped != _clipped || !SameCut(from))
                 return false;
 
             float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
@@ -1273,7 +1353,7 @@ namespace RealFlag.Flags
                     int k = j * Columns + i;
 
                     // Held (the hoist, or on a halyard its two clips): on the line, where PinHoist puts it.
-                    if (_invMass[k] == 0f)
+                    if (_invMass[k] == 0f && IsCloth(k))
                     {
                         float held = HoistDown(j);
                         X[k] = held * hx; Y[k] = held * hy; Z[k] = held * hz;
@@ -1310,6 +1390,9 @@ namespace RealFlag.Flags
                     }
                 }
             }
+
+            // Cut: what is not cloth carries on from the cloth (the old cloth's shape there was another cut's, or none).
+            FillCutStill();
 
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _primed = false;
@@ -1581,10 +1664,9 @@ namespace RealFlag.Flags
             // force has to move: the cloth's own and that air's.
             float added = _fabric.AddedMass * AirDensity * (float)Math.PI * Height * 0.25f;
             float inertia = sigma + added;
-            float share = added / inertia;
-            float ownShare = sigma / inertia;
+            float shareAll = added / inertia;
 
-            float drag = _fabric.Drag * AirDensity / (2f * inertia) * dt;
+            float dragAll = _fabric.Drag * AirDensity / (2f * inertia) * dt;
             float friction = _fabric.Friction * AirDensity / (2f * sigma) * dt;
             float damping = _fabric.Damping;
             if (_calm > 0f)
@@ -1650,6 +1732,19 @@ namespace RealFlag.Flags
                     int k = row + i;
                     int up = k - 1;
                     int down = i < cols - 1 ? k + 1 : k;
+                    if (_shaped)
+                    {
+                        // Out of the cloth: no air. The row's last cloth particle is its fly end.
+                        if (_out[k])
+                        {
+                            _react[k] = 0f;
+                            continue;
+                        }
+
+                        if (_out[down])
+                            down = k;
+                    }
+
                     float tx = X[down] - X[up], ty = Y[down] - Y[up], tz = Z[down] - Z[up];
                     float tl = (float)Math.Sqrt(tx * tx + ty * ty + tz * tz);
                     float us = tl > 1e-6f ? (meanX * tx + meanY * ty + meanZ * tz) / tl : 0f;
@@ -1678,6 +1773,16 @@ namespace RealFlag.Flags
 
                 float nx = Nx[k], ny = Ny[k], nz = Nz[k];
                 float vx = Vx[k], vy = Vy[k], vz = Vz[k];
+
+                // A cut cloth: the added mass of its own span down the column (a tail's, a point's).
+                float share = shareAll, drag = dragAll;
+                if (_shaped)
+                {
+                    float own = _fabric.AddedMass * AirDensity * (float)Math.PI * _span[k] * 0.25f;
+                    float mass = sigma + own;
+                    share = own / mass;
+                    drag = _fabric.Drag * AirDensity / (2f * mass) * dt;
+                }
 
                 // Gravity: its normal part moves the cloth AND the air it carries.
                 float gn = -gravity * ny;
@@ -1801,6 +1906,10 @@ namespace RealFlag.Flags
                 X[k] = _px[k]; Y[k] = _py[k]; Z[k] = _pz[k];
             }
 
+            // A cut cloth: what is not cloth goes where the cloth beside it would carry on to.
+            if (_shaped)
+                FillCut(X, Y, Z);
+
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
 
             // Knotted? Its worst link off the pole and the city's posts, every KnotCheck: laid out
@@ -1902,6 +2011,12 @@ namespace RealFlag.Flags
         /// </summary>
         private void SmoothReactive()
         {
+            if (_shaped)
+            {
+                SmoothCutReactive();
+                return;
+            }
+
             int cols = Columns, rows = Rows;
 
             for (int pass = 0; pass < 2; pass++)
@@ -1933,6 +2048,52 @@ namespace RealFlag.Flags
                         float a = i > 1 ? _react[k - 1] : c;
                         float b = i < cols - 1 ? _react[k + 1] : c;
                         _smooth[k] = 0.25f * a + 0.5f * c + 0.25f * b;
+                    }
+                }
+
+                for (int j = 0; j < rows; j++)
+                    Array.Copy(_smooth, j * cols + 1, _react, j * cols + 1, cols - 1);
+            }
+        }
+
+        /// <summary>
+        /// <see cref="SmoothReactive"/> on a cut cloth: the same passes, an out neighbour taken as
+        /// the particle itself (as past the grid's edge), so no air leaks across a notch.
+        /// </summary>
+        private void SmoothCutReactive()
+        {
+            int cols = Columns, rows = Rows;
+            bool[] gone = _out;
+
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int j = 0; j < rows; j++)
+                {
+                    for (int i = 1; i < cols; i++)
+                    {
+                        int k = j * cols + i;
+                        float c = _react[k];
+                        float a = j > 0 && !gone[k - cols] ? _react[k - cols] : c;
+                        float b = j < rows - 1 && !gone[k + cols] ? _react[k + cols] : c;
+                        _smooth[k] = gone[k] ? 0f : 0.25f * a + 0.5f * c + 0.25f * b;
+                    }
+                }
+
+                for (int j = 0; j < rows; j++)
+                    Array.Copy(_smooth, j * cols + 1, _react, j * cols + 1, cols - 1);
+            }
+
+            for (int pass = 0; pass < 3; pass++)
+            {
+                for (int j = 0; j < rows; j++)
+                {
+                    for (int i = 1; i < cols; i++)
+                    {
+                        int k = j * cols + i;
+                        float c = _react[k];
+                        float a = i > 1 ? _react[k - 1] : c;
+                        float b = i < cols - 1 && !gone[k + 1] ? _react[k + 1] : c;
+                        _smooth[k] = gone[k] ? 0f : 0.25f * a + 0.5f * c + 0.25f * b;
                     }
                 }
 
@@ -2653,7 +2814,7 @@ namespace RealFlag.Flags
             float limit = FlatCone * len;
             for (int k = 0; k < n; k++)
             {
-                if (Nx[k] * mx + Ny[k] * my + Nz[k] * mz < limit)
+                if (Nx[k] * mx + Ny[k] * my + Nz[k] * mz < limit && !(_shaped && _out[k]))
                     return false;
             }
 
@@ -2739,6 +2900,10 @@ namespace RealFlag.Flags
             float reach2 = reach * reach;
             for (int a = 0; a < n; a++)
             {
+                // Not cloth (a cut): nothing to collide.
+                if (_shaped && _out[a])
+                    continue;
+
                 int ax = cx[a], ay = cy[a], az = cz[a];
                 int ia = _col[a], ja = _row[a];
                 bool pinned = _invMass[a] == 0f;
@@ -2762,6 +2927,8 @@ namespace RealFlag.Flags
                                 if (di <= 1 && di >= -1 && dj <= 1 && dj >= -1)
                                     continue;
                                 if (pinned && _invMass[b] == 0f)
+                                    continue;
+                                if (_shaped && _out[b])
                                     continue;
 
                                 float ex = px[b] - x, ey = py[b] - y, ez = pz[b] - z;
@@ -2825,8 +2992,194 @@ namespace RealFlag.Flags
             }
         }
 
+        /// <summary>
+        /// A cut cloth's particles (<see cref="Cut"/>): out where no cell round them is cloth; the
+        /// span of cloth down each column through each particle (a tail of a swallowtail is its own
+        /// span, a pennant's narrows to its point: Lighthill's added mass is the span's); and the
+        /// order the out particles are filled in, outwards from the cloth a ring at a time, each from
+        /// the neighbours already known: carried on in a straight line from two (2 a - b) where it
+        /// can be, else beside the one there is.
+        /// </summary>
+        private void PrepareCut()
+        {
+            int cols = Columns, rows = Rows, cu = cols - 1;
+            _out = new bool[Count];
+            for (int j = 0; j < rows; j++)
+            {
+                for (int i = 0; i < cols; i++)
+                {
+                    bool cloth = (i > 0 && j > 0 && _cells[(j - 1) * cu + i - 1]) || (i < cu && j > 0 && _cells[(j - 1) * cu + i]) ||
+                                 (i > 0 && j < rows - 1 && _cells[j * cu + i - 1]) || (i < cu && j < rows - 1 && _cells[j * cu + i]);
+                    int k = j * cols + i;
+                    _out[k] = !cloth;
+                    if (!cloth)
+                        _invMass[k] = 0f;
+                }
+            }
+
+            // The span down each column: the run of cloth particles through each one.
+            _span = new float[Count];
+            for (int i = 0; i < cols; i++)
+            {
+                int j = 0;
+                while (j < rows)
+                {
+                    if (_out[j * cols + i])
+                    {
+                        j++;
+                        continue;
+                    }
+
+                    int start = j;
+                    while (j < rows && !_out[j * cols + i])
+                        j++;
+
+                    float span = Math.Max(1, j - 1 - start) * CellV;
+                    for (int r = start; r < j; r++)
+                        _span[r * cols + i] = span;
+                }
+            }
+
+            // The fill: rings out from the cloth.
+            var known = new bool[Count];
+            for (int k = 0; k < Count; k++)
+                known[k] = !_out[k];
+
+            var order = new System.Collections.Generic.List<int>();
+            var starts = new System.Collections.Generic.List<int>();
+            var froms = new System.Collections.Generic.List<int>();
+            var beyonds = new System.Collections.Generic.List<int>();
+            var ring = new System.Collections.Generic.List<int>();
+            int[] di = { 1, -1, 0, 0 }, dj = { 0, 0, 1, -1 };
+            while (true)
+            {
+                ring.Clear();
+                for (int k = 0; k < Count; k++)
+                {
+                    if (known[k])
+                        continue;
+
+                    int i = k % cols, j = k / cols;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int ni = i + di[d], nj = j + dj[d];
+                        if (ni >= 0 && ni < cols && nj >= 0 && nj < rows && known[nj * cols + ni])
+                        {
+                            ring.Add(k);
+                            break;
+                        }
+                    }
+                }
+
+                if (ring.Count == 0)
+                    break;
+
+                foreach (int k in ring)
+                {
+                    int i = k % cols, j = k / cols;
+                    starts.Add(froms.Count);
+                    order.Add(k);
+
+                    // Carried on from two in a line where it can be.
+                    int lines = 0;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int ai = i + di[d], aj = j + dj[d], bi = i + 2 * di[d], bj = j + 2 * dj[d];
+                        if (ai < 0 || ai >= cols || aj < 0 || aj >= rows || !known[aj * cols + ai])
+                            continue;
+                        if (bi < 0 || bi >= cols || bj < 0 || bj >= rows || !known[bj * cols + bi])
+                            continue;
+
+                        froms.Add(aj * cols + ai);
+                        beyonds.Add(bj * cols + bi);
+                        lines++;
+                    }
+
+                    if (lines > 0)
+                        continue;
+
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int ai = i + di[d], aj = j + dj[d];
+                        if (ai >= 0 && ai < cols && aj >= 0 && aj < rows && known[aj * cols + ai])
+                        {
+                            froms.Add(aj * cols + ai);
+                            beyonds.Add(-1);
+                        }
+                    }
+                }
+
+                // A ring known only once all of it is placed: each is filled from the ring inside it.
+                foreach (int k in ring)
+                    known[k] = true;
+            }
+
+            starts.Add(froms.Count);
+            _fillOrder = order.ToArray();
+            _fillStart = starts.ToArray();
+            _fillA = froms.ToArray();
+            _fillB = beyonds.ToArray();
+        }
+
+        /// <summary>
+        /// The out particles of a cut cloth put where the cloth beside them carries on to
+        /// (<see cref="PrepareCut"/>): positions only, the given arrays; nothing uncut.
+        /// </summary>
+        public void FillCut(float[] x, float[] y, float[] z)
+        {
+            if (_fillOrder == null)
+                return;
+
+            int[] order = _fillOrder, start = _fillStart, fa = _fillA, fb = _fillB;
+            for (int o = 0; o < order.Length; o++)
+            {
+                int k = order[o];
+                float sx = 0f, sy = 0f, sz = 0f;
+                int count = start[o + 1] - start[o];
+                for (int e = start[o]; e < start[o + 1]; e++)
+                {
+                    int a = fa[e], b = fb[e];
+                    if (b >= 0)
+                    {
+                        sx += 2f * x[a] - x[b]; sy += 2f * y[a] - y[b]; sz += 2f * z[a] - z[b];
+                    }
+                    else
+                    {
+                        sx += x[a]; sy += y[a]; sz += z[a];
+                    }
+                }
+
+                if (count > 0)
+                {
+                    float inv = 1f / count;
+                    x[k] = sx * inv; y[k] = sy * inv; z[k] = sz * inv;
+                }
+            }
+        }
+
+        /// <summary>A cut cloth's out particles filled (<see cref="FillCut"/>), where they were before too, and still.</summary>
+        private void FillCutStill()
+        {
+            if (_fillOrder == null)
+                return;
+
+            FillCut(X, Y, Z);
+            for (int o = 0; o < _fillOrder.Length; o++)
+            {
+                int k = _fillOrder[o];
+                PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
+                Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
+            }
+        }
+
         private void BuildLinks()
         {
+            if (_shaped)
+            {
+                BuildCutLinks();
+                return;
+            }
+
             _links = 0;
 
             // Structural first, from the hoist outwards: tension reaches the fly in one pass.
@@ -2854,6 +3207,61 @@ namespace RealFlag.Flags
             for (int j = 0; j < Rows - 2; j++)
                 for (int i = 0; i < Columns; i++)
                     Link(j * Columns + i, (j + 2) * Columns + i, i == 0 ? HeadingLink : BendLink);
+        }
+
+        /// <summary>
+        /// A cut cloth's links (<see cref="Cut"/>), in <see cref="BuildLinks"/>'s order: the edges and
+        /// diagonals of its cloth cells, and the two-apart links along a row or a column of them. No
+        /// link reaches an out particle, so nothing joins two tails past the cells between them.
+        /// </summary>
+        private void BuildCutLinks()
+        {
+            _links = 0;
+            int cols = Columns, rows = Rows;
+
+            for (int i = 0; i < cols - 1; i++)
+                for (int j = 0; j < rows; j++)
+                    if (AlongEdge(i, j))
+                        Link(j * cols + i, j * cols + i + 1, Structural);
+
+            for (int j = 0; j < rows - 1; j++)
+                for (int i = 0; i < cols; i++)
+                    if (DownEdge(i, j))
+                        Link(j * cols + i, (j + 1) * cols + i, Structural);
+
+            for (int j = 0; j < rows - 1; j++)
+            {
+                for (int i = 0; i < cols - 1; i++)
+                {
+                    if (!IsClothCell(i, j))
+                        continue;
+
+                    Link(j * cols + i, (j + 1) * cols + i + 1, ShearLink);
+                    Link(j * cols + i + 1, (j + 1) * cols + i, ShearLink);
+                }
+            }
+
+            for (int j = 0; j < rows; j++)
+                for (int i = 0; i < cols - 2; i++)
+                    if (AlongEdge(i, j) && AlongEdge(i + 1, j))
+                        Link(j * cols + i, j * cols + i + 2, BendLink);
+
+            for (int j = 0; j < rows - 2; j++)
+                for (int i = 0; i < cols; i++)
+                    if (DownEdge(i, j) && DownEdge(i, j + 1))
+                        Link(j * cols + i, (j + 2) * cols + i, i == 0 ? HeadingLink : BendLink);
+        }
+
+        /// <summary>The edge from (i, j) to (i + 1, j) is a cloth cell's.</summary>
+        private bool AlongEdge(int i, int j)
+        {
+            return (j > 0 && IsClothCell(i, j - 1)) || (j < Rows - 1 && IsClothCell(i, j));
+        }
+
+        /// <summary>The edge from (i, j) to (i, j + 1) is a cloth cell's.</summary>
+        private bool DownEdge(int i, int j)
+        {
+            return (i > 0 && IsClothCell(i - 1, j)) || (i < Columns - 1 && IsClothCell(i, j));
         }
 
         private void Link(int a, int b, byte kind)

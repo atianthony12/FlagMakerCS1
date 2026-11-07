@@ -178,6 +178,10 @@ namespace RealFlag.UI
         /// <summary>Segmented rows over the hoisted edge (FlagHoist): each button shows a small flag hoisted that way.</summary>
         public bool HoistIcons;
 
+        /// <summary>Segmented rows over the cut (FlagCut): each button shows the cut as a little flag, its name the tooltip; hoisted as <see cref="PresetHoist"/> says, its depth <see cref="CutDepth"/>'s.</summary>
+        public bool CutIcons;
+        public FloatSetting CutDepth;
+
         /// <summary>Image rows: the window's settings the Image window works on.</summary>
         public ImageTarget Image;
 
@@ -910,8 +914,8 @@ namespace RealFlag.UI
         private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
                                       ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
                                       IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting darkness,
-                                      FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes, Action changed,
-                                      Func<bool> enabled)
+                                      FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes,
+                                      IntSetting cut, FloatSetting cutDepth, Action changed, Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
@@ -971,6 +975,8 @@ namespace RealFlag.UI
                     Country = country,
                     Proportion = proportion,
                     HoistedFrom = hoistedFrom,
+                    Cut = cut,
+                    CutDepth = cutDepth,
                     Changed = changed,
                     Enabled = enabled,
                 },
@@ -1107,6 +1113,41 @@ namespace RealFlag.UI
                     resized();
                 },
                 Enabled = enabled,
+            });
+
+            // The cut (the author, 2026-11-07: "let's add more types like fanion, swallowtail, and
+            // more"): the fly's outline, a little flag a button; any flag, a country's too (a
+            // Danish split flag is a swallowtail). Its depth where it has one.
+            string whose = page == PanelPage.New ? "the new flag" : "the selected flag";
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = page,
+                Int = cut,
+                DefaultInt = Settings.Defaults.Cut,
+                ChoiceValues = FlagCut.Values,
+                ChoiceKeys = FlagCut.NameKeys,
+                CutIcons = true,
+                CutDepth = cutDepth,
+                PresetHoist = () => hoistedFrom.value,
+                AfterChange = () =>
+                {
+                    Log.Msg("flags: " + whose + " cut: " + FlagCut.LogName(cut.value) +
+                            (FlagCut.UsesDepth(cut.value) ? ", " + (cutDepth.value * 100f).ToString("F0", CultureInfo.InvariantCulture) + "% deep" : ""));
+                    resized();
+                },
+                Enabled = enabled,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = cutDepth,
+                DefaultFloat = Settings.Defaults.CutDepth,
+                Min = FlagCut.MinDepth * 100f, Max = FlagCut.MaxDepth * 100f, Step = 1f,
+                AfterChange = resized,
+                Enabled = () => (enabled == null || enabled()) && FlagCut.UsesDepth(cut.value),
             });
 
             // Whether it moves (the author: "Some flags should be also static"): an option of its
@@ -1403,7 +1444,8 @@ namespace RealFlag.UI
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewDarkness,
-                      Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles, null, null);
+                      Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
+                      Settings.NewCut, Settings.NewCutDepth, null, null);
 
             // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
             // Elevation of its own. Its pole's height is in the Flagpole popup.
@@ -1601,7 +1643,8 @@ namespace RealFlag.UI
             AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelDarkness,
-                      Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles, FlagEditor.ApplyDesign, selected);
+                      Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles,
+                      Settings.SelCut, Settings.SelCutDepth, FlagEditor.ApplyDesign, selected);
 
             // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
             // in the Flagpole popup; Page Up, Page Down and the gizmo move the whole flag.

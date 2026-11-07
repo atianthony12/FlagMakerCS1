@@ -136,9 +136,9 @@
   <String key="SelColour3.Tooltip">Tercera franja, borde.</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
-  <String key="NewShape.Label">Forma</String>
+  <String key="NewShape.Label">Proporciones</String>
   <String key="NewShape.Tooltip">Alto frente a ancho.</String>
-  <String key="SelShape.Label">Forma</String>
+  <String key="SelShape.Label">Proporciones</String>
   <String key="SelShape.Tooltip">Alto frente a ancho.</String>
   <String key="NewWidth.Label">Ancho</String>
   <String key="NewWidth.Tooltip">De lado a lado.</String>
@@ -156,6 +156,21 @@
   <String key="SelHoistedFrom.Tooltip">El borde que sujeta.</String>
   <String key="Hoist.Side">Lado</String>
   <String key="Hoist.Top">Arriba</String>
+  <String key="NewCut.Label">Forma</String>
+  <String key="NewCut.Tooltip">El contorno del vuelo.</String>
+  <String key="SelCut.Label">Forma</String>
+  <String key="SelCut.Tooltip">El contorno del vuelo.</String>
+  <String key="NewCutDepth.Label">Profundidad</String>
+  <String key="NewCutDepth.Tooltip">Muesca o punta.</String>
+  <String key="SelCutDepth.Label">Profundidad</String>
+  <String key="SelCutDepth.Tooltip">Muesca o punta.</String>
+  <String key="Cut.Rectangle">Rectángulo</String>
+  <String key="Cut.Swallowtail">Cola de golondrina</String>
+  <String key="Cut.Tongued">Tres puntas</String>
+  <String key="Cut.Pennant">Banderín</String>
+  <String key="Cut.Burgee">Grímpola</String>
+  <String key="Cut.Pointed">En punta</String>
+  <String key="Cut.Rounded">Redondeada</String>
 
   <!-- What the width and height set, as the settings file names it. -->
   <String key="NewLength.Label">Nueva bandera: largo desde el asta hasta el extremo, en metros</String>

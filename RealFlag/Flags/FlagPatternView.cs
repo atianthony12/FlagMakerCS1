@@ -210,7 +210,20 @@ namespace RealFlag.Flags
         public static void Render(Color32[] view, int vw, int vh, float fx, float fy, float fw, float fh, int pattern, float ratio, bool top,
                                   uint c1, uint c2, uint c3, Color32 back)
         {
+            Render(view, vw, vh, fx, fy, fw, fh, pattern, ratio, top, c1, c2, c3, back, FlagCut.Rectangle, FlagCut.DefaultDepth);
+        }
+
+        /// <summary>
+        /// The same, cut to <paramref name="cut"/> (FlagCut) at <paramref name="depth"/>: past the
+        /// fly's outline <paramref name="back"/> shows, the edge anti-aliased over a pixel.
+        /// </summary>
+        public static void Render(Color32[] view, int vw, int vh, float fx, float fy, float fw, float fh, int pattern, float ratio, bool top,
+                                  uint c1, uint c2, uint c3, Color32 back, int cut, float depth)
+        {
             float len = 1f / Math.Max(ratio, 0.05f);
+            cut = FlagCut.Sanitise(cut);
+            depth = FlagCut.SanitiseDepth(depth);
+            bool cutting = cut != FlagCut.Rectangle;
             fw = Math.Max(fw, 1f);
             fh = Math.Max(fh, 1f);
 
@@ -218,6 +231,9 @@ namespace RealFlag.Flags
             float along = (top ? 1f / fh : 1f / fw) * len;
             float across = top ? 1f / fw : 1f / fh;
             float w = Math.Max(Math.Max(along, across), 1e-4f) * 1.2f;
+
+            // A pixel along the fly, as a share of the length (the cut's edge is drawn over one).
+            float du = top ? 1f / fh : 1f / fw;
 
             for (int row = 0; row < vh; row++)
             {
@@ -235,14 +251,40 @@ namespace RealFlag.Flags
                     }
 
                     float u = top ? sy : sx, v = top ? sx : sy;
+                    float cover = 1f;
+                    if (cutting)
+                    {
+                        cover = 0.5f + (FlagCut.Edge(cut, depth, v) - u) / du;
+                        cover = cover < 0f ? 0f : cover > 1f ? 1f : cover;
+                        if (cover <= 0f)
+                        {
+                            view[o + x] = back;
+                            continue;
+                        }
+                    }
+
                     int field, first, second;
                     float t1, t2;
                     Layers(pattern, u * len, v, len, w, out field, out first, out t1, out second, out t2);
 
                     uint a = Colour(field, c1, c2, c3), b = Colour(first, c1, c2, c3), c = Colour(second, c1, c2, c3);
-                    view[o + x] = new Color32(Blend(a, b, c, 16, t1, t2), Blend(a, b, c, 8, t1, t2), Blend(a, b, c, 0, t1, t2), 255);
+                    var cloth = new Color32(Blend(a, b, c, 16, t1, t2), Blend(a, b, c, 8, t1, t2), Blend(a, b, c, 0, t1, t2), 255);
+                    view[o + x] = cover >= 1f ? cloth : Mix(back, cloth, cover);
                 }
             }
+        }
+
+        /// <summary>
+        /// <paramref name="t"/> of the way from <paramref name="under"/> to <paramref name="over"/>:
+        /// over a clear background (alpha 0) the cloth's colour, its alpha the coverage.
+        /// </summary>
+        private static Color32 Mix(Color32 under, Color32 over, float t)
+        {
+            if (under.a == 0)
+                return new Color32(over.r, over.g, over.b, (byte)(255f * t + 0.5f));
+
+            return new Color32((byte)(under.r + (over.r - under.r) * t + 0.5f), (byte)(under.g + (over.g - under.g) * t + 0.5f),
+                               (byte)(under.b + (over.b - under.b) * t + 0.5f), (byte)(under.a + (over.a - under.a) * t + 0.5f));
         }
 
         private static byte Blend(uint a, uint b, uint c, int shift, float t1, float t2)

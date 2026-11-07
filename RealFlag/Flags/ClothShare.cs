@@ -195,6 +195,9 @@ namespace RealFlag.Flags
         public int Length, Proportion, HoistedFrom, Tilt, Lean, Waviness, Detail, Pole, Speed, Angle;
         public bool Halyard, SelfCollision;
 
+        /// <summary>The cut (FlagCut) and its depth in thousandths where it has one: another cut is another cloth.</summary>
+        public int Cut;
+
         /// <summary>
         /// The key of a flag of <paramref name="spec"/> at <paramref name="detail"/> in a wind of
         /// <paramref name="speed"/> m/s at the flag blowing <paramref name="relativeDegrees"/> from
@@ -222,6 +225,7 @@ namespace RealFlag.Flags
                 Angle = (int)Math.Round(rel / step) % (int)Math.Round(360f / step),
                 Halyard = spec.OnHalyard,
                 SelfCollision = selfCollision,
+                Cut = spec.Cut * 4096 + (FlagCut.UsesDepth(spec.Cut) ? (int)Math.Round(spec.CutDepth * 1000f) : 0),
             };
         }
 
@@ -235,7 +239,7 @@ namespace RealFlag.Flags
         {
             return Length == o.Length && Proportion == o.Proportion && HoistedFrom == o.HoistedFrom && Tilt == o.Tilt && Lean == o.Lean &&
                    Waviness == o.Waviness && Detail == o.Detail && Pole == o.Pole && Speed == o.Speed && Angle == o.Angle &&
-                   Halyard == o.Halyard && SelfCollision == o.SelfCollision;
+                   Halyard == o.Halyard && SelfCollision == o.SelfCollision && Cut == o.Cut;
         }
 
         public override bool Equals(object obj)
@@ -258,6 +262,7 @@ namespace RealFlag.Flags
                 h = h * 31 + Speed;
                 h = h * 31 + Angle;
                 h = h * 31 + (Halyard ? 1 : 0) + (SelfCollision ? 2 : 0);
+                h = h * 31 + Cut;
                 return h;
             }
         }

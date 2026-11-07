@@ -685,6 +685,18 @@ namespace RealFlag.Flags
         /// </summary>
         public float TearEdges;
 
+        /// <summary>
+        /// The flag's cut, a FlagCut value (the author, 2026-11-07: "the only shapes we have are
+        /// square/rectangle, but let's add more types like fanion, swallowtail, and more"): the
+        /// outline of its fly. The CLOTH takes it -- what is cut away is not stepped and catches no
+        /// air (FlagCloth's cells), so a swallowtail's tails fly apart and a pennant's point whips --
+        /// and the shader cuts its exact edge.
+        /// </summary>
+        public int Cut;
+
+        /// <summary>How deep the cut's notch or point is, a share of the length (<see cref="FlagCut.MinDepth"/> .. <see cref="FlagCut.MaxDepth"/>; the rectangle and the pennant have none).</summary>
+        public float CutDepth;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -768,6 +780,8 @@ namespace RealFlag.Flags
                     Holes = 0f,
                     Tear = 0f,
                     TearEdges = 0f,
+                    Cut = FlagCut.Rectangle,
+                    CutDepth = FlagCut.DefaultDepth,
                 };
             }
         }
@@ -862,6 +876,8 @@ namespace RealFlag.Flags
             s.Holes = Share(s.Holes);
             s.Tear = Share(s.Tear);
             s.TearEdges = Share(s.TearEdges);
+            s.Cut = FlagCut.Sanitise(s.Cut);
+            s.CutDepth = FlagCut.SanitiseDepth(s.CutDepth);
             return s;
         }
 
@@ -901,10 +917,16 @@ namespace RealFlag.Flags
             return Math.Max(-MaxTilt, Math.Min(degrees, MaxTilt));
         }
 
-        /// <summary>The shape changed (a new cloth is needed), not just the look.</summary>
+        /// <summary>The shape changed (a new cloth is needed), not just the look: its size, or its cut (the cloth's cells).</summary>
         public bool SameShape(FlagSpec other)
         {
-            return Math.Abs(Length - other.Length) < 1e-4f && Proportion == other.Proportion;
+            return Math.Abs(Length - other.Length) < 1e-4f && Proportion == other.Proportion && SameCut(other);
+        }
+
+        /// <summary>The same cut: the same outline, the same depth where the cut has one.</summary>
+        public bool SameCut(FlagSpec other)
+        {
+            return Cut == other.Cut && (!FlagCut.UsesDepth(Cut) || Math.Abs(CutDepth - other.CutDepth) < 1e-4f);
         }
 
         /// <summary>The hoist's line is the same -- the same edge hoisted, the same lean (the cloth need not turn).</summary>
@@ -968,6 +990,8 @@ namespace RealFlag.Flags
                          (ImageAlpha == FlagImageAlpha.Through ? ", the flag through its see-through parts" : "") + ") over " + design;
             string text = design + ", " + Length.ToString("0.##", inv) + " m at " + FlagProportion.Name(Proportion) + ", waviness " +
                           (Waviness * 100f).ToString("F0", inv) + "%";
+            if (Cut != FlagCut.Rectangle)
+                text += ", cut " + FlagCut.LogName(Cut) + (FlagCut.UsesDepth(Cut) ? " " + (CutDepth * 100f).ToString("F0", inv) + "% deep" : "");
             if (HoistedFrom != FlagHoist.Side)
                 text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom);
             if (Motion != FlagMotion.Waves)
@@ -1075,10 +1099,11 @@ namespace RealFlag.Flags
         /// parts do (two bytes). 8 (2026-09-27): the same, then whether it moves (a byte,
         /// FlagMotion). 9 (2026-11-03): the same, then its wear, dirt and holes (three floats,
         /// 0..1). 10 (2026-11-04): the same, then how torn (a float, 0..1). 11 (2026-11-07): the
-        /// same, then how torn its top and bottom edges are (a float, 0..1; older ones whole). Every
-        /// older one is still read.
+        /// same, then how torn its top and bottom edges are (a float, 0..1; older ones whole). 13
+        /// (2026-11-07): the same, then its cut (a byte, FlagCut) and the cut's depth (a float, a share
+        /// of the length; older ones rectangles). Every older one is still read.
         /// </summary>
-        public const byte Version = 11;
+        public const byte Version = 13;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1117,6 +1142,8 @@ namespace RealFlag.Flags
             w.Write(s.Holes);
             w.Write(s.Tear);
             w.Write(s.TearEdges);
+            w.Write((byte)s.Cut);
+            w.Write(s.CutDepth);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1240,6 +1267,18 @@ namespace RealFlag.Flags
 
             // Before torn edges: whole.
             s.TearEdges = version >= 11 ? r.ReadSingle() : 0f;
+
+            // Before cuts: a rectangle.
+            if (version >= 13)
+            {
+                s.Cut = r.ReadByte();
+                s.CutDepth = r.ReadSingle();
+            }
+            else
+            {
+                s.Cut = FlagCut.Rectangle;
+                s.CutDepth = FlagCut.DefaultDepth;
+            }
 
             return s.Sanitised();
         }

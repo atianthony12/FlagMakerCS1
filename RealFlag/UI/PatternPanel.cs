@@ -88,7 +88,8 @@ namespace RealFlag.UI
         private float _nextScan, _quickUntil;
 
         // What the preview last showed, and at what size.
-        private int _shownPattern = -1, _shownProportion, _shownHoist;
+        private int _shownPattern = -1, _shownProportion, _shownHoist, _shownCut;
+        private float _shownCutDepth = FlagCut.DefaultDepth;
         private uint _shownC1, _shownC2, _shownC3;
         private bool _shownEnabled;
         private bool _shownSharp;
@@ -382,6 +383,7 @@ namespace RealFlag.UI
         private bool Changed()
         {
             return _target.Pattern.value != _shownPattern || _target.Proportion.value != _shownProportion || _target.HoistedFrom.value != _shownHoist ||
+                   _target.CutValue != _shownCut || Mathf.Abs(_target.CutDepthValue - _shownCutDepth) > 1e-4f ||
                    _target.C1 != _shownC1 || _target.C2 != _shownC2 || _target.C3 != _shownC3 || _target.IsEnabled != _shownEnabled;
         }
 
@@ -394,6 +396,8 @@ namespace RealFlag.UI
             _shownPattern = _target.Pattern.value;
             _shownProportion = _target.Proportion.value;
             _shownHoist = _target.HoistedFrom.value;
+            _shownCut = _target.CutValue;
+            _shownCutDepth = _target.CutDepthValue;
             _shownC1 = _target.C1;
             _shownC2 = _target.C2;
             _shownC3 = _target.C3;
@@ -423,7 +427,7 @@ namespace RealFlag.UI
             float fx = Mathf.Round(0.5f * (vw - fw)), fy = Mathf.Round(0.5f * (vh - fh));
 
             FlagPatternView.Render(_canvasPixels, vw, vh, fx, fy, fw, fh, _shownPattern, FlagProportion.Ratio(_shownProportion), _target.HoistedFromTop,
-                                   _shownC1, _shownC2, _shownC3, Back);
+                                   _shownC1, _shownC2, _shownC3, Back, _shownCut, _shownCutDepth);
             _canvasTexture.SetPixels32(_canvasPixels);
             _canvasTexture.Apply(false);
             _canvas.texture = _canvasTexture;

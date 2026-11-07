@@ -164,6 +164,10 @@ namespace RealFlag
 
         public static FloatSetting NewWaviness { get; private set; }
 
+        /// <summary>The flag's cut (a FlagCut value: rectangle, swallowtail, pennant...) and its notch's or point's depth, a share of the length (FlagSpec.Cut, CutDepth).</summary>
+        public static IntSetting NewCut { get; private set; }
+        public static FloatSetting NewCutDepth { get; private set; }
+
         /// <summary>How much darker the cloth is than its design, 0..0.8 (FlagSpec.Darkness; shown as a percentage).</summary>
         public static FloatSetting NewDarkness { get; private set; }
 
@@ -240,6 +244,8 @@ namespace RealFlag
         public static IntSetting SelHoistedFrom { get; private set; }
         public static IntSetting SelMotion { get; private set; }
         public static FloatSetting SelWaviness { get; private set; }
+        public static IntSetting SelCut { get; private set; }
+        public static FloatSetting SelCutDepth { get; private set; }
         public static FloatSetting SelDarkness { get; private set; }
         public static FloatSetting SelWear { get; private set; }
         public static FloatSetting SelDirt { get; private set; }
@@ -339,6 +345,10 @@ namespace RealFlag
             /// <summary>It waves in the wind (the mod's purpose).</summary>
             public const int Motion = FlagMotion.Waves;
             public const float Waviness = 1f;
+
+            /// <summary>A rectangle, as every flag was; a cut's notch or point a third of the length.</summary>
+            public const int Cut = FlagCut.Rectangle;
+            public const float CutDepth = FlagCut.DefaultDepth;
 
             /// <summary>The colours as designed.</summary>
             public const float Darkness = 0f;
@@ -440,6 +450,8 @@ namespace RealFlag
                 LinkSize = new BoolSetting("LinkSize", Defaults.LinkSize);
                 NewMotion = new IntSetting("NewMotion", Defaults.Motion);
                 NewWaviness = new FloatSetting("NewWaviness", Defaults.Waviness);
+                NewCut = new IntSetting("NewCut", Defaults.Cut);
+                NewCutDepth = new FloatSetting("NewCutDepth", Defaults.CutDepth);
                 NewDarkness = new FloatSetting("NewDarkness", Defaults.Darkness);
                 NewWear = new FloatSetting("NewWear", Defaults.Wear);
                 NewDirt = new FloatSetting("NewDirt", Defaults.Dirt);
@@ -477,6 +489,8 @@ namespace RealFlag
                 SelHoistedFrom = new IntSetting("SelHoistedFrom", Defaults.HoistedFrom, true);
                 SelMotion = new IntSetting("SelMotion", Defaults.Motion, true);
                 SelWaviness = new FloatSetting("SelWaviness", Defaults.Waviness, true);
+                SelCut = new IntSetting("SelCut", Defaults.Cut, true);
+                SelCutDepth = new FloatSetting("SelCutDepth", Defaults.CutDepth, true);
                 SelDarkness = new FloatSetting("SelDarkness", Defaults.Darkness, true);
                 SelWear = new FloatSetting("SelWear", Defaults.Wear, true);
                 SelDirt = new FloatSetting("SelDirt", Defaults.Dirt, true);
@@ -538,6 +552,8 @@ namespace RealFlag
             spec.HoistedFrom = NewHoistedFrom.value;
             spec.Motion = NewMotion.value;
             spec.Waviness = NewWaviness.value;
+            spec.Cut = NewCut.value;
+            spec.CutDepth = NewCutDepth.value;
             spec.Darkness = NewDarkness.value;
             spec.Wear = NewWear.value;
             spec.Dirt = NewDirt.value;

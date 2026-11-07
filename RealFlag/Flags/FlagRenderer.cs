@@ -1422,7 +1422,7 @@ namespace RealFlag.Flags
 
             _detailChanges++;
             FlagCloth old = f.Cloth;
-            var cloth = new FlagCloth(old.Length, old.Height, old.Fabric, 1f, 0f, wanted);
+            var cloth = new FlagCloth(old.Length, old.Height, old.Fabric, 1f, 0f, wanted, 0f, -1f, 0f, old.Cut, old.CutDepth);
             cloth.TakeShape(old, true);
             cloth.GroundY = old.GroundY;
             cloth.SelfCollision = old.SelfCollision;
@@ -1573,7 +1573,8 @@ namespace RealFlag.Flags
                 // A new size: a new cloth in the old one's shape, so a flag being resized in the
                 // panel keeps flying (dropped and settled again, it vanished while the slider moved).
                 FlagCloth old = f.Cloth;
-                var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), 1f, 0f, f.Detail);
+                var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), 1f, 0f, f.Detail, 0f, -1f, 0f,
+                                          spec.Cut, spec.CutDepth);
                 cloth.TakeShape(old);
                 cloth.GroundY = old.GroundY;
                 cloth.SelfCollision = old.SelfCollision;
@@ -2063,7 +2064,8 @@ namespace RealFlag.Flags
 
         private FlagCloth StillCloth(FlagSpec spec, int motion, float hx, float hy, float hz, float fx, float fy, float fz)
         {
-            var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, FlagCloth.CellsAlong, hx, hy, hz);
+            var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, FlagCloth.CellsAlong, hx, hy, hz,
+                                      spec.Cut, spec.CutDepth);
             cloth.SelfCollision = _selfCollision;
             StillPose.Lay(cloth, motion, spec.OnHalyard, fx, fy, fz);
             return cloth;
@@ -2075,7 +2077,7 @@ namespace RealFlag.Flags
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             return spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
                    spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
-                   (_selfCollision ? 1 : 0);
+                   (_selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "");
         }
 
         /// <summary>A still shape made in the flag's own frame (heading 0): kept for the next flag like it.</summary>
@@ -2209,7 +2211,7 @@ namespace RealFlag.Flags
                 // hanging from its hoist's line (FlagOrientation, set by Place).
                 f.Detail = FlagCloth.CellsAlong;
                 f.Cloth = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), start.x, start.z, f.Detail,
-                                        f.Hoist.x, f.Hoist.y, f.Hoist.z);
+                                        f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Spec.Cut, f.Spec.CutDepth);
                 f.Cloth.SelfCollision = _selfCollision;
 
                 // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
@@ -2675,7 +2677,7 @@ namespace RealFlag.Flags
         private ShareGroup NewGroup(ShareKey key, FlagInstance f, Vector3 dir)
         {
             var source = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), dir.x, dir.z, f.Detail,
-                                       f.Hoist.x, f.Hoist.y, f.Hoist.z);
+                                       f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Cloth.Cut, f.Cloth.CutDepth);
             source.SelfCollision = key.SelfCollision;
             if (f.Spec.HasPole)
                 f.PoleShape.ApplyTo(source, f.Fly.x, f.Fly.y, f.Fly.z);
@@ -3353,6 +3355,10 @@ namespace RealFlag.Flags
             float nMin = float.MaxValue, nMax = float.MinValue;
             for (int k = 0; k < c.Count; k++)
             {
+                // A cut cloth's out particles are never drawn: not picked either.
+                if (!c.IsCloth(k))
+                    continue;
+
                 var p = new Vector3(c.X[k], c.Y[k], c.Z[k]);
                 float a = Vector3.Dot(p, u), b = Vector3.Dot(p, h), d = Vector3.Dot(p, n);
                 if (a < uMin) uMin = a;

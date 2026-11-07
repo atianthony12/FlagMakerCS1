@@ -15,15 +15,21 @@ namespace RealFlag.UI
 
         private Texture2D _own;
         private Color32[] _pixels;
-        private int _pattern = -1, _proportion;
+        private int _pattern = -1, _proportion, _cut;
+        private float _cutDepth = FlagCut.DefaultDepth;
         private bool _top;
         private uint _c1, _c2, _c3;
 
         /// <summary>It does not show this, at its size.</summary>
         public bool Stale(int pattern, int proportion, bool top, uint c1, uint c2, uint c3)
         {
+            return Stale(pattern, proportion, top, c1, c2, c3, FlagCut.Rectangle, FlagCut.DefaultDepth);
+        }
+
+        public bool Stale(int pattern, int proportion, bool top, uint c1, uint c2, uint c3, int cut, float cutDepth)
+        {
             return _own == null || pattern != _pattern || proportion != _proportion || top != _top || c1 != _c1 || c2 != _c2 || c3 != _c3 ||
-                   _own.width != PixelsWide || _own.height != PixelsTall;
+                   cut != _cut || Mathf.Abs(cutDepth - _cutDepth) > 1e-4f || _own.width != PixelsWide || _own.height != PixelsTall;
         }
 
         private int PixelsWide
@@ -38,9 +44,17 @@ namespace RealFlag.UI
 
         public void Show(int pattern, int proportion, bool top, uint c1, uint c2, uint c3)
         {
-            if (!Stale(pattern, proportion, top, c1, c2, c3))
+            Show(pattern, proportion, top, c1, c2, c3, FlagCut.Rectangle, FlagCut.DefaultDepth);
+        }
+
+        /// <summary>The flag cut to <paramref name="cut"/> (FlagCut): clear past its outline.</summary>
+        public void Show(int pattern, int proportion, bool top, uint c1, uint c2, uint c3, int cut, float cutDepth)
+        {
+            if (!Stale(pattern, proportion, top, c1, c2, c3, cut, cutDepth))
                 return;
 
+            _cut = cut;
+            _cutDepth = cutDepth;
             _pattern = pattern;
             _proportion = proportion;
             _top = top;
@@ -62,7 +76,7 @@ namespace RealFlag.UI
                 _pixels = new Color32[w * h];
             }
 
-            FlagPatternView.Render(_pixels, w, h, 0f, 0f, w, h, pattern, FlagProportion.Ratio(proportion), top, c1, c2, c3, default(Color32));
+            FlagPatternView.Render(_pixels, w, h, 0f, 0f, w, h, pattern, FlagProportion.Ratio(proportion), top, c1, c2, c3, default(Color32), cut, cutDepth);
             _own.SetPixels32(_pixels);
             _own.Apply(false);
             texture = _own;

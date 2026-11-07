@@ -134,9 +134,9 @@
   <String key="SelColour3.Tooltip">Third band, border.</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
-  <String key="NewShape.Label">Shape</String>
+  <String key="NewShape.Label">Proportions</String>
   <String key="NewShape.Tooltip">Height to width.</String>
-  <String key="SelShape.Label">Shape</String>
+  <String key="SelShape.Label">Proportions</String>
   <String key="SelShape.Tooltip">Height to width.</String>
   <String key="NewWidth.Label">Width</String>
   <String key="NewWidth.Tooltip">Side to side.</String>
@@ -154,6 +154,22 @@
   <String key="SelHoistedFrom.Tooltip">The edge that's held.</String>
   <String key="Hoist.Side">Side</String>
   <String key="Hoist.Top">Top</String>
+  <!-- The flag's cut (FlagCut): the outline of its fly. Depth: the notch's or the point's, a share of the length. -->
+  <String key="NewCut.Label">Shape</String>
+  <String key="NewCut.Tooltip">The fly's outline.</String>
+  <String key="SelCut.Label">Shape</String>
+  <String key="SelCut.Tooltip">The fly's outline.</String>
+  <String key="NewCutDepth.Label">Cut depth</String>
+  <String key="NewCutDepth.Tooltip">Notch or point depth.</String>
+  <String key="SelCutDepth.Label">Cut depth</String>
+  <String key="SelCutDepth.Tooltip">Notch or point depth.</String>
+  <String key="Cut.Rectangle">Rectangle</String>
+  <String key="Cut.Swallowtail">Swallowtail</String>
+  <String key="Cut.Tongued">Swallowtail and tongue</String>
+  <String key="Cut.Pennant">Pennant</String>
+  <String key="Cut.Burgee">Burgee</String>
+  <String key="Cut.Pointed">Pointed</String>
+  <String key="Cut.Rounded">Rounded</String>
 
   <!-- What the width and height set, as the settings file names it. -->
   <String key="NewLength.Label">New flag: length from the pole to the far end, in meters</String>

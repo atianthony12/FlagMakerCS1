@@ -132,6 +132,8 @@ namespace RealFlag.Flags
                     Settings.SelHoistedFrom.value = e.Spec.HoistedFrom;
                     Settings.SelMotion.value = e.Spec.Motion;
                     Settings.SelWaviness.value = e.Spec.Waviness;
+                    Settings.SelCut.value = e.Spec.Cut;
+                    Settings.SelCutDepth.value = e.Spec.CutDepth;
                     Settings.SelDarkness.value = e.Spec.Darkness;
                     Settings.SelWear.value = e.Spec.Wear;
                     Settings.SelDirt.value = e.Spec.Dirt;
@@ -198,6 +200,8 @@ namespace RealFlag.Flags
             spec.HoistedFrom = Settings.SelHoistedFrom.value;
             spec.Motion = Settings.SelMotion.value;
             spec.Waviness = Settings.SelWaviness.value;
+            spec.Cut = Settings.SelCut.value;
+            spec.CutDepth = Settings.SelCutDepth.value;
             spec.Darkness = Settings.SelDarkness.value;
             spec.Wear = Settings.SelWear.value;
             spec.Dirt = Settings.SelDirt.value;
@@ -503,6 +507,8 @@ namespace RealFlag.Flags
             Settings.NewHoistedFrom.value = e.Spec.HoistedFrom;
             Settings.NewMotion.value = e.Spec.Motion;
             Settings.NewWaviness.value = e.Spec.Waviness;
+            Settings.NewCut.value = e.Spec.Cut;
+            Settings.NewCutDepth.value = e.Spec.CutDepth;
             Settings.NewDarkness.value = e.Spec.Darkness;
             Settings.NewWear.value = e.Spec.Wear;
             Settings.NewDirt.value = e.Spec.Dirt;

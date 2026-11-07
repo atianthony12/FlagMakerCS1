@@ -139,9 +139,9 @@
   <String key="SelColour3.Tooltip">Troisième bande, bordure.</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
-  <String key="NewShape.Label">Forme</String>
+  <String key="NewShape.Label">Proportions</String>
   <String key="NewShape.Tooltip">Hauteur sur largeur.</String>
-  <String key="SelShape.Label">Forme</String>
+  <String key="SelShape.Label">Proportions</String>
   <String key="SelShape.Tooltip">Hauteur sur largeur.</String>
   <String key="NewWidth.Label">Largeur</String>
   <String key="NewWidth.Tooltip">D’un bord à l’autre.</String>
@@ -159,6 +159,21 @@
   <String key="SelHoistedFrom.Tooltip">Le bord retenu.</String>
   <String key="Hoist.Side">Côté</String>
   <String key="Hoist.Top">Haut</String>
+  <String key="NewCut.Label">Forme</String>
+  <String key="NewCut.Tooltip">Le contour du battant.</String>
+  <String key="SelCut.Label">Forme</String>
+  <String key="SelCut.Tooltip">Le contour du battant.</String>
+  <String key="NewCutDepth.Label">Profondeur</String>
+  <String key="NewCutDepth.Tooltip">Encoche ou pointe.</String>
+  <String key="SelCutDepth.Label">Profondeur</String>
+  <String key="SelCutDepth.Tooltip">Encoche ou pointe.</String>
+  <String key="Cut.Rectangle">Rectangle</String>
+  <String key="Cut.Swallowtail">Queue d’aronde</String>
+  <String key="Cut.Tongued">Trois pointes</String>
+  <String key="Cut.Pennant">Fanion</String>
+  <String key="Cut.Burgee">Guidon</String>
+  <String key="Cut.Pointed">En pointe</String>
+  <String key="Cut.Rounded">Arrondi</String>
 
   <!-- What the width and height set, as the settings file names it. -->
   <String key="NewLength.Label">Nouveau drapeau : longueur du mât au bout, en mètres</String>

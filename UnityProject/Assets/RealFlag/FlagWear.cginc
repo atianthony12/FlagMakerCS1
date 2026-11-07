@@ -40,6 +40,53 @@
 #ifndef REALFLAG_WEAR_INCLUDED
 #define REALFLAG_WEAR_INCLUDED
 
+// THE CUT (FlagSpec.Cut, _RFCut: x the cut, y its depth, a share of the length): the fly's
+// outline as a function of v (0 the top of the hoist .. 1 its bottom), a share of the length --
+// FlagCut.Edge in C#, KEPT IN STEP BY HAND (the cloth's cells and the panels' pictures use that
+// one). 0 rectangle, 1 swallowtail, 2 swallowtail and tongue, 3 pennant, 4 burgee, 5 pointed,
+// 6 rounded. Flat ifs (ShaderCheck).
+#define RF_BURGEE_TIPS 0.5
+
+float RFCutEdge(float2 cut, float v)
+{
+    v = saturate(v);
+    float c = cut.x;
+    float d = cut.y;
+    float a = abs(2.0 * v - 1.0);
+    float b = v < 0.5 ? abs(4.0 * v - 1.0) : abs(4.0 * v - 3.0);
+    float e = 1.0;
+    if (c > 0.5 && c < 1.5)
+        e = 1.0 - d * (1.0 - a);
+    if (c > 1.5 && c < 2.5)
+        e = 1.0 - d * (1.0 - b);
+    if (c > 2.5 && c < 3.5)
+        e = 1.0 - a;
+    if (c > 3.5 && c < 4.5)
+        e = min(1.0, min((1.0 - a) / (1.0 - RF_BURGEE_TIPS), 1.0 - d + d * a / RF_BURGEE_TIPS));
+    if (c > 4.5 && c < 5.5)
+        e = 1.0 - d * a;
+    if (c > 5.5 && c < 6.5)
+        e = 1.0 - d + d * sqrt(max(0.0, 1.0 - a * a));
+    return e;
+}
+
+// How far in from the fly's outline m is (metres; < 0 cut away), square to the outline: the
+// along-the-fly distance over the outline's slope there (a pennant's sides lean far over), so a
+// hem or a frayed edge is as wide on a slanted edge as on a straight fly.
+float RFFlyDistance(float2 m, float2 size, float2 cut)
+{
+    float len = size.x;
+    float height = max(size.y, 1e-3);
+    float v = m.y / height;
+    float e = RFCutEdge(cut, v) * len - m.x;
+    if (cut.x < 0.5)
+        return e;
+
+    float h = 0.002;
+    float slope = (RFCutEdge(cut, v + h) - RFCutEdge(cut, v - h)) / (2.0 * h) * len / height;
+    return e * rsqrt(1.0 + slope * slope);
+}
+
 float RFHash11(float p)
 {
     p = frac(p * 0.1031);
@@ -208,8 +255,13 @@ void RFHoleCell(float2 cell, float2 m, float2 o, float size, float k, float hole
 // scaled; the alpha returned (1 cloth, 0 a hole or torn away; the alphatest cuts at 0.5).
 // worn: wear, dirt, holes (0..1), and 1 for a flag hoisted from its top. seed: 0..255.
 // tear: x the fly torn, y the top and bottom edges torn (0..1).
-float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, float4 tear, inout float3 albedo, inout float sheen)
+// cut: the flag's cut (_RFCut), the fly's outline every fly-end effect works from.
+float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, float4 tear, float2 cut, inout float3 albedo, inout float sheen)
 {
+    // How far in from the fly's outline ALONG the fly (metres): each row frays and tears back from
+    // its own end, as the tongues hang along the fly. Not square to the outline: a pennant's sides
+    // lean so far over that every part of it is near them, and torn that way it fell to strips.
+    float flyIn = RFCutEdge(cut, m.y / max(size.y, 1e-3)) * size.x - m.x;
     float len = size.x;
     float height = size.y;
     float2 o = seed * float2(7.31, 3.17);
@@ -230,7 +282,7 @@ float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, float4
         albedo = s * s;
 
         // Frayed: the fly end lost to a depth that wanders along it, deeper at its corners.
-        float e = len - m.x;
+        float e = flyIn;
         float across = min(m.y, height - m.y) / max(height, 1e-3);
         float corner = 1.0 - saturate(across * 4.0);
         float depth = pow(wear, 1.5) * (0.07 * len + 0.05) * (0.55 + 0.9 * corner * corner) *
@@ -269,9 +321,9 @@ float RFWeather(float2 m, float2 size, float px, float4 worn, float seed, float4
     // stretches (tear.y). The hoist's end always stays.
     if (tear.x > 0.0 || tear.y > 0.0)
     {
-        // THE FLY EDGE: how far in from it (metres). The one place the fly's outline comes in --
-        // a flag cut to another shape (a swallowtail, a pennant) would measure from its own here.
-        float e = len - m.x;
+        // THE FLY EDGE: how far in from it (metres) -- from the cut's own outline, along the fly
+        // (flyIn: a swallowtail's notch, a pennant's sides).
+        float e = flyIn;
 
         // This flag's own way of tearing: which end of the fly goes deeper, which corner and which
         // edge suffer most (its scatter seed, so two like flags tear differently).

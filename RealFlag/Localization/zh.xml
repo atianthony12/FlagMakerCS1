@@ -129,9 +129,9 @@
   <String key="SelColour3.Tooltip">第三条带、边框。</String>
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
-  <String key="NewShape.Label">形状</String>
+  <String key="NewShape.Label">比例</String>
   <String key="NewShape.Tooltip">高与宽之比。</String>
-  <String key="SelShape.Label">形状</String>
+  <String key="SelShape.Label">比例</String>
   <String key="SelShape.Tooltip">高与宽之比。</String>
   <String key="NewWidth.Label">宽度</String>
   <String key="NewWidth.Tooltip">左右的宽度。</String>
@@ -149,6 +149,21 @@
   <String key="SelHoistedFrom.Tooltip">被握住的那一边。</String>
   <String key="Hoist.Side">侧边</String>
   <String key="Hoist.Top">顶边</String>
+  <String key="NewCut.Label">形状</String>
+  <String key="NewCut.Tooltip">旗尾的轮廓。</String>
+  <String key="SelCut.Label">形状</String>
+  <String key="SelCut.Tooltip">旗尾的轮廓。</String>
+  <String key="NewCutDepth.Label">切口深度</String>
+  <String key="NewCutDepth.Tooltip">缺口或尖角的深度。</String>
+  <String key="SelCutDepth.Label">切口深度</String>
+  <String key="SelCutDepth.Tooltip">缺口或尖角的深度。</String>
+  <String key="Cut.Rectangle">矩形</String>
+  <String key="Cut.Swallowtail">燕尾</String>
+  <String key="Cut.Tongued">三尾</String>
+  <String key="Cut.Pennant">三角旗</String>
+  <String key="Cut.Burgee">燕尾三角旗</String>
+  <String key="Cut.Pointed">尖尾</String>
+  <String key="Cut.Rounded">圆尾</String>
 
   <!-- What the width and height set, as the settings file names it. -->
   <String key="NewLength.Label">新旗帜：从旗杆到末端的长度，单位米</String>

@@ -331,6 +331,26 @@ public static class FlagPreview
             designs = weathered;
         }
 
+        // RF_CUTS "1,3,4:40|...": each design once per cut (FlagCut), a depth in percent after a colon.
+        string[] cuts = Env("RF_CUTS", "0").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (cuts.Length > 1 || (cuts.Length == 1 && cuts[0].Trim() != "0"))
+        {
+            var cutDesigns = new List<FlagSpec>();
+            foreach (FlagSpec d in designs)
+            {
+                foreach (string cutText in cuts)
+                {
+                    string[] parts = cutText.Trim().Split(':');
+                    FlagSpec flag = d;
+                    flag.Cut = int.Parse(parts[0], CultureInfo.InvariantCulture);
+                    flag.CutDepth = parts.Length > 1 ? float.Parse(parts[1], CultureInfo.InvariantCulture) / 100f : FlagCut.DefaultDepth;
+                    cutDesigns.Add(flag.Sanitised());
+                }
+            }
+
+            designs = cutDesigns;
+        }
+
         _wearSeed = float.Parse(Env("RF_WEARSEED", "0"), CultureInfo.InvariantCulture);
 
         // The hoist's line and the fly at rest, for a flag heading along +x.
@@ -365,7 +385,7 @@ public static class FlagPreview
 
                 // The wind blows along +x (the flag's own direction, the panel's default mode).
                 FlagCloth cloth = new FlagCloth(flag.Length, flag.Height, Fabric(flag.Waviness, fabrics[row % fabrics.Length]), 1f, 0f, detail,
-                                                hx, hy, hz);
+                                                hx, hy, hz, flag.Cut, flag.CutDepth);
                 cloth.SelfCollision = collide;
                 cloth.GroundY = -anchor.y;
                 FlagMesh mesh = new FlagMesh(cloth, refine);
@@ -450,6 +470,9 @@ public static class FlagPreview
                                                flag.ImageZoom.ToString("0.##", CultureInfo.InvariantCulture) + " turn " + flag.ImageTurn +
                                                (flag.ImageAlpha == FlagImageAlpha.Through ? " through" : "") : "") +
                               (flag.Darkness > 0f ? ", darkness " + (flag.Darkness * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "") +
+                              (flag.Cut != FlagCut.Rectangle ? ", cut " + FlagCut.LogName(flag.Cut) + " " +
+                                                               (flag.CutDepth * 100f).ToString("0", CultureInfo.InvariantCulture) + "% (" +
+                                                               cloth.ClothCount + " of " + cloth.Count + " particles)" : "") +
                               (flag.IsWeathered ? ", wear/dirt/holes " + (flag.Wear * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
                                                   (flag.Dirt * 100f).ToString("0", CultureInfo.InvariantCulture) + "/" +
                                                   (flag.Holes * 100f).ToString("0", CultureInfo.InvariantCulture) + "% torn " +

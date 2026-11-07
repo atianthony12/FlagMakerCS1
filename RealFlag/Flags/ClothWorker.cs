@@ -186,13 +186,18 @@ namespace RealFlag.Flags
                 for (int i = 0; i < cols; i++)
                 {
                     int k = j * cols + i;
-                    if (i > 0 && i < cols - 1)
+
+                    // A cut cloth: only its cloth (the rest is never seen).
+                    if (!cloth.IsCloth(k))
+                        continue;
+
+                    if (i > 0 && i < cols - 1 && cloth.IsCloth(k + 1))
                     {
                         float dx = x[k - 1] - 2f * x[k] + x[k + 1], dy = y[k - 1] - 2f * y[k] + y[k + 1], dz = z[k - 1] - 2f * z[k] + z[k + 1];
                         sum += dx * dx + dy * dy + dz * dz;
                     }
 
-                    if (j > 0 && j < rows - 1)
+                    if (j > 0 && j < rows - 1 && cloth.IsCloth(k - cols) && cloth.IsCloth(k + cols))
                     {
                         float dx = x[k - cols] - 2f * x[k] + x[k + cols], dy = y[k - cols] - 2f * y[k] + y[k + cols],
                               dz = z[k - cols] - 2f * z[k] + z[k + cols];
@@ -217,10 +222,16 @@ namespace RealFlag.Flags
             int cols = cloth.Columns, rows = cloth.Rows;
             float[] x = cloth.X, y = cloth.Y, z = cloth.Z;
             double sum = 0.0;
+            int cells = 0;
             for (int j = 0; j < rows - 1; j++)
             {
                 for (int i = 0; i < cols - 1; i++)
                 {
+                    // A cut cloth: its cloth cells, over their area.
+                    if (!cloth.IsClothCell(i, j))
+                        continue;
+
+                    cells++;
                     int a = j * cols + i, b = a + 1, c = a + cols, d = c + 1;
 
                     // The quad's area vector: half the cross product of its diagonals.
@@ -231,7 +242,8 @@ namespace RealFlag.Flags
                 }
             }
 
-            return (float)(Math.Abs(sum) / Math.Max(cloth.Length * cloth.Height, 1e-6f));
+            float area = cloth.Cut == FlagCut.Rectangle ? cloth.Length * cloth.Height : cells * cloth.CellU * cloth.CellV;
+            return (float)(Math.Abs(sum) / Math.Max(area, 1e-6f));
         }
 
         /// <summary>

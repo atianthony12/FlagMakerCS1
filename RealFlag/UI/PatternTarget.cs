@@ -15,6 +15,20 @@ namespace RealFlag.UI
 
         public IntSetting Pattern, Colour1, Colour2, Colour3, Country, Proportion, HoistedFrom;
 
+        /// <summary>The flag's cut and its depth (FlagCut), for the pictures: null shows a rectangle.</summary>
+        public IntSetting Cut;
+        public FloatSetting CutDepth;
+
+        public int CutValue
+        {
+            get { return Cut != null ? Cut.value : FlagCut.Rectangle; }
+        }
+
+        public float CutDepthValue
+        {
+            get { return CutDepth != null ? CutDepth.value : FlagCut.DefaultDepth; }
+        }
+
         /// <summary>What a change does besides the settings (the selected flag: FlagEditor.ApplyDesign); null for the new flag, which reads its settings.</summary>
         public Action Changed;
 
