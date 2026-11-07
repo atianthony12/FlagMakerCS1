@@ -117,6 +117,42 @@ foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".La
 Check "the Flagpole buttons are read from both tabs' AddPoleButton calls" $buttonCalls.Count 2
 Write-Host "      ($rows rows in the catalog, 22 of them made twice by AddDesign, 10 by AddPole, 1 by AddPoleButton)"
 
+# String flags' rows (UI\SettingsCatalog.Strings.cs, 2026-11-07): AddString makes each row once for
+# the new string and once for the selected one, over a StringTarget's settings, named "NewStr" or
+# "SelStr" + the name StringTarget.cs gives it (F("Width", ...)); an Id built as t.Prefix + "X" is
+# both too; a literal Id is itself.
+$strSrc = Get-Content (Join-Path $root "UI\SettingsCatalog.Strings.cs") -Raw
+$targetSrc = Get-Content (Join-Path $root "UI\StringTarget.cs") -Raw
+$suffixOf = @{}
+foreach ($m in [regex]::Matches($targetSrc, '(\w+) = [FI]\("(\w+)"')) { $suffixOf[$m.Groups[1].Value] = $m.Groups[2].Value }
+$strBlocks = [regex]::Split($strSrc, 'Add\(new Row|var designRow = new Row') | Select-Object -Skip 1
+$strRows = 0
+foreach ($b in $strBlocks) {
+    $b = $b.Substring(0, [regex]::Match($b, '\}\)?;').Index)
+    $strRows++
+    $kind = if ($b -match 'Kind = RowKind\.(\w+)') { $Matches[1] } else { '?' }
+    $names = @()
+    if ($b -match '(?:Float|Int) = t\.(\w+)') {
+        $suffix = $suffixOf[$Matches[1]]
+        if (-not $suffix) { Write-Host "FAIL  a string row over t.$($Matches[1]), which StringTarget.cs does not name"; $failed++; continue }
+        $names = @("NewStr$suffix", "SelStr$suffix")
+    }
+    elseif ($b -match 'Id = "(\w+)"') { $names = @($Matches[1]) }
+    elseif ($b -match 'Id = t\.Prefix \+ "(\w+)"') { $names = @(("NewStr" + $Matches[1]), ("SelStr" + $Matches[1])) }
+    else { Write-Host "FAIL  a string row with neither a setting nor an Id:`n$b"; $failed++; continue }
+
+    foreach ($name in $names) {
+        if ($kind -ne 'Status') { [void]$needed.Add("$name.Label"); [void]$needed.Add("$name.Tooltip") }
+    }
+    if ($b -match 'Id2 = "(\w+)"') { [void]$needed.Add($Matches[1] + ".Label"); [void]$needed.Add($Matches[1] + ".Tooltip") }
+    if ($b -match 'Id2 = t\.Prefix \+ "(\w+)"') {
+        foreach ($p in @("NewStr", "SelStr")) { [void]$needed.Add($p + $Matches[1] + ".Label"); [void]$needed.Add($p + $Matches[1] + ".Tooltip") }
+    }
+    if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
+}
+Check "the string rows are read from SettingsCatalog.Strings.cs" ($strRows -gt 30) "True"
+Write-Host "      ($strRows string rows, most made twice: the new string's and the selected one's)"
+
 foreach ($enum in @('PanelPage')) {
     if ($catalog -match "public enum $enum \{([^}]*)\}") {
         foreach ($v in ($Matches[1] -split ',')) { $v = $v.Trim(); if ($v -and $v -ne 'None') { [void]$needed.Add("Tab.$v") } }
@@ -125,7 +161,7 @@ foreach ($enum in @('PanelPage')) {
 
 # Key-shaped literals anywhere in the code ("Status.Flags", "Pattern.Disc"...), including the
 # ones picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Reset|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Cut|Image|PanelSkin|IconPlace|Placing|Quality'
+$prefixes = 'Mod|Tab|Key|Status|Unit|File|Language|Group|ResetAll|Reset|Pattern|WindMode|GameWindNow|Existing|Flag|Tool|Picker|Prop|Colours|DeleteFlag|ClothDetail|ClothThreads|Country|Gizmo|PoleButton|Pole|Ropes|Hoist|Motion|Cut|Image|PanelSkin|IconPlace|Placing|Quality|StrStatus|StrMotions|StrLeadEvery|StrCarryOn|StrPlaceHint|StrWindow|StrTab|StrList|CountryList|StringTool|StringMount|StringSpacing|StringSequence|StringOrder|CountryWhich|CountryOrder|StringKind|StringEnds|Region'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)

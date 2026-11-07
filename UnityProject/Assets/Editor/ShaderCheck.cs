@@ -23,9 +23,10 @@ public static class ShaderCheck
         "Assets/RealFlag/FlagCloth.shader",
         "Assets/RealFlag/FlagPole.shader",
         "Assets/RealFlag/FlagGizmo.shader",
+        "Assets/RealFlag/FlagString.shader",
     };
 
-    private static readonly int[] Passes = { 5, 5, 2 };
+    private static readonly int[] Passes = { 5, 5, 2, 5 };
 
     public static void Run()
     {

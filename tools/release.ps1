@@ -58,8 +58,9 @@ $sources = @{
 # "cloth" is test-cloth (the physics, the formats, the resources); "metal" compiles every shipped
 # Metal program with Apple's compiler (needs the Metal Developer Tools for Windows: see
 # test-metal.ps1); "amd" every shipped shader with AMD's (Radeon GPU Analyzer: see test-amd.ps1);
-# "linetool" what LineFlags reflects, against the Workshop's Line Tool.
-$tests = @("settings", "localization", "linetool", "cloth", "metal", "amd")
+# "linetool" what LineFlags reflects, against the Workshop's Line Tool; "strings" string flags'
+# pure code (the curve, the swing, the sequences, their save format, the shared cloths' ring).
+$tests = @("settings", "localization", "linetool", "strings", "cloth", "metal", "amd")
 # The bundles and the platform ids every shader in each must carry (build-bundle.ps1's table).
 $bundles = @(
     @{ Name = "win";   Platforms = "4,15" },

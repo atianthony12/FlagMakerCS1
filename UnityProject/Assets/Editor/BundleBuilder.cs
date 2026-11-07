@@ -25,6 +25,7 @@ public static class BundleBuilder
         "Assets/RealFlag/FlagCloth.shader",
         "Assets/RealFlag/FlagPole.shader",
         "Assets/RealFlag/FlagGizmo.shader",
+        "Assets/RealFlag/FlagString.shader",
     };
 
     private struct Target
