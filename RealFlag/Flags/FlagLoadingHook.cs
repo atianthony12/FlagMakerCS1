@@ -76,6 +76,7 @@ namespace RealFlag.Flags
 
             _registered = null;
             FlagPrefab.UnhookLocale();
+            StringPrefab.UnhookLocale();
         }
 
         public void CheckReferences()
@@ -83,6 +84,7 @@ namespace RealFlag.Flags
             try
             {
                 Singleton<LoadingManager>.instance.QueueLoadingAction(FlagPrefab.CreateDuringLoading());
+                Singleton<LoadingManager>.instance.QueueLoadingAction(StringPrefab.CreateDuringLoading());
                 Log.Msg("loading hook: the flag prefab is queued behind the custom assets, ahead of binding the city's props");
             }
             catch (Exception e)

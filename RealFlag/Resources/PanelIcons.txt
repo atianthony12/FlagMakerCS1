@@ -8,3 +8,4 @@ icon-slash 82 1 24 24 0 0 0 0
 icon-spline 1 28 24 24 0 0 0 0
 icon-route 28 28 24 24 0 0 0 0
 icon-circle 55 28 24 24 0 0 0 0
+icon-flag-triangle-right 82 28 24 24 0 0 0 0

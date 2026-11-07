@@ -29,9 +29,9 @@ The countries' flags in RealFlag/Resources/Flags are not covered by this licence
 the public domain, from Flagpedia.net (flagcdn.com), after Wikimedia Commons' vector files;
 see THIRD-PARTY-NOTICES.md.
 
-The countries' names in RealFlag/Localization/Countries are not covered by this licence: they
-are from the Unicode Common Locale Data Repository (cldr.unicode.org), Unicode License V3; see
-THIRD-PARTY-NOTICES.md.
+The countries' names in RealFlag/Localization/Countries, and their parts of the world in
+RealFlag/Flags/FlagRegions.cs, are not covered by this licence: they are from the Unicode
+Common Locale Data Repository (cldr.unicode.org), Unicode License V3; see THIRD-PARTY-NOTICES.md.
 
 The panel's icons (RealFlag/Resources/PanelIcons.png, ModsLibCS1/sprites/sheet.png) are drawn
 from the path data of Lucide's icons (lucide.dev), ISC; see THIRD-PARTY-NOTICES.md.
@@ -116,6 +116,17 @@ techniques were written from scratch after them, and they are credited here with
       budget: the smallest flags made coarser first.
     H. Weyl, "Ueber die Gleichverteilung von Zahlen mod. Eins", Math. Ann. 77 (1916) -- the
       golden ratio's sequence spreading the followers' delays.
+  Strings of flags:
+    the catenary (C. Huygens, G. W. Leibniz and Johann Bernoulli, Acta Eruditorum, 1691) --
+      how a span hangs between its two ends.
+    EN 50341-1 / IEC 60826, overhead lines: the conductor's swing angle under wind (tan phi =
+      the wind's load over the weight per metre) -- how far a string blows out.
+    S. F. Hoerner, "Fluid-Dynamic Drag" (1965) -- the flags' drag on the string.
+    M. Roberts, "The Unreasonable Effectiveness of Quasirandom Sequences" (2018) -- the plastic
+      number's sequence choosing which shared cloth a flag plays.
+    R. Durstenfeld, "Algorithm 235: Random permutation", CACM 7 (1964); G. Marsaglia,
+      "Xorshift RNGs", J. Stat. Software 8 (2003) -- the shuffled orders.
+    NVIDIA, "Improve Batching Using Texture Atlases" (2004) -- a span's flags drawn in one call.
   The gizmo:
     the idea of Procedural Objects' 3-axis gizmos (a Cities: Skylines mod) and of 3-D
       editors' transform handles -- the idea only; none of their code.

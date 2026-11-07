@@ -33,6 +33,7 @@ namespace RealFlag
             // Made during loading by FlagLoadingHook; made (and bound) here only if the mod was
             // switched on after the city had loaded.
             FlagPrefab.EnsureCreated(true);
+            StringPrefab.EnsureCreated(true);
             Patcher.EnsureOtherMods();
 
             // Before anything is drawn or placed: the city's flags must be ones this copy of the
@@ -83,6 +84,11 @@ namespace RealFlag
                 Step(FlagRegistry.Clear, "the flags' designs");
                 Step(FlagSaveData.Forget, "the flags' kept data");
                 Step(FlagPrefab.Forget, "the flag prefab");
+                Step(StringTool.Remove, "the string tool");
+                Step(StringEditor.Clear, "the strings' selection");
+                Step(StringRegistry.Clear, "the strings' designs");
+                Step(StringSaveData.Forget, "the strings' kept data");
+                Step(StringPrefab.Forget, "the string network");
             }
             finally
             {

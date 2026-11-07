@@ -71,7 +71,9 @@ namespace RealFlag.UI
     /// New flag window, a page of the Flagpole popup or of the Pattern window (the new flag's, the
     /// selected one's). None = not in it.
     /// </summary>
-    public enum PanelPage { None, New, Existing, Settings, PoleNew, PoleExisting, PatternNew, PatternExisting }
+    // String flags (2026-11-07): Strings is the panel's tab, StringNew* / StringSel* the String
+    // window's three tabs for the new string and the selected one. One line: tools\test-localization.ps1 reads it.
+    public enum PanelPage { None, New, Existing, Settings, PoleNew, PoleExisting, PatternNew, PatternExisting, Strings, StringNewFlags, StringNewDesigns, StringNewCord, StringSelFlags, StringSelDesigns, StringSelCord }
 
     /// <summary>General = the game's mod options page. None = not on it.</summary>
     public enum OptionsPage { None, General }
@@ -442,7 +444,7 @@ namespace RealFlag.UI
     /// (Row.Options == General), the cloth and the pause among it too. The words are in
     /// Localization/en.xml, in the same order.
     /// </remarks>
-    public static class SettingsCatalog
+    public static partial class SettingsCatalog
     {
         private static List<Row> _rows;
         private static bool _loggedLayout;
@@ -849,6 +851,7 @@ namespace RealFlag.UI
 
             BuildNew();
             BuildExisting();
+            BuildStrings();
             BuildWind();
             BuildGeneralOptions();
             BuildHidden();
