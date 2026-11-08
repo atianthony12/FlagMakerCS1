@@ -89,6 +89,7 @@ namespace RealFlag.UI
             FlagsPanel.StepAside();
             _instance.Show();
             _instance.BringToFront();
+            _instance.Focus(); // before its Start (the first time) it cannot: Update takes it then
             Settings.NewPlacing.value = LineFlags.Single;
             FlagTool.Open(FlagTool.Mode.Place);
 
@@ -211,6 +212,17 @@ namespace RealFlag.UI
                 Hide();
                 return;
             }
+
+            // The window holds the focus while nothing else does, so Esc comes to it, not to the
+            // game's shortcuts (its pause menu: the author, 2026-11-08, "Esc ... going back
+            // correctly to the main panel but the game's Pause Menu is opening"). The game hands a
+            // key to its shortcuts in OnGUI unless a focused component uses it, and nothing was
+            // focused: "+ New flag" is clicked on the panel, which takes the focus with it as it
+            // steps aside (UIComponent.OnVisibilityChanged), and a click on the map lets it go.
+            // Unused keys still reach the shortcuts (UIInput.ProcessKeyEvent), and a text field
+            // or picker keeps the focus it has.
+            if (UIView.activeComponent == null && !UIView.HasModalInput())
+                Focus();
 
             // Esc with Line Tool out: kept from the game's pause menu, as FlagTool keeps it.
             if (LineFlags.Driving && Input.GetKeyDown(KeyCode.Escape) && !UIView.HasInputFocus())
