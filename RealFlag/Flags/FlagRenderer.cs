@@ -811,7 +811,10 @@ namespace RealFlag.Flags
                 return;
 
             _optionsChanged = false;
+            bool wasColliding = _selfCollision;
             ReadOptions();
+            if (_selfCollision && !wasColliding)
+                _layOutForCollision = true;
             if (_threadsChosen != _threadsStarted && _worker.Threaded)
             {
                 _threadsStarted = _threadsChosen;
@@ -839,6 +842,53 @@ namespace RealFlag.Flags
 
             // Sources keep their key's self-collision: under the new option no flag finds their
             // key, and they go (GroupIdle); with shared motion off, none follows and they all go.
+        }
+
+        /// <summary>
+        /// Self-collision just switched on (the option, or a Quality level that has it): every
+        /// waving cloth is to be laid out afresh once the flags move (<see cref="LayOutForCollision"/>).
+        /// </summary>
+        private bool _layOutForCollision;
+
+        /// <summary>
+        /// Lays every waving cloth out afresh, let down as a new one is (CalmTime), after
+        /// self-collision came back on. While it was off a cloth may have folded through itself
+        /// (a limp flag in a light wind does so within seconds); switched on, the collision keeps
+        /// each crossed layer on the side it is on -- the wrong one -- and locks the fold, its links
+        /// stretched until the knot check lays it out 2 s later. The author's run 2026-11-08
+        /// 21:12:44: Quality to Ultra after 17 s without, 1 m/s, 46 of 75 flags knotted within 4 s
+        /// (links 32-136% long), each seen tangled before it fell; and on his Mac (20:49:48) one
+        /// 9.1 m flag. Laid out at once, they fall once, clean. Waits while the game is paused
+        /// with the flags frozen, so no flag stands laid out in mid-air until it is unpaused.
+        /// Between batches (after Collect): the cloths are the main thread's (Invariant 2); a
+        /// layout is one of the moves Invariant 9 allows outside a step.
+        /// </summary>
+        private void LayOutForCollision()
+        {
+            _layOutForCollision = false;
+            int laid = 0;
+            foreach (FlagInstance f in _flags)
+            {
+                if (LayOutAfresh(f))
+                    laid++;
+            }
+
+            if (_ghost != null)
+                LayOutAfresh(_ghost);
+
+            if (laid > 0)
+                Log.Msg("flags: the cloth collides with itself again -- " + laid + " waving flag(s) laid out afresh, so no fold made while it was off is locked in");
+        }
+
+        private static bool LayOutAfresh(FlagInstance f)
+        {
+            if (f.Cloth == null || f.Spec.Motion != FlagMotion.Waves)
+                return false;
+
+            Vector3 dir = f.WindDir;
+            f.Cloth.LayOutClear(dir.x, dir.z);
+            f.Cloth.Calm(FlagCloth.CalmTime);
+            return true;
         }
 
         private void OnDestroy()
@@ -982,6 +1032,8 @@ namespace RealFlag.Flags
             try
             {
                 ApplyOptions();
+                if (_layOutForCollision && !frozen)
+                    LayOutForCollision();
                 Scan();
                 SetSun();
 
