@@ -4645,8 +4645,8 @@ Check "the thread stops" ($thread[3] -eq "True") "within 2 s"
 $pool = [ClothTests]::Pool() -split ","
 Check "four threads step eight flags as this one does" ($pool[0] -eq "True" -and $pool[2] -eq "4") ("every detail, 0-28 m/s, 60 frames, bit for bit: " + $pool[0] + ", " + $pool[2] + " threads")
 Check "their work adds up, and they stop" ($pool[1] -eq "True" -and $pool[3] -eq "True") ("particle steps counted: " + $pool[1] + ", stopped: " + $pool[3])
-$tf = @(4, 8, 12, 16, 28, 64) | ForEach-Object { [RealFlag.Flags.ClothWorker]::ThreadsFor($_) }
-Check "threads for 4, 8, 12, 16, 28, 64 processors" (($tf -join ",") -eq "1,1,2,2,4,4") ($tf -join ",")
+$tf = @(4, 7, 8, 12, 16, 28, 64) | ForEach-Object { [RealFlag.Flags.ClothWorker]::ThreadsFor($_) }
+Check "threads for 4, 7, 8, 12, 16, 28, 64 processors" (($tf -join ",") -eq "1,1,2,2,2,4,4") ($tf -join ",")
 # The "Cloth threads" option (2026-10-31): Auto as above, else the player's number within the machine and 16.
 $wk = [RealFlag.Flags.ClothWorker]
 $to = @($wk::ThreadsFor(28, 0), $wk::ThreadsFor(28, 8), $wk::ThreadsFor(4, 16), $wk::ThreadsFor(28, 99), $wk::ThreadsFor(2, 3), $wk::ThreadsFor(28, -1))

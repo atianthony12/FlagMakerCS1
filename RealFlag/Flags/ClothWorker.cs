@@ -832,8 +832,8 @@ namespace RealFlag.Flags
     /// can see in a flag. Unity's own job system came with 2018.1; this is the plain pattern of
     /// workers and events (the game itself runs its simulation on a thread of its own).
     ///
-    /// With several threads (<see cref="ThreadsFor"/>: one per six of the machine's, at most
-    /// four), each takes the batch's next job until none is left -- a flag's job is its own
+    /// With several threads (<see cref="ThreadsFor"/>: one per six of the machine's, two from
+    /// eight, at most four), each takes the batch's next job until none is left -- a flag's job is its own
     /// cloth and mesh, so they need nothing from each other -- and the last one done says so.
     /// A cloth is stepped by one thread per frame, whichever: the result is the same, bit for
     /// bit.
@@ -888,15 +888,22 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The cloth's threads for a machine of this many (logical) processors: one per six, one
-        /// to <see cref="MaxThreads"/>. The game keeps its main, simulation and render threads
-        /// busy and other mods have theirs; a 4-core machine gets one, an 8-core, 16-thread one
-        /// two.
+        /// The cloth's threads for a machine of this many (logical) processors: one per six, at
+        /// least <see cref="AutoThreadsFrom8"/> from 8 processors, at most <see cref="AutoThreads"/>.
+        /// The game keeps its main, simulation and render threads busy and other mods have
+        /// theirs; a 4-core machine gets one, an 8-core, 16-thread one two. An 8-core machine
+        /// with no hyperthreading (an M1 Mac) gets two too: one per six gave it one, and the
+        /// author's M1 (2026-11-08, the game under Rosetta at 13.5 us a particle step, 8x his
+        /// PC's) ran visibly faster with more.
         /// </summary>
         public static int ThreadsFor(int processors)
         {
-            return Math.Max(1, Math.Min(AutoThreads, processors / 6));
+            int least = processors >= 8 ? AutoThreadsFrom8 : 1;
+            return Math.Max(least, Math.Min(AutoThreads, processors / 6));
         }
+
+        /// <summary>Auto's threads on a machine of 8 processors or more, at least.</summary>
+        public const int AutoThreadsFrom8 = 2;
 
         /// <summary>
         /// The threads for the "Cloth threads" option: 0 (or less) = Auto (<see cref="ThreadsFor(int)"/>),

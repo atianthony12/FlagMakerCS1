@@ -87,7 +87,7 @@ namespace RealFlag
 
         /// <summary>
         /// The threads that step the cloth (ClothWorker.ThreadChoices): 0 = Auto (one per six
-        /// processors, at most four), else the player's number -- more threads, more flags moving
+        /// processors, two from eight, at most four), else the player's number -- more threads, more flags moving
         /// at full detail, more of the CPU (the author: "users can choose willingly to utilize
         /// their hardware").
         /// </summary>
