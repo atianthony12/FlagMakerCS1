@@ -88,6 +88,75 @@ namespace RealFlag.UI
             get { return _instance != null && _instance.isVisible; }
         }
 
+        /// <summary>
+        /// The panel stepped aside for the New flag window, which stands in its place (the author,
+        /// 2026-11-08: "+New Flag should close the main panel so not to overwhelm the user with
+        /// many panels"): hidden, but the mod still open -- it comes back when that window closes.
+        /// </summary>
+        private static bool _aside;
+
+        public static bool IsAside
+        {
+            // Cleared whenever the panel shows (its visibility handler).
+            get { return _aside && _instance != null; }
+        }
+
+        /// <summary>The mod's windows are up: the panel, or the New flag window in its place (the key and the button toggle this).</summary>
+        public static bool IsShown
+        {
+            get { return IsOpen || (IsAside && NewFlagPanel.IsOpen); }
+        }
+
+        /// <summary>Where the panel stands (the New flag window opens there), or null without one.</summary>
+        public static Vector3? Place
+        {
+            get { return _instance != null ? _instance.relativePosition : (Vector3?)null; }
+        }
+
+        /// <summary>The New flag window is opening: the panel hides without closing what it closes (the tool, that window).</summary>
+        public static void StepAside()
+        {
+            if (_instance == null || !_instance.isVisible)
+                return;
+
+            _aside = true;
+            _instance.Hide();
+            Log.Msg("panel: stepped aside for the New flag window");
+        }
+
+        /// <summary>The New flag window closed: the panel comes back where that window stood, if it stepped aside for it.</summary>
+        public static void ComeBack(Vector3 where)
+        {
+            if (!IsAside)
+            {
+                _aside = false;
+                return;
+            }
+
+            _aside = false;
+            _instance.relativePosition = where;
+            _instance.Show();
+            _instance.KeepOnScreen();
+            Log.Msg("panel: back after the New flag window");
+        }
+
+        /// <summary>
+        /// The key or the button closes the mod: the panel, or the New flag window standing in for
+        /// it (the panel then stays hidden: no visibility change says so, the caller tells Unified UI).
+        /// </summary>
+        public static void CloseAll()
+        {
+            if (_instance == null)
+                return;
+
+            bool aside = IsAside;
+            _aside = false;
+            if (aside)
+                NewFlagPanel.Close();
+            else
+                _instance.Hide();
+        }
+
         /// <summary>The pick tool chose a flag: show it in the Flags tab.</summary>
         public static void ShowExisting()
         {
@@ -109,6 +178,8 @@ namespace RealFlag.UI
         public static bool CatchEscape()
         {
             FlagsPanel panel = _instance;
+            if (IsAside)
+                return NewFlagPanel.CatchEscape();
             if (panel == null || !panel.isVisible || !panel.isEnabled || UIView.HasModalInput())
                 return false;
 
@@ -122,6 +193,7 @@ namespace RealFlag.UI
             base.Start();
 
             _instance = this;
+            _aside = false;
             _ui = PanelLook.NewBuilder("the panel");
             _tabHeight = _ui.Skin == Skin.Vanilla ? TabHeight : IconTabHeight;
             _rows = new RowSet(this, _ui);
@@ -158,9 +230,14 @@ namespace RealFlag.UI
             {
                 if (visible)
                 {
+                    _aside = false;
                     RefreshValues();
                     return;
                 }
+
+                // Aside for the New flag window: that window and its tool stay.
+                if (_aside)
+                    return;
 
                 // Closed: the tool (and with it the selection), the New flag window and the pickers go with it.
                 FlagTool.PutAway();
@@ -211,7 +288,10 @@ namespace RealFlag.UI
         public void RefreshValues()
         {
             if (_rows != null)
+            {
+                Relayout();
                 _rows.RefreshValues();
+            }
             NewFlagPanel.RefreshOpen();
             PolePanel.RefreshOpen();
             ImagePanel.RefreshOpen();
@@ -237,11 +317,7 @@ namespace RealFlag.UI
             _tabs.Select(index);
             _ui.SetSubtitle(_frame, _tabNames[index]);
 
-            // As tall as the selected page needs.
-            float content = _contentHeights[index];
-            _pages[index].height = content;
-            float top = TitleBarHeight + _tabHeight + Margin * 0.5f;
-            height = Mathf.Max(MinPanelHeight, top + content + Margin);
+            FitPage();
 
             // The selection and its gizmo belong to the Flags tab (the New flag window stands on its own).
             if (index != 0)
@@ -259,6 +335,60 @@ namespace RealFlag.UI
                 ColourPicker.Close();
                 CountryPicker.Close();
             }
+        }
+
+        /// <summary>As tall as the selected page needs.</summary>
+        private void FitPage()
+        {
+            float content = _contentHeights[_page];
+            _pages[_page].height = content;
+            float top = TitleBarHeight + _tabHeight + Margin * 0.5f;
+            height = Mathf.Max(MinPanelHeight, top + content + Margin);
+        }
+
+        /// <summary>
+        /// A selection made or let go: the Flags tab's selected-flag rows shown or hidden (RowSet's
+        /// blocks), the panel as tall as that, its bottom kept on the screen.
+        /// </summary>
+        private void Relayout()
+        {
+            if (!_rows.Layout())
+                return;
+
+            for (int i = 0; i < _pages.Count; i++)
+            {
+                float? content = _rows.HeightOf(_pages[i]);
+                if (content.HasValue)
+                    _contentHeights[i] = content.Value;
+            }
+
+            FitPage();
+            KeepOnScreen();
+
+            // The selected flag's pickers go with its rows.
+            if (!FlagEditor.HasSelection)
+            {
+                if (!NewFlagPanel.IsOpen)
+                {
+                    ColourPicker.Close();
+                    CountryPicker.Close();
+                }
+
+                PolePanel.CloseIf(PanelPage.PoleExisting);
+                ImagePanel.CloseIf(PanelPage.Existing);
+                PatternPanel.CloseIf(PanelPage.Existing);
+            }
+        }
+
+        /// <summary>Moves the panel up if it grew past the screen's bottom (never past its top).</summary>
+        private void KeepOnScreen()
+        {
+            Vector2 screen = GetUIView().GetScreenResolution();
+            Vector3 p = relativePosition;
+            float x = Mathf.Clamp(p.x, 0f, Mathf.Max(0f, screen.x - width));
+            float y = Mathf.Clamp(p.y, 0f, Mathf.Max(0f, screen.y - height));
+            if (x != p.x || y != p.y)
+                relativePosition = new Vector3(x, y);
         }
 
         /// <summary>A little in from the left edge, a third of the way down: clear of the middle of the screen.</summary>
@@ -280,7 +410,10 @@ namespace RealFlag.UI
             NewFlagPanel.DestroyPanel();
 
             if (_instance == this)
+            {
                 _instance = null;
+                _aside = false;
+            }
 
             base.OnDestroy();
         }

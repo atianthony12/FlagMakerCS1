@@ -46,6 +46,30 @@ namespace RealFlag.UI
         /// <summary>The flag list, if one of the rows was it.</summary>
         public FlagListView List { get; private set; }
 
+        /// <summary>
+        /// A run of rows with the same <see cref="Row.ShownWhile"/> drawn in a panel of its own, so
+        /// it can be hidden and the page close up without it (the Flags tab's selection: the author,
+        /// 2026-11-08, "if a flag is not selected, let's not show all the options in the panel, it's
+        /// overwhelming"). The rows after it are a block too (Shown null), to move up.
+        /// </summary>
+        private class Block
+        {
+            public UIPanel Panel;
+            public float Height;
+            public System.Func<bool> Shown;
+            public bool Visible = true;
+        }
+
+        /// <summary>A page that has blocks: its rows before the first, and the blocks in order.</summary>
+        private class PageBlocks
+        {
+            public UIPanel Page;
+            public float Top;
+            public readonly List<Block> Blocks = new List<Block>();
+        }
+
+        private readonly List<PageBlocks> _blocks = new List<PageBlocks>();
+
         public RowSet(UIComponent owner, Builder ui)
         {
             _owner = owner;
@@ -170,16 +194,43 @@ namespace RealFlag.UI
             return widest > 0f ? Mathf.Min(most, Mathf.Ceil(widest) + 6f) : most;
         }
 
-        private float BuildPage(UIPanel page, PanelPage which, float y)
+        private float BuildPage(UIPanel whole, PanelPage which, float y)
         {
             ColourLine coloursLine = null;
             int coloursInLine = 0;
             float rowHeight = _ui.RowHeight;
 
+            // Rows go straight onto the page until one is ShownWhile something; from there each
+            // run of rows with the same condition goes into a block of its own, at its own y.
+            UIPanel page = whole;
+            PageBlocks blocks = null;
+            Block block = null;
+
             foreach (Row row in SettingsCatalog.Rows)
             {
                 if (row.Panel != which || (row.Shown != null && !row.Shown()))
                     continue;
+
+                if ((block == null && row.ShownWhile != null) || (block != null && row.ShownWhile != block.Shown))
+                {
+                    if (blocks == null)
+                    {
+                        blocks = new PageBlocks { Page = whole, Top = y };
+                        _blocks.Add(blocks);
+                    }
+                    else
+                    {
+                        block.Height = y;
+                    }
+
+                    block = new Block { Shown = row.ShownWhile };
+                    block.Panel = whole.AddUIComponent<UIPanel>();
+                    block.Panel.size = new Vector2(whole.width, 10f);
+                    blocks.Blocks.Add(block);
+                    page = block.Panel;
+                    y = 0f;
+                    coloursLine = null;
+                }
 
                 if (row.Group != null)
                 {
@@ -237,7 +288,84 @@ namespace RealFlag.UI
                 }
             }
 
+            if (blocks == null)
+                return y;
+
+            block.Height = y;
+            foreach (Block b in blocks.Blocks)
+            {
+                b.Panel.height = Mathf.Max(1f, b.Height);
+                b.Visible = b.Shown == null || b.Shown();
+                b.Panel.isVisible = b.Visible;
+            }
+
+            return Place(blocks);
+        }
+
+        /// <summary>Puts a page's shown blocks one under another; returns the page's height.</summary>
+        private static float Place(PageBlocks blocks)
+        {
+            float y = blocks.Top;
+            foreach (Block b in blocks.Blocks)
+            {
+                if (!b.Visible)
+                    continue;
+                b.Panel.relativePosition = new Vector3(0f, y);
+                y += b.Height;
+            }
+
             return y;
+        }
+
+        /// <summary>
+        /// Shows or hides each block whose condition changed and closes the pages up; true if
+        /// anything moved (the owner's height wants <see cref="HeightOf"/> again).
+        /// </summary>
+        public bool Layout()
+        {
+            bool moved = false;
+            foreach (PageBlocks blocks in _blocks)
+            {
+                bool changed = false;
+                foreach (Block b in blocks.Blocks)
+                {
+                    bool visible = b.Shown == null || b.Shown();
+                    if (visible == b.Visible)
+                        continue;
+                    b.Visible = visible;
+                    b.Panel.isVisible = visible;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    Place(blocks);
+                    moved = true;
+                }
+            }
+
+            return moved;
+        }
+
+        /// <summary>The height <paramref name="page"/>'s rows take now, or null if it has no blocks (its height never changes).</summary>
+        public float? HeightOf(UIPanel page)
+        {
+            foreach (PageBlocks blocks in _blocks)
+            {
+                if (blocks.Page != page)
+                    continue;
+
+                float y = blocks.Top;
+                foreach (Block b in blocks.Blocks)
+                {
+                    if (b.Visible)
+                        y += b.Height;
+                }
+
+                return y;
+            }
+
+            return null;
         }
 
         /// <summary>The status lines' texts, again.</summary>

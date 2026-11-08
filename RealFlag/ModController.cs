@@ -67,7 +67,7 @@ namespace RealFlag
 
             if (_panel != null)
             {
-                wasVisible = _panel.isVisible;
+                wasVisible = FlagsPanel.IsShown;
                 position = _panel.relativePosition;
                 _panel.eventVisibilityChanged -= OnPanelVisibilityChanged;
                 Destroy(_panel.gameObject);
@@ -144,7 +144,7 @@ namespace RealFlag
 
             bool down = IsHotkeyDown();
             if (down && !_hotkeyWasDown)
-                SetPanelVisible(_panel != null && !_panel.isVisible);
+                SetPanelVisible(_panel != null && !FlagsPanel.IsShown);
 
             _hotkeyWasDown = down;
         }
@@ -201,7 +201,7 @@ namespace RealFlag
             if (_hudButton == null)
                 return;
 
-            _hudButton.OnClicked = () => SetPanelVisible(_panel == null || !_panel.isVisible);
+            _hudButton.OnClicked = () => SetPanelVisible(_panel == null || !FlagsPanel.IsShown);
         }
 
         /// <summary>Puts the HUD button where the settings say, after a Reset or a hand edit of the file.</summary>
@@ -226,7 +226,8 @@ namespace RealFlag
         /// </summary>
         private void OnPanelVisibilityChanged(UIComponent component, bool visible)
         {
-            UUIIntegration.SetPressed(visible);
+            // Aside for the New flag window, the mod is still open.
+            UUIIntegration.SetPressed(visible || FlagsPanel.IsAside);
         }
 
         private void OnUUIToggled(bool active)
@@ -247,7 +248,9 @@ namespace RealFlag
             }
             else
             {
-                _panel.Hide();
+                // The panel, or the New flag window standing in for it.
+                FlagsPanel.CloseAll();
+                UUIIntegration.SetPressed(false);
             }
         }
 

@@ -64,7 +64,12 @@ namespace RealFlag.UI
             Open();
         }
 
-        /// <summary>Opens the window beside the panel and takes the tool out to place (a selected flag is let go: placing takes the tool).</summary>
+        /// <summary>
+        /// Opens the window in the panel's place -- the panel steps aside until it closes (the
+        /// author, 2026-11-08: "+New Flag should close the main panel so not to overwhelm the user
+        /// with many panels"; Copy too) -- and takes the tool out to place (a selected flag is let
+        /// go: placing takes the tool).
+        /// </summary>
         public static void Open()
         {
             if (FlagRenderer.Instance == null || FlagPrefab.Info == null)
@@ -80,8 +85,9 @@ namespace RealFlag.UI
             PatternPanel.CloseIf(PanelPage.Existing);
 
             bool was = _instance.isVisible;
+            _instance.PlaceOverPanel();
+            FlagsPanel.StepAside();
             _instance.Show();
-            _instance.PlaceBesidePanel();
             _instance.BringToFront();
             Settings.NewPlacing.value = LineFlags.Single;
             FlagTool.Open(FlagTool.Mode.Place);
@@ -94,6 +100,18 @@ namespace RealFlag.UI
         {
             if (_instance != null && _instance.isVisible)
                 _instance.Hide();
+        }
+
+        /// <summary>Esc with the tool out and the panel aside: this window takes the focus and the key, as the panel would (FlagsPanel.CatchEscape).</summary>
+        public static bool CatchEscape()
+        {
+            NewFlagPanel panel = _instance;
+            if (panel == null || !panel.isVisible || !panel.isEnabled || UIView.HasModalInput())
+                return false;
+
+            if (!panel.containsFocus)
+                panel.Focus();
+            return panel.containsFocus;
         }
 
         /// <summary>Re-reads its controls, if it is open (the panel's refresh calls it).</summary>
@@ -154,6 +172,9 @@ namespace RealFlag.UI
                 PatternPanel.CloseIf(PanelPage.New);
                 PolePanel.CloseIf(PanelPage.PoleNew);
                 Log.Msg("flags: the New flag window closed");
+
+                // The panel it stood in for comes back where it stands.
+                FlagsPanel.ComeBack(relativePosition);
             };
 
             eventKeyDown += (component, p) =>
@@ -161,11 +182,17 @@ namespace RealFlag.UI
                 if (p.used || p.keycode != KeyCode.Escape)
                     return;
 
+                // As the panel's Esc: a right-drag turn given up first, else the tool (and with
+                // it this window) put away.
                 p.Use();
-                Hide();
+                string step = LineFlags.Driving ? LineFlags.PutAway() : FlagTool.IsPlacing ? FlagTool.StepBack() : null;
+                if (step == null)
+                    Hide();
+                Unfocus();
+                Log.Msg("flags: Esc in the New flag window: " + (step ?? "closed") + " (the key kept from the game's pause menu)");
             };
 
-            PlaceBesidePanel();
+            PlaceOverPanel();
             _rows.RefreshValues();
             _rows.RefreshStatus();
         }
@@ -197,24 +224,21 @@ namespace RealFlag.UI
             _rows.RefreshValues();
         }
 
-        /// <summary>To the right of the panel (its left without room), level with its tabs.</summary>
-        private void PlaceBesidePanel()
+        /// <summary>Where the panel stands (it steps aside for this window), its bottom kept on the screen.</summary>
+        private void PlaceOverPanel()
         {
             if (!_built)
                 return; // Start places it
 
-            UIView view = GetUIView();
-            UIComponent panel = view.FindUIComponent(FlagsPanel.ComponentName);
-            if (panel == null)
+            Vector3? place = FlagsPanel.Place;
+            if (!place.HasValue)
                 return;
 
             // The screen as the UI sees it (1920 x 1080 only at 16:9: 1728 wide at 16:10).
-            Vector2 screen = view.GetScreenResolution();
-            Vector3 p = panel.relativePosition;
-            float x = p.x + panel.width + 6f;
-            if (x + width > screen.x)
-                x = Mathf.Max(0f, p.x - width - 6f);
-            relativePosition = new Vector3(x, Mathf.Clamp(p.y, 0f, Mathf.Max(0f, screen.y - height)));
+            Vector2 screen = GetUIView().GetScreenResolution();
+            Vector3 p = place.Value;
+            relativePosition = new Vector3(Mathf.Clamp(p.x, 0f, Mathf.Max(0f, screen.x - width)),
+                                           Mathf.Clamp(p.y, 0f, Mathf.Max(0f, screen.y - height)));
         }
 
         public override void OnDestroy()

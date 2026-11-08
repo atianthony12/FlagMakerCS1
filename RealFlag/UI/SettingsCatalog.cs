@@ -197,6 +197,12 @@ namespace RealFlag.UI
         /// <summary>Leaves the row out of its panel, when the panel is built (what needs another mod). Null: always there.</summary>
         public Func<bool> Shown;
 
+        /// <summary>
+        /// Shows the row only while this says true, the page closing up without it (RowSet's
+        /// blocks; checked at each refresh). Rows in a run share the same delegate. Null: always.
+        /// </summary>
+        public Func<bool> ShownWhile;
+
         /// <summary>True while this row's confirmation dialog is open (the stored value is still the old one).</summary>
         public bool Pending;
 
@@ -1616,7 +1622,12 @@ namespace RealFlag.UI
                 StatusText = FlagEditor.Describe,
             });
 
+            // Everything below is the selected flag's, shown only while one is selected: with
+            // none the tab is the button, the list and the line under it (the author, 2026-11-08:
+            // "if a flag is not selected, let's not show all the options in the panel, it's
+            // overwhelming. Only when a flag is selected should we show all the options").
             Func<bool> selected = () => FlagEditor.HasSelection;
+            int firstSelected = Rows.Count;
             var pictures = new ImageTarget
             {
                 Page = PanelPage.Existing,
@@ -1696,6 +1707,12 @@ namespace RealFlag.UI
                 },
                 Enabled = () => selected() && FlagPrefab.Info != null,
             });
+
+            for (int i = firstSelected; i < Rows.Count; i++)
+            {
+                if (Rows[i].Panel == PanelPage.Existing)
+                    Rows[i].ShownWhile = selected;
+            }
         }
 
         /// <summary>
