@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using RealFlag;
 
 [assembly: AssemblyTitle(Mod.DisplayName)]
-[assembly: AssemblyDescription("Realistic cloth flags that wave in the wind.")]
+[assembly: AssemblyDescription("Fully animated, customizable flags.")]
 [assembly: AssemblyProduct(Mod.DisplayName)]
 [assembly: ComVisible(false)]
 

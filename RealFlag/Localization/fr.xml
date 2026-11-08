@@ -24,7 +24,7 @@
   <!-- ==================== The mod ==================== -->
 
   <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
-  <String key="Mod.Description">Drapeaux en tissu qui flottent</String>
+  <String key="Mod.Description">Drapeaux entièrement animés et personnalisables</String>
   <String key="Mod.Unsupported">
     Flag Maker ne peut pas afficher les drapeaux sur cet ordinateur : il lui faut Metal ou
     OpenGL 3.3. Vos drapeaux restent sauvegardés dans la ville.

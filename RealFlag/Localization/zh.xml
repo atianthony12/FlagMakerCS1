@@ -23,7 +23,7 @@
   <!-- ==================== The mod ==================== -->
 
   <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
-  <String key="Mod.Description">在风中飘动的布旗</String>
+  <String key="Mod.Description">全动画、可自定义的旗帜</String>
   <String key="Mod.Unsupported">Flag Maker 无法在此电脑上绘制旗帜：需要 Metal 或 OpenGL 3.3。你的旗帜仍保存在城市中。</String>
   <String key="Mod.UnsupportedWindows">
     Flag Maker 无法在此电脑上绘制旗帜：需要 DirectX 11。你的旗帜仍保存在城市中。\n\n

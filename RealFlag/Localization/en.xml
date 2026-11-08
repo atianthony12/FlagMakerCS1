@@ -20,7 +20,7 @@
   <!-- ==================== The mod ==================== -->
 
   <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
-  <String key="Mod.Description">Cloth flags that wave in the wind</String>
+  <String key="Mod.Description">Fully animated, customizable flags</String>
   <String key="Mod.Unsupported">
     Flag Maker can't draw flags on this computer: it needs Metal or OpenGL 3.3. Your flags stay
     saved in the city.

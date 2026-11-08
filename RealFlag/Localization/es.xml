@@ -21,7 +21,7 @@
   <!-- ==================== El mod ==================== -->
 
   <!-- One line in the game's mods list: about 30 characters fit before it wraps. -->
-  <String key="Mod.Description">Banderas de tela que ondean</String>
+  <String key="Mod.Description">Banderas totalmente animadas y personalizables</String>
   <String key="Mod.Unsupported">
     Flag Maker no puede dibujar banderas en este equipo: necesita Metal u OpenGL 3.3. Tus banderas
     siguen guardadas en la ciudad.

@@ -33,7 +33,7 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 | Piece | Defined where | Notes |
 | --- | --- | --- |
 | Mod name and version in Content Manager | `Mod.DisplayName`, `Mod.Version` in `RealFlag/Mod.cs` | "Flag Maker 1.0.0". 0.x is the development series: release.ps1 refuses it |
-| Mod description in Content Manager | `Mod.Description` in `RealFlag/Localization/en.xml` | "Cloth flags that wave in the wind" |
+| Mod description in Content Manager | `Mod.Description` in `RealFlag/Localization/en.xml` | "Fully animated, customizable flags" |
 | Button icon | `RealFlag/Resources/FlagIcon.png` | Embedded; 72 × 72, white on clear, drawn from `FlagIcon.lucide.txt` by `ModsLibCS1\tools\make-button-icon.ps1` |
 | Workshop title | Typed into the game's Share panel | Pre-filled from the folder name `RealFlag`: type **Flag Maker** over it |
 | Workshop description | `Workshop/Description.bbcode.txt`, pasted into the panel | BBCode, not Markdown. Steam caps it at 8000 characters, counting each line break twice and each apostrophe as `&#39;` (5): `tools\bbcode-preview.html` previews and counts it Steam's way, release.ps1 checks it |
