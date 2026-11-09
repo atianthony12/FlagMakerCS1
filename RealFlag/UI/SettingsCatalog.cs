@@ -1502,6 +1502,18 @@ namespace RealFlag.UI
                 Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && Settings.NewPlacing.value == LineFlags.Single,
             });
 
+            // Under it: a banner from its top keeps in front of a plate through its hoist, never
+            // back into the wall behind it (the author, 2026-11-09; FlagSpec.BackPlate).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.New,
+                Bool = Settings.NewBackPlate,
+                DefaultBool = Settings.Defaults.BackPlate,
+                AfterChange = State("back plate", OnOff(Settings.NewBackPlate)),
+                Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && Settings.NewMotion.value == FlagMotion.Waves,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Status,
@@ -1680,6 +1692,16 @@ namespace RealFlag.UI
                 Format = Degrees,
                 AfterChange = FlagEditor.ApplyRotation,
                 Enabled = selected,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Existing,
+                Bool = Settings.SelBackPlate,
+                DefaultBool = Settings.Defaults.BackPlate,
+                AfterChange = FlagEditor.ApplyDesign,
+                Enabled = () => selected() && Settings.SelHoistedFrom.value == FlagHoist.Top && Settings.SelMotion.value == FlagMotion.Waves,
             });
 
             Add(new Row

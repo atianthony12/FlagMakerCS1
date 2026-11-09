@@ -147,6 +147,7 @@ public static class FlagPreview
         int[] refines = ParseInts(Env("RF_REFINES", "1"));
         FlagMesh.SmoothEdges = Env("RF_SMOOTH", "1") != "0";
         bool collide = Env("RF_COLLIDE", "1") != "0";
+        bool plate = Env("RF_PLATE", "0") == "1";
         string[] countries = Env("RF_COUNTRIES", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         float[] darknesses = ParseFloats(Env("RF_DARKNESS", "0"));
 
@@ -388,6 +389,19 @@ public static class FlagPreview
                                                 hx, hy, hz, flag.Cut, flag.CutDepth);
                 cloth.SelfCollision = collide;
                 cloth.GroundY = -anchor.y;
+
+                // RF_PLATE: a banner from its top in front of its back plate, as the game sets it (FlagRenderer.ApplyPlate).
+                flag.BackPlate = plate;
+                if (motion == FlagMotion.Waves && flag.HasBackPlate)
+                {
+                    cloth.SetPlate(hz, -hx);
+                    if (cloth.BehindPlate > 0)
+                        cloth.LayOutClear(1f, 0f);
+                    cloth.Calm(FlagCloth.CalmTime);
+                    Debug.Log("RF PREVIEW: a back plate through the hoist, its front towards (" +
+                              hz.ToString("F2", CultureInfo.InvariantCulture) + ", " + (-hx).ToString("F2", CultureInfo.InvariantCulture) + ")");
+                }
+
                 FlagMesh mesh = new FlagMesh(cloth, refine);
 
                 // The pole: from the ground (y = 0) up its axis to the anchor's level, as the game casts it.

@@ -303,11 +303,15 @@
   <String key="NewLineAlong.Tooltip">La rotation s’y ajoute.</String>
   <String key="NewSnapEdges.Label">Coller aux bords</String>
   <String key="NewSnapEdges.Tooltip">Pendre au bord du toit.</String>
+  <String key="NewBackPlate.Label">Plaque arrière</String>
+  <String key="NewBackPlate.Tooltip">Ne recule jamais dans le mur.</String>
 
   <String key="NewRotation.Label">Rotation</String>
   <String key="NewRotation.Tooltip">Vers où il pointe.</String>
   <String key="SelRotation.Label">Rotation</String>
   <String key="SelRotation.Tooltip">Vers où il pointe.</String>
+  <String key="SelBackPlate.Label">Plaque arrière</String>
+  <String key="SelBackPlate.Tooltip">Ne recule jamais dans le mur.</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">Hauteur du mât</String>

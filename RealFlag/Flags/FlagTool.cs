@@ -554,7 +554,7 @@ namespace RealFlag.Flags
             {
                 float ax, ay, az;
                 FlagEdgeSnap.Place(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, NewAngle(), spec.Height,
-                                   out ax, out ay, out az, out angle);
+                                   spec.HasBackPlate && spec.Motion == FlagMotion.Waves, out ax, out ay, out az, out angle);
                 anchor = new Vector3(ax, ay, az);
                 return true;
             }

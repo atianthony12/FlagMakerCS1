@@ -25,6 +25,7 @@
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
+#   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
 #   ... -Cuts "0,1,3,4:40"         each design once per cut (FlagCut: 0 rectangle, 1 swallowtail, 2 and tongue, 3 pennant,
 #                                  4 burgee, 5 pointed, 6 rounded), a depth in percent after a colon (33 by default)
 #   ... -Images "a.png,b.jpg" -ImageDir <folder>   pictures of the player's, laid on -Patterns' first pattern
@@ -79,6 +80,7 @@ param(
     [double]$Tilt = 0,
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
+    [switch]$Plate,
     [string]$Images = "",
     [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\FlagMaker\Images"),
     [string]$Crops = "0.5,0.5,1,0",
@@ -154,6 +156,7 @@ $env:RF_POLECOLOURS = $PoleColours
 $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
 $env:RF_HOIST = $Hoist
+$env:RF_PLATE = if ($Plate) { "1" } else { "0" }
 $env:RF_IMAGES = $Images
 $env:RF_IMAGEDIR = $ImageDir
 $env:RF_CROPS = $Crops

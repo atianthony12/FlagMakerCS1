@@ -880,6 +880,33 @@ namespace RealFlag.Flags
                 Log.Msg("flags: the cloth collides with itself again -- " + laid + " waving flag(s) laid out afresh, so no fold made while it was off is locked in");
         }
 
+        /// <summary>
+        /// A banner hoisted from its top in front of its back plate (FlagSpec.HasBackPlate): the
+        /// plate through its hoist, its front the side the design reads from -- the flag's -Z,
+        /// (sin a, 0, -cos a) for the heading a along which the hoist runs (FlagOrientation: a
+        /// viewer there sees the hoist across the top from the left, as a hung flag is shown).
+        /// A cloth that had none and lies behind it now (new, laid along a wind blowing at the
+        /// plate; the option ticked or the hoist moved to the top while it flew back) is laid out
+        /// afresh in front of it rather than pressed flat onto it in one step.
+        /// </summary>
+        private static void ApplyPlate(FlagCloth cloth, FlagInstance f)
+        {
+            if (!f.Spec.HasBackPlate)
+            {
+                cloth.ClearPlate();
+                return;
+            }
+
+            bool had = cloth.HasPlate;
+            cloth.SetPlate(f.Hoist.z, -f.Hoist.x);
+            if (!had && cloth.HasPlate && cloth.BehindPlate > 0)
+            {
+                Vector3 dir = f.WindDir.sqrMagnitude > 1e-6f ? f.WindDir : f.Fly;
+                cloth.LayOutClear(dir.x, dir.z);
+                cloth.Calm(FlagCloth.CalmTime);
+            }
+        }
+
         private static bool LayOutAfresh(FlagInstance f)
         {
             if (f.Cloth == null || f.Spec.Motion != FlagMotion.Waves)
@@ -1775,7 +1802,7 @@ namespace RealFlag.Flags
         {
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
                    a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && Mathf.Approximately(a.WindShare, b.WindShare) &&
-                   a.Motion == b.Motion && a.Name == b.Name &&
+                   a.Motion == b.Motion && a.Name == b.Name && a.BackPlate == b.BackPlate &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
                    Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b) && a.SameWeather(b);
         }
@@ -2488,6 +2515,9 @@ namespace RealFlag.Flags
                                         f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Spec.Cut, f.Spec.CutDepth);
                 f.Cloth.SelfCollision = _selfCollision;
 
+                // A banner in front of its back plate is laid out in front of it, whatever the wind.
+                ApplyPlate(f.Cloth, f);
+
                 // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
                 f.Cloth.Calm(FlagCloth.CalmTime);
                 f.Mesh = new FlagMesh(f.Cloth, f.Refine);
@@ -2511,6 +2541,9 @@ namespace RealFlag.Flags
             }
 
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
+
+            // Its back plate, every frame: the cloth may be new (a detail, a size), the hoist turned, the option changed.
+            ApplyPlate(f.Cloth, f);
 
             // Settled and not moving this frame (small on the screen, or past MaxMoving): nothing
             // of the city, the wind or the air is worth reading for it -- its city is read again
@@ -3080,6 +3113,8 @@ namespace RealFlag.Flags
             source.SelfCollision = key.SelfCollision;
             if (f.Spec.HasPole)
                 f.PoleShape.ApplyTo(source, f.Fly.x, f.Fly.y, f.Fly.z);
+            if (f.Spec.HasBackPlate)
+                source.SetPlate(f.Hoist.z, -f.Hoist.x);
             source.TakeShape(f.Cloth, true);
 
             var g = new ShareGroup

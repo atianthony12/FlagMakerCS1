@@ -299,11 +299,15 @@
   <String key="NewLineAlong.Tooltip">Rotation adds to it.</String>
   <String key="NewSnapEdges.Label">Snap to edges</String>
   <String key="NewSnapEdges.Tooltip">Hang from roof edges.</String>
+  <String key="NewBackPlate.Label">Back plate</String>
+  <String key="NewBackPlate.Tooltip">Never swings back into walls.</String>
 
   <String key="NewRotation.Label">Rotation</String>
   <String key="NewRotation.Tooltip">Which way it points.</String>
   <String key="SelRotation.Label">Rotation</String>
   <String key="SelRotation.Tooltip">Which way it points.</String>
+  <String key="SelBackPlate.Label">Back plate</String>
+  <String key="SelBackPlate.Tooltip">Never swings back into walls.</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">Pole height</String>

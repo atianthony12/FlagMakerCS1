@@ -4015,6 +4015,138 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The back plate (FlagSpec.BackPlate, 2026-11-09): on by default, used only from the top;
+    /// through the save and Move It's clipboard; a format 14 save reads it on; another cloth for
+    /// shared motion; in the log; and the snap along an edge turns a plated banner's front out
+    /// from the wall whichever way along it the player turned it (unplated: as turned).
+    /// </summary>
+    public static string CodecBackPlate()
+    {
+        FlagSpec top = FlagSpec.Default; top.HoistedFrom = FlagHoist.Top;
+        bool def = FlagSpec.Default.BackPlate && !FlagSpec.Default.HasBackPlate && top.HasBackPlate;
+        FlagSpec off = top; off.BackPlate = false;
+        FlagSpec r;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(off), out r) && !r.BackPlate && r.HoistedFrom == FlagHoist.Top &&
+                     FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(top), out r) && r.BackPlate;
+        bool old;
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, off);
+            w.Flush();
+            ms.Position = 0;
+            FlagSpec as14 = FlagCodec.Read(new System.IO.BinaryReader(ms), 14);
+            old = as14.BackPlate && as14.HoistedFrom == FlagHoist.Top;
+        }
+        bool shared = !ShareKey.For(top, 6f, 90f, 0f, 0f, true).Equals(ShareKey.For(off, 6f, 90f, 0f, 0f, true)) &&
+                      !ShareKey.For(top, 6f, 90f, 0f, 0f, true).SameCloth(ShareKey.For(off, 6f, 90f, 0f, 0f, true));
+        bool said = top.Describe().Contains("in front of a back plate") && off.Describe().Contains("with no back plate") &&
+                    !FlagSpec.Default.Describe().Contains("back plate");
+
+        // An edge whose way out is 120 deg; the player turned the banner along it the "wrong" way.
+        double b = 120.0 * Math.PI / 180.0;
+        float nx = (float)Math.Cos(b), nz = (float)Math.Sin(b), tx = -nz, tz = nx;
+        float ax, ay, az, h;
+        float wrong = (float)Math.Atan2(-tz, -tx) + 0.2f;
+        FlagEdgeSnap.Place(5f * nx, 17f, 5f * nz, nx, nz, wrong, 2f, true, out ax, out ay, out az, out h);
+        // The plate's front for that heading, as FlagRenderer.ApplyPlate sets it: (sin h, -cos h).
+        bool frontOut = Math.Abs(Math.Sin(h) * nx - Math.Cos(h) * nz - 1.0) < 1e-5;
+        FlagEdgeSnap.Place(5f * nx, 17f, 5f * nz, nx, nz, wrong, 2f, false, out ax, out ay, out az, out h);
+        bool asTurned = Math.Abs(Math.Sin(h) * nx - Math.Cos(h) * nz + 1.0) < 1e-5;
+        return def + "," + round + "," + old + "," + shared + "," + said + "," + frontOut + "," + asTurned + "," + FlagCodec.Version;
+    }
+
+    /// <summary>
+    /// A 3 x 2 m banner hoisted from its top (hoist along +x) in front of its back plate (front
+    /// -z, as the game sets it) or not, 14 s in a wind blowing <paramref name="yawDegrees"/> from
+    /// its heading (90: at the plate, the wall's way), laid out as the game lays a new one: finite,
+    /// the most any free particle was behind the plate after 2 s (m, negative: behind), the
+    /// furthest in front, the worst stretch, knots, and whether a plate set to (0, 0) is none.
+    /// </summary>
+    public static string PlateRun(float wind, float yawDegrees, bool plate)
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw);
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz);
+        c.GroundY = -17f;
+        if (plate)
+        {
+            c.SetPlate(hz, -hx);
+            if (c.BehindPlate > 0)
+                c.LayOutClear(dirX, dirZ);
+            c.Calm(FlagCloth.CalmTime);
+        }
+
+        int knots = c.Unknotted;
+        float worst, low, high;
+        Fly(c, wind, yawDegrees, 14f, 2f, delegate(FlagCloth x)
+        {
+            float m = float.MaxValue;
+            for (int k = 0; k < x.Count; k++)
+                if (k % x.Columns != 0 && -x.Z[k] < m) m = -x.Z[k];
+            return m;
+        }, out worst, out low, out high);
+        float front = 0f;
+        for (int k = 0; k < c.Count; k++)
+            front = Math.Max(front, -c.Z[k]);
+
+        FlagCloth none = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz);
+        none.SetPlate(0f, 0f);
+        return c.IsFinite() + "," + low.ToString("F4", Inv) + "," + front.ToString("F2", Inv) + "," + worst.ToString("F3", Inv) + "," +
+               (c.Unknotted - knots) + "," + !none.HasPlate;
+    }
+
+    /// <summary>
+    /// The same plated banner flying out in front (the wind at 270 deg) for 6 s, then the wind
+    /// coming round onto the plate through <paramref name="via"/> deg at FlagWind.TurnMost (4 deg a
+    /// second), then 15 s there: finite, the highest free particle over the hoist at the end (m;
+    /// folded over its hoist if positive), the fly's lowest point (m), the worst stretch, knots,
+    /// the most any particle was behind the plate.
+    /// </summary>
+    public static string PlateTurn(float wind, float via)
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 0f, -1f, FlagCloth.CellsAlong, hx, hy, hz);
+        c.GroundY = -17f;
+        c.SetPlate(hz, -hx);
+        if (c.BehindPlate > 0)
+            c.LayOutClear(0f, -1f);
+        c.Calm(FlagCloth.CalmTime);
+        int knots = c.Unknotted;
+        float height = 12f, worst = 1f, behind = 0f;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        float turn = via > 270f || via < 90f ? 1f : -1f;
+        int steps = (int)((6f + 180f / FlagWind.TurnMost + 15f) / dt);
+        for (int s = 0; s < steps; s++)
+        {
+            float t = s * dt;
+            float yaw = 270f + turn * Math.Max(0f, Math.Min(180f, (t - 6f) * FlagWind.TurnMost));
+            double r = yaw * Math.PI / 180.0;
+            FlagAir air = FlagWind.Air(wind, 1f, (float)Math.Cos(r), (float)Math.Sin(r), height, 1f, c.Length, t, 0f, 0f);
+            c.Step(dt, ref air);
+            if (t < 2f) continue;
+            worst = Math.Max(worst, c.MaxStretch());
+            for (int k = 0; k < c.Count; k++)
+                behind = Math.Min(behind, -c.Z[k]);
+        }
+
+        float top = float.MinValue, fly = float.MaxValue;
+        for (int k = 0; k < c.Count; k++)
+        {
+            if (k % c.Columns == 0) continue;
+            top = Math.Max(top, c.Y[k]);
+            fly = Math.Min(fly, c.Y[k]);
+        }
+
+        return c.IsFinite() + "," + top.ToString("F2", Inv) + "," + fly.ToString("F2", Inv) + "," + worst.ToString("F3", Inv) + "," +
+               (c.Unknotted - knots) + "," + behind.ToString("F4", Inv);
+    }
+
+    /// <summary>
     /// Cuts (FlagCut, 2026-11-07): the outlines -- a rectangle's edge 1 everywhere, a swallowtail's
     /// 1 - depth at its middle, a pennant's 0 at its top, a burgee's tips 1, the edges never past 1
     /// nor under 0 -- and each cut's cells on a 3 x 2 m cloth at 18 and 40 cells: fewer particles,
@@ -4782,6 +4914,22 @@ Check "each flag's scatter of holes and grime: seeds spread over 0..255 by prop"
 
 $cn = [ClothTests]::CodecWindShare() -split ","
 Check "Wind on it: all of it by default, through the save and Move It's clipboard; a format 13 save (its cut where it was) and a format 10 one read all of it; out of range pulled in; in the log" ($cn[0] -eq "True" -and $cn[1] -eq "True" -and $cn[2] -eq "True" -and $cn[3] -eq "True" -and $cn[4] -eq "True") ("format " + $cn[5] + ": 35%; NaN, -100%, 200%, -infinity")
+
+# ---- the back plate (a banner from its top never swings back into the wall) -------------------
+
+$bp = [ClothTests]::CodecBackPlate() -split ","
+Check "Back plate: on by default, used from the top only; through the save and the clipboard; a format 14 save reads it on; another cloth to share; in the log" ($bp[0] -eq "True" -and $bp[1] -eq "True" -and $bp[2] -eq "True" -and $bp[3] -eq "True" -and $bp[4] -eq "True") ("format " + $bp[7])
+Check "the snap along an edge turns a plated banner's front out from the wall; without the plate, as the player turned it" ($bp[5] -eq "True" -and $bp[6] -eq "True") "edge out at 120 deg, the banner turned the other way along it"
+foreach ($pcase in @(@(4, 90), @(12, 90), @(6, 270), @(12, 270), @(6, 0), @(12, 45), @(20, 120))) {
+    $pr = [ClothTests]::PlateRun($pcase[0], $pcase[1], $true) -split ","
+    Check ("a plated banner at " + $pcase[0] + " m/s, the wind " + $pcase[1] + " deg from its heading: never behind its plate, healthy") ($pr[0] -eq "True" -and (N $pr[1]) -ge -0.001 -and (N $pr[3]) -le 1.15 -and $pr[4] -eq "0" -and $pr[5] -eq "True") ("most behind " + $pr[1] + " m, out to " + $pr[2] + " m in front, worst link " + $pr[3] + ", knots " + $pr[4])
+}
+foreach ($pcase in @(@(6, 0), @(12, 0), @(12, 180), @(20, 0))) {
+    $pt = [ClothTests]::PlateTurn($pcase[0], $pcase[1]) -split ","
+    Check ("a plated banner flying out at " + $pcase[0] + " m/s, the wind coming round onto its plate via " + $pcase[1] + " deg: hangs pressed to it, never folded over its hoist") ($pt[0] -eq "True" -and (N $pt[1]) -lt 0 -and (N $pt[2]) -lt -2.5 -and (N $pt[3]) -le 1.15 -and $pt[4] -eq "0" -and (N $pt[5]) -ge -0.001) ("highest " + $pt[1] + " m, fly down to " + $pt[2] + " m, worst link " + $pt[3] + ", knots " + $pt[4] + ", most behind " + $pt[5] + " m")
+}
+$pfree = [ClothTests]::PlateRun(12, 90, $false) -split ","
+Check "the same banner with no plate, the wind at the wall's side: it does swing back (what the plate stops)" ((N $pfree[1]) -lt -0.5) ("most behind " + $pfree[1] + " m, worst link " + $pfree[3])
 
 # ---- cuts (FlagCut: swallowtail, pennant...) -------------------------------------------------
 

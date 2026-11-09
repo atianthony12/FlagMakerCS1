@@ -520,6 +520,10 @@ namespace RealFlag.Flags
         private bool _poleOn;
         private float _poleX, _poleY, _poleZ, _poleRadius, _poleGrowth, _poleTop, _poleBottom, _poleMargin;
 
+        /// <summary>The back plate the cloth keeps in front of (SetPlate): an upright plane through the anchor, its level way out (unit).</summary>
+        private bool _plateOn;
+        private float _plateX, _plateZ;
+
         /// <summary>
         /// The city round the flag (SetSurface, SetCapsules): the top of what stands under it and
         /// the props' and trees' capsules, each relative to its own point of the world, which lies
@@ -831,6 +835,14 @@ namespace RealFlag.Flags
         /// </summary>
         public void Reset(float dirX, float dirZ)
         {
+            // Never laid behind its back plate: a wind blowing at the plate lays it the mirrored way out.
+            float back = dirX * _plateX + dirZ * _plateZ;
+            if (_plateOn && back < 0f)
+            {
+                dirX -= 2f * back * _plateX;
+                dirZ -= 2f * back * _plateZ;
+            }
+
             LayOut(dirX, 0f, dirZ, true);
         }
 
@@ -850,12 +862,18 @@ namespace RealFlag.Flags
             float len = (float)Math.Sqrt(fx * fx + fy * fy + fz * fz);
             if (len < 1e-4f)
             {
-                // Along the hoist (or none): any way square to it, level if it can be.
+                // Along the hoist (or none): any way square to it, level if it can be -- in front of a back plate.
                 fx = -hz; fy = 0f; fz = hx;
                 len = (float)Math.Sqrt(fx * fx + fz * fz);
                 if (len < 1e-4f)
                 {
                     fx = 1f; fz = 0f; len = 1f;
+                }
+
+                if (_plateOn && fx * _plateX + fz * _plateZ < 0f)
+                {
+                    fx = -fx;
+                    fz = -fz;
                 }
             }
 
@@ -1042,7 +1060,7 @@ namespace RealFlag.Flags
         /// </summary>
         private int InTheWay()
         {
-            int inside = 0;
+            int inside = CountBehindPlate();
             if (_poleOn || _capCount > 0)
             {
                 for (int k = 0; k < Count; k++)
@@ -1365,6 +1383,89 @@ namespace RealFlag.Flags
         {
             get { return _poleOn; }
         }
+
+        /// <summary>
+        /// A back plate (the author, 2026-11-09, of a banner hoisted from its top against a facade
+        /// whose cloth swung back into the wall: "a collision mesh right behind the flag cloth ...
+        /// So that these flags don't go backwards into the building walls, only forward with the
+        /// wind"): an upright plane through the anchor, the free particles kept on its side
+        /// (<paramref name="x"/>, <paramref name="z"/>) -- the level way out in front of it,
+        /// relative to the anchor's axes. A cloth pressed back onto it by the wind lies flat on it,
+        /// as a banner on a wall does. Infinite: everything the cloth can reach hangs from the
+        /// hoist on it. Set between steps; (0, 0) clears it.
+        /// </summary>
+        public void SetPlate(float x, float z)
+        {
+            float len = (float)Math.Sqrt(x * x + z * z);
+            if (len < 1e-6f)
+            {
+                _plateOn = false;
+                return;
+            }
+
+            _plateOn = true;
+            _plateX = x / len;
+            _plateZ = z / len;
+        }
+
+        /// <summary>No back plate (the cloth free to swing either way, as it always was).</summary>
+        public void ClearPlate()
+        {
+            _plateOn = false;
+        }
+
+        public bool HasPlate
+        {
+            get { return _plateOn; }
+        }
+
+        /// <summary>
+        /// A free particle behind the plate (<see cref="SetPlate"/>) goes square to it, onto it,
+        /// less <see cref="ContactFriction"/> of its sliding along it since the step began, as
+        /// against a wall of the city (<see cref="Slide"/>): pressed onto the plate by a wind of 12
+        /// m/s -- 80 times the cloth's weight -- with none, a banner rode up the plate on its own
+        /// wrinkles and folded over its hoist (the preview, 2026-11-09). Inside every pass, with
+        /// the pole, before the attachments (a tether to a point on the plate or in front of it
+        /// keeps a particle in front: the half-space is convex).
+        /// </summary>
+        private void KeepInFront()
+        {
+            float[] px = _px, py = _py, pz = _pz;
+            float nx = _plateX, nz = _plateZ;
+            for (int k = 0; k < Count; k++)
+            {
+                if (_invMass[k] == 0f)
+                    continue;
+
+                float d = px[k] * nx + pz[k] * nz;
+                if (d < 0f)
+                    Slide(k, px[k] - d * nx, py[k], pz[k] - d * nz, nx, 0f, nz);
+            }
+        }
+
+        /// <summary>The free particles behind the plate by more than a layout's noise, where they are (a layout to be tried another way: <see cref="InTheWay"/>).</summary>
+        public int BehindPlate
+        {
+            get { return CountBehindPlate(); }
+        }
+
+        private int CountBehindPlate()
+        {
+            if (!_plateOn)
+                return 0;
+
+            int behind = 0;
+            for (int k = 0; k < Count; k++)
+            {
+                if (_invMass[k] != 0f && X[k] * _plateX + Z[k] * _plateZ < -PlateSlack)
+                    behind++;
+            }
+
+            return behind;
+        }
+
+        /// <summary>A layout's noise behind the plate by less than this, metres, is not in the way (the first step puts it on the plate).</summary>
+        private const float PlateSlack = 0.02f;
 
         /// <summary>
         /// A surface to stay above (FlagSurroundings: the ground, the water and the roofs round the
@@ -1979,6 +2080,9 @@ namespace RealFlag.Flags
 
                 if (_poleOn)
                     KeepOffPole();
+
+                if (_plateOn)
+                    KeepInFront();
 
                 if (_capCount > 0)
                     KeepOffCapsules();

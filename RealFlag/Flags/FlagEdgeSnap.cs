@@ -182,6 +182,18 @@ namespace RealFlag.Flags
         public static void Place(float ex, float roofY, float ez, float nx, float nz, float angle, float hoist,
                                  out float ax, out float ay, out float az, out float heading)
         {
+            Place(ex, roofY, ez, nx, nz, angle, hoist, false, out ax, out ay, out az, out heading);
+        }
+
+        /// <summary>
+        /// The same; with <paramref name="frontOut"/> (a banner with a back plate: FlagSpec.HasBackPlate)
+        /// a banner along the edge always has its front -- the side its design reads from, in front
+        /// of its plate -- out from the wall: the plate between the cloth and the wall, whichever
+        /// way along the edge the player turned it.
+        /// </summary>
+        public static void Place(float ex, float roofY, float ez, float nx, float nz, float angle, float hoist, bool frontOut,
+                                 out float ax, out float ay, out float az, out float heading)
+        {
             float hx = (float)Math.Cos(angle), hz = (float)Math.Sin(angle);
             float tx = -nz, tz = nx;
             float along = hx * tx + hz * tz, across = hx * nx + hz * nz;
@@ -189,7 +201,8 @@ namespace RealFlag.Flags
             float fx = ex + Gap * nx, fz = ez + Gap * nz;
             if (Math.Abs(along) >= Math.Abs(across))
             {
-                float s = along >= 0f ? 1f : -1f;
+                // Heading along (tx, tz), the front (FlagRenderer.ApplyPlate: (sin, -cos) of the heading) is (nx, nz): out.
+                float s = along >= 0f || frontOut ? 1f : -1f;
                 dx = s * tx;
                 dz = s * tz;
                 ax = fx - 0.5f * hoist * dx;

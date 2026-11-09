@@ -75,8 +75,8 @@ namespace RealFlag
     {
         private bool _value;
 
-        public BoolSetting(string name, bool value)
-            : base(name)
+        public BoolSetting(string name, bool value, bool transient = false)
+            : base(name, transient)
         {
             _value = value;
         }

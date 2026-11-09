@@ -279,6 +279,9 @@ namespace RealFlag.Flags
         public int Length, Proportion, HoistedFrom, Tilt, Lean, Waviness, Pole, Speed, Angle;
         public bool Halyard, SelfCollision;
 
+        /// <summary>Kept in front of a back plate (FlagSpec.HasBackPlate): it cannot fly the other way, so it is another cloth.</summary>
+        public bool Plate;
+
         /// <summary>The cut (FlagCut) and its depth in thousandths where it has one: another cut is another cloth.</summary>
         public int Cut;
 
@@ -306,7 +309,8 @@ namespace RealFlag.Flags
                 Angle = step > 0f ? (int)Math.Round(rel / step) % (int)Math.Round(360f / step) : 0,
                 Halyard = spec.OnHalyard,
                 SelfCollision = selfCollision,
-                Cut = spec.Cut * 4096 + (FlagCut.UsesDepth(spec.Cut) ? (int)Math.Round(spec.CutDepth * 1000f) : 0),
+                Plate = spec.HasBackPlate,
+                Cut =spec.Cut * 4096 + (FlagCut.UsesDepth(spec.Cut) ? (int)Math.Round(spec.CutDepth * 1000f) : 0),
             };
         }
 
@@ -354,7 +358,8 @@ namespace RealFlag.Flags
         public bool SameCloth(ShareKey o)
         {
             return Length == o.Length && Proportion == o.Proportion && HoistedFrom == o.HoistedFrom && Tilt == o.Tilt && Lean == o.Lean &&
-                   Waviness == o.Waviness && Pole == o.Pole && Halyard == o.Halyard && SelfCollision == o.SelfCollision && Cut == o.Cut;
+                   Waviness == o.Waviness && Pole == o.Pole && Halyard == o.Halyard && SelfCollision == o.SelfCollision && Cut == o.Cut &&
+                   Plate == o.Plate;
         }
 
         /// <summary>This key with the wind left out: what a crowd of like flags is counted by.</summary>
@@ -392,7 +397,7 @@ namespace RealFlag.Flags
                 h = h * 31 + Pole;
                 h = h * 31 + Speed;
                 h = h * 31 + Angle;
-                h = h * 31 + (Halyard ? 1 : 0) + (SelfCollision ? 2 : 0);
+                h = h * 31 + (Halyard ? 1 : 0) + (SelfCollision ? 2 : 0) + (Plate ? 4 : 0);
                 h = h * 31 + Cut;
                 return h;
             }

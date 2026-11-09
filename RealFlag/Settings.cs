@@ -210,6 +210,9 @@ namespace RealFlag
         /// <summary>A new banner hoisted from its top snaps to a roof's edge near the pointer (FlagEdgeSnap).</summary>
         public static BoolSetting NewSnapEdges { get; private set; }
 
+        /// <summary>A banner hoisted from its top keeps in front of an unseen plate through its hoist, never swinging back into a wall (FlagSpec.BackPlate).</summary>
+        public static BoolSetting NewBackPlate { get; private set; }
+
         /// <summary>
         /// The new flag's POLE HEIGHT: its length up its axis from its foot to the flag's top,
         /// metres (FlagSpec.PoleLength, for a pole that stands: FlagStand). Its name is the old
@@ -270,6 +273,7 @@ namespace RealFlag
         public static FloatSetting SelTear { get; private set; }
         public static FloatSetting SelTearEdges { get; private set; }
         public static FloatSetting SelRotation { get; private set; }
+        public static BoolSetting SelBackPlate { get; private set; }
 
         /// <summary>The selected flag's pole height (FlagSpec.PoleLength): changed, its foot stays and the flag goes up or down with the pole's top.</summary>
         public static FloatSetting SelHeight { get; private set; }
@@ -385,7 +389,12 @@ namespace RealFlag
             public const float Rotation = 0f;
             public const float LineSpacing = 10f;
             public const bool LineAlong = true;
-            public const bool SnapEdges = true;
+
+            /// <summary>Off (the author, 2026-11-09: "snap to edges should be off by default").</summary>
+            public const bool SnapEdges = false;
+
+            /// <summary>On: a banner from its top never swings back behind its hoist (the author, 2026-11-09).</summary>
+            public const bool BackPlate = true;
 
             /// <summary>m: an ordinary flagpole, its foot to the flag's top.</summary>
             public const float Height = 10f;
@@ -490,6 +499,7 @@ namespace RealFlag
                 NewLineSpacing = new FloatSetting("NewLineSpacing", Defaults.LineSpacing);
                 NewLineAlong = new BoolSetting("NewLineAlong", Defaults.LineAlong);
                 NewSnapEdges = new BoolSetting("NewSnapEdges", Defaults.SnapEdges);
+                NewBackPlate = new BoolSetting("NewBackPlate", Defaults.BackPlate);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
                 UnlockPoleHeight = new BoolSetting("UnlockPoleHeight", Defaults.UnlockPoleHeight);
                 NewPole = new IntSetting("NewPole", Defaults.Pole);
@@ -527,6 +537,7 @@ namespace RealFlag
                 SelTear = new FloatSetting("SelTear", Defaults.Tear, true);
                 SelTearEdges = new FloatSetting("SelTearEdges", Defaults.TearEdges, true);
                 SelRotation = new FloatSetting("SelRotation", Defaults.Rotation, true);
+                SelBackPlate = new BoolSetting("SelBackPlate", Defaults.BackPlate, true);
                 SelHeight = new FloatSetting("SelHeight", Defaults.Height, true);
                 SelPole = new IntSetting("SelPole", Defaults.Pole, true);
                 SelRopes = new IntSetting("SelRopes", Defaults.Ropes, true);
@@ -590,6 +601,7 @@ namespace RealFlag
             spec.Holes = NewHoles.value;
             spec.Tear = NewTear.value;
             spec.TearEdges = NewTearEdges.value;
+            spec.BackPlate = NewBackPlate.value;
             spec.Pole = NewPole.value;
             spec.Ropes = NewRopes.value;
             spec.PoleColour = (uint)NewPoleColour.value;

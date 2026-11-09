@@ -708,6 +708,21 @@ namespace RealFlag.Flags
         /// <summary>How deep the cut's notch or point is, a share of the length (<see cref="FlagCut.MinDepth"/> .. <see cref="FlagCut.MaxDepth"/>; the rectangle and the pennant have none).</summary>
         public float CutDepth;
 
+        /// <summary>
+        /// A banner hoisted from its top keeps in front of an unseen plate through its hoist, never
+        /// swinging back behind it (FlagCloth.SetPlate; the panel's "Back plate", on by default;
+        /// the author, 2026-11-09: top-hoisted banners against a facade swung back into the wall,
+        /// "only forward with the wind"). Its front is the side the design reads from. Kept for a
+        /// flag hoisted from its side, unused there (<see cref="HasBackPlate"/>).
+        /// </summary>
+        public bool BackPlate;
+
+        /// <summary>The cloth keeps in front of its back plate: chosen, and hoisted from its top.</summary>
+        public bool HasBackPlate
+        {
+            get { return BackPlate && HoistedFrom == FlagHoist.Top; }
+        }
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -794,6 +809,7 @@ namespace RealFlag.Flags
                     TearEdges = 0f,
                     Cut = FlagCut.Rectangle,
                     CutDepth = FlagCut.DefaultDepth,
+                    BackPlate = true,
                 };
             }
         }
@@ -1006,7 +1022,7 @@ namespace RealFlag.Flags
             if (Cut != FlagCut.Rectangle)
                 text += ", cut " + FlagCut.LogName(Cut) + (FlagCut.UsesDepth(Cut) ? " " + (CutDepth * 100f).ToString("F0", inv) + "% deep" : "");
             if (HoistedFrom != FlagHoist.Side)
-                text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom);
+                text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom) + (BackPlate ? " in front of a back plate" : " with no back plate");
             if (Motion != FlagMotion.Waves)
                 text += ", " + FlagMotion.LogName(Motion);
             if (WindShare < 1f)
@@ -1118,10 +1134,11 @@ namespace RealFlag.Flags
         /// never written by a commit (WindShare's while it was unpushed; read as 11). 13
         /// (2026-11-07): the same as 11, then its cut (a byte, FlagCut) and the cut's depth (a
         /// float, a share of the length; older ones rectangles). 14 (2026-11-07): the same, then
-        /// how much of the wind is on it (a float, 0..1; older ones all of it). Every older one is
-        /// still read.
+        /// how much of the wind is on it (a float, 0..1; older ones all of it). 15 (2026-11-09):
+        /// the same, then whether a banner from its top keeps in front of its back plate (a byte,
+        /// 0 or 1; older ones do, the default). Every older one is still read.
         /// </summary>
-        public const byte Version = 14;
+        public const byte Version = 15;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1163,6 +1180,7 @@ namespace RealFlag.Flags
             w.Write((byte)s.Cut);
             w.Write(s.CutDepth);
             w.Write(s.WindShare);
+            w.Write((byte)(s.BackPlate ? 1 : 0));
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1301,6 +1319,9 @@ namespace RealFlag.Flags
 
             // Before the wind's share: all of it.
             s.WindShare = version >= 14 ? r.ReadSingle() : 1f;
+
+            // Before the back plate: kept in front of it, the default (a banner from its side has no use for it).
+            s.BackPlate = version >= 15 ? r.ReadByte() != 0 : true;
 
             return s.Sanitised();
         }

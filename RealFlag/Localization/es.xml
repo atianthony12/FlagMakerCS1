@@ -300,11 +300,15 @@
   <String key="NewLineAlong.Tooltip">El giro se suma.</String>
   <String key="NewSnapEdges.Label">Ajustar a bordes</String>
   <String key="NewSnapEdges.Tooltip">Colgar del borde del tejado.</String>
+  <String key="NewBackPlate.Label">Placa trasera</String>
+  <String key="NewBackPlate.Tooltip">Nunca vuelve contra la pared.</String>
 
   <String key="NewRotation.Label">Giro</String>
   <String key="NewRotation.Tooltip">Hacia dónde apunta.</String>
   <String key="SelRotation.Label">Giro</String>
   <String key="SelRotation.Tooltip">Hacia dónde apunta.</String>
+  <String key="SelBackPlate.Label">Placa trasera</String>
+  <String key="SelBackPlate.Tooltip">Nunca vuelve contra la pared.</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">Altura del asta</String>

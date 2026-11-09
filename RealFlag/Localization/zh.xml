@@ -293,11 +293,15 @@
   <String key="NewLineAlong.Tooltip">朝向在此基础上叠加。</String>
   <String key="NewSnapEdges.Label">吸附边缘</String>
   <String key="NewSnapEdges.Tooltip">挂在屋顶边缘。</String>
+  <String key="NewBackPlate.Label">背板</String>
+  <String key="NewBackPlate.Tooltip">不会向后摆进墙里。</String>
 
   <String key="NewRotation.Label">朝向</String>
   <String key="NewRotation.Tooltip">指向哪边。</String>
   <String key="SelRotation.Label">朝向</String>
   <String key="SelRotation.Tooltip">指向哪边。</String>
+  <String key="SelBackPlate.Label">背板</String>
+  <String key="SelBackPlate.Tooltip">不会向后摆进墙里。</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">杆高</String>
