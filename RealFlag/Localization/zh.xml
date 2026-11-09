@@ -242,6 +242,25 @@
   <String key="Pole.Flat">平顶</String>
   <String key="Pole.Spear">矛形杆顶</String>
 
+  <String key="NewPoleProfile.Label">形状</String>
+  <String key="NewPoleProfile.Tooltip">旗杆的杆身。</String>
+  <String key="SelPoleProfile.Label">形状</String>
+  <String key="SelPoleProfile.Tooltip">旗杆的杆身。</String>
+  <String key="Profile.Tapered">锥形</String>
+  <String key="Profile.Straight">直杆</String>
+  <String key="Profile.Sectional">分节</String>
+  <String key="Profile.Fluted">凹槽</String>
+  <String key="Profile.Ornate">装饰底座</String>
+
+  <String key="NewPoleMaterial.Label">材质</String>
+  <String key="NewPoleMaterial.Tooltip">用什么做的。</String>
+  <String key="SelPoleMaterial.Label">材质</String>
+  <String key="SelPoleMaterial.Tooltip">用什么做的。</String>
+  <String key="Material.Painted">喷漆钢</String>
+  <String key="Material.Aluminium">铝</String>
+  <String key="Material.Wood">木</String>
+  <String key="Material.Fibreglass">玻璃钢</String>
+
   <String key="NewRopes.Label">绳索</String>
   <String key="NewRopes.Tooltip">旗子夹在绳上。</String>
   <String key="SelRopes.Label">绳索</String>
@@ -249,6 +268,10 @@
   <String key="Ropes.None">无</String>
   <String key="Ropes.One">一根</String>
   <String key="Ropes.Two">两根</String>
+  <String key="NewRopeThickness.Label">绳的粗细</String>
+  <String key="NewRopeThickness.Tooltip">100% 较逼真。</String>
+  <String key="SelRopeThickness.Label">绳的粗细</String>
+  <String key="SelRopeThickness.Tooltip">100% 较逼真。</String>
 
   <String key="NewPoleColour.Label">杆的颜色</String>
   <String key="NewPoleColour.Tooltip">杆、顶帽、底座。</String>
@@ -278,6 +301,18 @@
   <String key="SelLean.Tooltip">向侧面倾。</String>
   <String key="PoleToGround.Label">旗杆到地面</String>
   <String key="PoleToGround.Tooltip">拉长到地面。</String>
+  <String key="NewPoleWear.Label">磨损</String>
+  <String key="NewPoleWear.Tooltip">掉漆、褪色、风化。</String>
+  <String key="SelPoleWear.Label">磨损</String>
+  <String key="SelPoleWear.Tooltip">掉漆、褪色、风化。</String>
+  <String key="NewPoleRust.Label">锈蚀</String>
+  <String key="NewPoleRust.Tooltip">仅限喷漆钢。</String>
+  <String key="SelPoleRust.Label">锈蚀</String>
+  <String key="SelPoleRust.Tooltip">仅限喷漆钢。</String>
+  <String key="NewPoleDirt.Label">脏污</String>
+  <String key="NewPoleDirt.Tooltip">从底部往上的污垢。</String>
+  <String key="SelPoleDirt.Label">脏污</String>
+  <String key="SelPoleDirt.Tooltip">从底部往上的污垢。</String>
 
   <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
   <String key="NewPlacing.Label">放置</String>

@@ -48,7 +48,10 @@ colors or your own pictures, on a flagpole or hanging on its own.
 
 - Optional: a flag comes without a pole, so you can put it on any pole asset, mast, roof or facade
 - Or let the mod draw one, with a ball, flat or spear top
-- Halyard ropes
+- Five shapes (tapered, straight, sectional, fluted, on an ornate base) in painted steel,
+  aluminum, wood or fiberglass
+- Wear, rust and dirt on the pole
+- Halyard ropes, as thick as you like
 - Your own colors, height and thickness
 - Tilt and lean, for poles on walls
 
@@ -175,7 +178,17 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
 - **Pole height** goes from 1 to 50 m, or up to 200 m with **Allow taller poles**.
 - With one or two halyard **Ropes**, the flag is only held at its top and bottom clips, so its edge
   bows out a little in the wind, like on a real pole. Without ropes, the whole edge is held.
-- You can pick the colors of the pole, its top and its ropes, and its **Thickness**.
+- **Shape**: tapered (the default), straight, sectional (narrower steps up it, with a collar at
+  each joint, like telescoping poles), fluted (grooved, like a ceremonial pole), or tapered on an
+  ornate cast base.
+- **Material**: painted steel, aluminum, wood or fiberglass. The pole's color paints the steel,
+  tints the aluminum, stains the wood and colors the fiberglass.[^poles]
+- **Worn**, **Rust** and **Dirt**, under Wear and tear: paint chipped down to the primer (more at
+  the foot and where the rope rubs), aluminum gone dull, wood silvered, fiberglass chalky; rust in
+  the chips and running down from them (painted steel only); grime rising from the foot. Every pole
+  wears in its own way.
+- You can pick the colors of the pole, its top and its ropes, its **Thickness** and the
+  **Rope thickness**.
 - **Tilt** and **Lean** are for poles on walls: a wall-mounted pole usually leans 30 to 45°, a
   horizontal one 90°. The flag follows the tilt even without a drawn pole.
 - The pole is part of the flag. Move, raise or lower the flag and its pole comes with it. Changing
@@ -535,7 +548,9 @@ The compiled shaders are in the repo, so a normal build only needs the second li
 other mods, all credited in the notes below (no code from them is included). Country flags are from
 [Flagpedia.net](https://flagpedia.net) (flagcdn.com), based on Wikimedia Commons' files, public
 domain. Country names in Spanish, French and Chinese are from the [Unicode CLDR](https://cldr.unicode.org)
-(Unicode License V3). The panel's icons are based on [Lucide](https://lucide.dev)'s (ISC). Includes
+(Unicode License V3). The panel's icons are based on [Lucide](https://lucide.dev)'s (ISC). The
+flagpoles' wood, rust and rope textures are from [Poly Haven](https://polyhaven.com) and
+[ambientCG](https://ambientcg.com) (CC0). Includes
 UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks
 to all three. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
 
@@ -557,6 +572,7 @@ MIT, see [LICENSE](LICENSE).
 [^wind]: **The wind.** EN 1991-1-4, Eurocode 1: wind actions; A. G. Davenport, *Rationale for determining design wind velocities* (1960) and ASCE 7-95's exposures: how the wind grows with height over each terrain; H. Lettau (1969) and C. S. B. Grimmond and T. R. Oke, *Aerodynamic properties of urban areas derived from analysis of surface form* (1999): how rough the city is, from its buildings; H. A. Panofsky and J. A. Dutton, *Atmospheric Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941); WMO-No. 8, *Guide to Instruments and Methods of Observation*, ch. 5 (the 3 s gust): how quickly flags follow the wind's speed; K. Perlin, *Improving Noise* (2002), and C. Wellons' lowbias32 hash: the noise.
 [^shader]: **The fabric.** A. C. Estevez and C. Kulla, *Production Friendly Microfacet Sheen BRDF* (2017); D. Neubelt and M. Pettineo, *Crafting a Next-Gen Material Pipeline for The Order: 1886* (2013); S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004). **Wet in the rain:** S. Lagarde, *Water drop 3b, Physically based wet surfaces* (2013); D. Lazarov, *Physically-based lighting in Call of Duty: Black Ops* (SIGGRAPH 2011).
 [^wear]: **Wear and tear.** D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT): the shader's hashes; S. Worley, *A Cellular Texture Basis Function* (SIGGRAPH 1996): scattering the holes; F. K. Musgrave et al., *Texturing and Modeling: A Procedural Approach* (1994): fractal noise for the frayed end and the grime; I. Quilez's 2D signed distance functions: the shapes of the holes and tears; forensic science's "bullet wipe": the dark ring around a bullet hole in cloth.
+[^poles]: **The poles.** M. Tarini, *Cylindrical and Toroidal Parameterizations Without Vertex Seams* (Journal of Graphics Tools, 2012): wrapping a texture around the pole with no seam; [Poly Haven](https://polyhaven.com)'s *European Walnut Veneer 04* and *Rust Coarse 01* and [ambientCG](https://ambientcg.com)'s *Rope 001* (all CC0): the wood's grain, the rust and the rope's braid; D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) and F. K. Musgrave et al. (1994), as for the cloth's wear: the chips, the rust patches and the grime.
 [^surface]: **The drawn surface.** E. Catmull and R. Rom, *A class of local interpolating splines* (Computer Aided Geometric Design, 1974); G. Taubin, *A Signal Processing Approach to Fair Surface Design* (SIGGRAPH 1995).
 [^still]: **Still flags.** The Met Office's Beaufort wind force scale (force 3, "light flags extended"): the breeze a still flag is caught in; W. Froude's similarity (the Froude number, U²/gL): a stronger breeze for a bigger flag; W. Welch and A. Witkin, *Variational Surface Modeling* (SIGGRAPH 1992), the thin-plate energy: picking the smoothest moment.
 [^pictures]: **Your pictures.** The images folders of *Procedural Objects* and *Image Overlay* (Cities: Skylines mods): a folder button and a list of the files, the idea only, no code; S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996): the "pull-push" fill under transparent pixels; the PNG specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81): reading a picture's size from its header.

@@ -4020,6 +4020,90 @@ public static class ClothTests
     /// shared motion; in the log; and the snap along an edge turns a plated banner's front out
     /// from the wall whichever way along it the player turned it (unplated: as turned).
     /// </summary>
+    /// <summary>
+    /// The pole's looks (format 16): a tapered painted pole as new by default, ropes 100%; through
+    /// the save and Move It's clipboard; a format 15 save reads the defaults; out of range pulled
+    /// in; profile and rope thickness make another pole (mesh), the material and wear only its
+    /// block; in the log. The shapes: a tapered pole the same as before; a straight one even; a
+    /// sectional one in steps (2..5 sections, each narrower), its collider's cone never inside a
+    /// step over the hoist; ropes thicker by the slider; an ornate base's cleat above it.
+    /// </summary>
+    public static string CodecPoleLooks()
+    {
+        FlagSpec d = FlagSpec.Default;
+        bool def = d.PoleProfile == FlagPoleProfile.Tapered && d.PoleMaterial == FlagPoleMaterial.Painted && d.PoleWear == 0f &&
+                   d.PoleRust == 0f && d.PoleDirt == 0f && d.RopeThickness == 1f;
+
+        FlagSpec a = d; a.Pole = FlagPoleStyle.Ball; a.PoleProfile = FlagPoleProfile.Sectional; a.PoleMaterial = FlagPoleMaterial.Wood;
+        a.PoleWear = 0.6f; a.PoleRust = 0.3f; a.PoleDirt = 0.45f; a.RopeThickness = 2.5f;
+        FlagSpec r;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out r) && r.PoleProfile == FlagPoleProfile.Sectional &&
+                     r.PoleMaterial == FlagPoleMaterial.Wood && Math.Abs(r.PoleWear - 0.6f) < 1e-6f && Math.Abs(r.PoleRust - 0.3f) < 1e-6f &&
+                     Math.Abs(r.PoleDirt - 0.45f) < 1e-6f && Math.Abs(r.RopeThickness - 2.5f) < 1e-6f;
+        bool old;
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, a);
+            w.Flush();
+            ms.Position = 0;
+            FlagSpec as15 = FlagCodec.Read(new System.IO.BinaryReader(ms), 15);
+            old = as15.PoleProfile == FlagPoleProfile.Tapered && as15.PoleMaterial == FlagPoleMaterial.Painted && as15.PoleWear == 0f &&
+                  as15.PoleRust == 0f && as15.PoleDirt == 0f && as15.RopeThickness == 1f && as15.Pole == FlagPoleStyle.Ball;
+        }
+
+        FlagSpec bad = a; bad.PoleProfile = 77; bad.PoleMaterial = -3; bad.PoleWear = float.NaN; bad.PoleRust = 4f; bad.PoleDirt = -1f; bad.RopeThickness = 99f;
+        FlagSpec s = bad.Sanitised();
+        bool pulled = s.PoleProfile == FlagPoleProfile.Tapered && s.PoleMaterial == FlagPoleMaterial.Painted && s.PoleWear == 0f &&
+                      s.PoleRust == 1f && s.PoleDirt == 0f && s.RopeThickness == FlagSpec.MaxRopeThickness;
+
+        FlagSpec look = a; look.PoleMaterial = FlagPoleMaterial.Fibreglass; look.PoleWear = 0.1f;
+        FlagSpec shape = a; shape.PoleProfile = FlagPoleProfile.Fluted;
+        FlagSpec ropes = a; ropes.RopeThickness = 1f;
+        bool split = look.SamePole(a) && !look.SamePoleColours(a) && !shape.SamePole(a) && !ropes.SamePole(a) && shape.SamePoleColours(a);
+        bool said = a.Describe().Contains("sectional wood") && a.Describe().Contains("worn 60% rust 30% dirt 45%") && a.Describe().Contains("ropes 250% thick");
+
+        // The shapes, a 3 x 2 m flag on a 12 m pole.
+        FlagSpec t = d; t.Pole = FlagPoleStyle.Ball;
+        FlagPoleShape tapered = FlagPoleShape.For(t, 12f);
+        float h = 12f, area = t.Length * t.Height;
+        float foot = 0.5f * 0.04f * (float)Math.Pow(area * h, 1.0 / 3.0);
+        bool same = Math.Abs(tapered.RadiusFoot - foot) < 1e-6f && Math.Abs(tapered.RadiusTop - foot * Math.Max(0.4f, 0.75f - 0.005f * h)) < 1e-6f &&
+                    tapered.Sections == 0 && tapered.BaseHeight == 0f;
+
+        FlagSpec st = t; st.PoleProfile = FlagPoleProfile.Straight;
+        FlagPoleShape straight = FlagPoleShape.For(st, 12f);
+        bool even = Math.Abs(straight.RadiusAt(0f) - straight.RadiusAt(12f)) < 1e-7f;
+
+        FlagSpec se = t; se.PoleProfile = FlagPoleProfile.Sectional;
+        FlagPoleShape sectional = FlagPoleShape.For(se, 12f);
+        bool steps = sectional.Sections >= 2 && sectional.Sections <= 5;
+        for (int k = 1; k < sectional.Sections; k++)
+            steps &= sectional.SectionRadius(k) < sectional.SectionRadius(k - 1);
+        float yA = sectional.SectionBottom(1) - 0.01f, yB = sectional.SectionBottom(1) + 0.01f;
+        steps &= Math.Abs(sectional.RadiusAt(yA) - sectional.SectionRadius(0)) < 1e-7f && Math.Abs(sectional.RadiusAt(yB) - sectional.SectionRadius(1)) < 1e-7f;
+        // The collider: radius at the anchor, growing down the hoist; never inside the pole there.
+        float atAnchor = sectional.RadiusAt(sectional.Length);
+        float below = sectional.RadiusAt(Math.Max(0f, sectional.Length - sectional.FlagHeight));
+        float growth = Math.Max(0f, (below - atAnchor) / sectional.FlagHeight);
+        bool covers = true;
+        for (int i = 0; i <= 50; i++)
+        {
+            float down = sectional.FlagHeight * i / 50f;
+            covers &= atAnchor + growth * down >= sectional.RadiusAt(sectional.Length - down) - 1e-6f;
+        }
+
+        FlagSpec thick = t; thick.RopeThickness = 2f;
+        bool ropeScale = Math.Abs(FlagPoleShape.For(thick, 12f).RopeRadius - 2f * tapered.RopeRadius) < 1e-7f;
+
+        FlagSpec orn = t; orn.PoleProfile = FlagPoleProfile.Ornate;
+        FlagPoleShape ornate = FlagPoleShape.For(orn, 12f);
+        bool based = ornate.BaseHeight > 0.29f && ornate.BaseRadius > ornate.RadiusFoot && ornate.Cleat > ornate.BaseHeight;
+
+        return def + "," + round + "," + old + "," + pulled + "," + split + "," + said + "," + same + "," + even + "," + steps + "," + covers + "," +
+               ropeScale + "," + based + "," + sectional.Sections + "," + FlagCodec.Version;
+    }
+
     public static string CodecBackPlate()
     {
         FlagSpec top = FlagSpec.Default; top.HoistedFrom = FlagHoist.Top;
@@ -4930,6 +5014,12 @@ foreach ($pcase in @(@(6, 0), @(12, 0), @(12, 180), @(20, 0))) {
 }
 $pfree = [ClothTests]::PlateRun(12, 90, $false) -split ","
 Check "the same banner with no plate, the wind at the wall's side: it does swing back (what the plate stops)" ((N $pfree[1]) -lt -0.5) ("most behind " + $pfree[1] + " m, worst link " + $pfree[3])
+
+# ---- the pole's looks (format 16: profile, material, wear, rust, dirt, rope thickness) ---------
+
+$po = [ClothTests]::CodecPoleLooks() -split ","
+Check "Pole looks: a tapered painted pole as new by default; through the save and the clipboard; a format 15 save reads the defaults; out of range pulled in; shape vs look; in the log" ($po[0] -eq "True" -and $po[1] -eq "True" -and $po[2] -eq "True" -and $po[3] -eq "True" -and $po[4] -eq "True" -and $po[5] -eq "True") ("format " + $po[13])
+Check "pole shapes: tapered as before; straight even; sectional in narrowing steps, its collider never inside a step over the hoist; ropes thicker by the slider; an ornate base under the cleat" ($po[6] -eq "True" -and $po[7] -eq "True" -and $po[8] -eq "True" -and $po[9] -eq "True" -and $po[10] -eq "True" -and $po[11] -eq "True") ($po[12] + " sections on a 12 m pole")
 
 # ---- cuts (FlagCut: swallowtail, pennant...) -------------------------------------------------
 

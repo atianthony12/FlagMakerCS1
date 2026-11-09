@@ -24,6 +24,9 @@ ecosystem.
 | Asset | Source | Licence | Use |
 | --- | --- | --- | --- |
 | `RealFlag/Resources/FlagIcon.png` (listed in `FlagIcon.lucide.txt`) | Drawn by ModsLibCS1's `tools/make-button-icon.ps1` from the path data of the [Lucide](https://lucide.dev) icon flag (lucide-static 0.460.0) | ISC, as the panel's icons below | The mod's button icon, embedded in the DLL |
+| `RealFlag/Resources/Poles/wood_*.png` | Made by `tools/pole-textures.ps1` (halved to 512 px, turned so the grain runs up the pole, its colour scaled) from [Poly Haven](https://polyhaven.com)'s [European Walnut Veneer 04](https://polyhaven.com/a/european_walnut_veneer_04) by Jenelle van Heerden: its colour, roughness and normal maps | CC0 1.0 (public domain dedication; [polyhaven.com/license](https://polyhaven.com/license)) | A wooden flagpole's grain, embedded in the DLL |
+| `RealFlag/Resources/Poles/rust_*.png` | Made by `tools/pole-textures.ps1` (halved, its colour scaled) from Poly Haven's [Rust Coarse 01](https://polyhaven.com/a/rust_coarse_01) by Dimitrios Savva and Rico Cilliers: its colour, roughness and normal maps | CC0 1.0 (as above) | A rusted flagpole's rust, embedded in the DLL |
+| `RealFlag/Resources/Poles/rope_*.png` | Made by `tools/pole-textures.ps1` (halved, made grey) from [ambientCG](https://ambientcg.com)'s [Rope 001](https://ambientcg.com/a/Rope001): its colour, roughness and normal maps | CC0 1.0 ([ambientcg.com/license](https://ambientcg.com/license)) | The halyard's braid, embedded in the DLL |
 | `RealFlag/Resources/Flags/*.png`, `Flags/Small/*.png` | The world's flags from [Flagpedia.net](https://flagpedia.net) (its CDN, flagcdn.com), drawn from [Wikimedia Commons](https://commons.wikimedia.org)' vector files; fetched by `tools/fetch-flags.ps1` | Public domain: "The flag images provided on our website are in the public domain and can be used freely without restriction" ([flagpedia.net/terms](https://flagpedia.net/terms)) | The countries' flags on the cloth (640 px) and in the country picker (80 px), embedded in the DLL. 256 codes, 252 images |
 
 | The panel's icons: the tab and folder icons (`RealFlag/Resources/PanelIcons.png`, listed in `PanelIcons.lucide.txt`) and the library's glyphs (`ModsLibCS1/sprites/sheet.png`) | Drawn by the ModsLibCS1 UI library's tools (the library is compiled into the DLL) from the path data of [Lucide](https://lucide.dev) icons (lucide-static 0.460.0): flag, settings (the tabs), folder-open (the images folder's buttons), slash, spline, route, circle (the New flag window's Place row, with flag); rotate-ccw, chevron-down, chevron-right, x (the library's reset, fold, dropdown, close) | ISC (copyright Lucide Contributors; portions Cole Bemis, as part of Feather, MIT); its notice follows | The panel's tab icons, the images folder's buttons, the close cross and the dropdown arrow, embedded in the DLL |
@@ -117,9 +120,10 @@ animation's time offsets (shared motion) and dynamic resolution scaling (the loa
 full references in `LICENSE` and `README.md`. The implementations were written for this mod.
 
 One exception, a few lines: the hash functions of `UnityProject/Assets/RealFlag/FlagWear.cginc`
-(`RFHash11`, `RFHash12`, `RFHash42`, compiled into the shipped shader bundles), which scatter a
-worn flag's holes, tatters and grime, are adapted from David Hoskins' "Hash without Sine"
-(Shadertoy 4djSRW, 2014), MIT:
+(`RFHash11`, `RFHash12`, `RFHash42`) and `FlagPole.shader` (`RFPoleHash`), compiled into the
+shipped shader bundles, which scatter a worn flag's holes, tatters and grime and a worn pole's
+chips, rust and grime, are adapted from David Hoskins' "Hash without Sine" (Shadertoy 4djSRW,
+2014), MIT:
 
 ```
 Copyright (c) 2014 David Hoskins.

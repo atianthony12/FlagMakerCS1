@@ -11,22 +11,30 @@ namespace RealFlag.Flags
     /// </summary>
     /// <remarks>
     /// A lathe of <see cref="Sides"/> sides (the author: "at least 32-64 faces and be smooth"),
-    /// its normals from the profile, so it shades round: the flash collar at the foot, the shaft
-    /// tapering to the top, the truck (the cap whose sheave the halyard runs over), and a ball
+    /// its normals from the profile, so it shades round: the flash collar at the foot (or an
+    /// ornate pole's cast base), the shaft -- tapering, straight, in sections with a collar at
+    /// each joint, or fluted -- the truck (the cap whose sheave the halyard runs over), and a ball
     /// on a neck, a flat cap, or a spear. The halyard: the line the flag is clipped to, from the
     /// sheave down to the flag's top grommet and from its bottom grommet down to the cleat, and
     /// with two ropes the loop's return line beside it.
     ///
-    /// Each vertex's first uv holds its part (0 the pole, 1 the top, 2 a rope: FlagPole.shader
-    /// colours them) and, for the tubes -- the shaft and the ropes -- their radius: those
-    /// vertices sit ON the axis with the radial direction as their normal, and the shader puts
-    /// them out by the radius, or by half a pixel's worth when that is more, so a rope a
-    /// centimetre thick stays a steady thin line far away instead of flickering in and out.
+    /// Each vertex's first uv (four floats) holds its part (0 the pole, 1 the top, 2 a rope:
+    /// FlagPole.shader colours them), for the tubes -- the shaft and the ropes -- their radius
+    /// (those vertices sit ON the axis with the radial direction as their normal, and the shader
+    /// puts them out by the radius, or by half a pixel's worth when that is more, so a rope a
+    /// centimetre thick stays a steady thin line far away instead of flickering in and out), and a
+    /// fluted shaft's flutes and their depth. The second uv is where its textures lie: how far
+    /// along (in texture tiles), the direction round the axis as a cosine and sine -- the shader
+    /// takes its angle per pixel, so a texture wraps the pole without a seam (Tarini 2012) -- and
+    /// how many tiles go round. The tangents run round (the pole) or along (a rope's twist).
     /// </remarks>
     public static class FlagPoleMesh
     {
         /// <summary>Sides of the pole's lathe.</summary>
         public const int Sides = 64;
+
+        /// <summary>Sides of a fluted shaft: eight a flute.</summary>
+        public const int FlutedSides = 128;
 
         /// <summary>Sides of a rope.</summary>
         public const int RopeSides = 6;
@@ -35,12 +43,29 @@ namespace RealFlag.Flags
         public const float PartTop = 1f;
         public const float PartRope = 2f;
 
+        /// <summary>About how wide a texture tile is round a pole, metres: a thick pole has more than one round it.</summary>
+        public const float TileAround = 0.6f;
+
         private sealed class Builder
         {
             public readonly List<Vector3> Vertices = new List<Vector3>();
             public readonly List<Vector3> Normals = new List<Vector3>();
-            public readonly List<Vector2> Uv = new List<Vector2>();
+            public readonly List<Vector4> Tangents = new List<Vector4>();
+            public readonly List<Vector4> Uv = new List<Vector4>();
+            public readonly List<Vector4> Uv2 = new List<Vector4>();
             public readonly List<int> Triangles = new List<int>();
+
+            /// <summary>Texture tiles round the pole, and per metre up it.</summary>
+            public float Around = 1f, PerMetre = 1f;
+
+            private void Add(Vector3 v, Vector3 n, float part, float radius, float flutes, float depth, float y, float c, float s)
+            {
+                Vertices.Add(v);
+                Normals.Add(n);
+                Uv.Add(new Vector4(part, radius, flutes, depth));
+                Uv2.Add(new Vector4(y * PerMetre, c, s, Around));
+                Tangents.Add(new Vector4(-s, 0f, c, -1f));
+            }
 
             /// <summary>A ring of the lathe at <paramref name="y"/>: radius, normal (radial and up parts), part; returns its first vertex.</summary>
             public int Ring(float y, float radius, float nr, float ny, float part)
@@ -50,27 +75,51 @@ namespace RealFlag.Flags
                 {
                     float a = i * 2f * Mathf.PI / Sides;
                     float c = Mathf.Cos(a), s = Mathf.Sin(a);
-                    Vertices.Add(new Vector3(radius * c, y, radius * s));
-                    Normals.Add(new Vector3(nr * c, ny, nr * s).normalized);
-                    Uv.Add(new Vector2(part, 0f));
+                    Add(new Vector3(radius * c, y, radius * s), new Vector3(nr * c, ny, nr * s).normalized, part, 0f, 0f, 0f, y, c, s);
                 }
 
                 return first;
             }
 
-            /// <summary>A ring of a tube round the axis point <paramref name="centre"/>: on the axis, its normals the radial directions square to <paramref name="along"/>, its radius for the shader.</summary>
-            public int TubeRing(Vector3 centre, Vector3 along, int sides, float radius, float part)
+            /// <summary>
+            /// A ring of the upright shaft at <paramref name="y"/>, on the axis, put out by the shader:
+            /// <paramref name="radius"/> (less a fluted one's grooves, <paramref name="flutes"/> of them
+            /// <paramref name="depth"/> deep), facing out.
+            /// </summary>
+            public int ShaftRing(float y, int sides, float radius, int flutes, float depth)
             {
-                Vector3 a = along.normalized;
-                Vector3 side = Mathf.Abs(a.y) < 0.9f ? Vector3.Cross(a, Vector3.up).normalized : Vector3.Cross(a, Vector3.right).normalized;
-                Vector3 other = Vector3.Cross(a, side);
                 int first = Vertices.Count;
                 for (int i = 0; i < sides; i++)
                 {
-                    float t = i * 2f * Mathf.PI / sides;
+                    float a = i * 2f * Mathf.PI / sides;
+                    float c = Mathf.Cos(a), s = Mathf.Sin(a);
+                    float r = flutes > 0 ? radius * (1f - depth * (0.5f - 0.5f * Mathf.Cos(flutes * a))) : radius;
+                    Add(new Vector3(0f, y, 0f), new Vector3(c, 0f, s), PartPole, r, flutes, depth, y, c, s);
+                }
+
+                return first;
+            }
+
+            /// <summary>A ring of a rope round the axis point <paramref name="centre"/>, <paramref name="along"/> metres from its start: on the axis, its normals the radial directions square to <paramref name="direction"/>, its radius for the shader.</summary>
+            public int RopeRing(Vector3 centre, Vector3 direction, float along, float radius)
+            {
+                Vector3 a = direction.normalized;
+                Vector3 side = Mathf.Abs(a.y) < 0.9f ? Vector3.Cross(a, Vector3.up).normalized : Vector3.Cross(a, Vector3.right).normalized;
+                Vector3 other = Vector3.Cross(a, side);
+                float perMetre = 1f / (2f * Mathf.PI * Mathf.Max(radius, 1e-4f));
+                int first = Vertices.Count;
+                for (int i = 0; i < RopeSides; i++)
+                {
+                    float t = i * 2f * Mathf.PI / RopeSides;
+                    float c = Mathf.Cos(t), s = Mathf.Sin(t);
                     Vertices.Add(centre);
-                    Normals.Add(side * Mathf.Cos(t) + other * Mathf.Sin(t));
-                    Uv.Add(new Vector2(part, radius));
+                    Normals.Add(side * c + other * s);
+                    Uv.Add(new Vector4(PartRope, radius, 0f, 0f));
+                    Uv2.Add(new Vector4(along * perMetre, c, s, 1f));
+
+                    // Round the rope, its binormal (normal x tangent) along it: the twist's frame.
+                    Vector3 round = -side * s + other * c;
+                    Tangents.Add(new Vector4(round.x, round.y, round.z, 1f));
                 }
 
                 return first;
@@ -93,6 +142,8 @@ namespace RealFlag.Flags
             /// <summary>
             /// Quads between two rings of the same size (the lathe's run counter-clockwise seen
             /// from +y): with the lower ring first they face out, Unity's front being clockwise.
+            /// In general: the two in the order the profile runs (up, or in across a top, or out
+            /// across an underside) face the way its normal (dy, -dr) points.
             /// </summary>
             public void Band(int below, int above, int sides)
             {
@@ -112,15 +163,32 @@ namespace RealFlag.Flags
             public void Cap(int ring, float y, bool up, float part)
             {
                 int centre = Vertices.Count;
-                Vertices.Add(new Vector3(0f, y, 0f));
-                Normals.Add(up ? Vector3.up : Vector3.down);
-                Uv.Add(new Vector2(part, 0f));
+                Add(new Vector3(0f, y, 0f), up ? Vector3.up : Vector3.down, part, 0f, 0f, 0f, y, 1f, 0f);
                 for (int i = 0; i < Sides; i++)
                 {
                     int j = (i + 1) % Sides;
                     Triangles.Add(centre);
                     Triangles.Add(up ? ring + j : ring + i);
                     Triangles.Add(up ? ring + i : ring + j);
+                }
+            }
+
+            /// <summary>
+            /// A smooth run of the lathe's profile through (r, y) points, in the order it runs: a
+            /// ring at each, its normal (dy, -dr) from the points either side. Corners between runs
+            /// are sharp (each run its own rings).
+            /// </summary>
+            public void Profile(List<Vector2> points, float part)
+            {
+                int previous = -1;
+                for (int k = 0; k < points.Count; k++)
+                {
+                    Vector2 before = points[Mathf.Max(0, k - 1)], after = points[Mathf.Min(points.Count - 1, k + 1)];
+                    Vector2 d = after - before;
+                    int ring = Ring(points[k].y, Mathf.Max(points[k].x, 1e-4f), d.y, -d.x, part);
+                    if (previous >= 0)
+                        Band(previous, ring, Sides);
+                    previous = ring;
                 }
             }
 
@@ -133,7 +201,9 @@ namespace RealFlag.Flags
 
                 mesh.SetVertices(Vertices);
                 mesh.SetNormals(Normals);
+                mesh.SetTangents(Tangents);
                 mesh.SetUVs(0, Uv);
+                mesh.SetUVs(1, Uv2);
                 mesh.SetTriangles(Triangles, 0);
                 mesh.bounds = bounds;
                 return mesh;
@@ -160,18 +230,31 @@ namespace RealFlag.Flags
             return m;
         }
 
-        /// <summary>The pole's colours (LINEAR) and the highlight into its property block.</summary>
-        public static void Look(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight)
+        /// <summary>
+        /// The pole's look into its property block: its colours (LINEAR), material, wear, rust and
+        /// dirt and which scatter of them (<paramref name="seed"/>, FlagWear.SeedFor its prop), the
+        /// material's textures (PoleTextures), and the highlight.
+        /// </summary>
+        public static void Look(MaterialPropertyBlock block, FlagSpec spec, Vector4 highlight, float seed)
         {
             block.SetVector(IdPoleColour, FlagLook.Linear(spec.PoleColour));
             block.SetVector(IdTopColour, FlagLook.Linear(spec.TopColour));
             block.SetVector(IdRopeColour, FlagLook.Linear(spec.RopeColour));
             block.SetVector(FlagLook.IdHighlight, highlight);
+            block.SetVector(IdPoleWear, new Vector4(spec.PoleWear, FlagPoleMaterial.Rusts(spec.PoleMaterial) ? spec.PoleRust : 0f, spec.PoleDirt, spec.PoleMaterial));
+            block.SetFloat(IdPoleSeed, seed);
+            PoleTextures.Bind(block);
         }
 
         public static readonly int IdPoleColour = Shader.PropertyToID("_RFPoleColor");
         public static readonly int IdTopColour = Shader.PropertyToID("_RFTopColor");
         public static readonly int IdRopeColour = Shader.PropertyToID("_RFRopeColor");
+
+        /// <summary>x worn, y rust (0 unless the material rusts), z dirt, w the FlagPoleMaterial.</summary>
+        public static readonly int IdPoleWear = Shader.PropertyToID("_RFPoleWear");
+
+        /// <summary>The scatter of its chips, rust and grime: 0..255.</summary>
+        public static readonly int IdPoleSeed = Shader.PropertyToID("_RFPoleSeed");
 
         /// <summary>Half a pixel's angle, radians, for the camera: tubes are drawn no thinner than about a pixel (FlagPole.shader). Set globally, every frame.</summary>
         public static readonly int IdPixelRadius = Shader.PropertyToID("_RFPixelRadius");
@@ -181,21 +264,17 @@ namespace RealFlag.Flags
         {
             var b = new Builder();
 
-            // The flash collar: a low cone round the foot, hugging the shaft at its top.
-            float collarTop = s.RadiusAt(s.CollarHeight) * 1.05f;
-            float slope = s.CollarRadius - collarTop;
-            int c0 = b.Ring(0f, s.CollarRadius, s.CollarHeight, slope, PartPole);
-            int c1 = b.Ring(s.CollarHeight, collarTop, s.CollarHeight, slope, PartPole);
-            b.Band(c0, c1, Sides);
-            // Its top, a narrow flat ring (outer first: facing up).
-            int c2 = b.Ring(s.CollarHeight, collarTop, 0f, 1f, PartPole);
-            int c3 = b.Ring(s.CollarHeight, collarTop * 0.9f, 0f, 1f, PartPole);
-            b.Band(c2, c3, Sides);
+            // The textures' tiles: whole ones round it (no seam), as square along.
+            float round = 2f * Mathf.PI * Mathf.Max(s.RadiusAt(s.Length), 0.005f);
+            b.Around = Mathf.Max(1f, Mathf.Round(round / TileAround));
+            b.PerMetre = b.Around / round;
 
-            // The shaft: a tube, tapering; drawn at least a pixel wide far off.
-            int s0 = b.TubeRing(Vector3.zero, Vector3.up, Sides, s.RadiusFoot, PartPole);
-            int s1 = b.TubeRing(new Vector3(0f, s.ShaftTop, 0f), Vector3.up, Sides, s.RadiusTop, PartPole);
-            b.Tube(s0, s1, Sides);
+            if (s.Profile == FlagPoleProfile.Ornate)
+                OrnateBase(b, s);
+            else
+                FlashCollar(b, s);
+
+            Shaft(b, s);
 
             // The truck: a short drum on the shaft's top, the halyard's sheave in it; its
             // underside a flat ring (inner first: facing down).
@@ -220,10 +299,120 @@ namespace RealFlag.Flags
 
             Ropes(b, s);
 
-            float wide = Mathf.Max(s.CollarRadius, s.Offset + s.RopeRadius + s.RopeGap) + 1f;
+            float wide = Mathf.Max(Mathf.Max(s.CollarRadius, s.BaseRadius), s.Offset + s.RopeRadius + s.RopeGap) + 1f;
             var bounds = new Bounds();
             bounds.SetMinMax(new Vector3(-wide, -0.1f, -wide), new Vector3(wide, tip + 0.1f, wide));
             return b.ToMesh(reuse, bounds);
+        }
+
+        /// <summary>The flash collar: a low cone round the foot, hugging the shaft at its top.</summary>
+        private static void FlashCollar(Builder b, FlagPoleShape s)
+        {
+            float collarTop = s.RadiusAt(s.CollarHeight) * 1.05f;
+            float slope = s.CollarRadius - collarTop;
+            int c0 = b.Ring(0f, s.CollarRadius, s.CollarHeight, slope, PartPole);
+            int c1 = b.Ring(s.CollarHeight, collarTop, s.CollarHeight, slope, PartPole);
+            b.Band(c0, c1, Sides);
+            // Its top, a narrow flat ring (outer first: facing up).
+            int c2 = b.Ring(s.CollarHeight, collarTop, 0f, 1f, PartPole);
+            int c3 = b.Ring(s.CollarHeight, collarTop * 0.9f, 0f, 1f, PartPole);
+            b.Band(c2, c3, Sides);
+        }
+
+        /// <summary>
+        /// An ornate pole's cast base, as the lathe turns one: a plinth, a torus on it, a bell
+        /// narrowing in an ogee, a ring, and a neck to the shaft. Runs of the profile in units of
+        /// its widest radius and its height; each run's corners sharp.
+        /// </summary>
+        private static void OrnateBase(Builder b, FlagPoleShape s)
+        {
+            float R = s.BaseRadius, H = s.BaseHeight;
+            float neck = s.RadiusAt(H) / R;
+
+            Run(b, R, H, 1.00f, 0.00f, 1.00f, 0.10f);              // the plinth's side
+            Run(b, R, H, 1.00f, 0.10f, 0.86f, 0.10f);              // its top
+            Arc(b, R, H, 0.86f, 0.17f, 0.07f, 0.07f);               // the torus
+            Run(b, R, H, 0.86f, 0.24f, 0.70f, 0.24f);              // a step in
+
+            var bell = new List<Vector2>();
+            const int bellSteps = 10;
+            for (int i = 0; i <= bellSteps; i++)
+            {
+                float t = i / (float)bellSteps;
+                float r = 0.38f + 0.32f * (0.5f + 0.5f * Mathf.Cos(Mathf.PI * t));
+                bell.Add(new Vector2(r * R, (0.24f + 0.48f * t) * H));
+            }
+
+            b.Profile(bell, PartPole);                              // the bell, an ogee
+            Run(b, R, H, 0.38f, 0.72f, 0.46f, 0.72f);              // the ring's underside
+            Arc(b, R, H, 0.46f, 0.76f, 0.04f, 0.04f);               // the ring
+            Run(b, R, H, 0.46f, 0.80f, 0.40f, 0.80f);              // its top
+            Run(b, R, H, 0.40f, 0.80f, neck, 1.00f);               // the neck to the shaft
+        }
+
+        /// <summary>A straight run of the base's profile, (r0, y0) to (r1, y1) in its units.</summary>
+        private static void Run(Builder b, float R, float H, float r0, float y0, float r1, float y1)
+        {
+            b.Profile(new List<Vector2> { new Vector2(r0 * R, y0 * H), new Vector2(r1 * R, y1 * H) }, PartPole);
+        }
+
+        /// <summary>A half-round bulging out from the profile, from below its centre (r, y) to above it.</summary>
+        private static void Arc(Builder b, float R, float H, float r, float y, float rr, float ry)
+        {
+            var points = new List<Vector2>();
+            const int steps = 8;
+            for (int i = 0; i <= steps; i++)
+            {
+                float a = -0.5f * Mathf.PI + i * Mathf.PI / steps;
+                points.Add(new Vector2((r + rr * Mathf.Cos(a)) * R, (y + ry * Mathf.Sin(a)) * H));
+            }
+
+            b.Profile(points, PartPole);
+        }
+
+        /// <summary>The shaft: one tube, a fluted one, or a sectional pole's sections with a collar at each joint; drawn at least a pixel wide far off.</summary>
+        private static void Shaft(Builder b, FlagPoleShape s)
+        {
+            if (s.Profile == FlagPoleProfile.Sectional && s.Sections > 1)
+            {
+                for (int k = 0; k < s.Sections; k++)
+                {
+                    float bottom = s.SectionBottom(k), top = k == s.Sections - 1 ? s.ShaftTop : s.SectionBottom(k + 1);
+                    float r = s.SectionRadius(k);
+                    int r0 = b.ShaftRing(bottom, Sides, r, 0, 0f);
+                    int r1 = b.ShaftRing(top, Sides, r, 0, 0f);
+                    b.Tube(r0, r1, Sides);
+                    if (k > 0)
+                        Joint(b, bottom, s.SectionRadius(k - 1), r);
+                }
+
+                return;
+            }
+
+            bool fluted = s.Profile == FlagPoleProfile.Fluted;
+            int sides = fluted ? FlutedSides : Sides;
+            int flutes = fluted ? FlagPoleShape.Flutes : 0;
+            float depth = fluted ? FlagPoleShape.FluteDepth : 0f;
+            int s0 = b.ShaftRing(0f, sides, s.RadiusFoot, flutes, depth);
+            int s1 = b.ShaftRing(s.ShaftTop, sides, s.RadiusTop, flutes, depth);
+            b.Tube(s0, s1, sides);
+        }
+
+        /// <summary>A sectional pole's joint at <paramref name="y"/>: a collar round the top of the section below, its top stepping in to the one above.</summary>
+        private static void Joint(Builder b, float y, float below, float above)
+        {
+            float rc = below * 1.08f;
+            float height = Mathf.Max(0.03f, 1.4f * below);
+            float y0 = y - height;
+            int u0 = b.Ring(y0, below, 0f, -1f, PartPole);
+            int u1 = b.Ring(y0, rc, 0f, -1f, PartPole);
+            b.Band(u0, u1, Sides);
+            int side0 = b.Ring(y0, rc, 1f, 0f, PartPole);
+            int side1 = b.Ring(y, rc, 1f, 0f, PartPole);
+            b.Band(side0, side1, Sides);
+            int top0 = b.Ring(y, rc, 0f, 1f, PartPole);
+            int top1 = b.Ring(y, above * 0.98f, 0f, 1f, PartPole);
+            b.Band(top0, top1, Sides);
         }
 
         /// <summary>The flat cap: a low dome on the truck. Returns the top.</summary>
@@ -319,8 +508,8 @@ namespace RealFlag.Flags
             if (along.sqrMagnitude < 1e-6f)
                 return;
 
-            int r0 = b.TubeRing(from, along, RopeSides, s.RopeRadius, PartRope);
-            int r1 = b.TubeRing(to, along, RopeSides, s.RopeRadius, PartRope);
+            int r0 = b.RopeRing(from, along, 0f, s.RopeRadius);
+            int r1 = b.RopeRing(to, along, along.magnitude, s.RopeRadius);
             b.Tube(r0, r1, RopeSides);
         }
     }

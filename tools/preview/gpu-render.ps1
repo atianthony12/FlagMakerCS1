@@ -23,6 +23,9 @@
 #   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
+#   ... -Poles "0,0,0,0,0|2,0,60,50,30,150"  each design once per pole look: profile (0 tapered, 1 straight,
+#                                  2 sectional, 3 fluted, 4 ornate), material (0 painted, 1 aluminium, 2 wood,
+#                                  3 fibreglass), worn, rust, dirt[, rope thickness] (percent); -RopeLook 0 a twist, 1 the texture
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 #   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
@@ -77,6 +80,8 @@ param(
     [int]$Ropes = 2,
     [double]$Thick = 1.0,
     [string]$PoleColours = "",
+    [string]$Poles = "",
+    [int]$RopeLook = 1,
     [double]$Tilt = 0,
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
@@ -153,6 +158,8 @@ $env:RF_POLE = "$Pole"
 $env:RF_ROPES = "$Ropes"
 $env:RF_THICK = $Thick.ToString($inv)
 $env:RF_POLECOLOURS = $PoleColours
+$env:RF_POLES = $Poles
+$env:RF_ROPELOOK = "$RopeLook"
 $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
 $env:RF_HOIST = $Hoist

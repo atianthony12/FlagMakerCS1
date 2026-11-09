@@ -289,6 +289,17 @@ namespace RealFlag.Flags
         public int Style;
         public int Ropes;
 
+        /// <summary>The shaft's FlagPoleProfile; a sectional one's <see cref="Sections"/>.</summary>
+        public int Profile;
+        public int Sections;
+
+        /// <summary>A fluted shaft's flutes, and how deep they are (a share of its radius).</summary>
+        public const int Flutes = 16;
+        public const float FluteDepth = 0.06f;
+
+        /// <summary>An ornate pole's base: its widest radius and its height (the shaft starts on its top).</summary>
+        public float BaseRadius, BaseHeight;
+
         /// <summary>From the foot to the anchor's level, metres.</summary>
         public float Length;
 
@@ -336,12 +347,43 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>The shaft's radius at a height above the foot (a straight taper).</summary>
+        /// <summary>
+        /// The shaft's radius at a height above the foot: a straight taper (a straight pole's two
+        /// radii are one), or a sectional pole's section there (<see cref="SectionRadius"/>). A
+        /// fluted one's is to its ribs, the grooves within it.
+        /// </summary>
         public float RadiusAt(float up)
         {
             float top = ShaftTop;
+            if (Profile == FlagPoleProfile.Sectional && Sections > 1 && top > 0f)
+                return SectionRadius(SectionAt(up));
+
             float t = top > 0f ? Math.Max(0f, Math.Min(up / top, 1f)) : 1f;
             return RadiusFoot + (RadiusTop - RadiusFoot) * t;
+        }
+
+        /// <summary>A sectional pole's section at a height (0 the lowest).</summary>
+        public int SectionAt(float up)
+        {
+            float top = ShaftTop;
+            if (Sections <= 1 || top <= 0f)
+                return 0;
+            int k = (int)Math.Floor(up / top * Sections);
+            return Math.Max(0, Math.Min(k, Sections - 1));
+        }
+
+        /// <summary>Section <paramref name="k"/>'s radius: the foot's at the bottom, the top's at the top, in even steps.</summary>
+        public float SectionRadius(int k)
+        {
+            if (Sections <= 1)
+                return RadiusFoot;
+            return RadiusFoot + (RadiusTop - RadiusFoot) * k / (Sections - 1f);
+        }
+
+        /// <summary>Where section <paramref name="k"/> begins above the foot (each the same length).</summary>
+        public float SectionBottom(int k)
+        {
+            return Sections > 0 ? ShaftTop * k / Sections : 0f;
         }
 
         /// <summary>The pole for a flag of this spec whose anchor is <paramref name="length"/> metres up its axis from the foot.</summary>
@@ -363,10 +405,29 @@ namespace RealFlag.Flags
 
             s.RadiusFoot = 0.5f * diameter;
             s.RadiusTop = s.RadiusFoot * Math.Max(0.4f, 0.75f - 0.005f * h);
+            s.Profile = FlagPoleProfile.IsKnown(spec.PoleProfile) ? spec.PoleProfile : FlagPoleProfile.Tapered;
+            if (s.Profile == FlagPoleProfile.Straight)
+            {
+                // One width: a little less than a tapered pole's foot, as a straight tube of the same strength.
+                s.RadiusFoot *= 0.9f;
+                s.RadiusTop = s.RadiusFoot;
+            }
+            else if (s.Profile == FlagPoleProfile.Sectional)
+            {
+                // Telescoping and sectional poles: about one section every 4 m, 2 to 5 of them.
+                s.Sections = Math.Max(2, Math.Min(5, 1 + (int)(h / 4f)));
+            }
+            else if (s.Profile == FlagPoleProfile.Fluted)
+            {
+                // A ceremonial column-like pole: a gentler taper.
+                s.RadiusTop = s.RadiusFoot * Math.Max(0.6f, 0.85f - 0.004f * h);
+            }
+
             s.TopAbove = Math.Max(0.04f, 0.03f * spec.Height);
             s.TruckRadius = s.RadiusTop * 1.35f;
             s.TruckHeight = s.TruckRadius * 1.1f;
-            s.RopeRadius = Math.Max(0.004f, Math.Min(0.12f * s.RadiusTop, 0.03f));
+            float ropes = Math.Max(FlagSpec.MinRopeThickness, Math.Min(float.IsNaN(spec.RopeThickness) ? 1f : spec.RopeThickness, FlagSpec.MaxRopeThickness));
+            s.RopeRadius = Math.Max(0.004f, Math.Min(0.12f * s.RadiusTop, 0.03f)) * ropes;
             s.Offset = Math.Max(s.TruckRadius, s.RadiusAt(Math.Max(0f, s.Length - spec.Height))) + 1.5f * s.RopeRadius;
             s.RopeGap = Math.Max(3f * s.RopeRadius, 0.5f * s.RadiusTop);
             s.Cleat = Math.Min(1.3f, 0.25f * s.Length);
@@ -377,6 +438,14 @@ namespace RealFlag.Flags
             s.NeckHeight = 0.5f * s.BallRadius;
             s.SpearRadius = 0.7f * s.TruckRadius;
             s.SpearHeight = 3.5f * s.TruckRadius;
+            if (s.Profile == FlagPoleProfile.Ornate)
+            {
+                // A cast base: three times the foot's radius, about a tenth of the pole high.
+                s.BaseRadius = 3f * s.RadiusFoot;
+                s.BaseHeight = Math.Min(0.12f * s.Length, Math.Max(0.3f, 9f * s.RadiusFoot));
+                s.Cleat = Math.Max(s.Cleat, s.BaseHeight + 0.2f);
+            }
+
             return s;
         }
 
@@ -397,6 +466,14 @@ namespace RealFlag.Flags
         public void ApplyTo(FlagCloth cloth, float fx, float fy, float fz)
         {
             float growth = ShaftTop > 0f ? (RadiusFoot - RadiusTop) / ShaftTop : 0f;
+            if (Profile == FlagPoleProfile.Sectional && FlagHeight > 0f)
+            {
+                // Steps, not a cone: a cone through the section at the anchor and the one at the
+                // hoist's foot holds the cloth off every step between (none of it is wider).
+                float below = RadiusAt(Math.Max(0f, Length - FlagHeight));
+                growth = Math.Max(0f, (below - RadiusAt(Length)) / FlagHeight);
+            }
+
             cloth.SetPole(-Offset * fx, -Offset * fy, -Offset * fz, RadiusAt(Length), growth, -(Tip - Length), Length);
 
             // With its ropes, the flag is on a halyard: clipped by its grommets, free between.
@@ -416,7 +493,8 @@ namespace RealFlag.Flags
         public bool Same(FlagPoleShape other)
         {
             return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f &&
-                   Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f;
+                   Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f &&
+                   Profile == other.Profile && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f;
         }
     }
 }

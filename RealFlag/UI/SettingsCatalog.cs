@@ -1253,6 +1253,7 @@ namespace RealFlag.UI
         /// </summary>
         private static void AddPole(PanelPage page, IntSetting pole, FloatSetting height, IntSetting ropes, IntSetting poleColour, IntSetting topColour,
                                     IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
+                                    IntSetting profile, IntSetting material, FloatSetting ropeThickness,
                                     Action changed, Action heightChanged, Func<bool> enabled)
         {
             // Hoisted from its top, a flag has no pole (FlagSpec.HasPole): the pole's rows grey out,
@@ -1270,6 +1271,32 @@ namespace RealFlag.UI
                 ChoiceKeys = FlagPoleStyle.NameKeys,
                 AfterChange = changed,
                 Enabled = side,
+            });
+
+            // Its shape and what it is made of (the author, 2026-11-09: "More pole shapes ... Some
+            // flagpoles are like 'layered'"; "Wear and tear and rust on the pole itself").
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = page,
+                Int = profile,
+                DefaultInt = Settings.Defaults.PoleProfile,
+                ChoiceValues = FlagPoleProfile.Values,
+                ChoiceKeys = FlagPoleProfile.NameKeys,
+                AfterChange = changed,
+                Enabled = drawn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = page,
+                Int = material,
+                DefaultInt = Settings.Defaults.PoleMaterial,
+                ChoiceValues = FlagPoleMaterial.Values,
+                ChoiceKeys = FlagPoleMaterial.NameKeys,
+                AfterChange = changed,
+                Enabled = drawn,
             });
 
             // How tall a pole that stands is (its foot to the flag's top); a crossbar reaching out
@@ -1315,6 +1342,19 @@ namespace RealFlag.UI
                 ChoiceKeys = FlagRopes.NameKeys,
                 AfterChange = changed,
                 Enabled = drawn,
+            });
+
+            // How thick the ropes are against the pole's own (the author, 2026-11-09: "we can add a
+            // thickness slider" for the ropes).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = ropeThickness,
+                DefaultFloat = Settings.Defaults.RopeThickness,
+                Min = FlagSpec.MinRopeThickness * 100f, Max = FlagSpec.MaxRopeThickness * 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = () => drawn() && ropes.value > 0,
             });
 
             Add(new Row
@@ -1383,6 +1423,49 @@ namespace RealFlag.UI
             });
         }
 
+        /// <summary>
+        /// The Flagpole popup's wear and tear, last on its page: worn, rust (painted steel only) and
+        /// dirt -- the pole's look only (FlagPole.shader), every pole its own scatter.
+        /// </summary>
+        private static void AddPoleWear(PanelPage page, IntSetting pole, IntSetting hoistedFrom, IntSetting material, FloatSetting wear, FloatSetting rust,
+                                        FloatSetting dirt, Action changed, Func<bool> enabled)
+        {
+            Func<bool> drawn = () => (enabled == null || enabled()) && hoistedFrom.value != FlagHoist.Top && pole.value != FlagPoleStyle.None;
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Group = "Wear",
+                Float = wear,
+                DefaultFloat = Settings.Defaults.PoleWear,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = drawn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = rust,
+                DefaultFloat = Settings.Defaults.PoleRust,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = () => drawn() && FlagPoleMaterial.Rusts(material.value),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = dirt,
+                DefaultFloat = Settings.Defaults.PoleDirt,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = drawn,
+            });
+        }
+
         /// <summary>A window's Flagpole button: its words say what the pole is; a click opens the popup's page for it, beside the window (<paramref name="beside"/>, a UI component's name).</summary>
         private static void AddPoleButton(PanelPage tab, PanelPage popup, string id, string beside, IntSetting pole, FloatSetting height, IntSetting ropes,
                                           FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom, Func<bool> enabled)
@@ -1441,7 +1524,10 @@ namespace RealFlag.UI
             AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewHeight, Settings.NewRopes,
                           Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
             AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
-                    Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null, null, null);
+                    Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom,
+                    Settings.NewPoleProfile, Settings.NewPoleMaterial, Settings.NewRopeThickness, null, null, null);
+            AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleMaterial, Settings.NewPoleWear, Settings.NewPoleRust,
+                        Settings.NewPoleDirt, null, null);
 
             // Rows of flags, by the Line Tool mod: these three only with it (LineFlags).
             Func<bool> inRows = () => Settings.NewPlacing.value != LineFlags.Single;
@@ -1669,7 +1755,8 @@ namespace RealFlag.UI
             AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelHeight, Settings.SelRopes,
                           Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, selected);
             AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHeight, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
-                    Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
+                    Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom,
+                    Settings.SelPoleProfile, Settings.SelPoleMaterial, Settings.SelRopeThickness, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
 
             // The pole keeps its length when Move It raises the flag; this finds the ground again.
             Add(new Row
@@ -1681,6 +1768,9 @@ namespace RealFlag.UI
                 Enabled = () => selected() && Settings.SelPole != null && Settings.SelPole.value != FlagPoleStyle.None &&
                                 Settings.SelHoistedFrom.value != FlagHoist.Top,
             });
+
+            AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleMaterial, Settings.SelPoleWear, Settings.SelPoleRust,
+                        Settings.SelPoleDirt, FlagEditor.ApplyDesign, selected);
 
             Add(new Row
             {

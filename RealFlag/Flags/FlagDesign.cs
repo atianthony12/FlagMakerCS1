@@ -723,6 +723,29 @@ namespace RealFlag.Flags
             get { return BackPlate && HoistedFrom == FlagHoist.Top; }
         }
 
+        /// <summary>
+        /// The drawn pole's shaft, a <see cref="FlagPoleProfile"/> value (the author, 2026-11-09: "More
+        /// pole shapes ... Some flagpoles are like 'layered'"): tapered (as every pole was), straight,
+        /// sectional (narrower steps up it, a collar at each joint), fluted, or tapered on an ornate base.
+        /// </summary>
+        public int PoleProfile;
+
+        /// <summary>What the drawn pole is made of, a <see cref="FlagPoleMaterial"/> value: painted steel (as every pole was), bare aluminium, varnished wood, fibreglass.</summary>
+        public int PoleMaterial;
+
+        /// <summary>
+        /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped, aluminium oxidised, wood
+        /// silvered, fibreglass chalky), rust (painted steel only: in the chips and running down from
+        /// them) and dirt (grime up from the foot, streaks down). Its look only (FlagPole.shader).
+        /// </summary>
+        public float PoleWear, PoleRust, PoleDirt;
+
+        /// <summary>The halyard's thickness against the pole's own (FlagPoleShape.RopeRadius), <see cref="MinRopeThickness"/>..<see cref="MaxRopeThickness"/>.</summary>
+        public float RopeThickness;
+
+        public const float MinRopeThickness = 0.5f;
+        public const float MaxRopeThickness = 3f;
+
         public const float MinLength = 0.5f;
         public const float MaxLength = 30f;
         public const float MinPoleThickness = 0.5f;
@@ -810,6 +833,12 @@ namespace RealFlag.Flags
                     Cut = FlagCut.Rectangle,
                     CutDepth = FlagCut.DefaultDepth,
                     BackPlate = true,
+                    PoleProfile = FlagPoleProfile.Tapered,
+                    PoleMaterial = FlagPoleMaterial.Painted,
+                    PoleWear = 0f,
+                    PoleRust = 0f,
+                    PoleDirt = 0f,
+                    RopeThickness = 1f,
                 };
             }
         }
@@ -907,6 +936,16 @@ namespace RealFlag.Flags
             s.WindShare = float.IsNaN(s.WindShare) || float.IsInfinity(s.WindShare) ? 1f : Share(s.WindShare);
             s.Cut = FlagCut.Sanitise(s.Cut);
             s.CutDepth = FlagCut.SanitiseDepth(s.CutDepth);
+            if (!FlagPoleProfile.IsKnown(s.PoleProfile))
+                s.PoleProfile = FlagPoleProfile.Tapered;
+            if (!FlagPoleMaterial.IsKnown(s.PoleMaterial))
+                s.PoleMaterial = FlagPoleMaterial.Painted;
+            s.PoleWear = Share(s.PoleWear);
+            s.PoleRust = Share(s.PoleRust);
+            s.PoleDirt = Share(s.PoleDirt);
+            if (float.IsNaN(s.RopeThickness) || float.IsInfinity(s.RopeThickness))
+                s.RopeThickness = 1f;
+            s.RopeThickness = Math.Max(MinRopeThickness, Math.Min(s.RopeThickness, MaxRopeThickness));
             return s;
         }
 
@@ -985,13 +1024,16 @@ namespace RealFlag.Flags
         public bool SamePole(FlagSpec other)
         {
             return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f &&
-                   Math.Abs(PoleLength - other.PoleLength) < 1e-3f;
+                   Math.Abs(PoleLength - other.PoleLength) < 1e-3f && PoleProfile == other.PoleProfile &&
+                   Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f;
         }
 
-        /// <summary>The same pole colours (only the property block changes).</summary>
+        /// <summary>The same pole colours, material and wear (only the property block changes).</summary>
         public bool SamePoleColours(FlagSpec other)
         {
-            return PoleColour == other.PoleColour && TopColour == other.TopColour && RopeColour == other.RopeColour;
+            return PoleColour == other.PoleColour && TopColour == other.TopColour && RopeColour == other.RopeColour &&
+                   PoleMaterial == other.PoleMaterial && Math.Abs(PoleWear - other.PoleWear) < 1e-5f &&
+                   Math.Abs(PoleRust - other.PoleRust) < 1e-5f && Math.Abs(PoleDirt - other.PoleDirt) < 1e-5f;
         }
 
         /// <summary>The same picture, laid the same way (only the property block changes when it does not).</summary>
@@ -1036,7 +1078,13 @@ namespace RealFlag.Flags
             if (HasPole)
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
-                        (PoleLength > 0f ? ", " + PoleLength.ToString("0.#", inv) + " m long" : "");
+                        (PoleLength > 0f ? ", " + PoleLength.ToString("0.#", inv) + " m long" : "") +
+                        ", " + FlagPoleProfile.LogName(PoleProfile) + " " + FlagPoleMaterial.LogName(PoleMaterial) +
+                        (PoleWear > 0f || PoleRust > 0f || PoleDirt > 0f
+                            ? " (worn " + (PoleWear * 100f).ToString("F0", inv) + "% rust " + (PoleRust * 100f).ToString("F0", inv) + "% dirt " +
+                              (PoleDirt * 100f).ToString("F0", inv) + "%)"
+                            : "") +
+                        (Math.Abs(RopeThickness - 1f) > 1e-3f ? ", ropes " + (RopeThickness * 100f).ToString("F0", inv) + "% thick" : "");
             if (IsTilted)
                 text += ", tilted " + Tilt.ToString("0.#", inv) + " deg, leaning " + Lean.ToString("0.#", inv) + " deg";
             return text;
@@ -1065,6 +1113,68 @@ namespace RealFlag.Flags
         public static string LogName(int style)
         {
             return style == Ball ? "ball" : style == Flat ? "flat" : style == Spear ? "spear" : "no";
+        }
+    }
+
+    /// <summary>
+    /// The drawn pole's shaft (FlagSpec.PoleProfile): stored by VALUE in the save, APPEND ONLY.
+    /// Tapered: a cone (every pole before 2026-11-09). Straight: one width all the way. Sectional:
+    /// straight sections, each narrower than the one below, a collar where they meet (a telescoping
+    /// or sectional aluminium pole). Fluted: grooved down its length (a ceremonial pole). Ornate: the
+    /// tapered pole on a cast base (a plinth, a bell, a collar).
+    /// </summary>
+    public static class FlagPoleProfile
+    {
+        public const int Tapered = 0;
+        public const int Straight = 1;
+        public const int Sectional = 2;
+        public const int Fluted = 3;
+        public const int Ornate = 4;
+
+        public static readonly int[] Values = { Tapered, Straight, Sectional, Fluted, Ornate };
+        public static readonly string[] NameKeys = { "Profile.Tapered", "Profile.Straight", "Profile.Sectional", "Profile.Fluted", "Profile.Ornate" };
+
+        public static bool IsKnown(int value)
+        {
+            return value >= Tapered && value <= Ornate;
+        }
+
+        public static string LogName(int value)
+        {
+            return value == Straight ? "straight" : value == Sectional ? "sectional" : value == Fluted ? "fluted" : value == Ornate ? "ornate-based" : "tapered";
+        }
+    }
+
+    /// <summary>
+    /// What the drawn pole is made of (FlagSpec.PoleMaterial): stored by VALUE in the save, APPEND
+    /// ONLY. Painted: painted steel, satin, its colour the pole's (every pole before 2026-11-09).
+    /// Aluminium: bare brushed metal, the colour tinting it as anodising does. Wood: varnished
+    /// timber, the colour its stain. Fibreglass: a glossy gel coat in the colour. Only painted steel
+    /// rusts.
+    /// </summary>
+    public static class FlagPoleMaterial
+    {
+        public const int Painted = 0;
+        public const int Aluminium = 1;
+        public const int Wood = 2;
+        public const int Fibreglass = 3;
+
+        public static readonly int[] Values = { Painted, Aluminium, Wood, Fibreglass };
+        public static readonly string[] NameKeys = { "Material.Painted", "Material.Aluminium", "Material.Wood", "Material.Fibreglass" };
+
+        public static bool IsKnown(int value)
+        {
+            return value >= Painted && value <= Fibreglass;
+        }
+
+        public static bool Rusts(int value)
+        {
+            return value == Painted;
+        }
+
+        public static string LogName(int value)
+        {
+            return value == Aluminium ? "aluminium" : value == Wood ? "wood" : value == Fibreglass ? "fibreglass" : "painted steel";
         }
     }
 
@@ -1136,9 +1246,12 @@ namespace RealFlag.Flags
         /// float, a share of the length; older ones rectangles). 14 (2026-11-07): the same, then
         /// how much of the wind is on it (a float, 0..1; older ones all of it). 15 (2026-11-09):
         /// the same, then whether a banner from its top keeps in front of its back plate (a byte,
-        /// 0 or 1; older ones do, the default). Every older one is still read.
+        /// 0 or 1; older ones do, the default). 16 (2026-11-09): the same, then the drawn pole's
+        /// profile and material (two bytes), its wear, rust and dirt (three floats, 0..1) and the
+        /// ropes' thickness (a float; older ones a tapered painted pole, as new, ropes 100%). Every
+        /// older one is still read.
         /// </summary>
-        public const byte Version = 15;
+        public const byte Version = 16;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1181,6 +1294,12 @@ namespace RealFlag.Flags
             w.Write(s.CutDepth);
             w.Write(s.WindShare);
             w.Write((byte)(s.BackPlate ? 1 : 0));
+            w.Write((byte)s.PoleProfile);
+            w.Write((byte)s.PoleMaterial);
+            w.Write(s.PoleWear);
+            w.Write(s.PoleRust);
+            w.Write(s.PoleDirt);
+            w.Write(s.RopeThickness);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1322,6 +1441,23 @@ namespace RealFlag.Flags
 
             // Before the back plate: kept in front of it, the default (a banner from its side has no use for it).
             s.BackPlate = version >= 15 ? r.ReadByte() != 0 : true;
+
+            // Before the pole's looks: tapered, painted, as new, the ropes as they were.
+            if (version >= 16)
+            {
+                s.PoleProfile = r.ReadByte();
+                s.PoleMaterial = r.ReadByte();
+                s.PoleWear = r.ReadSingle();
+                s.PoleRust = r.ReadSingle();
+                s.PoleDirt = r.ReadSingle();
+                s.RopeThickness = r.ReadSingle();
+            }
+            else
+            {
+                s.PoleProfile = FlagPoleProfile.Tapered;
+                s.PoleMaterial = FlagPoleMaterial.Painted;
+                s.RopeThickness = 1f;
+            }
 
             return s.Sanitised();
         }

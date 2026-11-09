@@ -248,6 +248,25 @@
   <String key="Pole.Flat">Flat top</String>
   <String key="Pole.Spear">Spear top</String>
 
+  <String key="NewPoleProfile.Label">Shape</String>
+  <String key="NewPoleProfile.Tooltip">The pole's shaft.</String>
+  <String key="SelPoleProfile.Label">Shape</String>
+  <String key="SelPoleProfile.Tooltip">The pole's shaft.</String>
+  <String key="Profile.Tapered">Tapered</String>
+  <String key="Profile.Straight">Straight</String>
+  <String key="Profile.Sectional">Sectional</String>
+  <String key="Profile.Fluted">Fluted</String>
+  <String key="Profile.Ornate">Ornate base</String>
+
+  <String key="NewPoleMaterial.Label">Material</String>
+  <String key="NewPoleMaterial.Tooltip">What it's made of.</String>
+  <String key="SelPoleMaterial.Label">Material</String>
+  <String key="SelPoleMaterial.Tooltip">What it's made of.</String>
+  <String key="Material.Painted">Painted steel</String>
+  <String key="Material.Aluminium">Aluminum</String>
+  <String key="Material.Wood">Wood</String>
+  <String key="Material.Fibreglass">Fiberglass</String>
+
   <String key="NewRopes.Label">Ropes</String>
   <String key="NewRopes.Tooltip">Flag clipped to a rope.</String>
   <String key="SelRopes.Label">Ropes</String>
@@ -255,6 +274,10 @@
   <String key="Ropes.None">None</String>
   <String key="Ropes.One">One</String>
   <String key="Ropes.Two">Two</String>
+  <String key="NewRopeThickness.Label">Rope thickness</String>
+  <String key="NewRopeThickness.Tooltip">100% looks realistic.</String>
+  <String key="SelRopeThickness.Label">Rope thickness</String>
+  <String key="SelRopeThickness.Tooltip">100% looks realistic.</String>
 
   <String key="NewPoleColour.Label">Pole color</String>
   <String key="NewPoleColour.Tooltip">Pole, cap, foot.</String>
@@ -284,6 +307,18 @@
   <String key="SelLean.Tooltip">Tips sideways.</String>
   <String key="PoleToGround.Label">Pole to the ground</String>
   <String key="PoleToGround.Tooltip">Stretches it to the ground.</String>
+  <String key="NewPoleWear.Label">Worn</String>
+  <String key="NewPoleWear.Tooltip">Chipped, faded, weathered.</String>
+  <String key="SelPoleWear.Label">Worn</String>
+  <String key="SelPoleWear.Tooltip">Chipped, faded, weathered.</String>
+  <String key="NewPoleRust.Label">Rust</String>
+  <String key="NewPoleRust.Tooltip">Painted steel only.</String>
+  <String key="SelPoleRust.Label">Rust</String>
+  <String key="SelPoleRust.Tooltip">Painted steel only.</String>
+  <String key="NewPoleDirt.Label">Dirt</String>
+  <String key="NewPoleDirt.Tooltip">Grime from the foot up.</String>
+  <String key="SelPoleDirt.Label">Dirt</String>
+  <String key="SelPoleDirt.Tooltip">Grime from the foot up.</String>
 
   <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
   <String key="NewPlacing.Label">Place</String>

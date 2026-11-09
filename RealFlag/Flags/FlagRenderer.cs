@@ -755,6 +755,7 @@ namespace RealFlag.Flags
             else
                 Log.Warn("flags: the pole's shader is not in the bundle; poles are not drawn");
             FlagImages.Warn = Log.Warn;
+            PoleTextures.Warn = Log.Warn;
             FlagImages.Note = Log.Msg;
             FlagImages.UserSource = FlagImageFolder.Bytes;
             _layer = PropLayer();
@@ -946,6 +947,7 @@ namespace RealFlag.Flags
             if (Log.Detailed)
                 Log.Detail("flags: " + FlagImages.Describe() + " let go with the city");
             FlagImages.Clear();
+            PoleTextures.Clear();
 
             if (_material != null)
                 Destroy(_material);
@@ -3751,7 +3753,7 @@ namespace RealFlag.Flags
             bool hovered = IsHovered(f);
             if (!f.PoleBlockReady || hovered || f.Highlighted)
             {
-                FlagPoleMesh.Look(f.PoleBlock, f.Spec, hovered ? HoverGlow : Vector4.zero);
+                FlagPoleMesh.Look(f.PoleBlock, f.Spec, hovered ? HoverGlow : Vector4.zero, FlagWear.SeedFor(f.Prop));
                 f.PoleBlockReady = !hovered;
             }
 

@@ -32,6 +32,10 @@ The first release.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
   Allow taller poles). The cloth keeps off its pole. A banner hoisted from its top has no pole.
+- **Five pole shapes and four materials**: tapered, straight, sectional (a collar at each joint),
+  fluted, or on an ornate cast base; painted steel, aluminium, wood or fibreglass. **Worn**, **Rust**
+  and **Dirt** on the pole (chipped paint, rust running down, grime up from the foot), every pole
+  its own; the ropes braided, with a **Rope thickness**.
 - **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default), with
   **Detailed building shapes** reading buildings as they are drawn -- cornices, frames, columns --
   not only their simple shapes. A banner hoisted from its top near a roof's edge hangs down the

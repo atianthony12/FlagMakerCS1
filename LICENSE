@@ -36,6 +36,9 @@ THIRD-PARTY-NOTICES.md.
 The panel's icons (RealFlag/Resources/PanelIcons.png, ModsLibCS1/sprites/sheet.png) are drawn
 from the path data of Lucide's icons (lucide.dev), ISC; see THIRD-PARTY-NOTICES.md.
 
+The poles' textures in RealFlag/Resources/Poles are made from Poly Haven's (polyhaven.com) and
+ambientCG's (ambientcg.com) scans, CC0 1.0; see THIRD-PARTY-NOTICES.md.
+
 ---
 
 Acknowledgements. No code from the works below is included in this Software; its
@@ -153,6 +156,12 @@ techniques were written from scratch after them, and they are credited here with
       sums of noise: the fly's frayed edge, the grime's blotches.
     I. Quilez, 2-D signed distance functions -- the holes' and tears' shapes.
     Forensic science's "bullet wipe" -- the dark ring a bullet leaves round its hole in cloth.
+  The poles:
+    M. Tarini, "Cylindrical and Toroidal Parameterizations Without Vertex Seams" (Journal of
+      Graphics Tools, 2012) -- a texture round a pole with no seam: the angle per pixel, the
+      coordinate of the two whose derivative is smaller.
+    Poly Haven (European Walnut Veneer 04; Rust Coarse 01) and ambientCG (Rope 001), CC0 --
+      the wood's grain, the rust, the rope's braid.
   And:
     K. Perlin, "Improving Noise", SIGGRAPH 2002 -- the quintic fade.
     C. Wellons, the lowbias32 integer hash.

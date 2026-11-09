@@ -241,6 +241,14 @@ namespace RealFlag
         /// <summary>Against a real pole's for the flag and its height, 0.5..2 (shown as a percentage).</summary>
         public static FloatSetting NewPoleThickness { get; private set; }
 
+        /// <summary>The pole's FlagPoleProfile and FlagPoleMaterial; its wear, rust and dirt 0..1; the ropes' thickness 0.5..3.</summary>
+        public static IntSetting NewPoleProfile { get; private set; }
+        public static IntSetting NewPoleMaterial { get; private set; }
+        public static FloatSetting NewPoleWear { get; private set; }
+        public static FloatSetting NewPoleRust { get; private set; }
+        public static FloatSetting NewPoleDirt { get; private set; }
+        public static FloatSetting NewRopeThickness { get; private set; }
+
         /// <summary>The hoist's lean, degrees: towards the fly, and to the side (FlagSpec.Tilt, Lean).</summary>
         public static FloatSetting NewTilt { get; private set; }
         public static FloatSetting NewLean { get; private set; }
@@ -283,6 +291,12 @@ namespace RealFlag
         public static IntSetting SelTopColour { get; private set; }
         public static IntSetting SelRopeColour { get; private set; }
         public static FloatSetting SelPoleThickness { get; private set; }
+        public static IntSetting SelPoleProfile { get; private set; }
+        public static IntSetting SelPoleMaterial { get; private set; }
+        public static FloatSetting SelPoleWear { get; private set; }
+        public static FloatSetting SelPoleRust { get; private set; }
+        public static FloatSetting SelPoleDirt { get; private set; }
+        public static FloatSetting SelRopeThickness { get; private set; }
         public static FloatSetting SelTilt { get; private set; }
         public static FloatSetting SelLean { get; private set; }
 
@@ -415,6 +429,14 @@ namespace RealFlag
             public const int TopColour = (int)FlagSpec.DefaultTopColour;
             public const int RopeColour = (int)FlagSpec.DefaultRopeColour;
             public const float PoleThickness = 1f;
+
+            /// <summary>A tapered painted pole, as new, its ropes as they were: every pole before 2026-11-09.</summary>
+            public const int PoleProfile = FlagPoleProfile.Tapered;
+            public const int PoleMaterial = FlagPoleMaterial.Painted;
+            public const float PoleWear = 0f;
+            public const float PoleRust = 0f;
+            public const float PoleDirt = 0f;
+            public const float RopeThickness = 1f;
             public const float Tilt = 0f;
             public const float Lean = 0f;
         }
@@ -508,6 +530,12 @@ namespace RealFlag
                 NewTopColour = new IntSetting("NewTopColour", Defaults.TopColour);
                 NewRopeColour = new IntSetting("NewRopeColour", Defaults.RopeColour);
                 NewPoleThickness = new FloatSetting("NewPoleThickness", Defaults.PoleThickness);
+                NewPoleProfile = new IntSetting("NewPoleProfile", Defaults.PoleProfile);
+                NewPoleMaterial = new IntSetting("NewPoleMaterial", Defaults.PoleMaterial);
+                NewPoleWear = new FloatSetting("NewPoleWear", Defaults.PoleWear);
+                NewPoleRust = new FloatSetting("NewPoleRust", Defaults.PoleRust);
+                NewPoleDirt = new FloatSetting("NewPoleDirt", Defaults.PoleDirt);
+                NewRopeThickness = new FloatSetting("NewRopeThickness", Defaults.RopeThickness);
                 NewTilt = new FloatSetting("NewTilt", Defaults.Tilt);
                 NewLean = new FloatSetting("NewLean", Defaults.Lean);
 
@@ -545,6 +573,12 @@ namespace RealFlag
                 SelTopColour = new IntSetting("SelTopColour", Defaults.TopColour, true);
                 SelRopeColour = new IntSetting("SelRopeColour", Defaults.RopeColour, true);
                 SelPoleThickness = new FloatSetting("SelPoleThickness", Defaults.PoleThickness, true);
+                SelPoleProfile = new IntSetting("SelPoleProfile", Defaults.PoleProfile, true);
+                SelPoleMaterial = new IntSetting("SelPoleMaterial", Defaults.PoleMaterial, true);
+                SelPoleWear = new FloatSetting("SelPoleWear", Defaults.PoleWear, true);
+                SelPoleRust = new FloatSetting("SelPoleRust", Defaults.PoleRust, true);
+                SelPoleDirt = new FloatSetting("SelPoleDirt", Defaults.PoleDirt, true);
+                SelRopeThickness = new FloatSetting("SelRopeThickness", Defaults.RopeThickness, true);
                 SelTilt = new FloatSetting("SelTilt", Defaults.Tilt, true);
                 SelLean = new FloatSetting("SelLean", Defaults.Lean, true);
 
@@ -608,6 +642,12 @@ namespace RealFlag
             spec.TopColour = (uint)NewTopColour.value;
             spec.RopeColour = (uint)NewRopeColour.value;
             spec.PoleThickness = NewPoleThickness.value;
+            spec.PoleProfile = NewPoleProfile.value;
+            spec.PoleMaterial = NewPoleMaterial.value;
+            spec.PoleWear = NewPoleWear.value;
+            spec.PoleRust = NewPoleRust.value;
+            spec.PoleDirt = NewPoleDirt.value;
+            spec.RopeThickness = NewRopeThickness.value;
             spec.Tilt = NewTilt.value;
             spec.Lean = NewLean.value;
 

@@ -148,6 +148,12 @@ namespace RealFlag.Flags
                     Settings.SelTopColour.value = (int)e.Spec.TopColour;
                     Settings.SelRopeColour.value = (int)e.Spec.RopeColour;
                     Settings.SelPoleThickness.value = e.Spec.PoleThickness;
+                    Settings.SelPoleProfile.value = e.Spec.PoleProfile;
+                    Settings.SelPoleMaterial.value = e.Spec.PoleMaterial;
+                    Settings.SelPoleWear.value = e.Spec.PoleWear;
+                    Settings.SelPoleRust.value = e.Spec.PoleRust;
+                    Settings.SelPoleDirt.value = e.Spec.PoleDirt;
+                    Settings.SelRopeThickness.value = e.Spec.RopeThickness;
 
                     // With no pole that stands (none, a crossbar, one still being found), the Pole
                     // height is a new flag's: what it stands with if its hoist turns down.
@@ -218,6 +224,12 @@ namespace RealFlag.Flags
             spec.TopColour = (uint)Settings.SelTopColour.value;
             spec.RopeColour = (uint)Settings.SelRopeColour.value;
             spec.PoleThickness = Settings.SelPoleThickness.value;
+            spec.PoleProfile = Settings.SelPoleProfile.value;
+            spec.PoleMaterial = Settings.SelPoleMaterial.value;
+            spec.PoleWear = Settings.SelPoleWear.value;
+            spec.PoleRust = Settings.SelPoleRust.value;
+            spec.PoleDirt = Settings.SelPoleDirt.value;
+            spec.RopeThickness = Settings.SelRopeThickness.value;
             spec.Tilt = Settings.SelTilt.value;
             spec.Lean = Settings.SelLean.value;
             spec = spec.Sanitised();
@@ -527,6 +539,12 @@ namespace RealFlag.Flags
             Settings.NewTopColour.value = (int)e.Spec.TopColour;
             Settings.NewRopeColour.value = (int)e.Spec.RopeColour;
             Settings.NewPoleThickness.value = e.Spec.PoleThickness;
+            Settings.NewPoleProfile.value = e.Spec.PoleProfile;
+            Settings.NewPoleMaterial.value = e.Spec.PoleMaterial;
+            Settings.NewPoleWear.value = e.Spec.PoleWear;
+            Settings.NewPoleRust.value = e.Spec.PoleRust;
+            Settings.NewPoleDirt.value = e.Spec.PoleDirt;
+            Settings.NewRopeThickness.value = e.Spec.RopeThickness;
             Settings.NewTilt.value = e.Spec.Tilt;
             Settings.NewLean.value = e.Spec.Lean;
             Log.Msg("flags: flag #" + Selected + "'s design copied to the new flag");

@@ -86,6 +86,7 @@ public static class FlagPreview
 
     // RF_WEARSEED: the scatter of holes, tatters and grime (FlagWear.SeedFor a prop in the game).
     private static float _wearSeed;
+    private static float _ropeLook = 1f;
 
     /// <summary>The hoist's line and the fly at rest (FlagOrientation): the camera looks at the flag's middle along them.</summary>
     private static Vector3 _hoist = Vector3.down, _fly = Vector3.right;
@@ -160,6 +161,15 @@ public static class FlagPreview
         };
         FlagImages.Warn = Debug.LogWarning;
         FlagImages.Note = Debug.Log;
+
+        // The poles' textures from the repository's folder: the files the mod embeds.
+        string polesDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../../RealFlag/Resources/Poles"));
+        PoleTextures.Source = name =>
+        {
+            string file = Path.Combine(polesDir, name);
+            return File.Exists(file) ? File.ReadAllBytes(file) : null;
+        };
+        PoleTextures.Warn = Debug.LogWarning;
 
         // The player's pictures from a folder of the preview's own.
         string imageDir = Env("RF_IMAGEDIR", "");
@@ -352,6 +362,33 @@ public static class FlagPreview
             designs = cutDesigns;
         }
 
+        // RF_POLES "profile,material,worn,rust,dirt[,rope thickness %]|...": each design once per
+        // pole look (FlagPoleProfile, FlagPoleMaterial; percent as the panel's). RF_ROPELOOK 0 a
+        // procedural twist, 1 the texture (the shader's _RFRopeLook).
+        string[] poleLooks = Env("RF_POLES", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+        if (poleLooks.Length > 0)
+        {
+            var poled = new List<FlagSpec>();
+            foreach (FlagSpec d in designs)
+            {
+                foreach (string look in poleLooks)
+                {
+                    float[] v = ParseFloats(look);
+                    FlagSpec flag = d;
+                    flag.PoleProfile = v.Length > 0 ? (int)v[0] : FlagPoleProfile.Tapered;
+                    flag.PoleMaterial = v.Length > 1 ? (int)v[1] : FlagPoleMaterial.Painted;
+                    flag.PoleWear = v.Length > 2 ? v[2] / 100f : 0f;
+                    flag.PoleRust = v.Length > 3 ? v[3] / 100f : 0f;
+                    flag.PoleDirt = v.Length > 4 ? v[4] / 100f : 0f;
+                    flag.RopeThickness = v.Length > 5 ? v[5] / 100f : 1f;
+                    poled.Add(flag.Sanitised());
+                }
+            }
+
+            designs = poled;
+        }
+
+        _ropeLook = float.Parse(Env("RF_ROPELOOK", "1"), CultureInfo.InvariantCulture);
         _wearSeed = float.Parse(Env("RF_WEARSEED", "0"), CultureInfo.InvariantCulture);
 
         // The hoist's line and the fly at rest, for a flag heading along +x.
@@ -812,7 +849,8 @@ public static class FlagPreview
         Graphics.DrawMesh(mesh.Mesh, Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one), s.Material, 0, s.Camera, 0, s.Block, true, true);
         if (pole != null)
         {
-            FlagPoleMesh.Look(s.PoleBlock, flag, Vector4.zero);
+            FlagPoleMesh.Look(s.PoleBlock, flag, Vector4.zero, _wearSeed);
+            s.PoleBlock.SetFloat("_RFRopeLook", _ropeLook);
             Graphics.DrawMesh(pole.Mesh, pole.Matrix, s.PoleMaterial, 0, s.Camera, 0, s.PoleBlock, true, true);
         }
 
