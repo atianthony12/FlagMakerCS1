@@ -231,9 +231,15 @@ namespace RealFlag.Flags
                         _loopsFailed++;
                         Log.Warn("flags: a loop could not be made (" + bake.Problem + "); its flags wave instead -- " + e.Spec.Describe());
                     }
+                    else if (!TryMakeLoop(e, bake))
+                    {
+                        // Its texture could not be made (no float textures, no memory): never again
+                        // this session -- left to throw, it was baked afresh every second for good.
+                        e.FailedUntil = float.MaxValue;
+                        _loopsFailed++;
+                    }
                     else
                     {
-                        e.Loop = new FlagLoop(bake);
                         _loopsMade++;
                         string line = "flags: loop made in " + (now - e.Began).ToString("F1") + " s -- " + e.Loop.Text;
                         if (_loopsMade <= 3)
@@ -300,6 +306,24 @@ namespace RealFlag.Flags
                     var job = new ClothJob { Work = bake };
                     Queue(null, ref job);
                 }
+            }
+        }
+
+        /// <summary>The finished bake's texture, as the entry's loop; false (said, the flags wave instead) when the graphics card will not hold it.</summary>
+        private static bool TryMakeLoop(LoopEntry e, LoopBake bake)
+        {
+            try
+            {
+                if (!SystemInfo.SupportsTextureFormat(TextureFormat.RGBAFloat))
+                    throw new NotSupportedException("this graphics card has no float textures");
+                e.Loop = new FlagLoop(bake);
+                return true;
+            }
+            catch (Exception x)
+            {
+                e.Loop = null;
+                Log.Warn("flags: a loop's texture could not be made (" + x.Message + "); its flags wave instead -- " + e.Spec.Describe());
+                return false;
             }
         }
 

@@ -417,6 +417,20 @@ namespace RealFlag.Flags
             return _baseKnown;
         }
 
+        /// <summary>
+        /// The stand point held for flag <paramref name="prop"/> while a change that stands it again
+        /// is under way (a standing pole's foot): the renderer draws the pole from it meanwhile.
+        /// The new spec is the registry's at once, the prop's move comes a frame or more later (the
+        /// simulation thread's), and a pole drawn from the old anchor with the new spec jumped up or
+        /// down by the difference and back at every step of "Position on pole" (2026-11-10, the
+        /// author: "it's causing the pole itself to stretch up and down"). Main thread.
+        /// </summary>
+        public static bool TryHeldBase(uint prop, out Vector3 point)
+        {
+            point = _base;
+            return prop != 0 && prop == _baseOf && _baseKnown && Holding;
+        }
+
         /// <summary>The flag moved or turned some other way (the gizmo's arrows, Page Up and Page Down, its rotation): where it stands goes with it.</summary>
         private static void LetBaseGo()
         {

@@ -1600,7 +1600,7 @@ namespace RealFlag.Flags
             }
 
             // The pole's box: its axis from the foot to the tip, and a metre round it.
-            Vector3 foot = f.Anchor - f.Fly * shape.Offset + f.Hoist * shape.Length;
+            Vector3 foot = PoleAnchor(f, shape) - f.Fly * shape.Offset + f.Hoist * shape.Length;
             Vector3 tip = foot - f.Hoist * shape.Tip;
             var box = new Bounds((foot + tip) * 0.5f, Vector3.zero);
             box.Encapsulate(foot);
@@ -3814,6 +3814,21 @@ namespace RealFlag.Flags
         /// <summary>The hovered flag's glow (rgb x a, added): gold.</summary>
         private static readonly Vector4 HoverGlow = new Vector4(1f, 0.85f, 0.35f, 0.18f);
 
+        /// <summary>
+        /// The anchor the pole is placed from: the flag's -- or, for a standing pole of a known
+        /// height whose flag the editor is standing again (Position on pole, Pole height, a tilt:
+        /// FlagEditor.TryHeldBase), the one that keeps its foot on the held stand point. The prop
+        /// follows the new spec a frame or more behind; from the flag's old anchor the pole jumped
+        /// by the difference and back at every step.
+        /// </summary>
+        private static Vector3 PoleAnchor(FlagInstance f, FlagPoleShape shape)
+        {
+            Vector3 foot;
+            if (f.Prop != 0 && FlagEditor.TryHeldBase(f.Prop, out foot) && f.Spec.PoleLength > 0f && FlagStand.Upright(f.Hoist.y))
+                return foot + f.Fly * shape.Offset - f.Hoist * shape.Length;
+            return f.Anchor;
+        }
+
         /// <summary>The flag's pole, if it has one and it is in view: lit and shadowed like the cloth, glowing with it when hovered.</summary>
         private void DrawPole(FlagInstance f)
         {
@@ -3828,7 +3843,7 @@ namespace RealFlag.Flags
                 f.PoleBlockReady = !hovered;
             }
 
-            Matrix4x4 placement = FlagPoleMesh.Placement(f.Anchor, f.PoleShape, f.Hoist, f.Fly);
+            Matrix4x4 placement = FlagPoleMesh.Placement(PoleAnchor(f, f.PoleShape), f.PoleShape, f.Hoist, f.Fly);
 
             // Real Glass's Reflective finish over a glossy pole big enough to show it: the city in
             // the paint. Drawn: our own sky reflection of the paint is left out (_RFPoleFinish).
