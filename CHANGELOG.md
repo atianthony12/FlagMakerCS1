@@ -33,7 +33,8 @@ The first release.
   streaks) or holed (bullet holes, burns, tears; through its shadow too), each flag its own.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
-  Allow taller poles). The cloth keeps off its pole. A banner hoisted from its top has no pole.
+  Allow taller poles), and a **Position on pole** to fly the flag lower, at half-mast say. The
+  cloth keeps off its pole. A banner hoisted from its top has no pole.
 - **Four pole shapes on three bases, and Shine**: tapered, straight, sectional or fluted, on a
   flash collar, a decorative cast base or none; Shine from matte to a glossy coat that reflects the
   sky (Real Glass's live sky when it's on). **Worn**, **Rust**

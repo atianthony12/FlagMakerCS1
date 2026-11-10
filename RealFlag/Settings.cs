@@ -250,6 +250,10 @@ namespace RealFlag
         public static FloatSetting NewPoleDirt { get; private set; }
         public static FloatSetting NewRopeThickness { get; private set; }
 
+        /// <summary>Where the new flag flies on its standing pole, 0..1 up it (FlagSpec.PolePosition: 1 the top, 0.5 half-mast).</summary>
+        public static FloatSetting NewPolePosition { get; private set; }
+        public static FloatSetting SelPolePosition { get; private set; }
+
         /// <summary>The hoist's lean, degrees: towards the fly, and to the side (FlagSpec.Tilt, Lean).</summary>
         public static FloatSetting NewTilt { get; private set; }
         public static FloatSetting NewLean { get; private set; }
@@ -444,6 +448,9 @@ namespace RealFlag
             public const float PoleRust = 0f;
             public const float PoleDirt = 0f;
             public const float RopeThickness = 1f;
+
+            /// <summary>At the top of its pole (full mast).</summary>
+            public const float PolePosition = 1f;
             public const float Tilt = 0f;
             public const float Lean = 0f;
         }
@@ -544,6 +551,7 @@ namespace RealFlag
                 NewPoleRust = new FloatSetting("NewPoleRust", Defaults.PoleRust);
                 NewPoleDirt = new FloatSetting("NewPoleDirt", Defaults.PoleDirt);
                 NewRopeThickness = new FloatSetting("NewRopeThickness", Defaults.RopeThickness);
+                NewPolePosition = new FloatSetting("NewPolePosition", Defaults.PolePosition);
                 NewTilt = new FloatSetting("NewTilt", Defaults.Tilt);
                 NewLean = new FloatSetting("NewLean", Defaults.Lean);
 
@@ -588,6 +596,7 @@ namespace RealFlag
                 SelPoleRust = new FloatSetting("SelPoleRust", Defaults.PoleRust, true);
                 SelPoleDirt = new FloatSetting("SelPoleDirt", Defaults.PoleDirt, true);
                 SelRopeThickness = new FloatSetting("SelRopeThickness", Defaults.RopeThickness, true);
+                SelPolePosition = new FloatSetting("SelPolePosition", Defaults.PolePosition, true);
                 SelTilt = new FloatSetting("SelTilt", Defaults.Tilt, true);
                 SelLean = new FloatSetting("SelLean", Defaults.Lean, true);
 
@@ -665,6 +674,7 @@ namespace RealFlag
             spec.PoleRust = NewPoleRust.value;
             spec.PoleDirt = NewPoleDirt.value;
             spec.RopeThickness = NewRopeThickness.value;
+            spec.PolePosition = NewPolePosition.value;
             spec.Tilt = NewTilt.value;
             spec.Lean = NewLean.value;
 

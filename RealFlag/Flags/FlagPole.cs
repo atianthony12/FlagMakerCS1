@@ -303,8 +303,14 @@ namespace RealFlag.Flags
         /// <summary>A cast base's widest radius and its height (the shaft rises out of its top).</summary>
         public float BaseRadius, BaseHeight;
 
-        /// <summary>From the foot to the anchor's level, metres.</summary>
+        /// <summary>From the foot to the anchor's level, metres (the pole's height less <see cref="Drop"/>).</summary>
         public float Length;
+
+        /// <summary>
+        /// How far the flag is lowered down a standing pole (FlagSpec.PolePosition: half-mast and
+        /// the like), metres below the top: the shaft still rises to <see cref="ShaftTop"/>.
+        /// </summary>
+        public float Drop;
 
         /// <summary>The flag's hoist, metres (where the halyard's lower clip is: Length - FlagHeight).</summary>
         public float FlagHeight;
@@ -333,7 +339,7 @@ namespace RealFlag.Flags
         /// <summary>The shaft's top above the foot.</summary>
         public float ShaftTop
         {
-            get { return Length + TopAbove; }
+            get { return Length + Drop + TopAbove; }
         }
 
         /// <summary>The whole pole's top above the foot: the truck, and the ball or spear on it.</summary>
@@ -454,6 +460,17 @@ namespace RealFlag.Flags
                 s.Cleat = Math.Max(s.Cleat, s.BaseHeight + 0.2f);
             }
 
+            // Lowered down a standing pole: the anchor comes down by a share of the way the flag
+            // can travel (its foot no lower than just over the cleat), the pole as tall as it was.
+            float position = float.IsNaN(spec.PolePosition) ? 1f : Math.Max(0f, Math.Min(spec.PolePosition, 1f));
+            if (position < 1f && FlagStand.PoleStands(spec))
+            {
+                float travel = Math.Max(0f, s.Length - spec.Height - (s.Cleat + 0.3f));
+                s.Drop = (1f - position) * travel;
+                s.Length -= s.Drop;
+                s.Offset = Math.Max(s.TruckRadius, s.RadiusAt(Math.Max(0f, s.Length - spec.Height))) + 1.5f * s.RopeRadius;
+            }
+
             return s;
         }
 
@@ -500,7 +517,7 @@ namespace RealFlag.Flags
         /// <summary>The same pole to within a centimetre: its mesh need not be made again.</summary>
         public bool Same(FlagPoleShape other)
         {
-            return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f &&
+            return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f && Math.Abs(Drop - other.Drop) < 0.01f &&
                    Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f &&
                    Profile == other.Profile && Base == other.Base && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f;
         }

@@ -187,13 +187,17 @@
   <String key="NewImageAlpha.Label">Image du nouveau drapeau : parties transparentes</String>
 
   <String key="NewMotion.Label">Mouvement</String>
-  <String key="NewMotion.Tooltip">Boucle : se répète, très légère.</String>
+  <String key="NewMotion.Tooltip">Comment le tissu bouge.</String>
   <String key="SelMotion.Label">Mouvement</String>
-  <String key="SelMotion.Tooltip">Boucle : se répète, très légère.</String>
+  <String key="SelMotion.Tooltip">Comment le tissu bouge.</String>
   <String key="Motion.Waves">Flottant</String>
+  <String key="Motion.Waves.Tooltip">Flotte en direct au vent.</String>
   <String key="Motion.Loop">Boucle</String>
+  <String key="Motion.Loop.Tooltip">Rejoue quelques secondes de flottement en boucle. Presque gratuit : idéal pour beaucoup de drapeaux.</String>
   <String key="Motion.Still">Figé</String>
+  <String key="Motion.Still.Tooltip">Une pose figée.</String>
   <String key="Motion.Flat">Plat</String>
+  <String key="Motion.Flat.Tooltip">À plat, sans plis.</String>
   <String key="NewWaviness.Label">Ondulation</String>
   <String key="NewWaviness.Tooltip">Combien il ondule.</String>
   <String key="SelWaviness.Label">Ondulation</String>
@@ -286,6 +290,10 @@
   <String key="NewRopeThickness.Tooltip">100 % a l’air réaliste.</String>
   <String key="SelRopeThickness.Label">Épaisseur des cordes</String>
   <String key="SelRopeThickness.Tooltip">100 % a l’air réaliste.</String>
+  <String key="NewPolePosition.Label">Position sur le mât</String>
+  <String key="NewPolePosition.Tooltip">100 % en haut, 50 % en berne.</String>
+  <String key="SelPolePosition.Label">Position sur le mât</String>
+  <String key="SelPolePosition.Tooltip">100 % en haut, 50 % en berne.</String>
 
   <String key="NewPoleColour.Label">Couleur du mât</String>
   <String key="NewPoleColour.Tooltip">Mât, embout, pied.</String>

@@ -184,13 +184,17 @@
   <String key="NewImageAlpha.Label">Imagen de la nueva bandera: partes transparentes</String>
 
   <String key="NewMotion.Label">Movimiento</String>
-  <String key="NewMotion.Tooltip">Bucle: se repite, casi gratis.</String>
+  <String key="NewMotion.Tooltip">Cómo se mueve la tela.</String>
   <String key="SelMotion.Label">Movimiento</String>
-  <String key="SelMotion.Tooltip">Bucle: se repite, casi gratis.</String>
+  <String key="SelMotion.Tooltip">Cómo se mueve la tela.</String>
   <String key="Motion.Waves">Ondeando</String>
+  <String key="Motion.Waves.Tooltip">Ondea en vivo con el viento.</String>
   <String key="Motion.Loop">Bucle</String>
+  <String key="Motion.Loop.Tooltip">Repite unos segundos de ondeo una y otra vez. Casi gratis: ideal para muchas banderas.</String>
   <String key="Motion.Still">Quieta</String>
+  <String key="Motion.Still.Tooltip">Una pose congelada.</String>
   <String key="Motion.Flat">Plana</String>
+  <String key="Motion.Flat.Tooltip">Plana, sin pliegues.</String>
   <String key="NewWaviness.Label">Cuánto ondea</String>
   <String key="NewWaviness.Tooltip">Cuánto se riza.</String>
   <String key="SelWaviness.Label">Cuánto ondea</String>
@@ -283,6 +287,10 @@
   <String key="NewRopeThickness.Tooltip">100% se ve realista.</String>
   <String key="SelRopeThickness.Label">Grosor de las cuerdas</String>
   <String key="SelRopeThickness.Tooltip">100% se ve realista.</String>
+  <String key="NewPolePosition.Label">Posición en el asta</String>
+  <String key="NewPolePosition.Tooltip">100% arriba, 50% a media asta.</String>
+  <String key="SelPolePosition.Label">Posición en el asta</String>
+  <String key="SelPolePosition.Tooltip">100% arriba, 50% a media asta.</String>
 
   <String key="NewPoleColour.Label">Color del asta</String>
   <String key="NewPoleColour.Tooltip">Asta, tapa, base.</String>

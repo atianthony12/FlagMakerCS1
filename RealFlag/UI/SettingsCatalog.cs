@@ -786,36 +786,20 @@ namespace RealFlag.UI
         /// <summary>
         /// A new width or height (FlagSize.Resize): with its sides linked the whole flag scales;
         /// otherwise that side alone -- a country's flag's too since 2026-11-10 (stretched to its
-        /// shape, CropMap.ForCountry). With a picture on it and its sides linked, the flag scales
-        /// at the PICTURE's shape: a flag made square while they were apart takes the picture's
-        /// back at the first move (the author: "It should have automatically rematched the height
-        /// or width when changing either").
+        /// shape, CropMap.ForCountry). Linked, it scales at the shape the flag HAS, a picture's flag
+        /// too (until 2026-11-10 at the picture's: the lock also locked Proportions, which the
+        /// author did not want).
         /// </summary>
         private static void ResizeTo(bool height, float value, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom,
                                      ImageTarget pictures)
         {
-            bool isCountry = country != null && FlagCountries.At(country.value) != null;
             bool linked = Settings.LinkSize == null || Settings.LinkSize.value;
-            int tied = !isCountry && linked && pictures != null && pictures.ShapeTied ? pictures.PictureProportion() : 0;
             float newLength;
             int newProportion;
-            FlagSize.Resize(length.value, tied > 0 ? tied : FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
+            FlagSize.Resize(length.value, FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
                             out newLength, out newProportion);
             length.value = newLength;
             proportion.value = newProportion;
-        }
-
-        /// <summary>The windows' pictures (the New flag window's, the Flags tab's), for what goes for both: the width and height switch is one for both.</summary>
-        private static readonly List<ImageTarget> PictureTargets = new List<ImageTarget>();
-
-        /// <summary>The width and height together again: each window's flag with a picture takes its picture's shape back, and shows it.</summary>
-        private static void KeepPictureShapes()
-        {
-            foreach (ImageTarget pictures in PictureTargets)
-            {
-                if (pictures.KeepShape())
-                    pictures.Apply();
-            }
         }
 
         /// <summary>"2 m · 2:3": a height, and the shape it makes as seen (height to width).</summary>
@@ -913,9 +897,8 @@ namespace RealFlag.UI
             // country flags"; stretched to it, turned for one standing the other way:
             // CropMap.ForCountry) -- not a picture's while the width and height go together (the
             // flag keeps the picture's then).
-            Func<bool> shapeFree = () => (enabled == null || enabled()) && (pictures == null || !pictures.ShapeTied);
-            if (pictures != null)
-                PictureTargets.Add(pictures);
+            // Lock width and height no longer greys it with a picture on (2026-11-10).
+            Func<bool> shapeFree = () => enabled == null || enabled();
 
             Add(new Row
             {
@@ -1083,12 +1066,10 @@ namespace RealFlag.UI
                 Panel = page,
                 Bool = Settings.LinkSize,
                 DefaultBool = Settings.Defaults.LinkSize,
-                AfterChange = () =>
-                {
-                    State("width and height together", OnOff(Settings.LinkSize))();
-                    if (Settings.LinkSize.value)
-                        KeepPictureShapes();
-                },
+                // It locks the sides to each other only, never the Proportions row (the author,
+                // 2026-11-10: "it's also locking Proportions which we don't want"): ticked again it no
+                // longer puts a picture's shape back over the one chosen.
+                AfterChange = State("width and height together", OnOff(Settings.LinkSize)),
                 Enabled = enabled,
             });
 
@@ -1278,7 +1259,7 @@ namespace RealFlag.UI
         private static void AddPole(PanelPage page, IntSetting pole, FloatSetting height, IntSetting ropes, IntSetting poleColour, IntSetting topColour,
                                     IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
                                     IntSetting profile, IntSetting poleBase, FloatSetting shine, FloatSetting ropeThickness,
-                                    Action changed, Action heightChanged, Func<bool> enabled)
+                                    FloatSetting position, Action changed, Action heightChanged, Func<bool> enabled)
         {
             // Hoisted from its top, a flag has no pole (FlagSpec.HasPole): the pole's rows grey out,
             // the choice kept for its side again; the tilt and lean still turn the banner.
@@ -1353,6 +1334,19 @@ namespace RealFlag.UI
                 Bool = Settings.UnlockPoleHeight,
                 DefaultBool = Settings.Defaults.UnlockPoleHeight,
                 AfterChange = State("pole height's range unlocked", OnOff(Settings.UnlockPoleHeight)),
+                Enabled = standing,
+            });
+
+            // Where the flag flies on its pole (the author, 2026-11-10: "like half masting"): 100%
+            // the top, 50% half-mast; the pole keeps its height and foot (FlagPoleShape.Drop).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = position,
+                DefaultFloat = Settings.Defaults.PolePosition,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
                 Enabled = standing,
             });
 
@@ -1562,7 +1556,7 @@ namespace RealFlag.UI
                           Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
             AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
                     Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom,
-                    Settings.NewPoleProfile, Settings.NewPoleBase, Settings.NewPoleShine, Settings.NewRopeThickness, null, null, null);
+                    Settings.NewPoleProfile, Settings.NewPoleBase, Settings.NewPoleShine, Settings.NewRopeThickness, Settings.NewPolePosition, null, null, null);
             AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleWear, Settings.NewPoleRust,
                         Settings.NewPoleDirt, null, null);
 
@@ -1793,7 +1787,7 @@ namespace RealFlag.UI
                           Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, selected);
             AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHeight, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
                     Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom,
-                    Settings.SelPoleProfile, Settings.SelPoleBase, Settings.SelPoleShine, Settings.SelRopeThickness, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
+                    Settings.SelPoleProfile, Settings.SelPoleBase, Settings.SelPoleShine, Settings.SelRopeThickness, Settings.SelPolePosition, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
 
             AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleWear, Settings.SelPoleRust,
                         Settings.SelPoleDirt, FlagEditor.ApplyDesign, selected);

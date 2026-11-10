@@ -155,6 +155,7 @@ namespace RealFlag.Flags
                     Settings.SelPoleRust.value = e.Spec.PoleRust;
                     Settings.SelPoleDirt.value = e.Spec.PoleDirt;
                     Settings.SelRopeThickness.value = e.Spec.RopeThickness;
+                    Settings.SelPolePosition.value = e.Spec.PolePosition;
 
                     // With no pole that stands (none, a crossbar, one still being found), the Pole
                     // height is a new flag's: what it stands with if its hoist turns down.
@@ -232,6 +233,7 @@ namespace RealFlag.Flags
             spec.PoleRust = Settings.SelPoleRust.value;
             spec.PoleDirt = Settings.SelPoleDirt.value;
             spec.RopeThickness = Settings.SelRopeThickness.value;
+            spec.PolePosition = Settings.SelPolePosition.value;
             spec.Tilt = Settings.SelTilt.value;
             spec.Lean = Settings.SelLean.value;
             spec = spec.Sanitised();
@@ -245,6 +247,14 @@ namespace RealFlag.Flags
                 stood = Restand(e, old, ref spec, e.Angle, out anchor);
             else if (spec.HasPole && !old.HasPole)
                 spec.PoleLength = 0f;
+            else if (Mathf.Abs(spec.PolePosition - old.PolePosition) > 1e-4f && FlagStand.PoleStands(old) && old.PoleLength > 0f &&
+                     HoldBase(e, old))
+            {
+                // Raised or lowered on its pole (half-mast): the foot and the pole stay, the flag
+                // goes up or down it.
+                anchor = StandAt(spec, e.Angle);
+                stood = true;
+            }
             FlagRegistry.Set(Selected, spec);
             if (stood)
                 FlagProps.Move(Selected, anchor);
@@ -558,6 +568,7 @@ namespace RealFlag.Flags
             Settings.NewPoleRust.value = s.PoleRust;
             Settings.NewPoleDirt.value = s.PoleDirt;
             Settings.NewRopeThickness.value = s.RopeThickness;
+            Settings.NewPolePosition.value = s.PolePosition;
             Settings.NewTilt.value = s.Tilt;
             Settings.NewLean.value = s.Lean;
         }

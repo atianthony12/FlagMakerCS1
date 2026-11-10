@@ -200,6 +200,9 @@ namespace RealFlag.Flags
         public static readonly int[] Values = { Waves, Loop, Still, Flat };
         public static readonly string[] NameKeys = { "Motion.Waves", "Motion.Loop", "Motion.Still", "Motion.Flat" };
 
+        /// <summary>Each button's own tooltip (RowSet finds them as NameKeys[i] + ".Tooltip"; listed here so the key check sees them).</summary>
+        public static readonly string[] TooltipKeys = { "Motion.Waves.Tooltip", "Motion.Loop.Tooltip", "Motion.Still.Tooltip", "Motion.Flat.Tooltip" };
+
         public static bool IsKnown(int value)
         {
             return value >= Waves && value <= Loop;
@@ -771,6 +774,15 @@ namespace RealFlag.Flags
         public const float DefaultPoleShine = 0.35f;
 
         /// <summary>
+        /// Where the flag flies on its standing pole, 0..1 of the way up (the author, 2026-11-10:
+        /// "Flag position on pole (like half masting etc) ... the vertical flag offset on the
+        /// pole"): 1 at the top (full mast, the default and every flag's before), 0.5 half-mast,
+        /// 0 its foot just above the cleat. The pole keeps its height and its foot: the flag
+        /// comes down it (FlagPoleShape.Drop). Format 18.
+        /// </summary>
+        public float PolePosition;
+
+        /// <summary>
         /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped to primer), rust (in the
         /// chips and running down from them) and dirt (grime up from the foot, streaks down). Its
         /// look only (FlagPole.shader).
@@ -877,6 +889,7 @@ namespace RealFlag.Flags
                     PoleRust = 0f,
                     PoleDirt = 0f,
                     RopeThickness = 1f,
+                    PolePosition = 1f,
                 };
             }
         }
@@ -992,6 +1005,7 @@ namespace RealFlag.Flags
             if (float.IsNaN(s.RopeThickness) || float.IsInfinity(s.RopeThickness))
                 s.RopeThickness = 1f;
             s.RopeThickness = Math.Max(MinRopeThickness, Math.Min(s.RopeThickness, MaxRopeThickness));
+            s.PolePosition = float.IsNaN(s.PolePosition) || float.IsInfinity(s.PolePosition) ? 1f : Share(s.PolePosition);
             return s;
         }
 
@@ -1071,7 +1085,7 @@ namespace RealFlag.Flags
         {
             return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f &&
                    Math.Abs(PoleLength - other.PoleLength) < 1e-3f && PoleProfile == other.PoleProfile && PoleBase == other.PoleBase &&
-                   Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f;
+                   Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f && Math.Abs(PolePosition - other.PolePosition) < 1e-4f;
         }
 
         /// <summary>The same pole colours, shine and wear (only the property block changes).</summary>
@@ -1131,7 +1145,8 @@ namespace RealFlag.Flags
                             ? " (worn " + (PoleWear * 100f).ToString("F0", inv) + "% rust " + (PoleRust * 100f).ToString("F0", inv) + "% dirt " +
                               (PoleDirt * 100f).ToString("F0", inv) + "%)"
                             : "") +
-                        (Math.Abs(RopeThickness - 1f) > 1e-3f ? ", ropes " + (RopeThickness * 100f).ToString("F0", inv) + "% thick" : "");
+                        (Math.Abs(RopeThickness - 1f) > 1e-3f ? ", ropes " + (RopeThickness * 100f).ToString("F0", inv) + "% thick" : "") +
+                        (PolePosition < 0.9995f ? ", the flag " + (PolePosition * 100f).ToString("F0", inv) + "% up it" : "");
             if (IsTilted)
                 text += ", tilted " + Tilt.ToString("0.#", inv) + " deg, leaning " + Lean.ToString("0.#", inv) + " deg";
             return text;
@@ -1300,10 +1315,11 @@ namespace RealFlag.Flags
         /// ropes' thickness (a float; older ones a tapered painted pole, as new, ropes 100%). 17
         /// (2026-11-09, materials gone, the base its own): the same as 15, then the profile and the
         /// base (two bytes), the shine, wear, rust, dirt and the ropes' thickness (five floats); 16's
-        /// material read as a shine, its "ornate" profile as a tapered shaft on a cast base. Every
-        /// older one is still read.
+        /// material read as a shine, its "ornate" profile as a tapered shaft on a cast base. 18
+        /// (2026-11-10): the same, then where the flag flies on its pole (a float, 0..1; older ones
+        /// at the top). Every older one is still read.
         /// </summary>
-        public const byte Version = 17;
+        public const byte Version = 18;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1353,6 +1369,7 @@ namespace RealFlag.Flags
             w.Write(s.PoleRust);
             w.Write(s.PoleDirt);
             w.Write(s.RopeThickness);
+            w.Write(s.PolePosition);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1523,6 +1540,9 @@ namespace RealFlag.Flags
                 s.PoleShine = FlagSpec.DefaultPoleShine;
                 s.RopeThickness = 1f;
             }
+
+            // Before the position on the pole: at the top.
+            s.PolePosition = version >= 18 ? r.ReadSingle() : 1f;
 
             return s.Sanitised();
         }

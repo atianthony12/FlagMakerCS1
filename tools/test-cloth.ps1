@@ -1767,6 +1767,46 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// Where the flag flies on its pole (FlagSpec.PolePosition, format 18): saved and read back,
+    /// older formats at the top, pulled into 0..1; lowered, the pole as tall (its shaft's top and
+    /// tip unchanged) and its foot where it was, the flag down by half its travel at 50%, its foot
+    /// never under the cleat at 0%; a crossbar or a top banner never lowered.
+    /// </summary>
+    public static string PolePositions()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.Pole = FlagPoleStyle.Ball; a.Ropes = 2; a.PoleLength = 12f; a.PolePosition = 0.5f;
+        a = a.Sanitised();
+        FlagSpec back;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out back) && Math.Abs(back.PolePosition - 0.5f) < 1e-6f;
+        bool old = FlagSpec.Default.PolePosition == 1f && FlagCodec.Version == 18;
+        FlagSpec bad = a; bad.PolePosition = float.NaN;
+        FlagSpec big = a; big.PolePosition = 3f;
+        bool pulled = bad.Sanitised().PolePosition == 1f && big.Sanitised().PolePosition == 1f;
+
+        FlagSpec top = a; top.PolePosition = 1f;
+        FlagSpec low = a; low.PolePosition = 0f;
+        FlagPoleShape full = FlagPoleShape.For(top, 12f), half = FlagPoleShape.For(a, 12f), down = FlagPoleShape.For(low, 12f);
+        float travel = 12f - a.Height - (full.Cleat + 0.3f);
+        bool tall = Math.Abs(half.ShaftTop - full.ShaftTop) < 1e-4f && Math.Abs(half.Tip - full.Tip) < 1e-4f && full.Drop == 0f &&
+                    Math.Abs(half.Drop - 0.5f * travel) < 1e-4f && Math.Abs(half.Length - (12f - 0.5f * travel)) < 1e-4f &&
+                    down.Length - a.Height >= down.Cleat + 0.3f - 1e-4f && !half.Same(full);
+
+        // The foot stays: the anchor stood on the same point comes down by the drop, along the hoist.
+        float x1, y1, z1, x2, y2, z2;
+        FlagStand.Anchor(top, 0f, 12f, 5f, 0f, 7f, out x1, out y1, out z1);
+        FlagStand.Anchor(a, 0f, 12f, 5f, 0f, 7f, out x2, out y2, out z2);
+        float bx, by, bz;
+        FlagStand.Base(a, 0f, 12f, x2, y2, z2, out bx, out by, out bz);
+        bool foot = Math.Abs((y1 - y2) - half.Drop) < 0.02f && Math.Abs(bx - 5f) < 1e-3f && Math.Abs(by) < 1e-3f && Math.Abs(bz - 7f) < 1e-3f;
+
+        FlagSpec banner = a; banner.HoistedFrom = FlagHoist.Top;
+        FlagSpec bar = a; bar.Tilt = 90f;
+        bool never = FlagPoleShape.For(banner, 12f).Drop == 0f && FlagPoleShape.For(bar, 4f).Drop == 0f;
+        return round + "," + old + "," + pulled + "," + tall + "," + foot + "," + never + "," + half.Drop.ToString("0.00");
+    }
+
+    /// <summary>
     /// A country's flag on a cloth of any shape (CropMap.ForCountry): at its own and any wide
     /// shape the whole image as always; on a tall one turned, its top hoist corner kept, its top
     /// along the hoist and its hoist edge along the top; a square or tall flag of its own never.
@@ -4234,7 +4274,10 @@ public static class ClothTests
             var w = new System.IO.BinaryWriter(ms);
             FlagCodec.Write(w, a);
             w.Flush();
-            body = ms.ToArray();
+            // 17's body: 18's less its last float (the position on the pole).
+            byte[] all = ms.ToArray();
+            body = new byte[all.Length - 4];
+            Array.Copy(all, body, body.Length);
             ms.Position = 0;
             FlagSpec as15 = FlagCodec.Read(new System.IO.BinaryReader(ms), 15);
             old = as15.PoleProfile == FlagPoleProfile.Tapered && as15.PoleBase == FlagPoleBase.Collar && as15.PoleShine == FlagSpec.DefaultPoleShine &&
@@ -5180,6 +5223,8 @@ Check "garbage heights are refused whole" ($hc[2] -eq "True") "a count past the 
 Check "a newer heights format is refused, and says so" ($hc[3] -eq "True") "version 2"
 $cc = [ClothTests]::CodecCountries() -split ","
 Check "a country's flag survives the save, at the shape set" ($cc[0] -eq "True") ("format " + $cc[3] + ": 'US' -> us, 2:3 as the spec said (any shape since 2026-11-10), name and size kept")
+$pp = [ClothTests]::PolePositions() -split ","
+Check "a flag's position on its pole: saved, lowered down a pole as tall on the same foot, never a crossbar or a banner" (($pp[0..5] | Where-Object { $_ -ne "True" }).Count -eq 0) ("format 18 round trip " + $pp[0] + ", older at the top " + $pp[1] + ", pulled in " + $pp[2] + ", pole as tall " + $pp[3] + ", foot kept " + $pp[4] + ", never " + $pp[5] + "; 50% of a 12 m pole lowers 2:3 3 m flag " + $pp[6] + " m")
 $cs = [ClothTests]::CountryShapes() -split ","
 Check "a country's flag on any shape: whole when wide, turned when tall, never a square or tall one" (($cs | Where-Object { $_ -ne "True" }).Count -eq 0) ("own/wide " + $cs[0] + ", tall turned " + $cs[1] + ", square/Nepal never " + $cs[2] + ", corners " + $cs[3] + ", a 20 m 2:1 US held to a 30 m hoist " + $cs[4])
 Check "a save of the first format still reads" ($cc[1] -eq "True") "format 1, byte by byte: a saltire, no country"

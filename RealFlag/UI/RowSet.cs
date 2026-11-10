@@ -816,7 +816,12 @@ namespace RealFlag.UI
                         int value = row.ChoiceValues[i];
                         bool drawn = row.CutIcons || (row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]));
                         UIButton button = _ui.AddButton(page, drawn ? string.Empty : row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
-                        button.tooltip = drawn ? row.ChoiceName(i) : row.Tooltip;
+                        // A choice with a tooltip of its own ("Motion.Loop.Tooltip") says what it does; else
+                        // a drawn one its name, a named one the row's (the author, 2026-11-10: Motion's
+                        // "tooltip texts all the same").
+                        string own = row.ChoiceKeys != null && i < row.ChoiceKeys.Length && Localization.HasEnglish(row.ChoiceKeys[i] + ".Tooltip")
+                            ? Localization.Get(row.ChoiceKeys[i] + ".Tooltip") : null;
+                        button.tooltip = own ?? (drawn ? row.ChoiceName(i) : row.Tooltip);
                         if (row.CutIcons)
                         {
                             // "Shape   [▭] [⊲] [⋲] [▷] ...": the cut as a little flag, its name the tooltip.

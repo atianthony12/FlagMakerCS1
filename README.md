@@ -164,8 +164,8 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
   ones show up on their own while it's open), and shows the flag with your picture on it, the
   cropped parts dimmed.
 - Pictures are never stretched. Picking one gives the flag the picture's shape, so all of it shows.
-  While **Lock width and height** is on, the flag keeps that shape as you resize it. Turn it off to
-  give the flag any shape, and the picture gets cropped to fit.
+  While **Lock width and height** is on, the flag keeps its shape as you resize it. Pick another
+  **Proportions**, or turn the lock off, to give the flag any shape, and the picture gets cropped to fit.
 - Drag the picture to move it, and use the mouse wheel or the **Zoom** slider to zoom (100% just
   fills the flag, lower shows the whole picture with the flag's pattern around it). There's also
   **Fill**, **Whole picture**, **Turn 90°** and **Match its shape**.
@@ -183,6 +183,8 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
   let the mod draw one: tapered and sized like a real pole for that flag and height, with a collar
   at the bottom and a gold ball, a flat cap or a spear at the top.
 - **Pole height** goes from 1 to 50 m, or up to 200 m with **Allow taller poles**.
+- **Position on pole** lowers the flag down its pole: 100% at the top, 50% at half-mast. The pole
+  stays as tall, on the same spot.
 - With one or two halyard **Ropes**, the flag is only held at its top and bottom clips, so its edge
   bows out a little in the wind, like on a real pole. Without ropes, the whole edge is held.
 - **Shape**: tapered (the default), straight, sectional (narrower steps up it, like telescoping

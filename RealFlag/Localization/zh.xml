@@ -177,13 +177,17 @@
   <String key="NewImageAlpha.Label">新旗帜的图片：透明部分</String>
 
   <String key="NewMotion.Label">飘动方式</String>
-  <String key="NewMotion.Tooltip">循环：重复播放，几乎不耗性能。</String>
+  <String key="NewMotion.Tooltip">布料如何运动。</String>
   <String key="SelMotion.Label">飘动方式</String>
-  <String key="SelMotion.Tooltip">循环：重复播放，几乎不耗性能。</String>
+  <String key="SelMotion.Tooltip">布料如何运动。</String>
   <String key="Motion.Waves">飘动</String>
+  <String key="Motion.Waves.Tooltip">随风实时飘动。</String>
   <String key="Motion.Loop">循环</String>
+  <String key="Motion.Loop.Tooltip">反复播放几秒钟的飘动。几乎不耗性能：适合大量旗帜。</String>
   <String key="Motion.Still">静止</String>
+  <String key="Motion.Still.Tooltip">定格的一个姿态。</String>
   <String key="Motion.Flat">平放</String>
+  <String key="Motion.Flat.Tooltip">平整，无褶皱。</String>
   <String key="NewWaviness.Label">起伏程度</String>
   <String key="NewWaviness.Tooltip">波纹有多大。</String>
   <String key="SelWaviness.Label">起伏程度</String>
@@ -276,6 +280,10 @@
   <String key="NewRopeThickness.Tooltip">100% 较逼真。</String>
   <String key="SelRopeThickness.Label">绳的粗细</String>
   <String key="SelRopeThickness.Tooltip">100% 较逼真。</String>
+  <String key="NewPolePosition.Label">旗杆上的位置</String>
+  <String key="NewPolePosition.Tooltip">100% 在顶端，50% 为降半旗。</String>
+  <String key="SelPolePosition.Label">旗杆上的位置</String>
+  <String key="SelPolePosition.Tooltip">100% 在顶端，50% 为降半旗。</String>
 
   <String key="NewPoleColour.Label">杆的颜色</String>
   <String key="NewPoleColour.Tooltip">杆、顶帽、底座。</String>

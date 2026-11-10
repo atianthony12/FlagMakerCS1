@@ -67,7 +67,7 @@ foreach ($b in $blocks) {
     if (-not $name) {
         # AddDesign's and AddPole's rows, and AddPoleButton's: read from their calls below.
         # Their headings are still read here.
-        if ($b -match '(?:Float|Int) = (country|image|pattern|c1|c2|c3|length|proportion|hoistedFrom|motion|waviness|windShare|darkness|wear|tear|tearEdges|dirt|holes|cut|cutDepth|pole|height|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean|profile|poleBase|shine|ropeThickness|rust)\b') {
+        if ($b -match '(?:Float|Int) = (country|image|pattern|c1|c2|c3|length|proportion|hoistedFrom|motion|waviness|windShare|darkness|wear|tear|tearEdges|dirt|holes|cut|cutDepth|pole|height|ropes|poleColour|topColour|ropeColour|thickness|tilt|lean|profile|poleBase|shine|ropeThickness|position|rust)\b') {
             if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
             continue
         }
@@ -115,7 +115,7 @@ Check "the pole rows are read from both tabs' AddPole and AddPoleWear calls" $po
 $buttonCalls = [regex]::Matches($catalog, 'AddPoleButton\(PanelPage\.\w+, PanelPage\.\w+, "(\w+)"')
 foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".Label"); [void]$needed.Add($call.Groups[1].Value + ".Tooltip") }
 Check "the Flagpole buttons are read from both tabs' AddPoleButton calls" $buttonCalls.Count 2
-Write-Host "      ($rows rows in the catalog, 22 of them made twice by AddDesign, 14 by AddPole, 3 by AddPoleWear, 1 by AddPoleButton)"
+Write-Host "      ($rows rows in the catalog, 22 of them made twice by AddDesign, 15 by AddPole, 3 by AddPoleWear, 1 by AddPoleButton)"
 
 foreach ($enum in @('PanelPage')) {
     if ($catalog -match "public enum $enum \{([^}]*)\}") {
