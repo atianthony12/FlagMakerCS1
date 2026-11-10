@@ -204,6 +204,17 @@ namespace RealFlag.Flags
         /// <summary>The props' and trees' capsules' highest top over the world (for CapsulesTopFor), read once a gathering.</summary>
         public CapsuleSet CapsulesTopFor;
         public float CapsulesTop;
+
+        /// <summary>
+        /// A flag that plays a loop (FlagMotion.Loop, FlagRenderer.Loop.cs): the loop it is DRAWN
+        /// with -- it has no cloth or mesh of its own then -- and the one its design asks for now
+        /// (null: to be looked up). They differ while a new one is being made (a redesign, an
+        /// option): the old one shows meanwhile, or the flag's cloth if it has one. The grid it is
+        /// drawn with: its cells along the longer side (LoopMotion.CellsFor), 0 not chosen yet.
+        /// </summary>
+        public LoopEntry Loop;
+        public LoopEntry LoopWanted;
+        public int LoopCells;
     }
 
     /// <summary>
@@ -285,7 +296,7 @@ namespace RealFlag.Flags
     /// drawn on, casting and receiving shadows, through FlagCloth.shader's legacy deferred
     /// passes (the game's lights, its fog and depth of field see it).
     /// </remarks>
-    public sealed class FlagRenderer : MonoBehaviour
+    public sealed partial class FlagRenderer : MonoBehaviour
     {
         public static FlagRenderer Instance { get; private set; }
 
@@ -913,7 +924,7 @@ namespace RealFlag.Flags
 
         private static bool LayOutAfresh(FlagInstance f)
         {
-            if (f.Cloth == null || f.Spec.Motion != FlagMotion.Waves)
+            if (f.Cloth == null || FlagMotion.KeepsShape(f.Spec.Motion))
                 return false;
 
             Vector3 dir = f.WindDir;
@@ -939,6 +950,7 @@ namespace RealFlag.Flags
             _stillShapes.Clear();
             _settledLike.Clear();
             _groupList.Clear();
+            DestroyLoops();
 
             FlagSurroundings.Stop();
             FlagPicking.Clear();
@@ -970,6 +982,8 @@ namespace RealFlag.Flags
             f.Pose = null;
             f.Surface = null;
             f.Capsules = null;
+            f.Loop = null;
+            f.LoopWanted = null;
             DropPole(f);
             if (f.Prop != 0)
                 FlagPicking.Publish(f.Prop, null);
@@ -1063,6 +1077,7 @@ namespace RealFlag.Flags
             if (frozen)
                 dt = 0f;
             _clock += dt;
+            _loopClock += dt;
 
             try
             {
@@ -1159,6 +1174,15 @@ namespace RealFlag.Flags
             for (int i = 0; i < count; i++)
             {
                 FlagInstance f = _batch[i];
+                if (jobs[i].Work != null)
+                {
+                    // A loop being made (LoopBake, no flag of its own): one that threw is not made.
+                    var bake = jobs[i].Work as LoopBake;
+                    if (bake != null && jobs[i].Failure != null)
+                        bake.Threw(jobs[i].Failure);
+                    continue;
+                }
+
                 if (f == null)
                 {
                     // A shared motion's source (no flag of its own): a job that threw is dropped
@@ -1366,6 +1390,7 @@ namespace RealFlag.Flags
 
                 Place(f, anchor, angle);
                 Cull(f, eye, planes);
+                WantLoop(f, now);
                 KeepOrRelease(f, now);
                 ChooseDetail(f);
                 ChooseRefine(f);
@@ -1568,7 +1593,7 @@ namespace RealFlag.Flags
             }
 
             // A still or flat flag's cloth is never stepped: its shape was made without the pole (StillPose), and keeps it.
-            if (f.Cloth != null && !f.PoleApplied && f.Spec.Motion == FlagMotion.Waves)
+            if (f.Cloth != null && !f.PoleApplied && !FlagMotion.KeepsShape(f.Spec.Motion))
             {
                 f.PoleShape.ApplyTo(f.Cloth, f.Fly.x, f.Fly.y, f.Fly.z);
                 f.PoleApplied = true;
@@ -1668,7 +1693,7 @@ namespace RealFlag.Flags
             // spread the same shape over more particles (the drawn surface is refined anyway). A
             // cloth still being let down into the air falls at the detail it was made at: made finer
             // mid-fall, its fine cells whipped through one another (FlagCloth.CalmTime).
-            if (!f.Visible || (f.Cloth != null && (!f.Settled || f.Cloth.Calming)) || f.Spec.Motion != FlagMotion.Waves)
+            if (!f.Visible || (f.Cloth != null && (!f.Settled || f.Cloth.Calming)) || FlagMotion.KeepsShape(f.Spec.Motion))
                 return;
 
             // A follower too (since 2026-11-07): it plays its source on whatever grid it has
@@ -1824,7 +1849,9 @@ namespace RealFlag.Flags
 
             // A still or flat flag whose shape changes has it made again -- showing its old one,
             // resized if need be, meanwhile; one that waves again flies on from the shape it kept.
-            if (spec.Motion == FlagMotion.Waves)
+            // A loop's is looked up again (PlanLoop): the design may ask for another.
+            f.LoopWanted = null;
+            if (!FlagMotion.KeepsShape(spec.Motion))
             {
                 f.Pose = null;
                 f.PoseWanted = false;
@@ -1887,7 +1914,7 @@ namespace RealFlag.Flags
         {
             // A still or flat flag goes with its prop as it is (its cloth is the anchor's, and never stepped).
             // A waving one is carried too until it steps (its particles are the anchor's): its mesh holds.
-            bool still = f.Spec.Motion != FlagMotion.Waves;
+            bool still = FlagMotion.KeepsShape(f.Spec.Motion);
             if (f.HasAnchor && f.Cloth != null && !still)
             {
                 Vector3 d = anchor - f.Anchor;
@@ -1939,9 +1966,13 @@ namespace RealFlag.Flags
         {
             f.Distance = Vector3.Distance(eye, f.Anchor);
 
-            // The box of the cloth as last drawn, or, before it is, of any shape it could take.
+            // The box of the cloth as last drawn (a loop's: of all its frames), or, before it is, of any shape it could take.
             Bounds box;
-            if (f.Mesh != null)
+            if (ShowsLoop(f))
+            {
+                box = LoopBox(f);
+            }
+            else if (f.Mesh != null)
             {
                 box = f.Mesh.Bounds;
                 box.center += f.Anchor;
@@ -1991,6 +2022,9 @@ namespace RealFlag.Flags
             _frameKeyCost.Clear();
             _crowdCount.Clear();
             PlanSources(dt * _load.TimeScale, realDt, wind, ref spent);
+
+            // The loops being made (FlagMotion.Loop): a job each, before the flags that wait for them.
+            PlanLoops(now, ref spent);
 
             if (_ghost != null)
             {
@@ -2062,7 +2096,10 @@ namespace RealFlag.Flags
                 if (!f.HasAnchor || f.Visible || f.Pixels < KeepPixels)
                     continue;
 
-                bool due = f.Spec.Motion == FlagMotion.Waves ? f.Cloth == null || !f.Settled : f.Cloth == null || f.Pose != null;
+                // (A flag that plays a loop has nothing to settle: it takes its loop the frame it is seen.)
+                bool due = FlagMotion.KeepsShape(f.Spec.Motion) ? f.Cloth == null || f.Pose != null
+                         : f.Spec.Motion == FlagMotion.Loop ? f.Cloth != null && !f.Settled
+                         : f.Cloth == null || !f.Settled;
                 if (!due)
                     continue;
 
@@ -2142,7 +2179,7 @@ namespace RealFlag.Flags
             for (int i = 0; i < inView; i++)
             {
                 FlagInstance f = _order[i];
-                if (f.Spec.Motion == FlagMotion.Waves ? f.Cloth == null || !f.Settled : f.Cloth == null)
+                if (f.Loop == null && (FlagMotion.KeepsShape(f.Spec.Motion) ? f.Cloth == null : f.Cloth == null || !f.Settled))
                     waiting++;
             }
 
@@ -2508,11 +2545,16 @@ namespace RealFlag.Flags
         {
             f.Waiting = false;
 
-            if (f.Spec.Motion != FlagMotion.Waves)
+            if (FlagMotion.KeepsShape(f.Spec.Motion))
             {
                 PlanStill(f, ghost, ref spent, ref settles);
                 return;
             }
+
+            // A loop: nothing to step once it has it. Until its loop is made a flag in hand, or
+            // one that has a cloth, waves as below; so does one whose loop could not be made.
+            if (f.Spec.Motion == FlagMotion.Loop && PlanLoop(f, ghost))
+                return;
 
             Vector3 start = wind.DirectionFor(f.Angle);
             if (f.Cloth == null)
@@ -2879,7 +2921,7 @@ namespace RealFlag.Flags
         /// </summary>
         private bool CopyFit(FlagInstance f)
         {
-            if (f.Prop == 0 || f.Cloth == null || f.Spec.Motion != FlagMotion.Waves || f.Cloth.Detail != FlagCloth.CellsAlong)
+            if (f.Prop == 0 || f.Cloth == null || FlagMotion.KeepsShape(f.Spec.Motion) || f.Cloth.Detail != FlagCloth.CellsAlong)
                 return false;
             if (f.Prop == FlagEditor.Selected || f.AwakeUntil > Time.realtimeSinceStartup)
                 return false;
@@ -3692,6 +3734,20 @@ namespace RealFlag.Flags
         {
             DrawPole(f);
 
+            // A loop (FlagMotion.Loop): its own draw, no mesh of the flag's. One the design no
+            // longer asks for shows until the cloth that follows it is ready, then is let go.
+            if (f.Loop != null)
+            {
+                if (ShowsLoop(f))
+                {
+                    if (f.Visible)
+                        DrawLoop(f);
+                    return;
+                }
+
+                f.Loop = null;
+            }
+
             if (!f.Visible || f.Mesh == null || !f.Settled)
                 return;
 
@@ -3708,17 +3764,7 @@ namespace RealFlag.Flags
                 f.Fresh = false;
             }
 
-            // The flag the picking pointer is on glows gold; the selected one is not tinted (the
-            // gizmo shows it -- the author: "remove the highlight on the flag when an existing flag
-            // is selected. No need for it").
-            bool hovered = IsHovered(f);
-            if (!f.BlockReady || hovered || f.Highlighted || (f.Spec.HasImage && f.ImageVersion != FlagImages.UserVersion))
-            {
-                FlagLook.Apply(f.Block, f.Spec, hovered ? HoverGlow : Vector4.zero, FlagWear.SeedFor(f.Prop));
-                f.BlockReady = true;
-                f.Highlighted = hovered;
-                f.ImageVersion = FlagImages.UserVersion;
-            }
+            PutBlock(f);
 
             // The particles' texture: the shape the vertex program lays the drawn grid on. A shadow
             // only while the flag is big enough on the screen for one to be seen (ShadowPixels).
@@ -3739,6 +3785,23 @@ namespace RealFlag.Flags
                 float since = f.PickAge;
                 f.PickAge = 0f;
                 PublishPick(f, since);
+            }
+        }
+
+        /// <summary>
+        /// The flag's design into its block, when it changed. The flag the picking pointer is on
+        /// glows gold; the selected one is not tinted (the gizmo shows it -- the author: "remove
+        /// the highlight on the flag when an existing flag is selected. No need for it").
+        /// </summary>
+        private static void PutBlock(FlagInstance f)
+        {
+            bool hovered = IsHovered(f);
+            if (!f.BlockReady || hovered || f.Highlighted || (f.Spec.HasImage && f.ImageVersion != FlagImages.UserVersion))
+            {
+                FlagLook.Apply(f.Block, f.Spec, hovered ? HoverGlow : Vector4.zero, FlagWear.SeedFor(f.Prop));
+                f.BlockReady = true;
+                f.Highlighted = hovered;
+                f.ImageVersion = FlagImages.UserVersion;
             }
         }
 
@@ -3838,7 +3901,18 @@ namespace RealFlag.Flags
 
             float uMin = float.MaxValue, uMax = float.MinValue, hMin = float.MaxValue, hMax = float.MinValue;
             float nMin = float.MaxValue, nMax = float.MinValue;
-            for (int k = 0; k < c.Count; k++)
+
+            // A flag that plays a loop has no cloth: its loop's extents over all its frames, in
+            // these axes (FlagLoop: taken at heading 0, where the flag's own axes are these).
+            if (c == null)
+            {
+                FlagLoop loop = f.Loop.Loop;
+                uMin = loop.MinU; uMax = loop.MaxU;
+                hMin = loop.MinV; hMax = loop.MaxV;
+                nMin = loop.MinN; nMax = loop.MaxN;
+            }
+
+            for (int k = 0; c != null && k < c.Count; k++)
             {
                 // A cut cloth's out particles are never drawn: not picked either.
                 if (!c.IsCloth(k))
@@ -3876,7 +3950,7 @@ namespace RealFlag.Flags
             shape.WideHoistRadius = Mathf.Max(Mathf.Max(WideMarginMin, WideMarginHoist * size), wideAperture);
 
             shape.HoistA = f.Anchor;
-            shape.HoistB = f.Anchor + h * c.Height;
+            shape.HoistB = f.Anchor + h * f.Spec.Height;
 
             // The box of the wider volumes (the first test of either size).
             float halfU = shape.CoreU + Mathf.Max(shape.InPlane, shape.WideInPlane);
@@ -3986,18 +4060,21 @@ namespace RealFlag.Flags
                 int frames = Math.Max(1, _costFrames);
                 float seconds = now - _nextReport + 5f;
                 Wind w = _wind;
-                int still = 0, unshown = 0;
+                int still = 0, unshown = 0, looping = 0;
                 foreach (FlagInstance f in _flags)
                 {
-                    if (f.Spec.Motion != FlagMotion.Waves)
+                    if (FlagMotion.KeepsShape(f.Spec.Motion))
                         still++;
+                    if (f.Loop != null)
+                        looping++;
 
-                    // In view but not drawn yet: no cloth or mesh, or still settling (Draw skips them).
-                    if (f.Visible && (f.Mesh == null || !f.Settled))
+                    // In view but not drawn yet: no cloth or mesh, or still settling (Draw skips them); a loop not made yet.
+                    if (f.Visible && f.Loop == null && (f.Mesh == null || !f.Settled))
                         unshown++;
                 }
 
-                Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept), " +
+                Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept; " +
+                           looping + " playing a loop, " + LoopsText() + "), " +
                            VisibleCount + " in view (" + unshown + " not drawn yet: settling" +
                            (_released > 0 ? "; " + _released + " cloth(s) let go out of view so far" : "") + "), settled in " + seconds.ToString("F0") + " s: " +
                            _settledSeen + " in view, " + _settledUnseen + " out of view, " + _settleCopies + " from a like flag's shape; " + _moving + " moving, " + _waiting +
@@ -4165,14 +4242,15 @@ namespace RealFlag.Flags
         private void DrawLine()
         {
             FlagInstance g = _ghost;
-            if (_linePoints.Count < 2 || g.Mesh == null || !g.Settled || !g.BlockReady)
+            bool loop = ShowsLoop(g);
+            if (_linePoints.Count < 2 || !g.BlockReady || (!loop && (g.Mesh == null || !g.Settled)))
                 return;
 
             FlagSpec spec = g.Spec;
             bool pole = g.PoleMesh != null && spec.HasPole && _poleMaterial != null && g.PoleBlockReady;
             if (pole)
                 g.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, 0f);   // the row's poles get no Real Glass finish: their own sky
-            bool turns = spec.Motion != FlagMotion.Waves || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f;
+            bool turns = FlagMotion.KeepsShape(spec.Motion) || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f;
             float lift = FlagTool.Lift;
 
             for (int i = 1; i < _linePoints.Count; i++)
@@ -4182,8 +4260,11 @@ namespace RealFlag.Flags
                 anchor.y += StandRise(spec, p.Angle) + lift;
 
                 // The prop's angle runs from x towards z; Unity's turn about y the other way.
-                Quaternion turn = turns ? Quaternion.AngleAxis((g.Angle - p.Angle) * Mathf.Rad2Deg, Vector3.up) : Quaternion.identity;
-                Graphics.DrawMesh(g.Mesh.Mesh, Matrix4x4.TRS(anchor, turn, Vector3.one), _material, _layer, _camera, 0, g.Block, true, true);
+                // A loop is in the flag's own frame (heading 0): turned whole to each point's heading.
+                Quaternion turn = loop ? Quaternion.AngleAxis(-p.Angle * Mathf.Rad2Deg, Vector3.up)
+                                : turns ? Quaternion.AngleAxis((g.Angle - p.Angle) * Mathf.Rad2Deg, Vector3.up) : Quaternion.identity;
+                Graphics.DrawMesh(loop ? g.Loop.Loop.MeshFor(g.LoopCells) : g.Mesh.Mesh, Matrix4x4.TRS(anchor, turn, Vector3.one), _material, _layer, _camera,
+                                  0, g.Block, true, true);
 
                 if (pole)
                 {

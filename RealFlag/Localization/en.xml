@@ -183,10 +183,11 @@
   <String key="NewImageAlpha.Label">New flag's image: see-through parts</String>
 
   <String key="NewMotion.Label">Motion</String>
-  <String key="NewMotion.Tooltip">Waving, frozen or flat.</String>
+  <String key="NewMotion.Tooltip">Loop: repeats, nearly free.</String>
   <String key="SelMotion.Label">Motion</String>
-  <String key="SelMotion.Tooltip">Waving, frozen or flat.</String>
+  <String key="SelMotion.Tooltip">Loop: repeats, nearly free.</String>
   <String key="Motion.Waves">Waving</String>
+  <String key="Motion.Loop">Loop</String>
   <String key="Motion.Still">Still</String>
   <String key="Motion.Flat">Flat</String>
   <String key="NewWaviness.Label">How wavy</String>

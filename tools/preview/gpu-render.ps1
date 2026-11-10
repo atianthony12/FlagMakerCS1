@@ -38,6 +38,10 @@
 #                                  column the shape after that many seconds of its breeze, "-1" its own
 #                                  time (StillPose.StepsFor); "flat": laid flat
 #   ... -Motions "waves,still,flat"  one row per motion (times the rest)
+#   ... -Motion loop               a flag that plays a loop (ClothLoop.cs; -Winds ignored): baked whole, then each
+#                                  -Times column a moment of the loop's clock, drawn by the shader from its texture.
+#                                  -Times "-0.4" -Seq "8,0.1" straddles the seam (0 is the first frame);
+#                                  -LoopCells 8: the grid drawn (cells along; 0 the finest); -WindShare 0.5: "Wind on it"
 #   ... -Boxes "2.4,0,4,12,14"     buildings: boxes on the ground, middle x,z from the pole's foot, width
 #                                  (x), depth (z), height; several with "|" -- the flag's SurfaceGrid
 #   ... -Posts "-0.5,0,0.15,13"    props or trees: capsules at x,z, their radius and height (CapsuleSet)
@@ -93,6 +97,8 @@ param(
     [switch]$Through,
     [string]$Motion = "waves",
     [string]$Motions = "",
+    [int]$LoopCells = 0,
+    [double]$WindShare = 1.0,
     # Metres added to the point looked at (the flag's middle), "x,y,z": "-1.5,1,0" is a 3 x 2 m flag's anchor.
     [string]$Look = "0,0,0",
     # The way the wind blows, degrees from the flag's heading: 180 blows it back over its pole.
@@ -180,6 +186,8 @@ $env:RF_BOXES = $Boxes
 $env:RF_POSTS = $Posts
 $env:RF_CITY = if ($NoCity) { "0" } else { "1" }
 $env:RF_MOTIONS = if ($Motions) { $Motions } else { $Motion }
+$env:RF_LOOPCELLS = "$LoopCells"
+$env:RF_WINDSHARE = $WindShare.ToString($inv)
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -200,7 +208,7 @@ if ($Bench -gt 0) { return }
 
 # The sheet: the frames in the order rendered, row by row; -Columns wraps a long row (a -Seq).
 $frameLines = @($lines | Where-Object { $_ -match "^RF FRAME " } | ForEach-Object {
-    $m = [regex]::Match($_, "^RF FRAME row=(\d+) col=(\d+) t=([\d.]+) wind=([\d.]+) pattern=(\d+) file=(.+?) \| (.*)$")
+    $m = [regex]::Match($_, "^RF FRAME row=(\d+) col=(\d+) t=(-?[\d.]+) wind=([\d.]+) pattern=(\d+) file=(.+?) \| (.*)$")
     @{ Row = [int]$m.Groups[1].Value; Col = [int]$m.Groups[2].Value; T = $m.Groups[3].Value; Wind = $m.Groups[4].Value;
        Pattern = $m.Groups[5].Value; File = $m.Groups[6].Value; Info = $m.Groups[7].Value }
 })

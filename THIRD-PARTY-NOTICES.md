@@ -115,7 +115,8 @@ The cloth, the air acting on it, the wind and the fabric shader follow published
 position-based dynamics, long range attachments, Lighthill's slender-body theory of the
 fluttering flag, the Eurocode's wind profile and turbulence, the power law of the wind over a
 city (Davenport, ASCE 7) and its roughness from the buildings (Lettau), the WMO's 3 s gust, the "Charlie" sheen, crowd
-animation's time offsets (shared motion) and dynamic resolution scaling (the load) -- listed with
+animation's time offsets (shared motion), dynamic resolution scaling (the load), video textures'
+seam and the vertex animation texture (flags that play a loop) -- listed with
 full references in `LICENSE` and `README.md`. The implementations were written for this mod.
 
 One exception, a few lines: the hash functions of `UnityProject/Assets/RealFlag/FlagWear.cginc`

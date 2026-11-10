@@ -184,10 +184,11 @@
   <String key="NewImageAlpha.Label">Imagen de la nueva bandera: partes transparentes</String>
 
   <String key="NewMotion.Label">Movimiento</String>
-  <String key="NewMotion.Tooltip">Ondeando, quieta o plana.</String>
+  <String key="NewMotion.Tooltip">Bucle: se repite, casi gratis.</String>
   <String key="SelMotion.Label">Movimiento</String>
-  <String key="SelMotion.Tooltip">Ondeando, quieta o plana.</String>
+  <String key="SelMotion.Tooltip">Bucle: se repite, casi gratis.</String>
   <String key="Motion.Waves">Ondeando</String>
+  <String key="Motion.Loop">Bucle</String>
   <String key="Motion.Still">Quieta</String>
   <String key="Motion.Flat">Plana</String>
   <String key="NewWaviness.Label">Cuánto ondea</String>

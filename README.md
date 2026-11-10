@@ -128,7 +128,7 @@ that row.
 | **Width**, **Height** | From 0.5 to 30 m each. Turn on **Lock width and height** to keep the proportions while you resize. |
 | **Shape**, **Cut depth** | The outline of the flag's free end: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed or rounded. Cut depth sets how deep the notch or the point goes. The cloth itself is cut, not just the picture. |
 | **Hangs from** | **Side**, like a flag on a pole, or **Top**, like a banner from a crossbar or a balcony. Hanging from the top, the design turns the way a real flag hung vertically does, with the corner box at the top left.[^flagcode] |
-| **Motion** | **Waving** in the wind, **Still** or **Flat**, see [below](#still-and-flat-flags). |
+| **Motion** | **Waving** in the wind, **Loop**, **Still** or **Flat**, see [below](#loop-still-and-flat-flags). |
 | **How wavy** | How much the cloth ripples, from 0 to 200%. |
 | **Wind on it** | How much of the wind reaches the flag. At 0% a banner just hangs, and around 10 to 25% it sways gently. |
 | **Darkness** | Tones a flag's colors down so its white and yellow don't glare in the sun: 30% to begin with, up to 80%. |
@@ -137,7 +137,14 @@ that row.
 | **Rotation** | Which way the flag points. |
 | **Snap to edges** | A banner hanging from its top snaps to the edge of a roof near your mouse, so it hangs down the facade. |
 
-### Still and flat flags
+### Loop, still and flat flags
+
+A **loop** flag plays a few seconds of its own waving over and over. It flies in a steady breeze of
+its own, the way it points, so it waves even when the game's wind is too weak to lift a flag. It
+doesn't react to the wind, the weather or buildings, and your graphics card plays it back, so it
+costs almost nothing however many you place. Flags with the same shape share one loop, each
+starting at its own moment so a row is never in step. **Wind on it** sets how strong its breeze is.
+The first flag of a shape takes a few seconds to appear while its loop is made.
 
 A **still** flag is frozen in one shape, as if it was caught in a steady breeze blowing the way it
 points. Rotate it to aim it (a banner hanging from its top just hangs). How wavy sets how rippled
@@ -485,6 +492,21 @@ gets the same shape, rotated to where each flag points, and it's never simulated
 </details>
 
 <details>
+<summary><b>Loop flags</b>: simulated once, played back by the graphics card</summary>
+
+<br>
+
+A loop flag's cloth is simulated once, in the same steady breeze a still flag is caught in, and
+recorded for about 17 seconds. A cloth never repeats on its own, so the mod looks for the two
+moments in the recording, 4 to 6 seconds apart, where the cloth looks most alike over three
+quarters of a second, cuts the loop there and cross-fades the end into the moments before its
+start.[^loop] The frames go into a texture, and the flag's shader reads the cloth from it, so a
+loop flag has no cloth of its own and is a single draw. Flags far away are drawn with a few dozen
+points on the same surface. Bigger flags get longer loops, up to 12 seconds.
+
+</details>
+
+<details>
 <summary><b>Your pictures</b>: cropped, never stretched</summary>
 
 <br>
@@ -576,6 +598,7 @@ MIT, see [LICENSE](LICENSE).
 [^surface]: **The drawn surface.** E. Catmull and R. Rom, *A class of local interpolating splines* (Computer Aided Geometric Design, 1974); G. Taubin, *A Signal Processing Approach to Fair Surface Design* (SIGGRAPH 1995).
 [^still]: **Still flags.** The Met Office's Beaufort wind force scale (force 3, "light flags extended"): the breeze a still flag is caught in; W. Froude's similarity (the Froude number, U²/gL): a stronger breeze for a bigger flag; W. Welch and A. Witkin, *Variational Surface Modeling* (SIGGRAPH 1992), the thin-plate energy: picking the smoothest moment.
 [^pictures]: **Your pictures.** The images folders of *Procedural Objects* and *Image Overlay* (Cities: Skylines mods): a folder button and a list of the files, the idea only, no code; S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996): the "pull-push" fill under transparent pixels; the PNG specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81): reading a picture's size from its header.
+[^loop]: **Loop flags.** A. Schödl, R. Szeliski, D. Salesin and I. Essa, *Video Textures* (SIGGRAPH 2000): finding where a recording can repeat and cross-fading the seam; the vertex animation texture games bake cloth and crowds into: the idea of reading the motion from a texture in the shader.
 [^crowds]: **Many flags.** B. Dudash, *Animated Crowd Rendering* (GPU Gems 3, ch. 2, 2007): similar flags playing back one cloth's motion, each with its own delay; D. Binks, *Dynamic Resolution Rendering* (Intel, 2011): scaling the work to a measured budget, smallest flags first; H. Weyl's equidistribution (1916): the golden ratio sequence that spreads the delays.
 [^timestep]: G. Fiedler, *Fix Your Timestep!* (2004).
 [^pick]: **Picking a flag.** C. Ericson, *Real-Time Collision Detection* (2005); the OpenGL Programming Guide's picking region a few pixels around the cursor (gluPickMatrix): the smallest a flag's pick target gets on screen; U. Zölzer, *Digital Audio Signal Processing* (2008), dynamic range control's peak measurement (an instant attack, a slow release): holding the pick target steady while the flag flutters.

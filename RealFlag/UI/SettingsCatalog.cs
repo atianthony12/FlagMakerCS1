@@ -1162,6 +1162,7 @@ namespace RealFlag.UI
                 AfterChange = () =>
                 {
                     Log.Msg("flags: " + who + " " + (motion.value == FlagMotion.Waves ? "waves in the wind" :
+                                                     motion.value == FlagMotion.Loop ? "plays a loop" :
                                                      motion.value == FlagMotion.Still ? "keeps still" : "is held flat"));
                     (changed ?? Nothing)();
                 },
@@ -1180,8 +1181,9 @@ namespace RealFlag.UI
             });
 
             // Wind on it (the author, 2026-11-07: how much the flag moves, beside How wavy's
-            // ripples): the share of the wind where it stands (FlagSpec.WindShare). A waving flag's
-            // only (a still one's shape is made in its own breeze).
+            // ripples): the share of the wind where it stands (FlagSpec.WindShare) -- of its own
+            // breeze for a flag that plays a loop (LoopMotion.Wind). Not a still one's (its shape
+            // is made in its own breeze, whole).
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -1190,7 +1192,7 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.WindShare,
                 Min = 0f, Max = 100f, Step = 5f,
                 AfterChange = changed,
-                Enabled = () => (enabled == null || enabled()) && motion.value == FlagMotion.Waves,
+                Enabled = () => (enabled == null || enabled()) && FlagMotion.Moves(motion.value),
             });
 
             Add(new Row
@@ -1632,7 +1634,7 @@ namespace RealFlag.UI
                 Bool = Settings.NewBackPlate,
                 DefaultBool = Settings.Defaults.BackPlate,
                 AfterChange = State("back plate", OnOff(Settings.NewBackPlate)),
-                Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && Settings.NewMotion.value == FlagMotion.Waves,
+                Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && FlagMotion.Moves(Settings.NewMotion.value),
             });
 
             Add(new Row
@@ -1815,7 +1817,7 @@ namespace RealFlag.UI
                 Bool = Settings.SelBackPlate,
                 DefaultBool = Settings.Defaults.BackPlate,
                 AfterChange = FlagEditor.ApplyDesign,
-                Enabled = () => selected() && Settings.SelHoistedFrom.value == FlagHoist.Top && Settings.SelMotion.value == FlagMotion.Waves,
+                Enabled = () => selected() && Settings.SelHoistedFrom.value == FlagHoist.Top && FlagMotion.Moves(Settings.SelMotion.value),
             });
 
             Add(new Row

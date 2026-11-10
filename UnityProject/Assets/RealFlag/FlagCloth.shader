@@ -60,10 +60,17 @@
 // check it. Every pass runs it, the shadow caster's too. A flag drawn a vertex a particle
 // (_RFUseGrid 0, most of a city's) comes with its vertices, normals and tangents as they are.
 //
+// A flag that plays a LOOP (_RFUseGrid 2: FlagMotion.Loop, FlagLoop.cs) has no cloth of its own:
+// _RFGrid is its loop's texture, a tile of particles a frame (ClothLoop.cs's LoopBake, the idea of
+// a vertex animation texture), and the vertex program lays the vertex on the same patch in two
+// frames' tiles (_RFGridAt: their first texels) and blends them (_RFGridBlend) -- the frames are
+// 1/32 or 1/16 s apart. Its mesh is any grid of the flag's uv, coarser for a flag small on the
+// screen: every vertex lies on the one surface.
+//
 // Per flag, in a MaterialPropertyBlock: _RFColor1..3 (LINEAR), _RFPattern, _RFAspect (height /
 // length), _RFLength (metres), _RFHighlight (rgb x a, added: the panel's selection), _RFImage,
 // _RFUseImage, _RFImageMap, _RFImageMap2 and _RFImageThrough, _RFBrightness, _RFWear, _RFWearSeed, _RFCut,
-// _RFGrid and _RFGridSize.
+// _RFGrid, _RFGridSize, _RFGridAt and _RFGridBlend.
 // `#pragma target 3.5`, never 4.0: Unity 5.6 builds NO Metal code at 4.0 (an empty blob).
 Shader "RealFlag/FlagCloth"
 {
@@ -88,8 +95,10 @@ Shader "RealFlag/FlagCloth"
         _RFTear ("Torn: x the fly, y the edges (0..1)", Vector) = (0, 0, 0, 0)
         _RFCut ("Cut: x the outline (FlagCut), y its depth (share of the length)", Vector) = (0, 0.3333, 0, 0)
         _RFGrid ("The cloth's particles (float, point)", 2D) = "black" {}
-        _RFGridSize ("Columns, rows, 1 / columns, 1 / rows", Vector) = (2, 2, 0.5, 0.5)
-        _RFUseGrid ("Shape from the particles' texture", Float) = 0
+        _RFGridSize ("Columns, rows, 1 / the texture's width, 1 / its height", Vector) = (2, 2, 0.5, 0.5)
+        _RFGridAt ("A loop: its two frames' tiles, their first texels (xy, zw)", Vector) = (0, 0, 0, 0)
+        _RFGridBlend ("A loop: how far from the first frame to the second", Float) = 0
+        _RFUseGrid ("Shape from the particles' texture (1), from a loop's two frames (2)", Float) = 0
     }
 
     SubShader
@@ -124,6 +133,8 @@ Shader "RealFlag/FlagCloth"
         float4 _RFCut;
         sampler2D _RFGrid;
         float4 _RFGridSize;
+        float4 _RFGridAt;
+        float _RFGridBlend;
         float _RFUseGrid;
 
         // Set globally by FlagRenderer (and the preview): towards the sun, and its light (linear).
@@ -174,10 +185,11 @@ Shader "RealFlag/FlagCloth"
             float face : VFACE;
         };
 
-        // Particle (i, j) of the cloth.
-        float3 RFGrid(float i, float j)
+        // Particle (i, j) of the cloth, in the tile whose first texel is `at` (one moment's
+        // texture: (0, 0); a loop's: one frame's tile).
+        float3 RFGrid(float2 at, float i, float j)
         {
-            return tex2Dlod(_RFGrid, float4((i + 0.5) * _RFGridSize.z, (j + 0.5) * _RFGridSize.w, 0.0, 0.0)).xyz;
+            return tex2Dlod(_RFGrid, float4((at.x + i + 0.5) * _RFGridSize.z, (at.y + j + 0.5) * _RFGridSize.w, 0.0, 0.0)).xyz;
         }
 
         // Catmull-Rom weights at t of the points i0 - 1 .. i0 + 2 of n, and their derivatives,
@@ -195,17 +207,29 @@ Shader "RealFlag/FlagCloth"
         }
 
         // One row of the 4 x 4 patch into the position and its two derivatives.
-        void RFRow(float j, float wj, float dj, float4 i4, float4 wu, float4 du, inout float3 p, inout float3 pu, inout float3 pv)
+        void RFRow(float2 at, float j, float wj, float dj, float4 i4, float4 wu, float4 du, inout float3 p, inout float3 pu, inout float3 pv)
         {
-            float3 a = RFGrid(i4.x, j);
-            float3 b = RFGrid(i4.y, j);
-            float3 c = RFGrid(i4.z, j);
-            float3 e = RFGrid(i4.w, j);
+            float3 a = RFGrid(at, i4.x, j);
+            float3 b = RFGrid(at, i4.y, j);
+            float3 c = RFGrid(at, i4.z, j);
+            float3 e = RFGrid(at, i4.w, j);
             float3 row = wu.x * a + wu.y * b + wu.z * c + wu.w * e;
             float3 rowd = du.x * a + du.y * b + du.z * c + du.w * e;
             p += wj * row;
             pu += wj * rowd;
             pv += dj * row;
+        }
+
+        // The 4 x 4 patch of the tile at `at`: the position and its two derivatives.
+        void RFPatch(float2 at, float4 i4, float4 j4, float4 wu, float4 du, float4 wv, float4 dv, out float3 p, out float3 pu, out float3 pv)
+        {
+            p = float3(0.0, 0.0, 0.0);
+            pu = float3(0.0, 0.0, 0.0);
+            pv = float3(0.0, 0.0, 0.0);
+            RFRow(at, j4.x, wv.x, dv.x, i4, wu, du, p, pu, pv);
+            RFRow(at, j4.y, wv.y, dv.y, i4, wu, du, p, pu, pv);
+            RFRow(at, j4.z, wv.z, dv.z, i4, wu, du, p, pu, pv);
+            RFRow(at, j4.w, wv.w, dv.w, i4, wu, du, p, pu, pv);
         }
 
         void vert(inout appdata_full v, out Input o)
@@ -233,13 +257,24 @@ Shader "RealFlag/FlagCloth"
             RFWeights(gv - j0, j0, rows, wv, dv);
 
             float4 i4 = float4(max(i0 - 1.0, 0.0), i0, i0 + 1.0, min(i0 + 2.0, cols - 1.0));
-            float3 p = float3(0.0, 0.0, 0.0);
-            float3 pu = float3(0.0, 0.0, 0.0);
-            float3 pv = float3(0.0, 0.0, 0.0);
-            RFRow(max(j0 - 1.0, 0.0), wv.x, dv.x, i4, wu, du, p, pu, pv);
-            RFRow(j0, wv.y, dv.y, i4, wu, du, p, pu, pv);
-            RFRow(j0 + 1.0, wv.z, dv.z, i4, wu, du, p, pu, pv);
-            RFRow(min(j0 + 2.0, rows - 1.0), wv.w, dv.w, i4, wu, du, p, pu, pv);
+            float4 j4 = float4(max(j0 - 1.0, 0.0), j0, j0 + 1.0, min(j0 + 2.0, rows - 1.0));
+            float3 p;
+            float3 pu;
+            float3 pv;
+            RFPatch(_RFGridAt.xy, i4, j4, wu, du, wv, dv, p, pu, pv);
+
+            // A loop (_RFUseGrid 2): between two of its frames -- the patch is linear in its
+            // particles, so the two patches blended are the patch of the particles blended.
+            if (_RFUseGrid > 1.5)
+            {
+                float3 q;
+                float3 qu;
+                float3 qv;
+                RFPatch(_RFGridAt.zw, i4, j4, wu, du, wv, dv, q, qu, qv);
+                p = lerp(p, q, _RFGridBlend);
+                pu = lerp(pu, qu, _RFGridBlend);
+                pv = lerp(pv, qv, _RFGridBlend);
+            }
 
             // The front: along the fly x down the hoist, as FlagCloth.ComputeNormals.
             float3 n = cross(pu, pv);

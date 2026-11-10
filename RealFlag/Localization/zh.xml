@@ -177,10 +177,11 @@
   <String key="NewImageAlpha.Label">新旗帜的图片：透明部分</String>
 
   <String key="NewMotion.Label">飘动方式</String>
-  <String key="NewMotion.Tooltip">飘动、静止或平放。</String>
+  <String key="NewMotion.Tooltip">循环：重复播放，几乎不耗性能。</String>
   <String key="SelMotion.Label">飘动方式</String>
-  <String key="SelMotion.Tooltip">飘动、静止或平放。</String>
+  <String key="SelMotion.Tooltip">循环：重复播放，几乎不耗性能。</String>
   <String key="Motion.Waves">飘动</String>
+  <String key="Motion.Loop">循环</String>
   <String key="Motion.Still">静止</String>
   <String key="Motion.Flat">平放</String>
   <String key="NewWaviness.Label">起伏程度</String>

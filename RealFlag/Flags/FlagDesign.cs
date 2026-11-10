@@ -173,7 +173,8 @@ namespace RealFlag.Flags
     /// Waves: the cloth flies in the wind (the default). Still: it keeps one shape, caught once as
     /// it flew in a breeze along its heading (a banner hoisted from its top hangs), and never moves
     /// again. Flat: held flat, as a flag on a wall or a banner in its frame. A still or flat flag
-    /// is never stepped: it costs the cloth's threads nothing once made (StillPose).
+    /// is never stepped: it costs the cloth's threads nothing once made (StillPose). Loop: it
+    /// plays a few seconds of its own cloth over and over (ClothLoop.cs), stepped by no one.
     /// </summary>
     /// <remarks>
     /// The author: "Some flags should be also static" -- asked whether How wavy at 0% should be
@@ -188,17 +189,37 @@ namespace RealFlag.Flags
         public const int Still = 1;
         public const int Flat = 2;
 
-        public static readonly int[] Values = { Waves, Still, Flat };
-        public static readonly string[] NameKeys = { "Motion.Waves", "Motion.Still", "Motion.Flat" };
+        /// <summary>
+        /// Plays a loop (2026-11-10, ClothLoop.cs): a few seconds of its own cloth in a steady
+        /// breeze along its heading, made once for every flag of its shape and played back by the
+        /// graphics card. It moves, and costs what a still flag does.
+        /// </summary>
+        public const int Loop = 3;
+
+        /// <summary>As the panel shows them: the two that move, then the two that do not.</summary>
+        public static readonly int[] Values = { Waves, Loop, Still, Flat };
+        public static readonly string[] NameKeys = { "Motion.Waves", "Motion.Loop", "Motion.Still", "Motion.Flat" };
 
         public static bool IsKnown(int value)
         {
-            return value >= Waves && value <= Flat;
+            return value >= Waves && value <= Loop;
+        }
+
+        /// <summary>Still or flat: one shape, made once (StillPose), never moving.</summary>
+        public static bool KeepsShape(int value)
+        {
+            return value == Still || value == Flat;
+        }
+
+        /// <summary>Waves or loops: its cloth moves in a wind (a loop's in its own breeze).</summary>
+        public static bool Moves(int value)
+        {
+            return value == Waves || value == Loop;
         }
 
         public static string LogName(int value)
         {
-            return value == Still ? "still" : value == Flat ? "flat" : "waving";
+            return value == Still ? "still" : value == Flat ? "flat" : value == Loop ? "looping" : "waving";
         }
     }
 

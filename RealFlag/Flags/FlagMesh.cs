@@ -57,6 +57,10 @@ namespace RealFlag.Flags
         public static readonly int IdGridSize = Shader.PropertyToID("_RFGridSize");
         public static readonly int IdUseGrid = Shader.PropertyToID("_RFUseGrid");
 
+        /// <summary>A loop's two frames in its texture, and how far between them (FlagLoop); zero for a cloth's own texture.</summary>
+        public static readonly int IdGridAt = Shader.PropertyToID("_RFGridAt");
+        public static readonly int IdGridBlend = Shader.PropertyToID("_RFGridBlend");
+
         public readonly Mesh Mesh;
 
         /// <summary>Drawn cells per cloth cell, each way (1: a vertex per particle, the CPU's way).</summary>
@@ -303,8 +307,10 @@ namespace RealFlag.Flags
             block.SetFloat(IdUseGrid, Refine > 1 ? 1f : 0f);
             if (Refine > 1)
             {
+                // One moment's texture: its one tile at the first texel (a block a loop used may hold another).
                 block.SetTexture(IdGrid, _grid);
                 block.SetVector(IdGridSize, _gridSize);
+                block.SetVector(IdGridAt, Vector4.zero);
             }
         }
 

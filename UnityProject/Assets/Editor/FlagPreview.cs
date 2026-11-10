@@ -186,6 +186,7 @@ public static class FlagPreview
         spec.Length = ParseFloat(Env("RF_LENGTH", "3"));
         spec.Proportion = int.Parse(Env("RF_PROPORTION", FlagProportion.Default.ToString(CultureInfo.InvariantCulture)), CultureInfo.InvariantCulture);
         spec.Waviness = ParseFloat(Env("RF_WAVINESS", "1"));
+        spec.WindShare = Mathf.Clamp01(ParseFloat(Env("RF_WINDSHARE", "1")));
         float gusts = ParseFloat(Env("RF_GUSTS", "1"));
         float elevation = ParseFloat(Env("RF_ELEVATION", "10"));
         string[] colours = Env("RF_COLOURS", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -416,8 +417,11 @@ public static class FlagPreview
         foreach (string m in Env("RF_MOTIONS", "waves").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
         {
             string name = m.Trim().ToLowerInvariant();
-            motions.Add(name == "still" ? FlagMotion.Still : name == "flat" ? FlagMotion.Flat : FlagMotion.Waves);
+            motions.Add(name == "still" ? FlagMotion.Still : name == "flat" ? FlagMotion.Flat : name == "loop" ? FlagMotion.Loop : FlagMotion.Waves);
         }
+
+        // RF_LOOPCELLS: a loop's drawn cells along its longer side (0: its finest grid).
+        int loopCells = int.Parse(Env("RF_LOOPCELLS", "0"), CultureInfo.InvariantCulture);
 
         foreach (int detail in details)
         foreach (int refine in refines)
@@ -481,14 +485,54 @@ public static class FlagPreview
                 float t = 0f;
                 int col = 0;
                 int posed = 0;
-                if (motion != FlagMotion.Waves)
+                if (FlagMotion.KeepsShape(motion))
                 {
                     cloth.GroundY = -1e6f;
                     StillPose.Lay(cloth, motion, flag.OnHalyard, fx, fy, fz);
                 }
 
+                // A loop (FlagMotion.Loop): made whole as the game makes it, a job at a time there; its
+                // frames kept, to measure what is drawn. Each column is a moment of the loop's clock
+                // (0 is its first frame; just before it, its last: -Times "-0.4" -Seq "8,0.1" straddles the seam).
+                LoopBake bake = null;
+                FlagLoop loop = null;
+                if (motion == FlagMotion.Loop)
+                {
+                    var made = System.Diagnostics.Stopwatch.StartNew();
+                    bake = LoopBake.Make(flag, LoopMotion.DetailFor(detail), collide, FlagMesh.SmoothEdges);
+                    made.Stop();
+                    if (bake.Failed)
+                    {
+                        Debug.Log("RF PREVIEW: the loop was not made: " + bake.Problem);
+                        row++;
+                        continue;
+                    }
+
+                    loop = new FlagLoop(bake, true);
+                    Debug.Log("RF PREVIEW: loop made in " + made.Elapsed.TotalMilliseconds.ToString("F0", CultureInfo.InvariantCulture) + " ms here -- " + loop.Text);
+                }
+
                 foreach (float moment in moments)
                 {
+                    if (loop != null)
+                    {
+                        int cells = loopCells > 0 ? loopCells : loop.FinestCells;
+                        int fa, fb;
+                        float blend;
+                        LoopMotion.FrameAt(moment, 0, loop.Frames, loop.FrameTime, out fa, out fb, out blend);
+                        string loopInfo;
+                        Color[] drawn = RenderFlag(s, mesh, pole, flag, anchor, yaw, pitch, dist, out loopInfo, loop, moment, cells);
+                        string loopFile = Path.Combine(outDir, "rf-" + row + "-" + col + ".png");
+                        SavePng(drawn, width, height, s.Exposure, loopFile);
+                        Debug.Log("RF FRAME row=" + row + " col=" + col + " t=" + moment.ToString("0.###", CultureInfo.InvariantCulture) +
+                                  " wind=" + bake.Speed.ToString("0.#", CultureInfo.InvariantCulture) + " pattern=" + pattern + " file=" + loopFile +
+                                  " | looping, frame " + fa + " -> " + fb + " by " + blend.ToString("0.00", CultureInfo.InvariantCulture) + " of " + loop.Frames +
+                                  ", " + cells + " cells drawn (" + loop.MeshFor(cells).vertexCount + " vertices), " + bake.Columns + "x" + bake.Rows +
+                                  (flag.IsCountry ? ", " + flag.Country : "") + " | " + loopInfo);
+                        col++;
+                        continue;
+                    }
+
                     if (motion == FlagMotion.Still && moment < 0f)
                     {
                         // The shape the game keeps: made whole, the smoothest of its last moments (shown at the step it was).
@@ -548,6 +592,8 @@ public static class FlagPreview
                 }
 
                 mesh.Destroy();
+                if (loop != null)
+                    loop.Destroy();
                 if (pole != null)
                     UnityEngine.Object.DestroyImmediate(pole.Mesh);
                 row++;
@@ -828,10 +874,11 @@ public static class FlagPreview
     }
 
     private static Color[] RenderFlag(Setup s, FlagMesh mesh, PoleDraw pole, FlagSpec flag, Vector3 anchor, float yawDeg, float pitchDeg, float dist,
-                                      out string info)
+                                      out string info, FlagLoop loop = null, double loopClock = 0.0, int loopCells = 0)
     {
         // Looking at the flag's middle at rest (or RF_LOOK off it) from its side, slightly down on it.
-        Bounds b = mesh.Bounds;
+        Bounds b = loop != null ? loop.Bounds : mesh.Bounds;
+        Mesh drawn = loop != null ? loop.MeshFor(loopCells) : mesh.Mesh;
         Vector3 centre = anchor + _hoist * (0.5f * flag.Height) + _fly * (0.5f * flag.Length) + _look;
         float range = dist * Mathf.Max(flag.Length, flag.Height);
         Quaternion look = Quaternion.Euler(pitchDeg, yawDeg, 0f);
@@ -840,12 +887,15 @@ public static class FlagPreview
         s.Camera.transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
 
         FlagLook.Apply(s.Block, flag, Vector4.zero, _wearSeed);
-        mesh.Bind(s.Block);
+        if (loop != null)
+            loop.Bind(s.Block, loopClock, 0);
+        else
+            mesh.Bind(s.Block);
 
         // The flag alone first, on black (with no ground or pole in view), to measure it.
         s.Camera.backgroundColor = Color.black;
         SetScene(false);
-        Graphics.DrawMesh(mesh.Mesh, Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one), s.Material, 0, s.Camera, 0, s.Block, true, true);
+        Graphics.DrawMesh(drawn, Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one), s.Material, 0, s.Camera, 0, s.Block, true, true);
         s.Camera.Render();
         Color[] alone = ReadPixels(s);
         int covered = 0;
@@ -864,7 +914,7 @@ public static class FlagPreview
 
         s.Camera.backgroundColor = s.Sky;
         SetScene(true, pole == null);
-        Graphics.DrawMesh(mesh.Mesh, Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one), s.Material, 0, s.Camera, 0, s.Block, true, true);
+        Graphics.DrawMesh(drawn, Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one), s.Material, 0, s.Camera, 0, s.Block, true, true);
         if (pole != null)
         {
             FlagPoleMesh.Look(s.PoleBlock, flag, Vector4.zero, _wearSeed);

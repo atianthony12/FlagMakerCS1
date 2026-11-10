@@ -2759,6 +2759,162 @@ public static class ClothTests
                moved.ToString("G3", Inv) + "," + hoist.ToString("G3", Inv) + "," + s.Height.ToString("F3", Inv);
     }
 
+    static FlagSpec LoopSpec(float length, int proportion, int hoisted, float tilt, bool halyard, float waviness, int cut, float share, bool plate)
+    {
+        FlagSpec s = FlagSpec.Default; s.Length = length; s.Proportion = proportion; s.HoistedFrom = hoisted; s.Tilt = tilt;
+        s.Waviness = waviness; s.Cut = cut; s.WindShare = share; s.Motion = FlagMotion.Loop; s.BackPlate = plate;
+        s.Pole = halyard ? 1 : 0; s.Ropes = halyard ? 2 : 0;
+        return s.Sanitised();
+    }
+
+    /// <summary>
+    /// A flag's loop (FlagMotion.Loop, LoopBake), made in one go: made or not; its frames and
+    /// seconds; the rms distance (cm, over every particle) the cloth moves from one frame to the
+    /// next -- the mean, the most, and from the last frame to the first (the seam: it must be a
+    /// step like any other); the worst link in the frames taken as recorded and in the blended
+    /// ones (a blend of two cloth shapes may shorten links, never lengthen them much); the
+    /// farthest the hoist's held particles are from where they are held (m); the farthest any
+    /// particle is behind a back plate (m; 0 without one); the seam's two moments' distance (cm);
+    /// the box in z; the milliseconds it took in .NET; the steps run.
+    /// </summary>
+    public static string Loop(float length, int proportion, int hoisted, float tilt, bool halyard, float waviness, int detail, int cut, float share, bool plate)
+    {
+        FlagSpec s = LoopSpec(length, proportion, hoisted, tilt, halyard, waviness, cut, share, plate);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        LoopBake b = LoopBake.Make(s, detail, true, false);
+        double ms = sw.Elapsed.TotalMilliseconds;
+        if (b.Failed) return "False," + b.Problem;
+
+        int n = b.Count;
+        float[] x = new float[n], y = new float[n], z = new float[n], px = new float[n], py = new float[n], pz = new float[n];
+        float[] hx = new float[n], hy = new float[n], hz = new float[n];
+        double worstMove = 0, wrap = 0, recorded = 0, blended = 0, sumMove = 0, held = 0, behind = 0;
+        float size = Math.Max(s.Length, s.Height);
+        int blendFrom = b.Frames - (int)Math.Round(LoopMotion.BlendSeconds * LoopMotion.Seconds(size) / LoopMotion.BaseSeconds / b.FrameTime);
+        bool finite = true;
+        b.Frame(b.Frames - 1, px, py, pz);
+        b.Frame(0, hx, hy, hz);
+        for (int f = 0; f < b.Frames; f++)
+        {
+            b.Frame(f, x, y, z);
+            double sum = 0;
+            for (int k = 0; k < n; k++)
+            {
+                double dx = x[k] - px[k], dy = y[k] - py[k], dz = z[k] - pz[k];
+                sum += dx * dx + dy * dy + dz * dz;
+                if (float.IsNaN(x[k]) || float.IsNaN(y[k]) || float.IsNaN(z[k])) finite = false;
+                if (plate && b.Cloth.IsCloth(k)) behind = Math.Max(behind, z[k]);
+            }
+            // The hoist's two corners never move (clipped to a halyard or held along the hoist).
+            foreach (int k in new[] { 0, (b.Rows - 1) * b.Columns })
+                held = Math.Max(held, Math.Abs(x[k] - hx[k]) + Math.Abs(y[k] - hy[k]) + Math.Abs(z[k] - hz[k]));
+            double move = Math.Sqrt(sum / n);
+            if (f == 0) wrap = move; else { worstMove = Math.Max(worstMove, move); sumMove += move; }
+            b.Cloth.SetShape(x, y, z, 0f);
+            double st = b.Cloth.MaxStretch();
+            if (f >= blendFrom) blended = Math.Max(blended, st); else recorded = Math.Max(recorded, st);
+            Array.Copy(x, px, n); Array.Copy(y, py, n); Array.Copy(z, pz, n);
+        }
+
+        return finite + "," + b.Frames + "," + b.Seconds.ToString("F2", Inv) + "," + (100 * sumMove / (b.Frames - 1)).ToString("F2", Inv) + "," +
+               (100 * worstMove).ToString("F2", Inv) + "," + (100 * wrap).ToString("F2", Inv) + "," + recorded.ToString("F3", Inv) + "," +
+               blended.ToString("F3", Inv) + "," + held.ToString("G3", Inv) + "," + behind.ToString("F3", Inv) + "," + (100 * b.SeamGap).ToString("F1", Inv) + "," +
+               b.MinZ.ToString("F2", Inv) + "," + b.MaxZ.ToString("F2", Inv) + "," + ms.ToString("F0", Inv) + "," + b.StepsRun + "," + b.Speed.ToString("F1", Inv) + "," +
+               b.Width + "x" + b.Height;
+    }
+
+    /// <summary>
+    /// The same loop however its steps are split into jobs (the renderer's few a frame against
+    /// the preview's all at once), and made twice: the largest difference of any number of it;
+    /// the jobs it took; and the frame between two (LoopBake.Between at 0.25) against the two
+    /// frames blended by hand.
+    /// </summary>
+    public static string LoopSplit()
+    {
+        FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagCut.Rectangle, 1f, false);
+        LoopBake a = LoopBake.Make(s, FlagCloth.CellsAlong, true);
+        var b = new LoopBake(s, FlagCloth.CellsAlong, true);
+        int jobs = 0;
+        while (!b.Finished) { b.StepsNext = 7; b.Run(); jobs++; }
+        LoopBake d = LoopBake.Make(s, FlagCloth.CellsAlong, true);
+        if (a.Failed || b.Failed || d.Failed || a.Frames != b.Frames || a.Frames != d.Frames) return "NaN,NaN," + jobs + ",NaN";
+
+        double split = 0, twice = 0;
+        for (int i = 0; i < a.Data.Length; i++)
+        {
+            split = Math.Max(split, Math.Abs(a.Data[i] - b.Data[i]));
+            twice = Math.Max(twice, Math.Abs(a.Data[i] - d.Data[i]));
+        }
+
+        int n = a.Count;
+        float[] x = new float[n], y = new float[n], z = new float[n], x0 = new float[n], y0 = new float[n], z0 = new float[n], x1 = new float[n], y1 = new float[n], z1 = new float[n];
+        a.Between(3, 4, 0.25f, x, y, z); a.Frame(3, x0, y0, z0); a.Frame(4, x1, y1, z1);
+        double between = 0;
+        for (int k = 0; k < n; k++)
+            between = Math.Max(between, Math.Abs(x[k] - (0.75f * x0[k] + 0.25f * x1[k])) + Math.Abs(y[k] - (0.75f * y0[k] + 0.25f * y1[k])) + Math.Abs(z[k] - (0.75f * z0[k] + 0.25f * z1[k])));
+        return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs + "," + between.ToString("G3", Inv);
+    }
+
+    /// <summary>
+    /// The loop's arithmetic: where a flag is in its loop (FrameAt: frames going round, the last
+    /// followed by the first, each prop at its own place, the same after a day's clock); the grid
+    /// by the size on the screen (CellsFor); what makes a loop (Key: the cloth and its breeze,
+    /// never the design's colours); its length and frames by the flag's size.
+    /// </summary>
+    public static string LoopNumbers()
+    {
+        int a, b; float t;
+        LoopMotion.FrameAt(0.0, 0, 160, 1f / 32f, out a, out b, out t);
+        string s = a + ":" + b + ":" + t.ToString("F2", Inv);
+        LoopMotion.FrameAt(159.5 / 32.0, 0, 160, 1f / 32f, out a, out b, out t);
+        s += " " + a + ":" + b + ":" + t.ToString("F2", Inv);
+        LoopMotion.FrameAt(5.0 + 2.25 / 32.0, 0, 160, 1f / 32f, out a, out b, out t);
+        s += " " + a + ":" + b + ":" + t.ToString("F2", Inv);
+        LoopMotion.FrameAt(86400.0 * 3 + 2.25 / 32.0, 0, 160, 1f / 32f, out a, out b, out t);
+        s += " " + a + ":" + b + ":" + t.ToString("F2", Inv);
+
+        // A hundred props in a row: their places in the loop are all apart.
+        var seen = new List<int>();
+        bool apart = true;
+        for (uint p = 1000; p < 1100; p++)
+        {
+            LoopMotion.FrameAt(0.0, p, 1000, 1f / 32f, out a, out b, out t);
+            if (seen.Contains(a)) apart = false;
+            seen.Add(a);
+        }
+
+        string cells = "";
+        foreach (float px in new[] { 2f, 20f, 40f, 100f, 300f, 2000f })
+            cells += (cells.Length > 0 ? " " : "") + LoopMotion.CellsFor(px, 5f, 128);
+
+        FlagSpec f = LoopSpec(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagCut.Rectangle, 1f, false);
+        FlagSpec g = f; g.Colour1 = 0x123456; g.Pattern = 3; g.Darkness = 0.4f; g.Wear = 0.5f; g.PoleLength = 22f;
+        FlagSpec h = f; h.WindShare = 0.6f;
+        FlagSpec w = f; w.Length = 3.01f;
+        string key = (LoopMotion.Key(f, 32, true) == LoopMotion.Key(g, 32, true)) + "," + (LoopMotion.Key(f, 32, true) != LoopMotion.Key(h, 32, true)) + "," +
+                     (LoopMotion.Key(f, 32, true) != LoopMotion.Key(w, 32, true)) + "," + (LoopMotion.Key(f, 32, true) != LoopMotion.Key(f, 24, true)) + "," +
+                     (LoopMotion.Key(f, 32, true) != LoopMotion.Key(f, 32, false));
+
+        string sizes = "";
+        foreach (float len in new[] { 1f, 3f, 6f, 12f, 30f })
+            sizes += (sizes.Length > 0 ? " " : "") + LoopMotion.Seconds(len).ToString("F1", Inv) + "/" + LoopMotion.FrameSteps(len);
+        return s + "|" + apart + "|" + cells + "|" + key + "|" + sizes + "|" + LoopMotion.DetailFor(64) + " " + LoopMotion.DetailFor(18);
+    }
+
+    /// <summary>
+    /// A flag that plays a loop through the save (FlagCodec) and a paste (Sanitised): the value
+    /// kept; one past the last known pulled back to waving.
+    /// </summary>
+    public static string CodecLoop()
+    {
+        FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagCut.Rectangle, 0.6f, false);
+        FlagSpec back;
+        bool read = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(s), out back);
+        FlagSpec odd = s; odd.Motion = 4;
+        return (read ? back.Motion : -1) + "," + odd.Sanitised().Motion + "," + FlagMotion.Moves(FlagMotion.Loop) + "," +
+               FlagMotion.KeepsShape(FlagMotion.Loop) + "," + s.Describe().Contains("looping");
+    }
+
     /// <summary>
     /// The author's case from the log (2026-09-27 16:47): an 800 x 400 picture (turned 180 deg)
     /// on a flag made a 30 m square while its sides were apart, then linked again. Its shape is
@@ -5133,6 +5289,39 @@ foreach ($case in @(
     $okOut = ($case.T -ne 0) -or ((N $st[3]) -ge 0.7 -and (N $st[5]) -ge 0.5)
     Check ("a still flag, " + $case.Name + ": whole, stretched at most 12%, not through itself, out in its breeze") ($okShape -and $okOut) ("stretch " + $st[1] + ", " + $st[2] + " crossing, reach " + $st[3] + " L at " + $st[4] + " deg down, " + $st[5] + " shown; the moment at " + $st[6] + " s of " + $st[7] + " in " + $st[8] + " m/s, " + $st[9] + " ms in .NET")
 }
+# ---- flags that play a loop (FlagMotion.Loop, ClothLoop.cs) --------------------------------
+
+$ln = [ClothTests]::LoopNumbers() -split "\|"
+Check "a loop goes round: frame 0 -> 1, the last -> the first, the same after three days' clock" ($ln[0] -eq "0:1:0.00 159:0:0.50 2:3:0.25 2:3:0.25") $ln[0]
+Check "a hundred props in a row are each at their own place in a loop" ($ln[1] -eq "True") $ln[1]
+Check "a loop's grid by its size on the screen: 5 px cells, 4 to 128 along" ($ln[2] -eq "4 4 8 24 64 128") ("2, 20, 40, 100, 300, 2000 px: " + $ln[2])
+Check "a loop's key: the cloth and its breeze, never the design (colours, wear, the pole's height)" ($ln[3] -eq "True,True,True,True,True") ("same design-only, other Wind on it, other length, other detail, other self-collision: " + $ln[3])
+Check "a loop's length grows as the root of the flag's (5 s to 3 m, 12 s at most), a frame every 2 steps under 6 m, 4 from there; no finer than High" ($ln[4] -eq "5.0/2 5.0/2 7.1/4 10.0/4 12.0/4" -and $ln[5] -eq "32 18") ("1, 3, 6, 12, 30 m: " + $ln[4] + "; detail under Extreme / Low: " + $ln[5])
+$cl = [ClothTests]::CodecLoop()
+Check "a looping flag through the save: kept; a motion past the last known pulled back to waving; it moves, keeps no one shape, says so" ($cl -eq "3,0,True,False,True") $cl
+$lsp = [ClothTests]::LoopSplit() -split ","
+Check "a loop is the same however its steps are split into jobs, and made twice; between two frames is their blend" ($lsp[0] -eq "0" -and $lsp[1] -eq "0" -and (N $lsp[3]) -lt 1e-6) ("split into " + $lsp[2] + " jobs: " + $lsp[0] + " off; twice: " + $lsp[1] + "; between: " + $lsp[3])
+foreach ($case in @(
+        @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 18; C = 0; S = 1; B = $false; Name = "3 m at Low" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "3 m at High" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $false; W = 2; D = 32; C = 0; S = 1; B = $false; Name = "3 m at 200% wavy, no halyard" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 32; C = 0; S = 0.5; B = $false; Name = "3 m in half its breeze" },
+        @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 32; C = 1; S = 1; B = $false; Name = "3 m swallowtail" },
+        @{ L = 1; P = 667; H = 0; T = 0; R = $false; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "1 m" },
+        @{ L = 8; P = 527; H = 0; T = 0; R = $true; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "8 m on a halyard" },
+        @{ L = 20; P = 527; H = 0; T = 0; R = $false; W = 1; D = 24; C = 0; S = 1; B = $false; Name = "20 m at Medium" },
+        @{ L = 3; P = 667; H = 0; T = 45; R = $true; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "3 m on a 45 deg pole" },
+        @{ L = 3; P = 1500; H = 1; T = 0; R = $false; W = 1; D = 32; C = 0; S = 1; B = $true; Name = "a banner from its top, back plate" },
+        @{ L = 3; P = 1500; H = 1; T = 0; R = $false; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "a banner from its top, no plate" })) {
+    $lp = [ClothTests]::Loop($case.L, $case.P, $case.H, $case.T, $case.R, $case.W, $case.D, $case.C, $case.S, $case.B) -split ","
+    $made = $lp[0] -eq "True"
+    # The seam is a step like any other; the blend lengthens no link past the record's worst; the hoist held; never behind the plate.
+    $okSeam = $made -and (N $lp[5]) -le 1.5 * (N $lp[4]) + 0.05
+    $okLinks = $made -and (N $lp[6]) -le 1.15 -and (N $lp[7]) -le [math]::Max((N $lp[6]), 1.0) + 0.02
+    $okHeld = $made -and (N $lp[8]) -lt 1e-4 -and (N $lp[9]) -le 0.03
+    Check ("a loop, " + $case.Name + ": made, its seam a step like any other, its links the record's, its hoist held") ($okSeam -and $okLinks -and $okHeld) $(if ($made) { $lp[1] + " frames (" + $lp[2] + " s) in " + $lp[15] + " m/s, " + $lp[16] + " texels; the cloth moves " + $lp[3] + " cm a frame (most " + $lp[4] + "), " + $lp[5] + " over the seam (its two moments " + $lp[10] + " cm apart); links " + $lp[6] + " recorded, " + $lp[7] + " blended; hoist off " + $lp[8] + " m, behind its plate " + $lp[9] + " m; z " + $lp[11] + ".." + $lp[12] + "; " + $lp[14] + " steps, " + $lp[13] + " ms in .NET" } else { $lp[1] })
+}
+
 $tb = [ClothTests]::Still(3, 1500, 1, 0, $true, 1) -split ","
 Check "a still banner hoisted from its top hangs in calm air: whole, not through itself" ($tb[0] -eq "True" -and (N $tb[1]) -le 1.12 -and $tb[2] -eq "0" -and $tb[8] -eq "0.0") ("stretch " + $tb[1] + ", " + $tb[2] + " crossing, breeze " + $tb[8] + " m/s, " + $tb[5] + " shown")
 

@@ -187,10 +187,11 @@
   <String key="NewImageAlpha.Label">Image du nouveau drapeau : parties transparentes</String>
 
   <String key="NewMotion.Label">Mouvement</String>
-  <String key="NewMotion.Tooltip">Flottant, figé ou plat.</String>
+  <String key="NewMotion.Tooltip">Boucle : se répète, très légère.</String>
   <String key="SelMotion.Label">Mouvement</String>
-  <String key="SelMotion.Tooltip">Flottant, figé ou plat.</String>
+  <String key="SelMotion.Tooltip">Boucle : se répète, très légère.</String>
   <String key="Motion.Waves">Flottant</String>
+  <String key="Motion.Loop">Boucle</String>
   <String key="Motion.Still">Figé</String>
   <String key="Motion.Flat">Plat</String>
   <String key="NewWaviness.Label">Ondulation</String>

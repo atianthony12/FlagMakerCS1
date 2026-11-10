@@ -118,7 +118,15 @@ techniques were written from scratch after them, and they are credited here with
     D. Binks, "Dynamic Resolution Rendering", Intel (2011) -- the work scaled to a measured
       budget: the smallest flags made coarser first.
     H. Weyl, "Ueber die Gleichverteilung von Zahlen mod. Eins", Math. Ann. 77 (1916) -- the
-      golden ratio's sequence spreading the followers' delays.
+      golden ratio's sequence spreading the followers' delays, and each looping flag's place
+      in its loop.
+  Flags that play a loop:
+    A. Schoedl, R. Szeliski, D. Salesin and I. Essa, "Video Textures", SIGGRAPH 2000 -- a
+      recording made to repeat: the two moments most alike over a window of frames found, the
+      loop cut there and its end cross-faded into the moments before its start.
+    The vertex animation texture games bake cloth and crowds into (a texel a vertex a frame,
+      read in the vertex program) -- the idea: here a texel a particle, read as the drawn
+      surface's own texture is.
   The gizmo:
     the idea of Procedural Objects' 3-axis gizmos (a Cities: Skylines mod) and of 3-D
       editors' transform handles -- the idea only; none of their code.

@@ -23,7 +23,7 @@ The first release.
   and saved under a name for any city), or your own pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
   stretched); width and height from 0.5 to 30 m, any proportions from 1:5 to 5:1 (a country's flag
   too: stretched to fit, turned on a tall shape as a flag hung upright is shown); hoisted from its
-  side or its top; waving, still or flat; how wavy, how much of the wind reaches it (**Wind on it**:
+  side or its top; waving, playing a loop, still or flat; how wavy, how much of the wind reaches it (**Wind on it**:
   a banner can hang and sway instead of standing out), how dark (30% to begin with).
 - **Seven shapes**: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed or
   rounded, with a Cut depth. The cloth itself is cut: a swallowtail's tails flap apart, a pennant's
