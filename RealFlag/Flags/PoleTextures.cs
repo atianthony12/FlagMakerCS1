@@ -5,29 +5,30 @@ using UnityEngine;
 namespace RealFlag.Flags
 {
     /// <summary>
-    /// The drawn poles' textures (FlagPole.shader): varnished wood, rust and rope, each a colour
-    /// map (sRGB colour, its roughness in alpha) and a normal map (OpenGL's, green up, LINEAR),
-    /// made by tools\pole-textures.ps1 from CC0 scans (Poly Haven's wood and rust, ambientCG's
-    /// rope; THIRD-PARTY-NOTICES.md) and embedded in the DLL as RealFlag.Poles.&lt;key&gt;_&lt;c|n&gt;.png.
+    /// The drawn poles' textures (FlagPole.shader): rust and rope, each a colour map (sRGB colour,
+    /// its roughness in alpha) and a normal map (OpenGL's, green up, LINEAR), made by
+    /// tools\pole-textures.ps1 from CC0 scans (Poly Haven's rust, ambientCG's rope;
+    /// THIRD-PARTY-NOTICES.md) and embedded in the DLL as RealFlag.Poles.&lt;key&gt;_&lt;c|n&gt;.png.
+    /// (The wood went with the materials, 2026-11-09.)
     /// Loaded once on the main thread when a pole first needs them, kept until <see cref="Clear"/>.
     /// Engine code, shared with the GPU preview (which reads the files instead: <see cref="Source"/>).
     /// </summary>
     public static class PoleTextures
     {
         /// <summary>The textures' keys, as the files are named.</summary>
-        public static readonly string[] Keys = { "wood", "rust", "rope" };
+        public static readonly string[] Keys = { "rust", "rope" };
 
         private static readonly int[] ColourIds =
         {
-            Shader.PropertyToID("_RFWoodTex"), Shader.PropertyToID("_RFRustTex"), Shader.PropertyToID("_RFRopeTex"),
+            Shader.PropertyToID("_RFRustTex"), Shader.PropertyToID("_RFRopeTex"),
         };
 
         private static readonly int[] NormalIds =
         {
-            Shader.PropertyToID("_RFWoodNormal"), Shader.PropertyToID("_RFRustNormal"), Shader.PropertyToID("_RFRopeNormal"),
+            Shader.PropertyToID("_RFRustNormal"), Shader.PropertyToID("_RFRopeNormal"),
         };
 
-        /// <summary>A file's bytes by its name ("wood_c.png"), null if there is none: the DLL's resources unless the preview says otherwise.</summary>
+        /// <summary>A file's bytes by its name ("rust_c.png"), null if there is none: the DLL's resources unless the preview says otherwise.</summary>
         public static Func<string, byte[]> Source = FromResources;
 
         /// <summary>Told when a texture cannot be had (once each).</summary>

@@ -297,7 +297,10 @@ namespace RealFlag.Flags
         public const int Flutes = 16;
         public const float FluteDepth = 0.06f;
 
-        /// <summary>An ornate pole's base: its widest radius and its height (the shaft starts on its top).</summary>
+        /// <summary>What it stands on (FlagPoleBase), any shaft on any base.</summary>
+        public int Base;
+
+        /// <summary>A cast base's widest radius and its height (the shaft rises out of its top).</summary>
         public float BaseRadius, BaseHeight;
 
         /// <summary>From the foot to the anchor's level, metres.</summary>
@@ -431,18 +434,23 @@ namespace RealFlag.Flags
             s.Offset = Math.Max(s.TruckRadius, s.RadiusAt(Math.Max(0f, s.Length - spec.Height))) + 1.5f * s.RopeRadius;
             s.RopeGap = Math.Max(3f * s.RopeRadius, 0.5f * s.RadiusTop);
             s.Cleat = Math.Min(1.3f, 0.25f * s.Length);
-            s.CollarHeight = Math.Max(0.12f, 2.5f * s.RadiusFoot);
-            s.CollarRadius = 1.9f * s.RadiusFoot;
+            // A spun flash collar: about twice the butt across (a 5" pole's is 10-12" across, 4-6" high).
+            s.CollarHeight = Math.Max(0.08f, 2.2f * s.RadiusFoot);
+            s.CollarRadius = 2f * s.RadiusFoot;
             s.BallRadius = s.RadiusFoot;
             s.NeckRadius = 0.35f * s.RadiusTop;
             s.NeckHeight = 0.5f * s.BallRadius;
-            s.SpearRadius = 0.7f * s.TruckRadius;
-            s.SpearHeight = 3.5f * s.TruckRadius;
-            if (s.Profile == FlagPoleProfile.Ornate)
+            s.SpearRadius = 0.75f * s.TruckRadius;
+            s.SpearHeight = 4f * s.TruckRadius;
+            s.Base = FlagPoleBase.IsKnown(spec.PoleBase) ? spec.PoleBase : FlagPoleBase.Collar;
+            if (s.Base == FlagPoleBase.Cast)
             {
-                // A cast base: three times the foot's radius, about a tenth of the pole high.
-                s.BaseRadius = 3f * s.RadiusFoot;
-                s.BaseHeight = Math.Min(0.12f * s.Length, Math.Max(0.3f, 9f * s.RadiusFoot));
+                // A decorative cast base, as the makers' catalogues pair them with a pole: about 2.7
+                // times the butt's radius at its widest (a 6" butt on a 16" base), its height a
+                // little over twice its width (30-36" for a 30-40 ft pole) -- and never over a
+                // seventh of a short pole.
+                s.BaseRadius = 2.7f * s.RadiusFoot;
+                s.BaseHeight = Math.Min(0.14f * s.Length, Math.Max(0.25f, 4.6f * s.BaseRadius));
                 s.Cleat = Math.Max(s.Cleat, s.BaseHeight + 0.2f);
             }
 
@@ -494,7 +502,7 @@ namespace RealFlag.Flags
         {
             return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f &&
                    Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f &&
-                   Profile == other.Profile && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f;
+                   Profile == other.Profile && Base == other.Base && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f;
         }
     }
 }

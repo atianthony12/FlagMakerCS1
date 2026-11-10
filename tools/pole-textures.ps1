@@ -26,8 +26,9 @@ if (-not $OutDir) { $OutDir = Join-Path $root "RealFlag\Resources\Poles" }
 
 # Source, id, our key, mean linear luminance of the colour (0: as scanned), grey, turned. The rust
 # was 0.075 at first, "a bit too bright" in the pictures (the author, 2026-11-09): 0.045.
+# The wood (Poly Haven's european_walnut_veneer_04, Luma 0.180, turned) went with the materials
+# on 2026-11-09; Turn stays for a scan whose grain runs across.
 $textures = @(
-    @{ Site = "polyhaven"; Id = "european_walnut_veneer_04"; Key = "wood"; Luma = 0.180; Grey = $false; Turn = $true },
     @{ Site = "polyhaven"; Id = "rust_coarse_01";            Key = "rust"; Luma = 0.045; Grey = $false; Turn = $false },
     @{ Site = "ambientcg"; Id = "Rope001";                   Key = "rope"; Luma = 0.500; Grey = $true;  Turn = $false }
 )

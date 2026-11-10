@@ -43,6 +43,9 @@ namespace RealFlag.UI
         /// </summary>
         private bool _refreshing;
 
+        /// <summary>The page being built's name column for its wide sliders (WideColumn).</summary>
+        private float _wideColumn;
+
         /// <summary>The flag list, if one of the rows was it.</summary>
         public FlagListView List { get; private set; }
 
@@ -159,6 +162,7 @@ namespace RealFlag.UI
             // slider is too narrow ... There's still a lot of dead space"). Kept for the page's life
             // (a readout redrawn later is held to it).
             _ui.ValueWidth = ValueColumn(which);
+            _wideColumn = WideColumn(which);
             try
             {
                 return BuildPage(page, which, y);
@@ -192,6 +196,20 @@ namespace RealFlag.UI
             }
 
             return widest > 0f ? Mathf.Min(most, Mathf.Ceil(widest) + 6f) : most;
+        }
+
+        /// <summary>The name column of <paramref name="which"/>'s wide sliders (Row.WideSlider): their longest name in this skin and language, within the page's own column.</summary>
+        private float WideColumn(PanelPage which)
+        {
+            float widest = 0f;
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                if (row.Panel != which || !row.WideSlider || (row.Shown != null && !row.Shown()))
+                    continue;
+                widest = Mathf.Max(widest, _ui.NameWidth(row.Label));
+            }
+
+            return widest > 0f ? Mathf.Min(_ui.LabelWidth, widest + 8f) : _ui.LabelWidth;
         }
 
         private float BuildPage(UIPanel whole, PanelPage which, float y)
@@ -395,10 +413,19 @@ namespace RealFlag.UI
                         // A top that moved (the pole height's range unlocked or locked): a lower
                         // one pulls the slider in with it, quietly too -- the setting keeps its value.
                         float top = row.Top;
+                        float display = Mathf.Clamp(row.Display, row.Min, top);
                         if (control.Slider.Slider.maxValue != top)
+                        {
                             control.Slider.Slider.maxValue = top;
 
-                        float display = Mathf.Clamp(row.Display, row.Min, top);
+                            // UISlider's maxValue setter only redraws (its IL): the thumb moves in
+                            // UpdateValueIndicators, which only a CHANGED value reaches -- unlocked,
+                            // a 30 m pole's thumb stayed where 30 of 50 m had put it (the author:
+                            // "it stays on the old value"). A quiet step off and back moves it.
+                            control.Slider.SetValue(Mathf.Approximately(display, row.Min) ? top : row.Min);
+                            control.Slider.SetValue(display);
+                        }
+
                         if (!Mathf.Approximately(control.Slider.Slider.value, display) ||
                             control.Slider.Value.text != ReadoutText(row, display))
                             control.Slider.SetValue(display);
@@ -873,16 +900,28 @@ namespace RealFlag.UI
                 default:
                 {
                     Row captured = row;
-                    SliderRow slider = _ui.AddSlider(page, y, row.Label, row.Min, row.Top, row.Step,
-                        Mathf.Clamp(row.Display, row.Min, row.Top), v => ReadoutText(captured, v),
-                        v =>
-                        {
-                            if (_refreshing)
-                                return;
+                    float names = _ui.LabelWidth;
+                    if (row.WideSlider)
+                        _ui.LabelWidth = _wideColumn;
+                    SliderRow slider;
+                    try
+                    {
+                        slider = _ui.AddSlider(page, y, row.Label, row.Min, row.Top, row.Step,
+                            Mathf.Clamp(row.Display, row.Min, row.Top), v => ReadoutText(captured, v),
+                            v =>
+                            {
+                                if (_refreshing)
+                                    return;
 
-                            captured.Store(v);
-                            Changed(captured);
-                        });
+                                captured.Store(v);
+                                Changed(captured);
+                            });
+                    }
+                    finally
+                    {
+                        _ui.LabelWidth = names;
+                    }
+
                     Tip(slider, row.Tooltip);
                     control.Slider = slider;
                     control.Parts.AddRange(slider.Parts);

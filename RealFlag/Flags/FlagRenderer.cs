@@ -118,6 +118,9 @@ namespace RealFlag.Flags
         /// <summary>The pole the mod draws under it (Spec.Pole): its numbers and mesh, its colours.</summary>
         public FlagPoleShape PoleShape;
         public Mesh PoleMesh;
+
+        /// <summary>The pole's plain copy for Real Glass's Reflective finish (made only while it is used; FlagPoleMesh.BuildPlain).</summary>
+        public Mesh PoleFinishMesh;
         public readonly MaterialPropertyBlock PoleBlock = new MaterialPropertyBlock();
         public bool PoleBlockReady;
         public bool PoleVisible;
@@ -977,6 +980,9 @@ namespace RealFlag.Flags
             if (f.PoleMesh != null)
                 Destroy(f.PoleMesh);
             f.PoleMesh = null;
+            if (f.PoleFinishMesh != null)
+                Destroy(f.PoleFinishMesh);
+            f.PoleFinishMesh = null;
             f.PoleApplied = false;
             if (f.Cloth != null)
             {
@@ -1555,6 +1561,8 @@ namespace RealFlag.Flags
             if (f.PoleMesh == null || !shape.Same(f.PoleShape))
             {
                 f.PoleMesh = FlagPoleMesh.Build(shape, f.PoleMesh);
+                if (f.PoleFinishMesh != null)
+                    f.PoleFinishMesh = FlagPoleMesh.BuildPlain(shape, f.PoleFinishMesh);
                 f.PoleShape = shape;
                 f.PoleApplied = false;
             }
@@ -3757,9 +3765,30 @@ namespace RealFlag.Flags
                 f.PoleBlockReady = !hovered;
             }
 
-            Graphics.DrawMesh(f.PoleMesh, FlagPoleMesh.Placement(f.Anchor, f.PoleShape, f.Hoist, f.Fly), _poleMaterial, _layer, _camera, 0,
+            Matrix4x4 placement = FlagPoleMesh.Placement(f.Anchor, f.PoleShape, f.Hoist, f.Fly);
+
+            // Real Glass's Reflective finish over a glossy pole big enough to show it: the city in
+            // the paint. Drawn: our own sky reflection of the paint is left out (_RFPoleFinish).
+            bool finished = false;
+            if (f.Spec.PoleShine > 0f && f.Pixels >= FinishPixels && RealGlassFinish.Available)
+            {
+                if (f.PoleFinishMesh == null)
+                    f.PoleFinishMesh = FlagPoleMesh.BuildPlain(f.PoleShape, null);
+                float shine = f.Spec.PoleShine;
+                finished = RealGlassFinish.Draw(f.PoleFinishMesh, placement, _layer, Color.white,
+                                                FinishReflectivity * (1f - 0.5f * f.Spec.PoleWear) * (1f - 0.6f * f.Spec.PoleDirt), shine, shine);
+            }
+
+            f.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, finished ? 1f : 0f);
+            Graphics.DrawMesh(f.PoleMesh, placement, _poleMaterial, _layer, _camera, 0,
                               f.PoleBlock, f.Pixels >= ShadowPixels, true);
         }
+
+        /// <summary>A pole gets Real Glass's finish from this many pixels on the screen (as its shadow): below, its own sky reflection.</summary>
+        private const float FinishPixels = ShadowPixels;
+
+        /// <summary>A gloss coat's reflectance head-on (Hoffman 2013's clear coat; Real Glass's Gloss coat), as FlagPole.shader's.</summary>
+        private const float FinishReflectivity = 0.04f;
 
         /// <summary>
         /// The flag's pick volume, published for raycasts (PickShape): where its cloth has been
@@ -3931,6 +3960,16 @@ namespace RealFlag.Flags
 
             Shader.SetGlobalVector(FlagLook.IdSunDir, new Vector4(dir.x, dir.y, dir.z, 0f));
             Shader.SetGlobalVector(FlagLook.IdSunColor, new Vector4(light.r, light.g, light.b, 0f));
+
+            // The sky a glossy pole reflects: Real Glass's, else the game's (PoleSky).
+            try
+            {
+                PoleSky.Bind(dir.y);
+            }
+            catch (Exception)
+            {
+                // A pole without its reflection still draws.
+            }
         }
 
         private void Report()
@@ -4131,6 +4170,8 @@ namespace RealFlag.Flags
 
             FlagSpec spec = g.Spec;
             bool pole = g.PoleMesh != null && spec.HasPole && _poleMaterial != null && g.PoleBlockReady;
+            if (pole)
+                g.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, 0f);   // the row's poles get no Real Glass finish: their own sky
             bool turns = spec.Motion != FlagMotion.Waves || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f;
             float lift = FlagTool.Lift;
 
@@ -4345,7 +4386,10 @@ namespace RealFlag.Flags
             {
                 // The game's: its direction, its weather; gusts as a town's (EN 1991-1-4). With Volumetric
                 // Weather on, its wind instead: it already has the weather in it (cloud, rain, storms).
-                var g = new Wind { FromGame = true, Gusts = 1f, Mode = Settings.WindModes.Game };
+                // Its strength and gusts; the way it blows as the Direction row says, here too (the
+                // author, 2026-11-10: "this option should be enabled even if Use the game's wind is
+                // on", along each flag's rotation by default).
+                var g = new Wind { FromGame = true, Gusts = 1f, Mode = ModeSet() };
                 GameWind.Read(out g.Fixed, out g.Weather, out g.Rain, out g.Fog);
                 g.Speed = GameWind.BaseSpeed * g.Weather;
                 Vector3 direction;
@@ -4357,6 +4401,8 @@ namespace RealFlag.Flags
                     g.Speed = speed;
                 }
 
+                if (g.Mode == Settings.WindModes.Fixed)
+                    g.Fixed = FixedSet();
                 return g;
             }
 
@@ -4365,14 +4411,13 @@ namespace RealFlag.Flags
             {
                 Speed = Settings.WindSpeed != null ? Mathf.Clamp(Settings.WindSpeed.value, 0f, 50f) : Settings.Defaults.WindSpeed,
                 Gusts = Settings.WindGusts != null ? Mathf.Clamp(Settings.WindGusts.value, 0f, 2f) : Settings.Defaults.WindGusts,
-                Mode = Settings.WindMode != null ? Settings.WindMode.value : Settings.Defaults.WindMode,
+                Mode = ModeSet(),
                 Weather = 1f,
             };
 
             if (w.Mode == Settings.WindModes.Fixed)
             {
-                float deg = Settings.WindDirection != null ? Settings.WindDirection.value : Settings.Defaults.WindDirection;
-                w.Fixed = FlagProps.Direction(deg * Mathf.Deg2Rad);
+                w.Fixed = FixedSet();
             }
             else if (w.Mode == Settings.WindModes.Game)
             {
@@ -4386,6 +4431,20 @@ namespace RealFlag.Flags
             }
 
             return w;
+        }
+
+        /// <summary>The Direction row: along each flag's rotation, fixed, or the game's (Volumetric Weather's when it is on).</summary>
+        private static int ModeSet()
+        {
+            int mode = Settings.WindMode != null ? Settings.WindMode.value : Settings.Defaults.WindMode;
+            return mode == Settings.WindModes.Fixed || mode == Settings.WindModes.Game ? mode : Settings.WindModes.EachFlag;
+        }
+
+        /// <summary>The fixed direction set, as a flag's rotation reads it.</summary>
+        private static Vector3 FixedSet()
+        {
+            float deg = Settings.WindDirection != null ? Settings.WindDirection.value : Settings.Defaults.WindDirection;
+            return FlagProps.Direction(deg * Mathf.Deg2Rad);
         }
 
         /// <summary>The way the wind blows at a flag of this prop angle (the way the flag points, in the first mode).</summary>
@@ -4408,9 +4467,10 @@ namespace RealFlag.Flags
         {
             if (FromWeatherMod)
                 return "Volumetric Weather's (" + Speed.ToString("F1") + " m/s over open ground" + (Overridden ? ", set on its Now tab" : ", from its weather") +
-                       ", its gusts passing each flag)";
+                       ", its gusts passing each flag), direction " + Settings.WindModes.LogName(Mode);
             return FromGame
-                ? "the game's (" + Speed.ToString("F1") + " m/s over open ground, weather x" + Weather.ToString("F2") + ")"
+                ? "the game's (" + Speed.ToString("F1") + " m/s over open ground, weather x" + Weather.ToString("F2") + "), direction " +
+                  Settings.WindModes.LogName(Mode)
                 : Settings.WindModes.LogName(Mode);
         }
     }

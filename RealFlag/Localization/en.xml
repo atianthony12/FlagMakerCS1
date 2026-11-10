@@ -256,16 +256,19 @@
   <String key="Profile.Straight">Straight</String>
   <String key="Profile.Sectional">Sectional</String>
   <String key="Profile.Fluted">Fluted</String>
-  <String key="Profile.Ornate">Ornate base</String>
 
-  <String key="NewPoleMaterial.Label">Material</String>
-  <String key="NewPoleMaterial.Tooltip">What it's made of.</String>
-  <String key="SelPoleMaterial.Label">Material</String>
-  <String key="SelPoleMaterial.Tooltip">What it's made of.</String>
-  <String key="Material.Painted">Painted steel</String>
-  <String key="Material.Aluminium">Aluminum</String>
-  <String key="Material.Wood">Wood</String>
-  <String key="Material.Fibreglass">Fiberglass</String>
+  <String key="NewPoleBase.Label">Base</String>
+  <String key="NewPoleBase.Tooltip">What it stands on.</String>
+  <String key="SelPoleBase.Label">Base</String>
+  <String key="SelPoleBase.Tooltip">What it stands on.</String>
+  <String key="Base.Collar">Collar</String>
+  <String key="Base.Cast">Cast base</String>
+  <String key="Base.None">None</String>
+
+  <String key="NewPoleShine.Label">Shine</String>
+  <String key="NewPoleShine.Tooltip">Matte to glossy.</String>
+  <String key="SelPoleShine.Label">Shine</String>
+  <String key="SelPoleShine.Tooltip">Matte to glossy.</String>
 
   <String key="NewRopes.Label">Ropes</String>
   <String key="NewRopes.Tooltip">Flag clipped to a rope.</String>
@@ -305,8 +308,6 @@
   <String key="NewLean.Tooltip">Tips sideways.</String>
   <String key="SelLean.Label">Lean</String>
   <String key="SelLean.Tooltip">Tips sideways.</String>
-  <String key="PoleToGround.Label">Pole to the ground</String>
-  <String key="PoleToGround.Tooltip">Stretches it to the ground.</String>
   <String key="NewPoleWear.Label">Worn</String>
   <String key="NewPoleWear.Tooltip">Chipped, faded, weathered.</String>
   <String key="SelPoleWear.Label">Worn</String>
@@ -449,7 +450,6 @@
   <String key="WindFromGame.Tooltip">Or Volumetric Weather's, if it's on.</String>
   <String key="GameWindNow.Status">Now {0} at 10 m, toward {1}°</String>
   <String key="GameWindNow.Weather">Volumetric Weather's: {0} at 10 m, toward {1}°</String>
-  <String key="GameWindNow.WeatherSet">Volumetric Weather's, set on its Now tab: {0}, toward {1}°</String>
   <String key="GameWindNow.Rain">, rain +{0}%</String>
   <String key="GameWindNow.Fog">, fog -{0}%</String>
   <String key="GameWindNow.Own">Your own wind, below</String>
@@ -460,7 +460,7 @@
   <String key="WindGusts.Tooltip">100% is a typical town.</String>
   <String key="WindMode.Label">Direction</String>
   <String key="WindMode.Tooltip">Which way flags fly.</String>
-  <String key="WindMode.EachFlag">Where each flag points</String>
+  <String key="WindMode.EachFlag">Along each flag's rotation</String>
   <String key="WindMode.Fixed">Fixed</String>
   <String key="WindMode.Game">The game's</String>
   <String key="WindDirection.Label">Angle</String>

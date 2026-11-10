@@ -250,16 +250,19 @@
   <String key="Profile.Straight">直杆</String>
   <String key="Profile.Sectional">分节</String>
   <String key="Profile.Fluted">凹槽</String>
-  <String key="Profile.Ornate">装饰底座</String>
 
-  <String key="NewPoleMaterial.Label">材质</String>
-  <String key="NewPoleMaterial.Tooltip">用什么做的。</String>
-  <String key="SelPoleMaterial.Label">材质</String>
-  <String key="SelPoleMaterial.Tooltip">用什么做的。</String>
-  <String key="Material.Painted">喷漆钢</String>
-  <String key="Material.Aluminium">铝</String>
-  <String key="Material.Wood">木</String>
-  <String key="Material.Fibreglass">玻璃钢</String>
+  <String key="NewPoleBase.Label">底座</String>
+  <String key="NewPoleBase.Tooltip">立在什么上。</String>
+  <String key="SelPoleBase.Label">底座</String>
+  <String key="SelPoleBase.Tooltip">立在什么上。</String>
+  <String key="Base.Collar">护圈</String>
+  <String key="Base.Cast">铸造底座</String>
+  <String key="Base.None">无</String>
+
+  <String key="NewPoleShine.Label">光泽</String>
+  <String key="NewPoleShine.Tooltip">从哑光到亮面。</String>
+  <String key="SelPoleShine.Label">光泽</String>
+  <String key="SelPoleShine.Tooltip">从哑光到亮面。</String>
 
   <String key="NewRopes.Label">绳索</String>
   <String key="NewRopes.Tooltip">旗子夹在绳上。</String>
@@ -299,8 +302,6 @@
   <String key="NewLean.Tooltip">向侧面倾。</String>
   <String key="SelLean.Label">侧倾</String>
   <String key="SelLean.Tooltip">向侧面倾。</String>
-  <String key="PoleToGround.Label">旗杆到地面</String>
-  <String key="PoleToGround.Tooltip">拉长到地面。</String>
   <String key="NewPoleWear.Label">磨损</String>
   <String key="NewPoleWear.Tooltip">掉漆、褪色、风化。</String>
   <String key="SelPoleWear.Label">磨损</String>
@@ -443,7 +444,6 @@
   <String key="WindFromGame.Tooltip">若已开启，则用体积天气的风。</String>
   <String key="GameWindNow.Status">当前 10 米高处 {0}，吹向 {1}°</String>
   <String key="GameWindNow.Weather">体积天气：10 米高处 {0}，吹向 {1}°</String>
-  <String key="GameWindNow.WeatherSet">体积天气，在其“当前”选项卡设置：{0}，吹向 {1}°</String>
   <String key="GameWindNow.Rain">，雨 +{0}%</String>
   <String key="GameWindNow.Fog">，雾 -{0}%</String>
   <String key="GameWindNow.Own">你自己的风，见下方</String>
@@ -454,7 +454,7 @@
   <String key="WindGusts.Tooltip">100% 为典型城镇。</String>
   <String key="WindMode.Label">方向</String>
   <String key="WindMode.Tooltip">旗帜朝哪边飘。</String>
-  <String key="WindMode.EachFlag">各旗帜的朝向</String>
+  <String key="WindMode.EachFlag">沿各旗帜的旋转方向</String>
   <String key="WindMode.Fixed">固定</String>
   <String key="WindMode.Game">游戏的</String>
   <String key="WindDirection.Label">角度</String>

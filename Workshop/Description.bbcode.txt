@@ -1,0 +1,79 @@
+
+
+[hr][/hr]
+[h1]How to use[/h1]
+[olist]
+[*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
+[*][b]Load a city[/b] (new or saved). The mod does not run in the editors.
+[*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
+[*][b]Click + New flag[/b], choose a design, then click on the map to place it. Right-click rotates, Page Up and Page Down raise and lower it.
+[*][b]To change a placed flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
+[/olist]
+[h3]Your own pictures[/h3]
+Put .png or .jpg files in the [i]FlagMaker\Images[/i] folder (the Image window has a button that opens it), then crop them onto the flag.
+
+[hr][/hr]
+[h1]Features[/h1]
+[h3]Designs[/h3]
+[list]
+[*]250+ country and territory flags
+[*]15 patterns in your own colours
+[*]Your own pictures
+[*]Any size up to 30 m, hoisted from the side or the top
+[*]Waving, still or flat
+[*]Wear and tear: worn, torn, dirty and holed flags
+[/list]
+[h3]Cloth and wind[/h3]
+[list]
+[*]Real cloth simulation, lit by the game's sun, shadows and street lights
+[*]Wet in the rain
+[*]Flies in the game's wind, or set your own speed, gusts and direction
+[*]Stronger wind up high and on rooftops, calmer between buildings
+[*]Follows [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]'s wind and gusts
+[*]Drapes over roofs, walls, props and trees instead of passing through them
+[/list]
+[h3]Flagpoles[/h3]
+[list]
+[*]Optional, with a ball, flat or spear top
+[*]Halyard ropes
+[*]Your own colours, height and thickness
+[*]Tilt and lean, for poles on walls
+[/list]
+[h3]Mod options[/h3]
+[list]
+[*]Move It: move, copy and paste flags with their designs
+[*]4 panel looks
+[*]Localizations: English, Spanish, French and Simplified Chinese
+[/list]
+
+[hr][/hr]
+[h1]Compatibility[/h1]
+[b]Removing the mod[/b] will not corrupt your save, but when you save without it, the existing flags will be deleted permanently.
+[h3]Works with[/h3]
+[list]
+[*][b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b]: the flags can be moved, rotated and deleted as Props.
+[*][b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2956939040]Line Tool[/url][/b]: flags can be added as a line, freeform, circle, etc. you will see this option in Flag Maker itself, not in the Line Tool toolbar.
+[/list]
+[h3]Known issues / limitations[/h3]
+[list]
+[*][b]Flags can't turn to Procedural Objects[/b]: This is intentional for now, since you can make flags not move anyway.
+[/list]
+
+[hr][/hr]
+[h1]Source code[/h1]
+Open source (MIT). Includes UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks to all three. Country flags from [url=https://flagpedia.net]Flagpedia[/url]. Full license info on the repository.
+This mod was made with substantial help from AI. I set the goals, made the design decisions, and did all of the in-game testing and tuning.
+[h3][url=https://github.com/atianthony12/FlagMakerCS1]Open on GitHub[/url][/h3]
+
+[hr][/hr]
+[h1]Reporting a bug[/h1]
+Please include the following:
+[olist]
+[*][b]The game's log[/b], [i]output_log.txt[/i]. In Steam, right-click Cities: Skylines → [i]Manage → Browse local files[/i], then open the [i]Cities_Data[/i] folder. On a Mac it is [i]~/Library/Logs/Unity/Player.log[/i], on Linux [i]~/.config/unity3d/Colossal Order/Cities_Skylines/Player.log[/i].
+[*][b]The mod's own log[/b], [i]FlagMaker.log[/i]. Tick [i]Detailed logging[/i] (Options → Flag Maker) first, then make the problem happen again. To find it, paste this into File Explorer's address bar:
+[code]%LOCALAPPDATA%\Colossal Order\Cities_Skylines[/code]
+On a Mac it is in [i]~/Library/Application Support/Colossal Order/Cities_Skylines[/i], on Linux in [i]~/.local/share/Colossal Order/Cities_Skylines[/i].
+[*][b]What happened[/b]: what you did and expected, screenshots, your graphics card and your other mods.
+[/olist]
+Both logs start fresh at every launch, so copy them before restarting, upload them (Google Drive, Pastebin...) and post the link in the comments.
+Or [url=https://github.com/atianthony12/FlagMakerCS1/issues]open an issue on GitHub[/url] instead, where you can attach the log files directly.

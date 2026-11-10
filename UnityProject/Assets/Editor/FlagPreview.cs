@@ -294,14 +294,26 @@ public static class FlagPreview
         }
         else if (countries.Length > 0)
         {
+            // Each at its own proportion (unless -Proportion), or at each of -Shapes (0 = its own).
+            string shapesText = Env("RF_SHAPES", "0");
+            bool proportionSet = Env("RF_PROPORTION_SET", "") == "1";
             foreach (string code in countries)
             {
-                FlagSpec flag = spec;
-                flag.Country = code.Trim();
-                foreach (float darkness in darknesses)
+                FlagCountry country = FlagCountries.Find(FlagCountries.Normalise(code.Trim()));
+                foreach (string shapeText in shapesText.Split(','))
                 {
-                    flag.Darkness = darkness / 100f;
-                    designs.Add(flag.Sanitised());
+                    int shape = int.Parse(shapeText.Trim(), CultureInfo.InvariantCulture);
+                    FlagSpec flag = spec;
+                    flag.Country = code.Trim();
+                    if (shape > 0)
+                        flag.Proportion = shape;
+                    else if (!proportionSet && country != null)
+                        flag.Proportion = country.Proportion;
+                    foreach (float darkness in darknesses)
+                    {
+                        flag.Darkness = darkness / 100f;
+                        designs.Add(flag.Sanitised());
+                    }
                 }
             }
         }
@@ -362,8 +374,8 @@ public static class FlagPreview
             designs = cutDesigns;
         }
 
-        // RF_POLES "profile,material,worn,rust,dirt[,rope thickness %]|...": each design once per
-        // pole look (FlagPoleProfile, FlagPoleMaterial; percent as the panel's). RF_ROPELOOK 0 a
+        // RF_POLES "profile,base,shine,worn,rust,dirt[,rope thickness %]|...": each design once per
+        // pole look (FlagPoleProfile, FlagPoleBase; percent as the panel's). RF_ROPELOOK 0 a
         // procedural twist, 1 the texture (the shader's _RFRopeLook).
         string[] poleLooks = Env("RF_POLES", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
         if (poleLooks.Length > 0)
@@ -376,11 +388,12 @@ public static class FlagPreview
                     float[] v = ParseFloats(look);
                     FlagSpec flag = d;
                     flag.PoleProfile = v.Length > 0 ? (int)v[0] : FlagPoleProfile.Tapered;
-                    flag.PoleMaterial = v.Length > 1 ? (int)v[1] : FlagPoleMaterial.Painted;
-                    flag.PoleWear = v.Length > 2 ? v[2] / 100f : 0f;
-                    flag.PoleRust = v.Length > 3 ? v[3] / 100f : 0f;
-                    flag.PoleDirt = v.Length > 4 ? v[4] / 100f : 0f;
-                    flag.RopeThickness = v.Length > 5 ? v[5] / 100f : 1f;
+                    flag.PoleBase = v.Length > 1 ? (int)v[1] : FlagPoleBase.Collar;
+                    flag.PoleShine = v.Length > 2 ? v[2] / 100f : FlagSpec.DefaultPoleShine;
+                    flag.PoleWear = v.Length > 3 ? v[3] / 100f : 0f;
+                    flag.PoleRust = v.Length > 4 ? v[4] / 100f : 0f;
+                    flag.PoleDirt = v.Length > 5 ? v[5] / 100f : 0f;
+                    flag.RopeThickness = v.Length > 6 ? v[6] / 100f : 1f;
                     poled.Add(flag.Sanitised());
                 }
             }
@@ -791,6 +804,11 @@ public static class FlagPreview
         float wet = Mathf.Clamp01(ParseFloat(Env("RF_WET", "0")));
         Shader.SetGlobalVector("_WeatherParams", new Vector4(15f, wet, 0f, wet));
 
+        // What PoleSky binds in the game: a sky for a glossy pole -- here a gradient cube standing in
+        // for the game's environment map (zenith blue, a pale horizon, the ground below), dark at night.
+        Shader.SetGlobalTexture("_RFSky", SkyCube(night));
+        Shader.SetGlobalVector("_RFSkyInfo", new Vector4(5f, 1f, 1f, 0f));
+
         // And from the camera: half a pixel's angle, the thinnest a tube is drawn.
         float pixelsPerRadian = height / (2f * Mathf.Tan(0.5f * s.Camera.fieldOfView * Mathf.Deg2Rad));
         Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, 0.6f / pixelsPerRadian);
@@ -1044,6 +1062,46 @@ public static class FlagPreview
     private static float ParseFloat(string text)
     {
         return float.Parse(text, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>A 32-pixel gradient sky cube, mipmapped (linear values): zenith blue, a pale horizon, the ground below.</summary>
+    private static Cubemap SkyCube(bool night)
+    {
+        const int size = 32;
+        var cube = new Cubemap(size, TextureFormat.RGBAHalf, true);
+        Color zenith = night ? new Color(0.004f, 0.006f, 0.015f) : new Color(0.18f, 0.32f, 0.62f);
+        Color horizon = night ? new Color(0.01f, 0.012f, 0.02f) : new Color(0.62f, 0.68f, 0.75f);
+        Color ground = night ? new Color(0.002f, 0.002f, 0.002f) : new Color(0.06f, 0.08f, 0.045f);
+        CubemapFace[] faces = { CubemapFace.PositiveX, CubemapFace.NegativeX, CubemapFace.PositiveY, CubemapFace.NegativeY, CubemapFace.PositiveZ, CubemapFace.NegativeZ };
+        var pixels = new Color[size * size];
+        foreach (CubemapFace face in faces)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float u = 2f * (x + 0.5f) / size - 1f, v = 2f * (y + 0.5f) / size - 1f;
+                    Vector3 d;
+                    switch (face)
+                    {
+                        case CubemapFace.PositiveX: d = new Vector3(1f, -v, -u); break;
+                        case CubemapFace.NegativeX: d = new Vector3(-1f, -v, u); break;
+                        case CubemapFace.PositiveY: d = new Vector3(u, 1f, v); break;
+                        case CubemapFace.NegativeY: d = new Vector3(u, -1f, -v); break;
+                        case CubemapFace.PositiveZ: d = new Vector3(u, -v, 1f); break;
+                        default: d = new Vector3(-u, -v, -1f); break;
+                    }
+
+                    float h = d.normalized.y;
+                    pixels[y * size + x] = h >= 0f ? Color.Lerp(horizon, zenith, Mathf.Pow(h, 0.6f)) : Color.Lerp(horizon, ground, Mathf.Clamp01(-h * 8f));
+                }
+            }
+
+            cube.SetPixels(pixels, face);
+        }
+
+        cube.Apply(true);
+        return cube;
     }
 
     private static float[] ParseFloats(string text)

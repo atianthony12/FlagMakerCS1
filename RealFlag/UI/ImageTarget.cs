@@ -100,8 +100,8 @@ namespace RealFlag.UI
 
         /// <summary>
         /// The flag's shape is its picture's: a picture of known size on it (no country, whose own
-        /// shape goes first), while its width and height go together (Settings.LinkSize) -- as a
-        /// country's flag keeps its own proportions. Apart, any shape, the picture cropped to it.
+        /// picture goes), while its width and height go together (Settings.LinkSize). Apart, any
+        /// shape, the picture cropped to it.
         /// </summary>
         public bool ShapeTied
         {

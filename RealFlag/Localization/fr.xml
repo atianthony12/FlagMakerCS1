@@ -260,16 +260,19 @@
   <String key="Profile.Straight">Droit</String>
   <String key="Profile.Sectional">En sections</String>
   <String key="Profile.Fluted">Cannelé</String>
-  <String key="Profile.Ornate">Socle orné</String>
 
-  <String key="NewPoleMaterial.Label">Matériau</String>
-  <String key="NewPoleMaterial.Tooltip">De quoi il est fait.</String>
-  <String key="SelPoleMaterial.Label">Matériau</String>
-  <String key="SelPoleMaterial.Tooltip">De quoi il est fait.</String>
-  <String key="Material.Painted">Acier peint</String>
-  <String key="Material.Aluminium">Aluminium</String>
-  <String key="Material.Wood">Bois</String>
-  <String key="Material.Fibreglass">Fibre de verre</String>
+  <String key="NewPoleBase.Label">Pied</String>
+  <String key="NewPoleBase.Tooltip">Ce sur quoi il repose.</String>
+  <String key="SelPoleBase.Label">Pied</String>
+  <String key="SelPoleBase.Tooltip">Ce sur quoi il repose.</String>
+  <String key="Base.Collar">Collerette</String>
+  <String key="Base.Cast">Socle en fonte</String>
+  <String key="Base.None">Aucun</String>
+
+  <String key="NewPoleShine.Label">Brillance</String>
+  <String key="NewPoleShine.Tooltip">De mat à brillant.</String>
+  <String key="SelPoleShine.Label">Brillance</String>
+  <String key="SelPoleShine.Tooltip">De mat à brillant.</String>
 
   <String key="NewRopes.Label">Cordes</String>
   <String key="NewRopes.Tooltip">Drapeau fixé à une corde.</String>
@@ -309,8 +312,6 @@
   <String key="NewLean.Tooltip">Penche sur le côté.</String>
   <String key="SelLean.Label">Pencher</String>
   <String key="SelLean.Tooltip">Penche sur le côté.</String>
-  <String key="PoleToGround.Label">Mât jusqu’au sol</String>
-  <String key="PoleToGround.Tooltip">L’étire jusqu’au sol.</String>
   <String key="NewPoleWear.Label">Usé</String>
   <String key="NewPoleWear.Tooltip">Écaillé, terni, patiné.</String>
   <String key="SelPoleWear.Label">Usé</String>
@@ -453,7 +454,6 @@
   <String key="WindFromGame.Tooltip">Ou celui de Volumetric Weather.</String>
   <String key="GameWindNow.Status">Maintenant {0} à 10 m, vers {1}°</String>
   <String key="GameWindNow.Weather">Volumetric Weather : {0} à 10 m, vers {1}°</String>
-  <String key="GameWindNow.WeatherSet">Volumetric Weather, réglé dans son onglet Actuel : {0}, vers {1}°</String>
   <String key="GameWindNow.Rain">, pluie +{0} %</String>
   <String key="GameWindNow.Fog">, brouillard -{0} %</String>
   <String key="GameWindNow.Own">Votre propre vent, ci-dessous</String>
@@ -464,7 +464,7 @@
   <String key="WindGusts.Tooltip">100 % : une ville typique.</String>
   <String key="WindMode.Label">Direction</String>
   <String key="WindMode.Tooltip">Où flottent les drapeaux.</String>
-  <String key="WindMode.EachFlag">Vers où pointe chaque drapeau</String>
+  <String key="WindMode.EachFlag">Selon la rotation de chaque drapeau</String>
   <String key="WindMode.Fixed">Fixe</String>
   <String key="WindMode.Game">Celle du jeu</String>
   <String key="WindDirection.Label">Angle</String>

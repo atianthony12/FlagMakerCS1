@@ -726,17 +726,33 @@ namespace RealFlag.Flags
         /// <summary>
         /// The drawn pole's shaft, a <see cref="FlagPoleProfile"/> value (the author, 2026-11-09: "More
         /// pole shapes ... Some flagpoles are like 'layered'"): tapered (as every pole was), straight,
-        /// sectional (narrower steps up it, a collar at each joint), fluted, or tapered on an ornate base.
+        /// sectional (narrower steps up it, a sleeve at each joint) or fluted. (Value 4, "ornate", is
+        /// format 16's: read as a tapered shaft on a cast base.)
         /// </summary>
         public int PoleProfile;
 
-        /// <summary>What the drawn pole is made of, a <see cref="FlagPoleMaterial"/> value: painted steel (as every pole was), bare aluminium, varnished wood, fibreglass.</summary>
-        public int PoleMaterial;
+        /// <summary>
+        /// What the drawn pole stands on, a <see cref="FlagPoleBase"/> value (the author, 2026-11-09:
+        /// "separate the bottom from the shape itself ... an ornate base but with a sectional pole
+        /// body"): a flash collar (as every pole was), a cast base, or none.
+        /// </summary>
+        public int PoleBase;
 
         /// <summary>
-        /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped, aluminium oxidised, wood
-        /// silvered, fibreglass chalky), rust (painted steel only: in the chips and running down from
-        /// them) and dirt (grime up from the foot, streaks down). Its look only (FlagPole.shader).
+        /// How glossy the pole's paint is, 0 (matte) .. 1 (a polished clear coat) -- the author,
+        /// 2026-11-09, in place of materials: "We have the color picker ... let's just add a slider
+        /// for specular/shininess". A gloss coat's reflectance (4% head-on, Fresnel) whose blur
+        /// shrinks as it shines, as Real Glass's Reflective props' Gloss coat.
+        /// </summary>
+        public float PoleShine;
+
+        /// <summary>A painted pole's satin, the default shine (every pole's before 2026-11-09).</summary>
+        public const float DefaultPoleShine = 0.35f;
+
+        /// <summary>
+        /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped to primer), rust (in the
+        /// chips and running down from them) and dirt (grime up from the foot, streaks down). Its
+        /// look only (FlagPole.shader).
         /// </summary>
         public float PoleWear, PoleRust, PoleDirt;
 
@@ -834,7 +850,8 @@ namespace RealFlag.Flags
                     CutDepth = FlagCut.DefaultDepth,
                     BackPlate = true,
                     PoleProfile = FlagPoleProfile.Tapered,
-                    PoleMaterial = FlagPoleMaterial.Painted,
+                    PoleBase = FlagPoleBase.Collar,
+                    PoleShine = DefaultPoleShine,
                     PoleWear = 0f,
                     PoleRust = 0f,
                     PoleDirt = 0f,
@@ -891,11 +908,12 @@ namespace RealFlag.Flags
             if (s.Name.Length > 64)
                 s.Name = s.Name.Substring(0, 64);
 
-            // A country's flag flies at its own proportions, whatever a paste or the panel says.
+            // A country's flag takes any shape since 2026-11-10 (the author: "allow vertical flags and
+            // aspect ratios, including enabling the preset shapes also on country flags"): choosing
+            // a country gives it its own proportion (the panel's Country row), and the player may
+            // change it. Until then this forced the country's own here, so every flag saved before
+            // holds its country's proportion and looks as it did (CropMap.ForCountry).
             s.Country = FlagCountries.Normalise(s.Country);
-            FlagCountry country = FlagCountries.Find(s.Country);
-            if (country != null)
-                s.Proportion = country.Proportion;
 
             // The hoist no longer than a flag may be long (a tall flag of the longest length).
             float ratio = FlagSize.Ratio(s.Proportion);
@@ -936,10 +954,17 @@ namespace RealFlag.Flags
             s.WindShare = float.IsNaN(s.WindShare) || float.IsInfinity(s.WindShare) ? 1f : Share(s.WindShare);
             s.Cut = FlagCut.Sanitise(s.Cut);
             s.CutDepth = FlagCut.SanitiseDepth(s.CutDepth);
+            if (s.PoleProfile == FlagPoleProfile.OldOrnate)
+            {
+                // Format 16's "ornate" shaft: a tapered one on a cast base.
+                s.PoleProfile = FlagPoleProfile.Tapered;
+                s.PoleBase = FlagPoleBase.Cast;
+            }
             if (!FlagPoleProfile.IsKnown(s.PoleProfile))
                 s.PoleProfile = FlagPoleProfile.Tapered;
-            if (!FlagPoleMaterial.IsKnown(s.PoleMaterial))
-                s.PoleMaterial = FlagPoleMaterial.Painted;
+            if (!FlagPoleBase.IsKnown(s.PoleBase))
+                s.PoleBase = FlagPoleBase.Collar;
+            s.PoleShine = float.IsNaN(s.PoleShine) || float.IsInfinity(s.PoleShine) ? DefaultPoleShine : Share(s.PoleShine);
             s.PoleWear = Share(s.PoleWear);
             s.PoleRust = Share(s.PoleRust);
             s.PoleDirt = Share(s.PoleDirt);
@@ -1024,15 +1049,15 @@ namespace RealFlag.Flags
         public bool SamePole(FlagSpec other)
         {
             return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f &&
-                   Math.Abs(PoleLength - other.PoleLength) < 1e-3f && PoleProfile == other.PoleProfile &&
+                   Math.Abs(PoleLength - other.PoleLength) < 1e-3f && PoleProfile == other.PoleProfile && PoleBase == other.PoleBase &&
                    Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f;
         }
 
-        /// <summary>The same pole colours, material and wear (only the property block changes).</summary>
+        /// <summary>The same pole colours, shine and wear (only the property block changes).</summary>
         public bool SamePoleColours(FlagSpec other)
         {
             return PoleColour == other.PoleColour && TopColour == other.TopColour && RopeColour == other.RopeColour &&
-                   PoleMaterial == other.PoleMaterial && Math.Abs(PoleWear - other.PoleWear) < 1e-5f &&
+                   Math.Abs(PoleShine - other.PoleShine) < 1e-5f && Math.Abs(PoleWear - other.PoleWear) < 1e-5f &&
                    Math.Abs(PoleRust - other.PoleRust) < 1e-5f && Math.Abs(PoleDirt - other.PoleDirt) < 1e-5f;
         }
 
@@ -1079,7 +1104,8 @@ namespace RealFlag.Flags
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
                         (PoleLength > 0f ? ", " + PoleLength.ToString("0.#", inv) + " m long" : "") +
-                        ", " + FlagPoleProfile.LogName(PoleProfile) + " " + FlagPoleMaterial.LogName(PoleMaterial) +
+                        ", " + FlagPoleProfile.LogName(PoleProfile) + " on " + FlagPoleBase.LogName(PoleBase) +
+                        ", shine " + (PoleShine * 100f).ToString("F0", inv) + "%" +
                         (PoleWear > 0f || PoleRust > 0f || PoleDirt > 0f
                             ? " (worn " + (PoleWear * 100f).ToString("F0", inv) + "% rust " + (PoleRust * 100f).ToString("F0", inv) + "% dirt " +
                               (PoleDirt * 100f).ToString("F0", inv) + "%)"
@@ -1120,8 +1146,9 @@ namespace RealFlag.Flags
     /// The drawn pole's shaft (FlagSpec.PoleProfile): stored by VALUE in the save, APPEND ONLY.
     /// Tapered: a cone (every pole before 2026-11-09). Straight: one width all the way. Sectional:
     /// straight sections, each narrower than the one below, a collar where they meet (a telescoping
-    /// or sectional aluminium pole). Fluted: grooved down its length (a ceremonial pole). Ornate: the
-    /// tapered pole on a cast base (a plinth, a bell, a collar).
+    /// or sectional aluminium pole). Fluted: grooved down its length (a ceremonial pole). Value 4 was
+    /// format 16's "ornate" (a tapered shaft on a cast base): never written since, read as those two
+    /// (FlagSpec.Sanitised), never reused.
     /// </summary>
     public static class FlagPoleProfile
     {
@@ -1129,52 +1156,53 @@ namespace RealFlag.Flags
         public const int Straight = 1;
         public const int Sectional = 2;
         public const int Fluted = 3;
-        public const int Ornate = 4;
+        public const int OldOrnate = 4;
 
-        public static readonly int[] Values = { Tapered, Straight, Sectional, Fluted, Ornate };
-        public static readonly string[] NameKeys = { "Profile.Tapered", "Profile.Straight", "Profile.Sectional", "Profile.Fluted", "Profile.Ornate" };
+        public static readonly int[] Values = { Tapered, Straight, Sectional, Fluted };
+        public static readonly string[] NameKeys = { "Profile.Tapered", "Profile.Straight", "Profile.Sectional", "Profile.Fluted" };
 
         public static bool IsKnown(int value)
         {
-            return value >= Tapered && value <= Ornate;
+            return value >= Tapered && value <= Fluted;
         }
 
         public static string LogName(int value)
         {
-            return value == Straight ? "straight" : value == Sectional ? "sectional" : value == Fluted ? "fluted" : value == Ornate ? "ornate-based" : "tapered";
+            return value == Straight ? "straight" : value == Sectional ? "sectional" : value == Fluted ? "fluted" : "tapered";
         }
     }
 
     /// <summary>
-    /// What the drawn pole is made of (FlagSpec.PoleMaterial): stored by VALUE in the save, APPEND
-    /// ONLY. Painted: painted steel, satin, its colour the pole's (every pole before 2026-11-09).
-    /// Aluminium: bare brushed metal, the colour tinting it as anodising does. Wood: varnished
-    /// timber, the colour its stain. Fibreglass: a glossy gel coat in the colour. Only painted steel
-    /// rusts.
+    /// What the drawn pole stands on (FlagSpec.PoleBase): stored by VALUE in the save, APPEND ONLY.
+    /// Collar: a flash collar round its foot (every pole before 2026-11-09). Cast: a turned cast base
+    /// (a plinth, a torus, a bell, a ring). None: the shaft straight into the ground.
     /// </summary>
-    public static class FlagPoleMaterial
+    public static class FlagPoleBase
     {
-        public const int Painted = 0;
-        public const int Aluminium = 1;
-        public const int Wood = 2;
-        public const int Fibreglass = 3;
+        public const int Collar = 0;
+        public const int Cast = 1;
+        public const int None = 2;
 
-        public static readonly int[] Values = { Painted, Aluminium, Wood, Fibreglass };
-        public static readonly string[] NameKeys = { "Material.Painted", "Material.Aluminium", "Material.Wood", "Material.Fibreglass" };
+        public static readonly int[] Values = { Collar, Cast, None };
+        public static readonly string[] NameKeys = { "Base.Collar", "Base.Cast", "Base.None" };
 
         public static bool IsKnown(int value)
         {
-            return value >= Painted && value <= Fibreglass;
-        }
-
-        public static bool Rusts(int value)
-        {
-            return value == Painted;
+            return value >= Collar && value <= None;
         }
 
         public static string LogName(int value)
         {
-            return value == Aluminium ? "aluminium" : value == Wood ? "wood" : value == Fibreglass ? "fibreglass" : "painted steel";
+            return value == Cast ? "a cast base" : value == None ? "no base" : "a flash collar";
+        }
+
+        /// <summary>
+        /// Format 16's material, as a shine (FlagCodec reads it): painted steel's satin, bare
+        /// aluminium's sheen, varnished wood's dull, fibreglass's gloss.
+        /// </summary>
+        public static float ShineOfOldMaterial(int material)
+        {
+            return material == 1 ? 0.8f : material == 2 ? 0.2f : material == 3 ? 0.6f : FlagSpec.DefaultPoleShine;
         }
     }
 
@@ -1248,10 +1276,13 @@ namespace RealFlag.Flags
         /// the same, then whether a banner from its top keeps in front of its back plate (a byte,
         /// 0 or 1; older ones do, the default). 16 (2026-11-09): the same, then the drawn pole's
         /// profile and material (two bytes), its wear, rust and dirt (three floats, 0..1) and the
-        /// ropes' thickness (a float; older ones a tapered painted pole, as new, ropes 100%). Every
+        /// ropes' thickness (a float; older ones a tapered painted pole, as new, ropes 100%). 17
+        /// (2026-11-09, materials gone, the base its own): the same as 15, then the profile and the
+        /// base (two bytes), the shine, wear, rust, dirt and the ropes' thickness (five floats); 16's
+        /// material read as a shine, its "ornate" profile as a tapered shaft on a cast base. Every
         /// older one is still read.
         /// </summary>
-        public const byte Version = 16;
+        public const byte Version = 17;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1295,7 +1326,8 @@ namespace RealFlag.Flags
             w.Write(s.WindShare);
             w.Write((byte)(s.BackPlate ? 1 : 0));
             w.Write((byte)s.PoleProfile);
-            w.Write((byte)s.PoleMaterial);
+            w.Write((byte)s.PoleBase);
+            w.Write(s.PoleShine);
             w.Write(s.PoleWear);
             w.Write(s.PoleRust);
             w.Write(s.PoleDirt);
@@ -1442,11 +1474,22 @@ namespace RealFlag.Flags
             // Before the back plate: kept in front of it, the default (a banner from its side has no use for it).
             s.BackPlate = version >= 15 ? r.ReadByte() != 0 : true;
 
-            // Before the pole's looks: tapered, painted, as new, the ropes as they were.
+            // Before the pole's looks: tapered on a flash collar, satin, as new, the ropes as they were.
             if (version >= 16)
             {
                 s.PoleProfile = r.ReadByte();
-                s.PoleMaterial = r.ReadByte();
+                if (version >= 17)
+                {
+                    s.PoleBase = r.ReadByte();
+                    s.PoleShine = r.ReadSingle();
+                }
+                else
+                {
+                    // 16: a material, as a shine; its "ornate" profile is made a base by Sanitised.
+                    s.PoleBase = FlagPoleBase.Collar;
+                    s.PoleShine = FlagPoleBase.ShineOfOldMaterial(r.ReadByte());
+                }
+
                 s.PoleWear = r.ReadSingle();
                 s.PoleRust = r.ReadSingle();
                 s.PoleDirt = r.ReadSingle();
@@ -1455,7 +1498,8 @@ namespace RealFlag.Flags
             else
             {
                 s.PoleProfile = FlagPoleProfile.Tapered;
-                s.PoleMaterial = FlagPoleMaterial.Painted;
+                s.PoleBase = FlagPoleBase.Collar;
+                s.PoleShine = FlagSpec.DefaultPoleShine;
                 s.RopeThickness = 1f;
             }
 

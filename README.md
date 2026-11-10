@@ -48,8 +48,8 @@ colors or your own pictures, on a flagpole or hanging on its own.
 
 - Optional: a flag comes without a pole, so you can put it on any pole asset, mast, roof or facade
 - Or let the mod draw one, with a ball, flat or spear top
-- Five shapes (tapered, straight, sectional, fluted, on an ornate base) in painted steel,
-  aluminum, wood or fiberglass
+- Four shapes (tapered, straight, sectional, fluted) on a collar, a cast base or none, matte to
+  glossy
 - Wear, rust and dirt on the pole
 - Halyard ropes, as thick as you like
 - Your own colors, height and thickness
@@ -121,7 +121,7 @@ that row.
 
 | Setting | What it does |
 | --- | --- |
-| **Country** | Any country's or territory's flag, at its real proportions. Search by name (in your language or in English) or by country code. |
+| **Country** | Any country's or territory's flag. It keeps your flag's size and stretches to fit, turned on a tall shape the way a flag hung upright is shown; the Shape row's reset icon gives it its real proportions. Search by name (in your language or in English) or by country code. |
 | **Your image** | A picture of your own, see [Your own pictures](#your-own-pictures). |
 | **Pattern** | Opens the Pattern window, with 15 patterns in up to 3 colors and a preview. Pick colors from the palette, with the sliders, or type or paste a hex code. You can save a pattern and its colors under a name, and use it in any city. |
 | **Proportions** | The flag's shape, from a tall banner to a long flag. |
@@ -131,7 +131,7 @@ that row.
 | **Motion** | **Waving** in the wind, **Still** or **Flat**, see [below](#still-and-flat-flags). |
 | **How wavy** | How much the cloth ripples, from 0 to 200%. |
 | **Wind on it** | How much of the wind reaches the flag. At 0% a banner just hangs, and around 10 to 25% it sways gently. |
-| **Darkness** | If a flag's white or yellow looks too bright in the sun, turn this up to tone its colors down (up to 80%). |
+| **Darkness** | Tones a flag's colors down so its white and yellow don't glare in the sun: 30% to begin with, up to 80%. |
 | **Worn**, **Torn**, **Torn edges**, **Dirt**, **Holes** | Wear and tear: faded colors and a frayed end, an end ripped to tatters like a pirate flag, torn top and bottom edges, grime and rain streaks, bullet holes, burns and tears. Every flag gets its own. |
 | **Flagpole** | Opens the Flagpole window, see [Flagpoles](#flagpoles). |
 | **Rotation** | Which way the flag points. |
@@ -178,22 +178,21 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
 - **Pole height** goes from 1 to 50 m, or up to 200 m with **Allow taller poles**.
 - With one or two halyard **Ropes**, the flag is only held at its top and bottom clips, so its edge
   bows out a little in the wind, like on a real pole. Without ropes, the whole edge is held.
-- **Shape**: tapered (the default), straight, sectional (narrower steps up it, with a collar at
-  each joint, like telescoping poles), fluted (grooved, like a ceremonial pole), or tapered on an
-  ornate cast base.
-- **Material**: painted steel, aluminum, wood or fiberglass. The pole's color paints the steel,
-  tints the aluminum, stains the wood and colors the fiberglass.[^poles]
+- **Shape**: tapered (the default), straight, sectional (narrower steps up it, like telescoping
+  poles) or fluted (grooved, like a ceremonial pole).
+- **Base**: a flash collar (the default), a decorative cast base, or none. Any shape goes on any
+  base.
+- **Shine**: from matte to a glossy coat that reflects the sky, Real Glass's live sky and clouds
+  when you have it.[^poles]
 - **Worn**, **Rust** and **Dirt**, under Wear and tear: paint chipped down to the primer (more at
-  the foot and where the rope rubs), aluminum gone dull, wood silvered, fiberglass chalky; rust in
-  the chips and running down from them (painted steel only); grime rising from the foot. Every pole
-  wears in its own way.
+  the foot and where the rope rubs); rust in the chips and running down from them; grime rising
+  from the foot. Every pole wears in its own way.
 - You can pick the colors of the pole, its top and its ropes, its **Thickness** and the
   **Rope thickness**.
 - **Tilt** and **Lean** are for poles on walls: a wall-mounted pole usually leans 30 to 45°, a
   horizontal one 90°. The flag follows the tilt even without a drawn pole.
 - The pole is part of the flag. Move, raise or lower the flag and its pole comes with it. Changing
   a placed flag's **Pole height** keeps the foot where it is, and the flag moves with the top.
-  **Pole to the ground** brings a pole you've moved back down to whatever is under it.
 - The cloth doesn't go through the pole: if the wind blows a flag back over its pole, it wraps
   around it.
 - A banner hanging from its top has no pole (your pole comes back when you switch to Side). For a
@@ -215,8 +214,9 @@ Maker).
 
 | Setting | What it does |
 | --- | --- |
-| **Use the game's wind** | On by default. Flags fly in the game's wind direction, which slowly changes over time. It's a gentle breeze that gets stronger in the rain and calmer in fog, stronger on hills and higher up, and weaker in valleys and near forests. With Volumetric Weather on, flags use its wind instead. |
-| **Wind speed**, **Gusts**, **Direction** | Your own wind, when the game's is off. The speed is at 10 m height (the panel shows its Beaufort force). Direction can be where each flag points, one fixed direction, or the game's. |
+| **Use the game's wind** | On by default. Flags fly in the game's wind: a gentle breeze that gets stronger in the rain and calmer in fog, stronger on hills and higher up, and weaker in valleys and near forests. With Volumetric Weather on, flags use its wind instead. |
+| **Wind speed**, **Gusts** | Your own wind, when the game's is off. The speed is at 10 m height (the panel shows its Beaufort force). |
+| **Direction** | Which way flags fly, with the game's wind or your own: along each flag's rotation (the default), one fixed direction, or the game's (which slowly changes over time). |
 | **Quality** | Sets Cloth detail, Cloth collides with itself, Detailed building shapes and Shared motion in one go, from Low to Ultra. Changing any of them yourself switches it to Custom. |
 | **Cloth detail** | Low, Medium, High (default), Very high, Ultra or Extreme. Higher means finer cloth on flags close to the camera, and more CPU. |
 | **Cloth collides with itself** | Folds lie on top of each other instead of going through. |
@@ -549,7 +549,7 @@ other mods, all credited in the notes below (no code from them is included). Cou
 [Flagpedia.net](https://flagpedia.net) (flagcdn.com), based on Wikimedia Commons' files, public
 domain. Country names in Spanish, French and Chinese are from the [Unicode CLDR](https://cldr.unicode.org)
 (Unicode License V3). The panel's icons are based on [Lucide](https://lucide.dev)'s (ISC). The
-flagpoles' wood, rust and rope textures are from [Poly Haven](https://polyhaven.com) and
+flagpoles' rust and rope textures are from [Poly Haven](https://polyhaven.com) and
 [ambientCG](https://ambientcg.com) (CC0). Includes
 UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks
 to all three. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
@@ -572,7 +572,7 @@ MIT, see [LICENSE](LICENSE).
 [^wind]: **The wind.** EN 1991-1-4, Eurocode 1: wind actions; A. G. Davenport, *Rationale for determining design wind velocities* (1960) and ASCE 7-95's exposures: how the wind grows with height over each terrain; H. Lettau (1969) and C. S. B. Grimmond and T. R. Oke, *Aerodynamic properties of urban areas derived from analysis of surface form* (1999): how rough the city is, from its buildings; H. A. Panofsky and J. A. Dutton, *Atmospheric Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941); WMO-No. 8, *Guide to Instruments and Methods of Observation*, ch. 5 (the 3 s gust): how quickly flags follow the wind's speed; K. Perlin, *Improving Noise* (2002), and C. Wellons' lowbias32 hash: the noise.
 [^shader]: **The fabric.** A. C. Estevez and C. Kulla, *Production Friendly Microfacet Sheen BRDF* (2017); D. Neubelt and M. Pettineo, *Crafting a Next-Gen Material Pipeline for The Order: 1886* (2013); S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004). **Wet in the rain:** S. Lagarde, *Water drop 3b, Physically based wet surfaces* (2013); D. Lazarov, *Physically-based lighting in Call of Duty: Black Ops* (SIGGRAPH 2011).
 [^wear]: **Wear and tear.** D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT): the shader's hashes; S. Worley, *A Cellular Texture Basis Function* (SIGGRAPH 1996): scattering the holes; F. K. Musgrave et al., *Texturing and Modeling: A Procedural Approach* (1994): fractal noise for the frayed end and the grime; I. Quilez's 2D signed distance functions: the shapes of the holes and tears; forensic science's "bullet wipe": the dark ring around a bullet hole in cloth.
-[^poles]: **The poles.** M. Tarini, *Cylindrical and Toroidal Parameterizations Without Vertex Seams* (Journal of Graphics Tools, 2012): wrapping a texture around the pole with no seam; [Poly Haven](https://polyhaven.com)'s *European Walnut Veneer 04* and *Rust Coarse 01* and [ambientCG](https://ambientcg.com)'s *Rope 001* (all CC0): the wood's grain, the rust and the rope's braid; D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) and F. K. Musgrave et al. (1994), as for the cloth's wear: the chips, the rust patches and the grime.
+[^poles]: **The poles.** M. Tarini, *Cylindrical and Toroidal Parameterizations Without Vertex Seams* (Journal of Graphics Tools, 2012): wrapping a texture around the pole with no seam; [Poly Haven](https://polyhaven.com)'s *Rust Coarse 01* and [ambientCG](https://ambientcg.com)'s *Rope 001* (both CC0): the rust and the rope's braid; C. Schlick, *An Inexpensive BRDF Model for Physically-based Rendering* (1994) and N. Hoffman, *Physics and Math of Shading* (SIGGRAPH 2013): the shine's gloss coat, 4% head-on, as Real Glass's; D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) and F. K. Musgrave et al. (1994), as for the cloth's wear: the chips, the rust patches and the grime.
 [^surface]: **The drawn surface.** E. Catmull and R. Rom, *A class of local interpolating splines* (Computer Aided Geometric Design, 1974); G. Taubin, *A Signal Processing Approach to Fair Surface Design* (SIGGRAPH 1995).
 [^still]: **Still flags.** The Met Office's Beaufort wind force scale (force 3, "light flags extended"): the breeze a still flag is caught in; W. Froude's similarity (the Froude number, U²/gL): a stronger breeze for a bigger flag; W. Welch and A. Witkin, *Variational Surface Modeling* (SIGGRAPH 1992), the thin-plate energy: picking the smoothest moment.
 [^pictures]: **Your pictures.** The images folders of *Procedural Objects* and *Image Overlay* (Cities: Skylines mods): a folder button and a list of the files, the idea only, no code; S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996): the "pull-push" fill under transparent pixels; the PNG specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81): reading a picture's size from its header.

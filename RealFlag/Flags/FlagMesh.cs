@@ -391,7 +391,9 @@ namespace RealFlag.Flags
             bool through = false;
             if (country != null)
             {
+                // Any shape since 2026-11-10: stretched to it, turned for one standing the other way.
                 image = FlagImages.Get(country.Image);
+                map = CropMap.ForCountry(spec.Proportion, country.Proportion);
             }
             else if (spec.HasImage)
             {

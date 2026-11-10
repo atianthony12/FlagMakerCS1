@@ -241,9 +241,10 @@ namespace RealFlag
         /// <summary>Against a real pole's for the flag and its height, 0.5..2 (shown as a percentage).</summary>
         public static FloatSetting NewPoleThickness { get; private set; }
 
-        /// <summary>The pole's FlagPoleProfile and FlagPoleMaterial; its wear, rust and dirt 0..1; the ropes' thickness 0.5..3.</summary>
+        /// <summary>The pole's FlagPoleProfile and FlagPoleBase; its shine, wear, rust and dirt 0..1; the ropes' thickness 0.5..3.</summary>
         public static IntSetting NewPoleProfile { get; private set; }
-        public static IntSetting NewPoleMaterial { get; private set; }
+        public static IntSetting NewPoleBase { get; private set; }
+        public static FloatSetting NewPoleShine { get; private set; }
         public static FloatSetting NewPoleWear { get; private set; }
         public static FloatSetting NewPoleRust { get; private set; }
         public static FloatSetting NewPoleDirt { get; private set; }
@@ -292,7 +293,8 @@ namespace RealFlag
         public static IntSetting SelRopeColour { get; private set; }
         public static FloatSetting SelPoleThickness { get; private set; }
         public static IntSetting SelPoleProfile { get; private set; }
-        public static IntSetting SelPoleMaterial { get; private set; }
+        public static IntSetting SelPoleBase { get; private set; }
+        public static FloatSetting SelPoleShine { get; private set; }
         public static FloatSetting SelPoleWear { get; private set; }
         public static FloatSetting SelPoleRust { get; private set; }
         public static FloatSetting SelPoleDirt { get; private set; }
@@ -391,8 +393,12 @@ namespace RealFlag
             /// <summary>All the wind where it stands.</summary>
             public const float WindShare = 1f;
 
-            /// <summary>The colours as designed.</summary>
-            public const float Darkness = 0f;
+            /// <summary>
+            /// 30% (the author, 2026-11-10: "Darkness: should be by default 30%"): the colours as
+            /// designed are bright in the game's light. A save's flag keeps its own; a flag of an
+            /// older format (before 4) reads 0, as designed.
+            /// </summary>
+            public const float Darkness = 0.3f;
 
             /// <summary>As new: no wear, dirt or holes.</summary>
             public const float Wear = 0f;
@@ -430,9 +436,10 @@ namespace RealFlag
             public const int RopeColour = (int)FlagSpec.DefaultRopeColour;
             public const float PoleThickness = 1f;
 
-            /// <summary>A tapered painted pole, as new, its ropes as they were: every pole before 2026-11-09.</summary>
+            /// <summary>A tapered satin pole on a flash collar, as new, its ropes as they were: every pole before 2026-11-09.</summary>
             public const int PoleProfile = FlagPoleProfile.Tapered;
-            public const int PoleMaterial = FlagPoleMaterial.Painted;
+            public const int PoleBase = FlagPoleBase.Collar;
+            public const float PoleShine = FlagSpec.DefaultPoleShine;
             public const float PoleWear = 0f;
             public const float PoleRust = 0f;
             public const float PoleDirt = 0f;
@@ -531,7 +538,8 @@ namespace RealFlag
                 NewRopeColour = new IntSetting("NewRopeColour", Defaults.RopeColour);
                 NewPoleThickness = new FloatSetting("NewPoleThickness", Defaults.PoleThickness);
                 NewPoleProfile = new IntSetting("NewPoleProfile", Defaults.PoleProfile);
-                NewPoleMaterial = new IntSetting("NewPoleMaterial", Defaults.PoleMaterial);
+                NewPoleBase = new IntSetting("NewPoleBase", Defaults.PoleBase);
+                NewPoleShine = new FloatSetting("NewPoleShine", Defaults.PoleShine);
                 NewPoleWear = new FloatSetting("NewPoleWear", Defaults.PoleWear);
                 NewPoleRust = new FloatSetting("NewPoleRust", Defaults.PoleRust);
                 NewPoleDirt = new FloatSetting("NewPoleDirt", Defaults.PoleDirt);
@@ -574,7 +582,8 @@ namespace RealFlag
                 SelRopeColour = new IntSetting("SelRopeColour", Defaults.RopeColour, true);
                 SelPoleThickness = new FloatSetting("SelPoleThickness", Defaults.PoleThickness, true);
                 SelPoleProfile = new IntSetting("SelPoleProfile", Defaults.PoleProfile, true);
-                SelPoleMaterial = new IntSetting("SelPoleMaterial", Defaults.PoleMaterial, true);
+                SelPoleBase = new IntSetting("SelPoleBase", Defaults.PoleBase, true);
+                SelPoleShine = new FloatSetting("SelPoleShine", Defaults.PoleShine, true);
                 SelPoleWear = new FloatSetting("SelPoleWear", Defaults.PoleWear, true);
                 SelPoleRust = new FloatSetting("SelPoleRust", Defaults.PoleRust, true);
                 SelPoleDirt = new FloatSetting("SelPoleDirt", Defaults.PoleDirt, true);
@@ -597,6 +606,13 @@ namespace RealFlag
             }
 
             SettingsXml.Load();
+
+            // A file from the day "ornate" was a profile (format 16): a tapered shaft on a cast base.
+            if (NewPoleProfile.value == FlagPoleProfile.OldOrnate)
+            {
+                NewPoleProfile.value = FlagPoleProfile.Tapered;
+                NewPoleBase.value = FlagPoleBase.Cast;
+            }
         }
 
         /// <summary>
@@ -643,7 +659,8 @@ namespace RealFlag
             spec.RopeColour = (uint)NewRopeColour.value;
             spec.PoleThickness = NewPoleThickness.value;
             spec.PoleProfile = NewPoleProfile.value;
-            spec.PoleMaterial = NewPoleMaterial.value;
+            spec.PoleBase = NewPoleBase.value;
+            spec.PoleShine = NewPoleShine.value;
             spec.PoleWear = NewPoleWear.value;
             spec.PoleRust = NewPoleRust.value;
             spec.PoleDirt = NewPoleDirt.value;

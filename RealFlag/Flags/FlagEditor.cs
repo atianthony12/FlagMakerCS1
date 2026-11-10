@@ -149,7 +149,8 @@ namespace RealFlag.Flags
                     Settings.SelRopeColour.value = (int)e.Spec.RopeColour;
                     Settings.SelPoleThickness.value = e.Spec.PoleThickness;
                     Settings.SelPoleProfile.value = e.Spec.PoleProfile;
-                    Settings.SelPoleMaterial.value = e.Spec.PoleMaterial;
+                    Settings.SelPoleBase.value = e.Spec.PoleBase;
+                    Settings.SelPoleShine.value = e.Spec.PoleShine;
                     Settings.SelPoleWear.value = e.Spec.PoleWear;
                     Settings.SelPoleRust.value = e.Spec.PoleRust;
                     Settings.SelPoleDirt.value = e.Spec.PoleDirt;
@@ -225,7 +226,8 @@ namespace RealFlag.Flags
             spec.RopeColour = (uint)Settings.SelRopeColour.value;
             spec.PoleThickness = Settings.SelPoleThickness.value;
             spec.PoleProfile = Settings.SelPoleProfile.value;
-            spec.PoleMaterial = Settings.SelPoleMaterial.value;
+            spec.PoleBase = Settings.SelPoleBase.value;
+            spec.PoleShine = Settings.SelPoleShine.value;
             spec.PoleWear = Settings.SelPoleWear.value;
             spec.PoleRust = Settings.SelPoleRust.value;
             spec.PoleDirt = Settings.SelPoleDirt.value;
@@ -455,25 +457,6 @@ namespace RealFlag.Flags
             return FlagRegistry.TryGet(e.Prop, out spec) ? spec : e.Spec;
         }
 
-        /// <summary>The Flagpole popup's "Pole down to the ground": the selected flag's pole finds what stands under it again (after Move It raised or lowered the whole flag, say).</summary>
-        public static void PoleToGround()
-        {
-            FlagEntry e;
-            if (!TryEntry(out e) || !e.Spec.HasPole)
-                return;
-
-            LetBaseGo();
-            LetPoleGo(Latest(e));
-            Log.Msg("flags: flag #" + Selected + "'s pole sent down to the ground again");
-        }
-
-        /// <summary>The selected flag's pole length let go: the renderer finds it again down the pole's axis, and keeps it.</summary>
-        private static void LetPoleGo(FlagSpec spec)
-        {
-            spec.PoleLength = 0f;
-            FlagRegistry.Set(Selected, spec);
-        }
-
         /// <summary>The camera to the selected flag.</summary>
         public static void GoTo()
         {
@@ -500,54 +483,83 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>The New flag window takes the selected flag's design, for another like it (the panel then opens the window to place it).</summary>
+        /// <summary>
+        /// The New flag window takes everything of the selected flag's, for another like it (the
+        /// panel then opens the window to place it): its design, its pole -- the Pole height too, the
+        /// range unlocked if it is taller than the locked one (the author, 2026-11-09: "Copy a flag is
+        /// not copying all properties correctly, especially the flagpole height") -- and its rotation.
+        /// Its name and its place are its own.
+        /// </summary>
         public static void CopyToNew()
         {
             FlagEntry e;
             if (!TryEntry(out e))
                 return;
 
-            Settings.NewCountry.value = FlagCountries.NumberOf(e.Spec.Country);
-            Settings.NewImage.value = FlagImageNames.NumberOf(e.Spec.Image);
-            Settings.NewImageX.value = e.Spec.ImageX;
-            Settings.NewImageY.value = e.Spec.ImageY;
-            Settings.NewImageZoom.value = e.Spec.ImageZoom;
-            Settings.NewImageTurn.value = e.Spec.ImageTurn;
-            Settings.NewImageAlpha.value = e.Spec.ImageAlpha;
-            Settings.NewPattern.value = e.Spec.Pattern;
-            Settings.NewColour1.value = (int)e.Spec.Colour1;
-            Settings.NewColour2.value = (int)e.Spec.Colour2;
-            Settings.NewColour3.value = (int)e.Spec.Colour3;
-            Settings.NewLength.value = e.Spec.Length;
-            Settings.NewProportion.value = e.Spec.Proportion;
-            Settings.NewHoistedFrom.value = e.Spec.HoistedFrom;
-            Settings.NewMotion.value = e.Spec.Motion;
-            Settings.NewWaviness.value = e.Spec.Waviness;
-            Settings.NewWindShare.value = e.Spec.WindShare;
-            Settings.NewCut.value = e.Spec.Cut;
-            Settings.NewCutDepth.value = e.Spec.CutDepth;
-            Settings.NewDarkness.value = e.Spec.Darkness;
-            Settings.NewWear.value = e.Spec.Wear;
-            Settings.NewDirt.value = e.Spec.Dirt;
-            Settings.NewHoles.value = e.Spec.Holes;
-            Settings.NewTear.value = e.Spec.Tear;
-            Settings.NewTearEdges.value = e.Spec.TearEdges;
-            Settings.NewBackPlate.value = e.Spec.BackPlate;
-            Settings.NewPole.value = e.Spec.Pole;
-            Settings.NewRopes.value = e.Spec.Ropes;
-            Settings.NewPoleColour.value = (int)e.Spec.PoleColour;
-            Settings.NewTopColour.value = (int)e.Spec.TopColour;
-            Settings.NewRopeColour.value = (int)e.Spec.RopeColour;
-            Settings.NewPoleThickness.value = e.Spec.PoleThickness;
-            Settings.NewPoleProfile.value = e.Spec.PoleProfile;
-            Settings.NewPoleMaterial.value = e.Spec.PoleMaterial;
-            Settings.NewPoleWear.value = e.Spec.PoleWear;
-            Settings.NewPoleRust.value = e.Spec.PoleRust;
-            Settings.NewPoleDirt.value = e.Spec.PoleDirt;
-            Settings.NewRopeThickness.value = e.Spec.RopeThickness;
-            Settings.NewTilt.value = e.Spec.Tilt;
-            Settings.NewLean.value = e.Spec.Lean;
-            Log.Msg("flags: flag #" + Selected + "'s design copied to the new flag");
+            // Read the latest: the renderer's copy is a frame behind a change just made in the panel.
+            FlagSpec spec = Latest(e);
+            CopySpecToNew(spec);
+
+            // A pole that stands: its height. Otherwise (none, a crossbar, one still being found) the
+            // Flags tab's Pole height row, what it would stand with -- as that row shows.
+            float height = FlagStand.PoleStands(spec) && spec.PoleLength > 0f ? spec.PoleLength : Settings.SelHeight.value;
+            height = Mathf.Clamp(Mathf.Round(height * 100f) / 100f, FlagPoleShape.MinLength, Settings.Defaults.MaxNewHeight);
+            if (height > Settings.Defaults.LockedHeight)
+                Settings.UnlockPoleHeight.value = true;
+            Settings.NewHeight.value = height;
+            Settings.NewRotation.value = FlagOrientation.WholeDegrees(Mathf.Repeat(e.Angle * Mathf.Rad2Deg, 360f));
+            Log.Msg("flags: flag #" + Selected + " copied to the new flag (" + spec.Describe() + "; pole height " +
+                    height.ToString("0.##", CultureInfo.InvariantCulture) + " m, rotation " + Settings.NewRotation.value.ToString("0.#", CultureInfo.InvariantCulture) + " deg)");
+        }
+
+        /// <summary>
+        /// Every design and pole setting of the New flag window from <paramref name="s"/> -- each of
+        /// FlagSpec's fields Settings.NewSpec reads, but its name and the pole's length (the Pole
+        /// height row, set by CopyToNew).
+        /// </summary>
+        private static void CopySpecToNew(FlagSpec s)
+        {
+            Settings.NewCountry.value = FlagCountries.NumberOf(s.Country);
+            Settings.NewImage.value = FlagImageNames.NumberOf(s.Image);
+            Settings.NewImageX.value = s.ImageX;
+            Settings.NewImageY.value = s.ImageY;
+            Settings.NewImageZoom.value = s.ImageZoom;
+            Settings.NewImageTurn.value = s.ImageTurn;
+            Settings.NewImageAlpha.value = s.ImageAlpha;
+            Settings.NewPattern.value = s.Pattern;
+            Settings.NewColour1.value = (int)s.Colour1;
+            Settings.NewColour2.value = (int)s.Colour2;
+            Settings.NewColour3.value = (int)s.Colour3;
+            Settings.NewLength.value = s.Length;
+            Settings.NewProportion.value = s.Proportion;
+            Settings.NewHoistedFrom.value = s.HoistedFrom;
+            Settings.NewMotion.value = s.Motion;
+            Settings.NewWaviness.value = s.Waviness;
+            Settings.NewWindShare.value = s.WindShare;
+            Settings.NewCut.value = s.Cut;
+            Settings.NewCutDepth.value = s.CutDepth;
+            Settings.NewDarkness.value = s.Darkness;
+            Settings.NewWear.value = s.Wear;
+            Settings.NewDirt.value = s.Dirt;
+            Settings.NewHoles.value = s.Holes;
+            Settings.NewTear.value = s.Tear;
+            Settings.NewTearEdges.value = s.TearEdges;
+            Settings.NewBackPlate.value = s.BackPlate;
+            Settings.NewPole.value = s.Pole;
+            Settings.NewRopes.value = s.Ropes;
+            Settings.NewPoleColour.value = (int)s.PoleColour;
+            Settings.NewTopColour.value = (int)s.TopColour;
+            Settings.NewRopeColour.value = (int)s.RopeColour;
+            Settings.NewPoleThickness.value = s.PoleThickness;
+            Settings.NewPoleProfile.value = s.PoleProfile;
+            Settings.NewPoleBase.value = s.PoleBase;
+            Settings.NewPoleShine.value = s.PoleShine;
+            Settings.NewPoleWear.value = s.PoleWear;
+            Settings.NewPoleRust.value = s.PoleRust;
+            Settings.NewPoleDirt.value = s.PoleDirt;
+            Settings.NewRopeThickness.value = s.RopeThickness;
+            Settings.NewTilt.value = s.Tilt;
+            Settings.NewLean.value = s.Lean;
         }
 
         /// <summary>Deletes the selected flag, once the player says yes.</summary>

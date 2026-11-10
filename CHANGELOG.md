@@ -15,14 +15,16 @@ The first release.
 - **Cloth that waves in the wind**: every flag is a piece of cloth simulated as it hangs and
   flutters, drawn with a fabric shader in the game's own lighting (the sun and its shadows, street
   lights at night, fog), wet-looking in rain.
-- **The game's wind** by default (its direction, stronger in rain and higher up), or your own speed,
-  gusts and direction on the Settings tab. With Volumetric Weather on, its wind: the strength of
-  its weather or of its Now tab, its direction, and the gusts that bend its trees passing each flag.
+- **The game's wind** by default (stronger in rain and higher up), or your own speed and gusts on
+  the Settings tab. With Volumetric Weather on, its wind: the strength of its weather or of its Now
+  tab, and the gusts that bend its trees passing each flag. Either way the **Direction** is yours:
+  along each flag's rotation (the default), one fixed direction, or the game's.
 - **Designs**: every country's and territory's flag, fifteen patterns in your colours (previewed,
   and saved under a name for any city), or your own pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
-  stretched); width and height from 0.5 to 30 m, any proportions from 1:5 to 5:1; hoisted from its
+  stretched); width and height from 0.5 to 30 m, any proportions from 1:5 to 5:1 (a country's flag
+  too: stretched to fit, turned on a tall shape as a flag hung upright is shown); hoisted from its
   side or its top; waving, still or flat; how wavy, how much of the wind reaches it (**Wind on it**:
-  a banner can hang and sway instead of standing out), how dark.
+  a banner can hang and sway instead of standing out), how dark (30% to begin with).
 - **Seven shapes**: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed or
   rounded, with a Cut depth. The cloth itself is cut: a swallowtail's tails flap apart, a pennant's
   point flies free, and the shadow is cut too.
@@ -32,8 +34,9 @@ The first release.
 - **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
   ropes, your colours, thickness, tilt and lean, and a Pole height (1 to 50 m, up to 200 m with
   Allow taller poles). The cloth keeps off its pole. A banner hoisted from its top has no pole.
-- **Five pole shapes and four materials**: tapered, straight, sectional (a collar at each joint),
-  fluted, or on an ornate cast base; painted steel, aluminium, wood or fibreglass. **Worn**, **Rust**
+- **Four pole shapes on three bases, and Shine**: tapered, straight, sectional or fluted, on a
+  flash collar, a decorative cast base or none; Shine from matte to a glossy coat that reflects the
+  sky (Real Glass's live sky when it's on). **Worn**, **Rust**
   and **Dirt** on the pole (chipped paint, rust running down, grime up from the foot), every pole
   its own; the ropes braided, with a **Rope thickness**.
 - **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default), with

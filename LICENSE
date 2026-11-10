@@ -160,8 +160,10 @@ techniques were written from scratch after them, and they are credited here with
     M. Tarini, "Cylindrical and Toroidal Parameterizations Without Vertex Seams" (Journal of
       Graphics Tools, 2012) -- a texture round a pole with no seam: the angle per pixel, the
       coordinate of the two whose derivative is smaller.
-    Poly Haven (European Walnut Veneer 04; Rust Coarse 01) and ambientCG (Rope 001), CC0 --
-      the wood's grain, the rust, the rope's braid.
+    Poly Haven (Rust Coarse 01) and ambientCG (Rope 001), CC0 -- the rust, the rope's braid.
+    C. Schlick, "An Inexpensive BRDF Model for Physically-based Rendering" (Computer Graphics
+      Forum, 1994) -- the shine's reflection by angle; N. Hoffman, "Physics and Math of
+      Shading" (SIGGRAPH 2013 course) -- a clear coat's 4% head-on, as Real Glass's gloss coat.
   And:
     K. Perlin, "Improving Noise", SIGGRAPH 2002 -- the quintic fade.
     C. Wellons, the lowbias32 integer hash.

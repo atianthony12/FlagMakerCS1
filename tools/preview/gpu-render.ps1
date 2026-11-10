@@ -23,9 +23,9 @@
 #   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
 #   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
-#   ... -Poles "0,0,0,0,0|2,0,60,50,30,150"  each design once per pole look: profile (0 tapered, 1 straight,
-#                                  2 sectional, 3 fluted, 4 ornate), material (0 painted, 1 aluminium, 2 wood,
-#                                  3 fibreglass), worn, rust, dirt[, rope thickness] (percent); -RopeLook 0 a twist, 1 the texture
+#   ... -Poles "0,0,35,0,0,0|2,1,90,60,50,30,150"  each design once per pole look: profile (0 tapered, 1 straight,
+#                                  2 sectional, 3 fluted), base (0 collar, 1 cast, 2 none), shine, worn, rust, dirt
+#                                  [, rope thickness] (percent); -RopeLook 0 a twist, 1 the texture
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 #   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
@@ -54,6 +54,7 @@ param(
     [string]$Seq = "",
     [double]$Length = 3.0,
     [int]$Proportion = 667,
+    [string]$Shapes = "",
     [double]$Waviness = 1.0,
     [double]$Gusts = 1.0,
     [double]$Elevation = 10.0,
@@ -132,6 +133,10 @@ $env:RF_TIMES = $Times
 $env:RF_SEQ = $Seq
 $env:RF_LENGTH = $Length.ToString($inv)
 $env:RF_PROPORTION = "$Proportion"
+# A country's flag flies at its own proportion unless -Proportion is given, or each of -Shapes
+# (the cloth's proportions, 0 = its own; since 2026-11-10 a country's flag takes any shape).
+$env:RF_PROPORTION_SET = if ($PSBoundParameters.ContainsKey('Proportion')) { "1" } else { "" }
+$env:RF_SHAPES = $Shapes
 $env:RF_WAVINESS = $Waviness.ToString($inv)
 $env:RF_GUSTS = $Gusts.ToString($inv)
 $env:RF_ELEVATION = $Elevation.ToString($inv)

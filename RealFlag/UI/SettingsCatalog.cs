@@ -182,6 +182,13 @@ namespace RealFlag.UI
         public bool CutIcons;
         public FloatSetting CutDepth;
 
+        /// <summary>
+        /// A slider whose name column is only as wide as the page's wide rows' names need, not the
+        /// page's 196: the track gets the rest (the flag's Width and Height, 0.5-30 m -- the author,
+        /// 2026-11-10: "too aggressive ... enlarge the slider itself").
+        /// </summary>
+        public bool WideSlider;
+
         /// <summary>Image rows: the window's settings the Image window works on.</summary>
         public ImageTarget Image;
 
@@ -749,17 +756,23 @@ namespace RealFlag.UI
         /// <summary>For a row that changes nothing else when it changes (the new flag's size): the UIs still follow at once.</summary>
         private static readonly Action Nothing = () => { };
 
-        /// <summary>The proportion the flag flies at: its country's own, or the one set.</summary>
+        /// <summary>
+        /// The proportion the flag flies at: the one set, a country's flag's too since 2026-11-10
+        /// (choosing a country sets its own; the Shape row and the sides change it).
+        /// </summary>
         private static int FlownProportion(IntSetting country, IntSetting proportion)
         {
-            FlagCountry flag = country != null ? FlagCountries.At(country.value) : null;
-            return flag != null ? flag.Proportion : proportion != null ? proportion.value : Settings.Defaults.Proportion;
+            return proportion != null ? proportion.value : Settings.Defaults.Proportion;
         }
 
-        /// <summary>The default shape as seen with the edge it is hoisted from (a banner's is the default turned).</summary>
-        private static int DefaultShape(IntSetting hoistedFrom)
+        /// <summary>
+        /// The default shape as seen with the edge it is hoisted from (a banner's is the default
+        /// turned); a country's flag's is its own (the Shape row's reset gives it back).
+        /// </summary>
+        private static int DefaultShape(IntSetting country, IntSetting hoistedFrom)
         {
-            return FlagSize.ShownProportion(Settings.Defaults.Proportion, hoistedFrom.value);
+            FlagCountry flag = country != null ? FlagCountries.At(country.value) : null;
+            return FlagSize.ShownProportion(flag != null ? flag.Proportion : Settings.Defaults.Proportion, hoistedFrom.value);
         }
 
         /// <summary>The flag's width (or height) as it is seen, metres (FlagSize.Shown).</summary>
@@ -771,26 +784,25 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// A new width or height (FlagSize.Resize): with its sides linked -- the switch, or a
-        /// country's flag, whose shape is its own -- the whole flag scales; otherwise that side
-        /// alone. A country's proportion is left as set, for a change back to a pattern. With a
-        /// picture on it and its sides linked, the flag scales at the PICTURE's shape: a flag made
-        /// square while they were apart takes the picture's back at the first move (the author:
-        /// "It should have automatically rematched the height or width when changing either").
+        /// A new width or height (FlagSize.Resize): with its sides linked the whole flag scales;
+        /// otherwise that side alone -- a country's flag's too since 2026-11-10 (stretched to its
+        /// shape, CropMap.ForCountry). With a picture on it and its sides linked, the flag scales
+        /// at the PICTURE's shape: a flag made square while they were apart takes the picture's
+        /// back at the first move (the author: "It should have automatically rematched the height
+        /// or width when changing either").
         /// </summary>
         private static void ResizeTo(bool height, float value, IntSetting country, FloatSetting length, IntSetting proportion, IntSetting hoistedFrom,
                                      ImageTarget pictures)
         {
             bool isCountry = country != null && FlagCountries.At(country.value) != null;
-            bool linked = isCountry || Settings.LinkSize == null || Settings.LinkSize.value;
+            bool linked = Settings.LinkSize == null || Settings.LinkSize.value;
             int tied = !isCountry && linked && pictures != null && pictures.ShapeTied ? pictures.PictureProportion() : 0;
             float newLength;
             int newProportion;
             FlagSize.Resize(length.value, tied > 0 ? tied : FlownProportion(country, proportion), hoistedFrom.value, height, value, linked,
                             out newLength, out newProportion);
             length.value = newLength;
-            if (!isCountry)
-                proportion.value = newProportion;
+            proportion.value = newProportion;
         }
 
         /// <summary>The windows' pictures (the New flag window's, the Flags tab's), for what goes for both: the width and height switch is one for both.</summary>
@@ -868,8 +880,9 @@ namespace RealFlag.UI
         /// <summary>
         /// A flag's design, the same rows in the New flag window and the Flags tab: the next
         /// flag's (settings) or the selected one's (transient). First the country: with one
-        /// chosen, the pattern, its colours and its shape are the country's flag's and grey out
-        /// (they are kept, for a change back); its size, the edge it is hoisted from, the waviness
+        /// chosen, the pattern and its colours are the country's flag's and grey out (they are
+        /// kept, for a change back), its shape its own until the player picks another (since
+        /// 2026-11-10); its size, the edge it is hoisted from, the waviness
         /// and the darkness stay the player's -- the darkness is for a country's colours above
         /// all, which cannot be picked (the author: "some country flags are too bright"). Then a
         /// picture of the player's own (the author: "a folder icon which opens where the user
@@ -895,9 +908,12 @@ namespace RealFlag.UI
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
 
-            // A shape of the player's choosing: not a country's, nor a picture's while the width
-            // and height go together (the flag keeps the picture's then, as a country's keeps its own).
-            Func<bool> shapeFree = () => patterned() && (pictures == null || !pictures.ShapeTied);
+            // A shape of the player's choosing, a country's flag's too since 2026-11-10 (the author:
+            // "allow vertical flags and aspect ratios, including enabling the preset shapes also on
+            // country flags"; stretched to it, turned for one standing the other way:
+            // CropMap.ForCountry) -- not a picture's while the width and height go together (the
+            // flag keeps the picture's then).
+            Func<bool> shapeFree = () => (enabled == null || enabled()) && (pictures == null || !pictures.ShapeTied);
             if (pictures != null)
                 PictureTargets.Add(pictures);
 
@@ -909,7 +925,10 @@ namespace RealFlag.UI
                 DefaultInt = Settings.Defaults.Country,
                 AfterChange = () =>
                 {
-                    // A country's flag takes the picture's place.
+                    // A country's flag takes the picture's place. Its width and height stay as they
+                    // were (the author, 2026-11-10: "Changing Country is resetting the width and
+                    // height of the flag. Fix it"): the design stretches to them; the Shape row's
+                    // reset icon gives the country's own proportions.
                     if (country.value != 0 && image != null && image.value != 0)
                         image.value = 0;
                     resized();
@@ -1005,13 +1024,14 @@ namespace RealFlag.UI
                     length.value = newLength;
                     proportion.value = newProportion;
                 },
-                // Its reset: the default shape as seen, as a click on that little flag gives it.
-                AtDefault = () => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, DefaultShape(hoistedFrom)),
+                // Its reset: the default shape as seen, as a click on that little flag gives it (a
+                // country's flag's own).
+                AtDefault = () => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, DefaultShape(country, hoistedFrom)),
                 ResetTo = () =>
                 {
                     float newLength;
                     int newProportion;
-                    FlagSize.Reshape(length.value, proportion.value, hoistedFrom.value, DefaultShape(hoistedFrom), out newLength, out newProportion);
+                    FlagSize.Reshape(length.value, proportion.value, hoistedFrom.value, DefaultShape(country, hoistedFrom), out newLength, out newProportion);
                     length.value = newLength;
                     proportion.value = newProportion;
                 },
@@ -1033,6 +1053,7 @@ namespace RealFlag.UI
                 AtDefault = sizeAtDefault,
                 ResetTo = sizeToDefault,
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
+                WideSlider = true,
                 Format = Metres,
                 AfterChange = resized,
                 Enabled = enabled,
@@ -1048,12 +1069,13 @@ namespace RealFlag.UI
                 AtDefault = sizeAtDefault,
                 ResetTo = sizeToDefault,
                 Min = FlagSize.Min, Max = FlagSize.Max, Step = 0.1f,
+                WideSlider = true,
                 Format = HeightText(country, proportion, hoistedFrom),
                 AfterChange = resized,
                 Enabled = enabled,
             });
 
-            // One switch for both windows; a country's flag keeps its own shape whatever it says.
+            // One switch for both windows, a country's flag's sides too (since 2026-11-10).
             // Switched back on, a flag with a picture takes the picture's shape again.
             Add(new Row
             {
@@ -1067,7 +1089,7 @@ namespace RealFlag.UI
                     if (Settings.LinkSize.value)
                         KeepPictureShapes();
                 },
-                Enabled = patterned,
+                Enabled = enabled,
             });
 
             // Hoisted the other way, a picture stays upright as seen: a flag tied to its picture's
@@ -1253,7 +1275,7 @@ namespace RealFlag.UI
         /// </summary>
         private static void AddPole(PanelPage page, IntSetting pole, FloatSetting height, IntSetting ropes, IntSetting poleColour, IntSetting topColour,
                                     IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
-                                    IntSetting profile, IntSetting material, FloatSetting ropeThickness,
+                                    IntSetting profile, IntSetting poleBase, FloatSetting shine, FloatSetting ropeThickness,
                                     Action changed, Action heightChanged, Func<bool> enabled)
         {
             // Hoisted from its top, a flag has no pole (FlagSpec.HasPole): the pole's rows grey out,
@@ -1273,8 +1295,8 @@ namespace RealFlag.UI
                 Enabled = side,
             });
 
-            // Its shape and what it is made of (the author, 2026-11-09: "More pole shapes ... Some
-            // flagpoles are like 'layered'"; "Wear and tear and rust on the pole itself").
+            // Its shape and, on its own, what it stands on (the author, 2026-11-09: "More pole shapes
+            // ... Some flagpoles are like 'layered'"; then "separate the bottom from the shape itself").
             Add(new Row
             {
                 Kind = RowKind.Choice,
@@ -1291,10 +1313,10 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Choice,
                 Panel = page,
-                Int = material,
-                DefaultInt = Settings.Defaults.PoleMaterial,
-                ChoiceValues = FlagPoleMaterial.Values,
-                ChoiceKeys = FlagPoleMaterial.NameKeys,
+                Int = poleBase,
+                DefaultInt = Settings.Defaults.PoleBase,
+                ChoiceValues = FlagPoleBase.Values,
+                ChoiceKeys = FlagPoleBase.NameKeys,
                 AfterChange = changed,
                 Enabled = drawn,
             });
@@ -1367,6 +1389,19 @@ namespace RealFlag.UI
                 Enabled = drawn,
             });
 
+            // How glossy its paint is, in place of materials (the author, 2026-11-09: "We have the
+            // color picker. If anything, let's just add a slider for specular/shininess").
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = shine,
+                DefaultFloat = Settings.Defaults.PoleShine,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = drawn,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Colour,
@@ -1424,10 +1459,10 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// The Flagpole popup's wear and tear, last on its page: worn, rust (painted steel only) and
-        /// dirt -- the pole's look only (FlagPole.shader), every pole its own scatter.
+        /// The Flagpole popup's wear and tear, last on its page: worn, rust and dirt -- the pole's
+        /// look only (FlagPole.shader), every pole its own scatter.
         /// </summary>
-        private static void AddPoleWear(PanelPage page, IntSetting pole, IntSetting hoistedFrom, IntSetting material, FloatSetting wear, FloatSetting rust,
+        private static void AddPoleWear(PanelPage page, IntSetting pole, IntSetting hoistedFrom, FloatSetting wear, FloatSetting rust,
                                         FloatSetting dirt, Action changed, Func<bool> enabled)
         {
             Func<bool> drawn = () => (enabled == null || enabled()) && hoistedFrom.value != FlagHoist.Top && pole.value != FlagPoleStyle.None;
@@ -1451,7 +1486,7 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.PoleRust,
                 Min = 0f, Max = 100f, Step = 5f,
                 AfterChange = changed,
-                Enabled = () => drawn() && FlagPoleMaterial.Rusts(material.value),
+                Enabled = drawn,
             });
 
             Add(new Row
@@ -1525,8 +1560,8 @@ namespace RealFlag.UI
                           Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
             AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
                     Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom,
-                    Settings.NewPoleProfile, Settings.NewPoleMaterial, Settings.NewRopeThickness, null, null, null);
-            AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleMaterial, Settings.NewPoleWear, Settings.NewPoleRust,
+                    Settings.NewPoleProfile, Settings.NewPoleBase, Settings.NewPoleShine, Settings.NewRopeThickness, null, null, null);
+            AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleWear, Settings.NewPoleRust,
                         Settings.NewPoleDirt, null, null);
 
             // Rows of flags, by the Line Tool mod: these three only with it (LineFlags).
@@ -1756,20 +1791,9 @@ namespace RealFlag.UI
                           Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, selected);
             AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHeight, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
                     Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom,
-                    Settings.SelPoleProfile, Settings.SelPoleMaterial, Settings.SelRopeThickness, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
+                    Settings.SelPoleProfile, Settings.SelPoleBase, Settings.SelPoleShine, Settings.SelRopeThickness, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
 
-            // The pole keeps its length when Move It raises the flag; this finds the ground again.
-            Add(new Row
-            {
-                Kind = RowKind.Button,
-                Panel = PanelPage.PoleExisting,
-                Id = "PoleToGround",
-                OnClick = FlagEditor.PoleToGround,
-                Enabled = () => selected() && Settings.SelPole != null && Settings.SelPole.value != FlagPoleStyle.None &&
-                                Settings.SelHoistedFrom.value != FlagHoist.Top,
-            });
-
-            AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleMaterial, Settings.SelPoleWear, Settings.SelPoleRust,
+            AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleWear, Settings.SelPoleRust,
                         Settings.SelPoleDirt, FlagEditor.ApplyDesign, selected);
 
             Add(new Row
@@ -1883,8 +1907,8 @@ namespace RealFlag.UI
                 DefaultInt = Settings.Defaults.WindMode,
                 ChoiceValues = Settings.WindModes.Values,
                 ChoiceKeys = Settings.WindModes.NameKeys,
+                // With the game's wind too (2026-11-10): it gives the strength, this the way it blows.
                 AfterChange = () => Log.Msg("setting: wind direction = " + Settings.WindModes.LogName(Settings.WindMode.value)),
-                Enabled = own,
             });
 
             Add(new Row
@@ -1895,7 +1919,7 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.WindDirection,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
-                Enabled = () => own() && (Settings.WindMode == null || Settings.WindMode.value == Settings.WindModes.Fixed),
+                Enabled = () => Settings.WindMode == null || Settings.WindMode.value == Settings.WindModes.Fixed,
             });
         }
 
@@ -1921,7 +1945,8 @@ namespace RealFlag.UI
             if (WeatherModWind.TryRead(out vwDirection, out vwSpeed, out overridden))
             {
                 float vwDegrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(vwDirection.z, vwDirection.x) * UnityEngine.Mathf.Rad2Deg, 360f);
-                return Localization.Get(overridden ? "GameWindNow.WeatherSet" : "GameWindNow.Weather", WindText(vwSpeed), vwDegrees.ToString("F0"));
+                // One line whether its weather or its Now tab sets it (the author, 2026-11-10: remove "set on its Now tab").
+                return Localization.Get("GameWindNow.Weather", WindText(vwSpeed), vwDegrees.ToString("F0"));
             }
 
             float speed = GameWind.BaseSpeed * weather;

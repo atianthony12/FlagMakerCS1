@@ -58,6 +58,12 @@ namespace RealFlag.Flags
             /// <summary>Texture tiles round the pole, and per metre up it.</summary>
             public float Around = 1f, PerMetre = 1f;
 
+            /// <summary>
+            /// The plain copy (BuildPlain): the shaft's rings at their radius, not on the axis -- no
+            /// shader of ours puts them out there (Real Glass's finish draws it).
+            /// </summary>
+            public bool Plain;
+
             private void Add(Vector3 v, Vector3 n, float part, float radius, float flutes, float depth, float y, float c, float s)
             {
                 Vertices.Add(v);
@@ -94,7 +100,10 @@ namespace RealFlag.Flags
                     float a = i * 2f * Mathf.PI / sides;
                     float c = Mathf.Cos(a), s = Mathf.Sin(a);
                     float r = flutes > 0 ? radius * (1f - depth * (0.5f - 0.5f * Mathf.Cos(flutes * a))) : radius;
-                    Add(new Vector3(0f, y, 0f), new Vector3(c, 0f, s), PartPole, r, flutes, depth, y, c, s);
+                    if (Plain)
+                        Add(new Vector3(r * c, y, r * s), new Vector3(c, 0f, s), PartPole, 0f, 0f, 0f, y, c, s);
+                    else
+                        Add(new Vector3(0f, y, 0f), new Vector3(c, 0f, s), PartPole, r, flutes, depth, y, c, s);
                 }
 
                 return first;
@@ -231,7 +240,7 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// The pole's look into its property block: its colours (LINEAR), material, wear, rust and
+        /// The pole's look into its property block: its colours (LINEAR), shine, wear, rust and
         /// dirt and which scatter of them (<paramref name="seed"/>, FlagWear.SeedFor its prop), the
         /// material's textures (PoleTextures), and the highlight.
         /// </summary>
@@ -241,7 +250,7 @@ namespace RealFlag.Flags
             block.SetVector(IdTopColour, FlagLook.Linear(spec.TopColour));
             block.SetVector(IdRopeColour, FlagLook.Linear(spec.RopeColour));
             block.SetVector(FlagLook.IdHighlight, highlight);
-            block.SetVector(IdPoleWear, new Vector4(spec.PoleWear, FlagPoleMaterial.Rusts(spec.PoleMaterial) ? spec.PoleRust : 0f, spec.PoleDirt, spec.PoleMaterial));
+            block.SetVector(IdPoleWear, new Vector4(spec.PoleWear, spec.PoleRust, spec.PoleDirt, spec.PoleShine));
             block.SetFloat(IdPoleSeed, seed);
             PoleTextures.Bind(block);
         }
@@ -250,8 +259,11 @@ namespace RealFlag.Flags
         public static readonly int IdTopColour = Shader.PropertyToID("_RFTopColor");
         public static readonly int IdRopeColour = Shader.PropertyToID("_RFRopeColor");
 
-        /// <summary>x worn, y rust (0 unless the material rusts), z dirt, w the FlagPoleMaterial.</summary>
+        /// <summary>x worn, y rust, z dirt, w the shine (FlagSpec.PoleShine), each 0..1.</summary>
         public static readonly int IdPoleWear = Shader.PropertyToID("_RFPoleWear");
+
+        /// <summary>1 while Real Glass's Reflective finish draws the paint's reflection this frame (RealGlassFinish): the shader leaves its own out.</summary>
+        public static readonly int IdPoleFinish = Shader.PropertyToID("_RFPoleFinish");
 
         /// <summary>The scatter of its chips, rust and grime: 0..255.</summary>
         public static readonly int IdPoleSeed = Shader.PropertyToID("_RFPoleSeed");
@@ -262,16 +274,33 @@ namespace RealFlag.Flags
         /// <summary>The pole's mesh, into <paramref name="reuse"/> if given (its old contents cleared).</summary>
         public static Mesh Build(FlagPoleShape s, Mesh reuse)
         {
-            var b = new Builder();
+            return Build(s, reuse, false);
+        }
+
+        /// <summary>
+        /// The painted pole alone as plain geometry -- the shaft at its radius, no top, no ropes --
+        /// for Real Glass's Reflective finish (RealGlassFinish), which draws a mesh as it is: a pole
+        /// far off, drawn wider by our shader, keeps a thinner finish down its middle, hidden behind
+        /// our own draw where that lies in front.
+        /// </summary>
+        public static Mesh BuildPlain(FlagPoleShape s, Mesh reuse)
+        {
+            return Build(s, reuse, true);
+        }
+
+        private static Mesh Build(FlagPoleShape s, Mesh reuse, bool plain)
+        {
+            var b = new Builder { Plain = plain };
 
             // The textures' tiles: whole ones round it (no seam), as square along.
             float round = 2f * Mathf.PI * Mathf.Max(s.RadiusAt(s.Length), 0.005f);
             b.Around = Mathf.Max(1f, Mathf.Round(round / TileAround));
             b.PerMetre = b.Around / round;
 
-            if (s.Profile == FlagPoleProfile.Ornate)
-                OrnateBase(b, s);
-            else
+            // Any shaft on any base (the author, 2026-11-09: "an ornate base but with a sectional pole body").
+            if (s.Base == FlagPoleBase.Cast)
+                CastBase(b, s);
+            else if (s.Base == FlagPoleBase.Collar)
                 FlashCollar(b, s);
 
             Shaft(b, s);
@@ -297,7 +326,28 @@ namespace RealFlag.Flags
             else
                 tip = Dome(b, s, y1);
 
-            Ropes(b, s);
+            if (plain)
+            {
+                // The painted parts only: the gilt top keeps its own look.
+                var kept = new List<int>(b.Triangles.Count);
+                for (int t = 0; t + 2 < b.Triangles.Count; t += 3)
+                {
+                    int i0 = b.Triangles[t], i1 = b.Triangles[t + 1], i2 = b.Triangles[t + 2];
+                    if (b.Uv[i0].x < 0.5f && b.Uv[i1].x < 0.5f && b.Uv[i2].x < 0.5f)
+                    {
+                        kept.Add(i0);
+                        kept.Add(i1);
+                        kept.Add(i2);
+                    }
+                }
+
+                b.Triangles.Clear();
+                b.Triangles.AddRange(kept);
+            }
+            else
+            {
+                Ropes(b, s);
+            }
 
             float wide = Mathf.Max(Mathf.Max(s.CollarRadius, s.BaseRadius), s.Offset + s.RopeRadius + s.RopeGap) + 1f;
             var bounds = new Bounds();
@@ -305,49 +355,87 @@ namespace RealFlag.Flags
             return b.ToMesh(reuse, bounds);
         }
 
-        /// <summary>The flash collar: a low cone round the foot, hugging the shaft at its top.</summary>
+        /// <summary>
+        /// The flash collar, as one is spun from sheet: a thin upright lip on the ground, a skirt
+        /// curving in (concave) to the shaft, and a narrow bead where it hugs it.
+        /// </summary>
         private static void FlashCollar(Builder b, FlagPoleShape s)
         {
-            float collarTop = s.RadiusAt(s.CollarHeight) * 1.05f;
-            float slope = s.CollarRadius - collarTop;
-            int c0 = b.Ring(0f, s.CollarRadius, s.CollarHeight, slope, PartPole);
-            int c1 = b.Ring(s.CollarHeight, collarTop, s.CollarHeight, slope, PartPole);
-            b.Band(c0, c1, Sides);
-            // Its top, a narrow flat ring (outer first: facing up).
-            int c2 = b.Ring(s.CollarHeight, collarTop, 0f, 1f, PartPole);
-            int c3 = b.Ring(s.CollarHeight, collarTop * 0.9f, 0f, 1f, PartPole);
-            b.Band(c2, c3, Sides);
+            float R = s.CollarRadius, H = s.CollarHeight;
+            float shaft = s.RadiusAt(H) / R;
+            float hug = Mathf.Min(shaft * 1.12f, 0.9f);
+
+            Run(b, R, H, 1.00f, 0.00f, 1.00f, 0.10f);              // the lip
+            var skirt = new List<Vector2>();
+            const int steps = 10;
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float r = hug + (1f - hug) * (1f - t) * (1f - t);   // a flare, concave seen from outside
+                skirt.Add(new Vector2(r * R, (0.10f + 0.75f * t) * H));
+            }
+
+            b.Profile(skirt, PartPole);
+            Run(b, R, H, hug, 0.85f, hug, 0.92f);                   // the band round the shaft
+            Arc(b, R, H, hug, 0.95f, 0.06f * shaft, 0.03f);          // its bead
+            Run(b, R, H, hug, 0.98f, shaft, 1.00f);                  // in to the shaft
         }
 
         /// <summary>
-        /// An ornate pole's cast base, as the lathe turns one: a plinth, a torus on it, a bell
-        /// narrowing in an ogee, a ring, and a neck to the shaft. Runs of the profile in units of
-        /// its widest radius and its height; each run's corners sharp.
+        /// A decorative cast base, as the lathe turns one after the classical column base (an Attic
+        /// base under a baluster): a round plinth, a torus, a scotia (a cove), a smaller torus, a
+        /// vase narrowing in an ogee, an astragal (a ring) and a neck into the shaft. Runs of the
+        /// profile in units of its widest radius and its height; each run's corners sharp.
         /// </summary>
-        private static void OrnateBase(Builder b, FlagPoleShape s)
+        private static void CastBase(Builder b, FlagPoleShape s)
         {
             float R = s.BaseRadius, H = s.BaseHeight;
             float neck = s.RadiusAt(H) / R;
 
-            Run(b, R, H, 1.00f, 0.00f, 1.00f, 0.10f);              // the plinth's side
-            Run(b, R, H, 1.00f, 0.10f, 0.86f, 0.10f);              // its top
-            Arc(b, R, H, 0.86f, 0.17f, 0.07f, 0.07f);               // the torus
-            Run(b, R, H, 0.86f, 0.24f, 0.70f, 0.24f);              // a step in
+            Run(b, R, H, 1.00f, 0.00f, 1.00f, 0.07f);              // the plinth's side
+            Run(b, R, H, 1.00f, 0.07f, 0.90f, 0.07f);              // its top
+            Arc(b, R, H, 0.90f, 0.11f, 0.08f, 0.04f);               // the lower torus
+            Run(b, R, H, 0.90f, 0.15f, 0.84f, 0.15f);              // a fillet
 
-            var bell = new List<Vector2>();
-            const int bellSteps = 10;
-            for (int i = 0; i <= bellSteps; i++)
+            var scotia = new List<Vector2>();
+            const int coveSteps = 8;
+            for (int i = 0; i <= coveSteps; i++)
             {
-                float t = i / (float)bellSteps;
-                float r = 0.38f + 0.32f * (0.5f + 0.5f * Mathf.Cos(Mathf.PI * t));
-                bell.Add(new Vector2(r * R, (0.24f + 0.48f * t) * H));
+                float t = i / (float)coveSteps;
+                scotia.Add(new Vector2((0.84f - 0.08f * Mathf.Sin(Mathf.PI * t) - 0.04f * t) * R, (0.15f + 0.08f * t) * H));
             }
 
-            b.Profile(bell, PartPole);                              // the bell, an ogee
-            Run(b, R, H, 0.38f, 0.72f, 0.46f, 0.72f);              // the ring's underside
-            Arc(b, R, H, 0.46f, 0.76f, 0.04f, 0.04f);               // the ring
-            Run(b, R, H, 0.46f, 0.80f, 0.40f, 0.80f);              // its top
-            Run(b, R, H, 0.40f, 0.80f, neck, 1.00f);               // the neck to the shaft
+            b.Profile(scotia, PartPole);                            // the scotia, a cove
+            Arc(b, R, H, 0.80f, 0.26f, 0.06f, 0.03f);               // the upper torus
+            Run(b, R, H, 0.80f, 0.29f, 0.72f, 0.29f);              // a step in
+
+            var vase = new List<Vector2>();
+            const int vaseSteps = 14;
+            for (int i = 0; i <= vaseSteps; i++)
+            {
+                float t = i / (float)vaseSteps;
+                // Full low, an ogee in to the waist: a smoothstep's S, eased so the belly bulges.
+                float e = t * t * (3f - 2f * t);
+                float r = 0.40f + 0.32f * (1f - e) + 0.04f * Mathf.Sin(Mathf.PI * t);
+                vase.Add(new Vector2(r * R, (0.29f + 0.49f * t) * H));
+            }
+
+            b.Profile(vase, PartPole);                              // the vase
+            Run(b, R, H, 0.40f, 0.78f, 0.46f, 0.78f);              // the astragal's underside
+            Arc(b, R, H, 0.46f, 0.81f, 0.05f, 0.03f);               // the astragal
+            Run(b, R, H, 0.46f, 0.84f, 0.41f, 0.84f);              // its top
+
+            var collar = new List<Vector2>();
+            const int neckSteps = 6;
+            for (int i = 0; i <= neckSteps; i++)
+            {
+                float t = i / (float)neckSteps;
+                // A cove up into the shaft.
+                float r = neck + (0.41f - neck) * (1f - t) * (1f - t);
+                collar.Add(new Vector2(r * R, (0.84f + 0.16f * t) * H));
+            }
+
+            b.Profile(collar, PartPole);                            // the neck into the shaft
         }
 
         /// <summary>A straight run of the base's profile, (r0, y0) to (r1, y1) in its units.</summary>
@@ -398,21 +486,26 @@ namespace RealFlag.Flags
             b.Tube(s0, s1, sides);
         }
 
-        /// <summary>A sectional pole's joint at <paramref name="y"/>: a collar round the top of the section below, its top stepping in to the one above.</summary>
+        /// <summary>
+        /// A sectional pole's joint at <paramref name="y"/>, as a swaged one is made: the lower
+        /// section's top rounded over in a bead, then a shoulder stepping in at 45 degrees to the
+        /// section above -- both catch the light, so the steps read from afar.
+        /// </summary>
         private static void Joint(Builder b, float y, float below, float above)
         {
-            float rc = below * 1.08f;
-            float height = Mathf.Max(0.03f, 1.4f * below);
-            float y0 = y - height;
-            int u0 = b.Ring(y0, below, 0f, -1f, PartPole);
-            int u1 = b.Ring(y0, rc, 0f, -1f, PartPole);
-            b.Band(u0, u1, Sides);
-            int side0 = b.Ring(y0, rc, 1f, 0f, PartPole);
-            int side1 = b.Ring(y, rc, 1f, 0f, PartPole);
-            b.Band(side0, side1, Sides);
-            int top0 = b.Ring(y, rc, 0f, 1f, PartPole);
-            int top1 = b.Ring(y, above * 0.98f, 0f, 1f, PartPole);
-            b.Band(top0, top1, Sides);
+            float bead = Mathf.Max(0.004f, 0.1f * below);
+            float height = Mathf.Max(0.02f, 0.6f * below);
+            var points = new List<Vector2>();
+            const int steps = 8;
+            for (int i = 0; i <= steps; i++)
+            {
+                float a = -0.5f * Mathf.PI + i * Mathf.PI / steps;
+                points.Add(new Vector2(below + bead * Mathf.Cos(a), y - 0.5f * height + 0.5f * height * Mathf.Sin(a)));
+            }
+
+            b.Profile(points, PartPole);
+            float step = Mathf.Max(below - above, 0.002f);
+            b.Profile(new List<Vector2> { new Vector2(below, y), new Vector2(above * 0.995f, y + step) }, PartPole);
         }
 
         /// <summary>The flat cap: a low dome on the truck. Returns the top.</summary>
@@ -473,13 +566,24 @@ namespace RealFlag.Flags
             int k1 = b.Ring(y1 + collar, s.SpearRadius * 1.1f, 1f, 0f, PartTop);
             b.Band(k0, k1, Sides);
             int k2 = b.Ring(y1 + collar, s.SpearRadius * 1.1f, 0f, 1f, PartTop);
-            int k3 = b.Ring(y1 + collar, s.SpearRadius, 0f, 1f, PartTop);
+            int k3 = b.Ring(y1 + collar, 0.45f * s.SpearRadius, 0f, 1f, PartTop);
             b.Band(k2, k3, Sides);
 
+            // A leaf-shaped head, as a cast spear finial: a narrow waist, widest a third up, then
+            // curving in to its point.
             float height = s.SpearHeight - collar;
-            int p0 = b.Ring(y1 + collar, s.SpearRadius, height, s.SpearRadius, PartTop);
-            int p1 = b.Ring(y1 + s.SpearHeight, 1e-4f, height, s.SpearRadius, PartTop);
-            b.Band(p0, p1, Sides);
+            var leaf = new List<Vector2>();
+            const int steps = 14;
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float r = t < 0.3f
+                    ? 0.45f + 0.55f * Mathf.Sin(0.5f * Mathf.PI * t / 0.3f)
+                    : Mathf.Pow(Mathf.Cos(0.5f * Mathf.PI * (t - 0.3f) / 0.7f), 1.2f);
+                leaf.Add(new Vector2(Mathf.Max(r * s.SpearRadius, 1e-4f), y1 + collar + t * height));
+            }
+
+            b.Profile(leaf, PartTop);
             return y1 + s.SpearHeight;
         }
 

@@ -100,6 +100,41 @@ namespace RealFlag.Flags
         {
             get { return new CropMap { Ox = 0f, Oy = 1f, Ax = 1f, Ay = 0f, Bx = 0f, By = -1f }; }
         }
+
+        /// <summary>
+        /// A country's flag TURNED onto the cloth: its hoist edge along the cloth's top, its top
+        /// along the cloth's hoist, its top hoist corner kept -- (v, 1 - u), the turn a flag hung
+        /// upright makes (the union "uppermost and to the flag's own right", 4 U.S.C. 7(i);
+        /// Germany's black stripe at the hoist), as hoisting from the top already shows it.
+        /// </summary>
+        public static CropMap Turned
+        {
+            get { return new CropMap { Ox = 0f, Oy = 1f, Ax = 0f, Ay = -1f, Bx = 1f, By = 0f }; }
+        }
+
+        /// <summary>
+        /// Whether a country's flag (its own proportion <paramref name="country"/>, height / length
+        /// x 1000) lies turned on a cloth of <paramref name="cloth"/>: when the cloth stands the
+        /// other way round -- taller along its hoist than it is long -- for a flag wider than tall,
+        /// the turn that stretches it least (a tie, the square, not turned). A flag square or
+        /// taller than wide of its own (Switzerland, the Vatican, Nepal) is never turned: its
+        /// emblem would lie on its side for nothing.
+        /// </summary>
+        public static bool CountryTurned(int cloth, int country)
+        {
+            return country < 1000 && cloth > 1000;
+        }
+
+        /// <summary>
+        /// A country's flag on its cloth: the whole image on the whole cloth, STRETCHED to the
+        /// cloth's shape as flag makers sell every nation at one size (3 x 5 ft, 2:3), turned when
+        /// the cloth stands the other way (<see cref="CountryTurned"/>). At its own proportion it
+        /// is <see cref="Whole"/>, as it always was.
+        /// </summary>
+        public static CropMap ForCountry(int cloth, int country)
+        {
+            return CountryTurned(cloth, country) ? Turned : Whole;
+        }
     }
 
     /// <summary>

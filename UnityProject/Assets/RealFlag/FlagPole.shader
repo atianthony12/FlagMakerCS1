@@ -1,6 +1,6 @@
-// The pole the mod can draw under a flag (FlagPoleMesh): painted steel, bare aluminium,
-// varnished wood or fibreglass, a gilt top, braided ropes, worn, rusted and dirtied as the
-// player sets, in the game's own lighting.
+// The pole the mod can draw under a flag (FlagPoleMesh): painted, matte to glossy (the player's
+// Shine), a gilt top, braided ropes, worn, rusted and dirtied as the player sets, in the game's
+// own lighting.
 //
 // A SURFACE shader, as the cloth's is, so that Unity writes it into Cities: Skylines' legacy
 // deferred ("prepass") lighting like the game's props: in the G-buffer and the depth buffer, lit
@@ -20,18 +20,27 @@
 // so a texture wraps the pole with no seam and no line of the smallest mip down it. The mesh's
 // tangents run round a pole (along a rope's twist), so the normal maps are in tangent space.
 //
-// Blinn-Phong in both paths: a satin paint, a bare metal (dark diffuse, its specular its own
-// colour, as metals are), a varnish, a gel coat; a gilt top; matte rope. In prepass the light
-// buffer's alpha is the specular (the power from o.Specular, written into the G-buffer),
-// tinted here per material.
+// Blinn-Phong in both paths: the paint's highlight sharper and brighter as it shines; a gilt top;
+// matte rope. In prepass the light buffer's alpha is the specular (the power from o.Specular,
+// written into the G-buffer), tinted here.
 //
-// Wear (_RFPoleWear: x worn, y rust, z dirt, w the material), scattered by _RFPoleSeed (0..255:
-// FlagWear.SeedFor its prop) in METRES on the pole (its own frame: y up from the foot), value
-// noise on Hoskins' hash (MIT, as FlagWear.cginc's): painted steel's paint chipped to grey
-// primer -- more at the foot and on the hoist's side, where the halyard rubs -- and, with rust,
-// rusted in its chips, in patches and in runs down it; aluminium's dull oxide; wood silvered and
-// its varnish gone; fibreglass chalky with its fibres showing; grime up from the foot and in
-// streaks down. Textures (PoleTextures.cs, CC0): Poly Haven's walnut and rust, ambientCG's rope.
+// THE SHINE (_RFPoleWear.w, 0 matte .. 1 a polished clear coat; the author, 2026-11-09, in place
+// of the materials): a gloss coat over the paint, as Real Glass's Reflective props' Gloss coat --
+// 4% reflected head-on, more at a grazing angle (Schlick 1994; Hoffman 2013's clear coat), the
+// paint under it lit as before. What it reflects is the sky (_RFSky: Real Glass's live sky when that
+// mod draws one, else the game's environment map; _RFSkyInfo x its mips less one, y its gain, z 1
+// when bound -- PoleSky.cs), blurred down its mips as the shine falls, added as emission (in prepass
+// the final pass adds it; no reflection in the ForwardAdd lights). Chips, rust and grime take the
+// coat away where they are. With Real Glass on, its Reflective finish (RealGlass.Api.Reflective,
+// RealGlassFinish.cs) draws the paint's reflection over a plain copy of the pole -- the city in it
+// too -- and _RFPoleFinish 1 leaves ours out; the gilt top keeps its own.
+//
+// Wear (_RFPoleWear: x worn, y rust, z dirt), scattered by _RFPoleSeed (0..255: FlagWear.SeedFor
+// its prop) in METRES on the pole (its own frame: y up from the foot), value noise on Hoskins'
+// hash (MIT, as FlagWear.cginc's): the paint chipped to grey primer -- more at the foot and on
+// the hoist's side, where the halyard rubs -- and, with rust, rusted in its chips, in patches and
+// in runs down it; grime up from the foot and in streaks down. Textures (PoleTextures.cs, CC0):
+// Poly Haven's rust, ambientCG's rope.
 //
 // Per flag, in a MaterialPropertyBlock: _RFPoleColor, _RFTopColor, _RFRopeColor (LINEAR),
 // _RFPoleWear, _RFPoleSeed, the textures, _RFHighlight (rgb x a, added: the panel's selection).
@@ -44,11 +53,10 @@ Shader "RealFlag/FlagPole"
         _RFTopColor ("Top (linear)", Color) = (0.66, 0.43, 0.04, 1)
         _RFRopeColor ("Ropes (linear)", Color) = (0.89, 0.86, 0.79, 1)
         _RFHighlight ("Highlight", Vector) = (0, 0, 0, 0)
-        _RFPoleWear ("Worn, rust, dirt, material", Vector) = (0, 0, 0, 0)
+        _RFPoleWear ("Worn, rust, dirt, shine", Vector) = (0, 0, 0, 0.35)
         _RFPoleSeed ("Seed", Float) = 0
+        _RFPoleFinish ("Real Glass draws the paint's reflection", Float) = 0
         _RFRopeLook ("Rope: 0 a twist, 1 the texture", Float) = 1
-        _RFWoodTex ("Wood", 2D) = "white" {}
-        _RFWoodNormal ("Wood normal", 2D) = "bump" {}
         _RFRustTex ("Rust", 2D) = "white" {}
         _RFRustNormal ("Rust normal", 2D) = "bump" {}
         _RFRopeTex ("Rope", 2D) = "white" {}
@@ -71,9 +79,8 @@ Shader "RealFlag/FlagPole"
         float4 _RFHighlight;
         float4 _RFPoleWear;
         float _RFPoleSeed;
+        float _RFPoleFinish;
         float _RFRopeLook;
-        sampler2D _RFWoodTex;
-        sampler2D _RFWoodNormal;
         sampler2D _RFRustTex;
         sampler2D _RFRustNormal;
         sampler2D _RFRopeTex;
@@ -81,6 +88,10 @@ Shader "RealFlag/FlagPole"
 
         // Set globally by FlagRenderer (and the preview): half a pixel's angle, radians.
         float _RFPixelRadius;
+
+        // The sky a glossy pole reflects (PoleSky.cs): x its mips less one, y its gain, z 1 when bound.
+        samplerCUBE _RFSky;
+        float4 _RFSkyInfo;
 
         struct SurfaceOutputPole
         {
@@ -98,6 +109,8 @@ Shader "RealFlag/FlagPole"
             float4 rfPart;
             float4 rfMap;
             float3 rfObj;
+            float3 rfWorld;
+            float3 rfWorldNormal;
         };
 
         void vert(inout appdata_full v, out Input o)
@@ -113,6 +126,8 @@ Shader "RealFlag/FlagPole"
             float r = max(radius, dist * _RFPixelRadius) * step(1e-6, radius);
             v.vertex.xyz += v.normal * r;
             o.rfObj = v.vertex.xyz;
+            o.rfWorld = world + mul((float3x3)unity_ObjectToWorld, v.normal * r);
+            o.rfWorldNormal = normalize(mul((float3x3)unity_ObjectToWorld, v.normal));
         }
 
         // Hoskins' hash (MIT): 0..1 from a point.
@@ -176,13 +191,17 @@ Shader "RealFlag/FlagPole"
             float worn = _RFPoleWear.x;
             float rust = _RFPoleWear.y;
             float dirt = _RFPoleWear.z;
-            float material = _RFPoleWear.w;
+            float shine = saturate(_RFPoleWear.w);
             float height = max(IN.rfObj.y, 0.0);
 
+            // The paint's highlight: a power of 8 (matte) to 128 (the G-buffer's most), as bright as
+            // the coat is smooth -- at the default shine 0.35 a power of 46 and a tint of 0.355, the
+            // satin (45, 0.35) every pole had.
             float3 normal = float3(0, 0, 1);
             float3 albedo = _RFPoleColor.rgb;
-            float3 specTint = float3(0.35, 0.35, 0.35);
-            float specular = 0.35;
+            float coat = 1.0;
+            float specular = (8.0 + 120.0 * pow(shine, 1.1)) / 128.0;
+            float3 specTint = (0.04 + 0.9 * shine).xxx;
 
             // A fluted shaft's grooves, in the normal: the radius r(a) = R (1 - d (0.5 - 0.5 cos F a)).
             if (IN.rfPart.z > 0.5)
@@ -191,8 +210,7 @@ Shader "RealFlag/FlagPole"
                 normal = normalize(float3(0.5 * IN.rfPart.w * IN.rfPart.z * sin(IN.rfPart.z * a), 0, 1));
             }
 
-            // Painted steel: satin paint; worn, chipped to grey primer; rusted in its chips, in patches, in runs down.
-            if (material < 0.5)
+            // The paint: worn, chipped to grey primer; rusted in its chips, in patches, in runs down.
             {
                 float rub = 0.12 * smoothstep(0.6, 1.0, IN.rfMap.y) + 0.3 * exp(-height / 0.5);
                 // Small chips (a few centimetres), gathered where a broader field says (knocks come in clusters).
@@ -200,7 +218,9 @@ Shader "RealFlag/FlagPole"
                 float chipped = worn > 0.0 ? smoothstep(1.0 - 0.4 * worn, 1.02 - 0.4 * worn, chips) : 0.0;
                 float rim = worn > 0.0 ? smoothstep(0.975 - 0.4 * worn, 1.0 - 0.4 * worn, chips) - chipped : 0.0;
                 albedo = lerp(albedo * (1.0 - 0.35 * rim), float3(0.16, 0.16, 0.155), chipped);
-                specTint = lerp(specTint, float3(0.5, 0.5, 0.5), chipped);
+                specTint = lerp(specTint, float3(0.1, 0.1, 0.1), chipped);
+                specular = lerp(specular, 0.15, chipped);
+                coat *= 1.0 - chipped;
 
                 float patches = smoothstep(1.0 - 0.45 * rust, 1.06 - 0.45 * rust, RFPoleSpread(p * 4.0 + 11.0) * 0.7 + RFPoleSpread(p * 20.0 + 3.0) * 0.3);
                 float runs = smoothstep(0.62, 0.9, RFPoleNoise(float3(p.x * 45.0, p.y * 0.7, p.z * 45.0))) * rust * 0.8;
@@ -213,44 +233,11 @@ Shader "RealFlag/FlagPole"
                     specTint = lerp(specTint, float3(0.03, 0.025, 0.02), rusted);
                     specular = lerp(specular, 0.08, rusted);
                     normal = normalize(lerp(normal, rn, rusted));
+                    coat *= 1.0 - rusted;
                 }
-            }
 
-            // Bare aluminium, brushed along: its colour tints it (anodised); worn, a dull oxide.
-            if (material > 0.5 && material < 1.5)
-            {
-                float brushed = RFPoleNoise(float3(p.x * 300.0, p.y * 3.0, p.z * 300.0)) - 0.5;
-                normal = normalize(normal + float3(0.12 * brushed, 0, 0));
-                float oxide = worn * smoothstep(0.45, 0.8, RFPoleSpread(p * 6.0 + 5.0) * 0.7 + RFPoleSpread(p * 30.0) * 0.3 + 0.25 * worn);
-                albedo = lerp(albedo * 0.45, float3(0.42, 0.42, 0.41), oxide);
-                specTint = lerp(_RFPoleColor.rgb * 0.9, float3(0.12, 0.12, 0.12), oxide);
-                specular = lerp(0.5, 0.12, oxide);
-            }
-
-            // Varnished wood, its grain up the pole: the colour stains it; worn, silvered, the varnish gone, the grain open.
-            if (material > 1.5 && material < 2.5)
-            {
-                float4 wt = tex2D(_RFWoodTex, uv);
-                float silver = worn * smoothstep(0.2, 0.7, RFPoleFbm(p * 2.0 + 3.0) * 0.6 + 0.6 * worn);
-                float3 wood = wt.rgb * _RFPoleColor.rgb * 1.3;
-                float grey = dot(wood, float3(0.2126, 0.7152, 0.0722));
-                albedo = lerp(wood, float3(0.16, 0.155, 0.15) + grey * 0.4, silver);
-                normal = normalize(normal + RFPoleUnpack(tex2D(_RFWoodNormal, uv), 1.0 + 1.5 * silver) - float3(0, 0, 1));
-                specTint = lerp(float3(0.07, 0.065, 0.06), float3(0.01, 0.01, 0.01), saturate(silver + 0.5 * worn)) * (1.2 - wt.a);
-                specular = lerp(0.3, 0.06, saturate(silver + 0.5 * worn));
-            }
-
-            // Fibreglass: a glossy gel coat; worn, chalky, its fibres showing up it.
-            if (material > 2.5)
-            {
-                float fibres = RFPoleNoise(float3(p.x * 160.0, p.y * 6.0, p.z * 160.0));
-                float chalk = worn * (0.6 + 0.4 * RFPoleFbm(p * 5.0 + 8.0));
-                // Chalky, yellowed by the sun, the fibres in streaks up it.
-                float3 faded = albedo * float3(0.78, 0.74, 0.6) + float3(0.08, 0.075, 0.04) + 0.22 * (fibres - 0.5);
-                albedo = lerp(albedo, faded, chalk);
-                normal = normalize(normal + float3(0.15 * (fibres - 0.5) * chalk, 0, 0));
-                specTint = lerp(float3(0.1, 0.1, 0.1), float3(0.02, 0.02, 0.02), chalk);
-                specular = lerp(0.6, 0.15, chalk);
+                // A worn coat dulls all over, a little: weathered paint loses its gloss before it chips.
+                coat *= 1.0 - 0.5 * worn;
             }
 
             // The gilt top: dark diffuse, a bright specular in its own colour; worn, tarnished.
@@ -294,7 +281,31 @@ Shader "RealFlag/FlagPole"
             o.Normal = normalize(normal * pole + float3(0, 0, 1) * top + ropeNormal * rope);
             o.Gloss = 1.0;
             o.Alpha = 1.0;
-            o.Emission = _RFHighlight.rgb * _RFHighlight.a;
+
+            // What the coat reflects: the sky along the mirrored view ray, F by Schlick from 4%
+            // head-on, blurred down the sky's mips as the shine falls; the gilt top a metal, F its
+            // own colour, a little blurred. The geometric normal (a fluted groove's slope in it):
+            // the paint's bumps are below the coat.
+            float3 reflection = float3(0, 0, 0);
+            if (_RFSkyInfo.z > 0.5 && rope < 0.5)
+            {
+                float3 n = normalize(IN.rfWorldNormal);
+                float3 v = normalize(_WorldSpaceCameraPos - IN.rfWorld);
+                float3 r = reflect(-v, n);
+                float facing = 1.0 - saturate(dot(n, v));
+                float facing5 = facing * facing * facing * facing * facing;
+
+                // Real Glass's Reflective finish draws the paint's reflection (the city in it) when
+                // _RFPoleFinish is 1 (RealGlassFinish): ours is left out, the gilt top's kept.
+                float paintCoat = shine * coat * (1.0 - grimeMask) * (1.0 - saturate(_RFPoleFinish));
+                float3 paintF = (0.04 + 0.96 * facing5).xxx * paintCoat;
+                float3 topF = (_RFTopColor.rgb + (1.0 - _RFTopColor.rgb) * facing5) * 0.8 * (1.0 - 0.6 * worn) * (1.0 - 0.5 * grimeMask);
+                float rough = lerp(1.0 - shine, 0.3, top);
+                float3 sky = texCUBElod(_RFSky, float4(r, rough * _RFSkyInfo.x)).rgb * _RFSkyInfo.y;
+                reflection = sky * (paintF * pole + topF * top);
+            }
+
+            o.Emission = reflection + _RFHighlight.rgb * _RFHighlight.a;
         }
 
         half4 LightingPole_PrePass(SurfaceOutputPole s, half4 light)
