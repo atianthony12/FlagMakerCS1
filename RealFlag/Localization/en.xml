@@ -180,6 +180,8 @@
   <String key="NewRecapture.Tooltip">Records the loop again, so the flag waves a different way.</String>
   <String key="SelRecapture.Label">Recapture</String>
   <String key="SelRecapture.Tooltip">Records the loop again, so the flag waves a different way.</String>
+  <String key="Motion.Recording">Recording... {0}%</String>
+  <String key="Motion.CantRecord">Can't record</String>
   <String key="NewHeld.Label">Anchor points</String>
   <String key="NewHeld.Tooltip">Pins more of the flag, so it stays open instead of drooping, like a street banner. It still ripples.</String>
   <String key="SelHeld.Label">Anchor points</String>

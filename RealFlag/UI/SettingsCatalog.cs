@@ -882,6 +882,16 @@ namespace RealFlag.UI
             _rows.Add(row);
         }
 
+        /// <summary>The loop of a page's flag (Recapture's words): the New flag window's design, else the selected flag's.</summary>
+        private static LoopState LoopStateFor(PanelPage page, out float progress)
+        {
+            progress = 0f;
+            if (FlagRenderer.Instance == null)
+                return LoopState.None;
+            return page == PanelPage.New ? FlagRenderer.LoopStateOf(Settings.NewSpec(), out progress)
+                                         : FlagRenderer.LoopStateOf(FlagEditor.Selected, out progress);
+        }
+
         /// <summary>
         /// A flag's design, the same rows in the New flag window and the Flags tab: the next
         /// flag's (settings) or the selected one's (transient). First the country: with one
@@ -1219,6 +1229,11 @@ namespace RealFlag.UI
 
             // Recapture: another loop of the same flag (the author, 2026-11-11: "only visible if
             // Motion is set to Loop" -- Still makes a new pose by itself each time it is chosen).
+            // While the loop is being recorded it says how far, greyed, and Recapture again once
+            // made (the author, 2026-11-12: "it's a bit confusing when I switch to Loop and
+            // nothing changes"); a loop that cannot be made says so, and stays clickable -- a new
+            // take is another loop, tried afresh. The selected flag's loop, or the new flag's
+            // design's (FlagRenderer.LoopStateOf).
             Add(new Row
             {
                 Kind = RowKind.Button,
@@ -1229,7 +1244,21 @@ namespace RealFlag.UI
                     newTake();
                     (changed ?? Nothing)();
                 },
-                Enabled = () => (enabled == null || enabled()) && motion.value == FlagMotion.Loop,
+                ButtonText = () =>
+                {
+                    float progress;
+                    LoopState state = LoopStateFor(page, out progress);
+                    if (state == LoopState.Recording)
+                        return Localization.Get("Motion.Recording", (int)Math.Floor(progress * 100f));
+                    if (state == LoopState.Failed)
+                        return Localization.Get("Motion.CantRecord");
+                    return Localization.Get(recaptureId + ".Label");
+                },
+                Enabled = () =>
+                {
+                    float progress;
+                    return (enabled == null || enabled()) && motion.value == FlagMotion.Loop && LoopStateFor(page, out progress) != LoopState.Recording;
+                },
                 ShownWhile = () => motion.value == FlagMotion.Loop,
             });
 

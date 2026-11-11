@@ -2051,6 +2051,8 @@ namespace RealFlag.Flags
             PlanSources(dt * _load.TimeScale, realDt, wind, ref spent);
 
             // The loops being made (FlagMotion.Loop): a job each, before the flags that wait for them.
+            // The flag being placed asks for its own first, wherever the pointer is.
+            WantNewFlagLoop(now);
             PlanLoops(now, ref spent);
 
             if (_ghost != null)

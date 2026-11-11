@@ -174,6 +174,8 @@
   <String key="NewRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
   <String key="SelRecapture.Label">重新捕捉</String>
   <String key="SelRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
+  <String key="Motion.Recording">正在录制... {0}%</String>
+  <String key="Motion.CantRecord">无法录制</String>
   <String key="NewHeld.Label">锚点</String>
   <String key="NewHeld.Tooltip">固定旗帜的更多部位，让它像街灯横幅一样保持展开、不会垂下，同时仍会飘动。</String>
   <String key="SelHeld.Label">锚点</String>

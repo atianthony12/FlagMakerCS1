@@ -477,6 +477,9 @@ namespace RealFlag.Flags
         private int _settleLeft, _recorded, _sinceFrame;
         private int _unknotted, _relaid;
 
+        /// <summary>The most steps of one try run so far (<see cref="Progress"/>): one int, written by the job alone.</summary>
+        private volatile int _shownSteps;
+
         /// <param name="spec">The flag: its size, cut, hoist line, fabric, halyard, back plate, share of the wind.</param>
         /// <param name="detail">The cloth's detail (LoopMotion.DetailFor).</param>
         /// <param name="selfCollision">The option, as every cloth has it.</param>
@@ -543,6 +546,26 @@ namespace RealFlag.Flags
         public int StepsTotal
         {
             get { return _settleSteps + _recordFrames * FrameSteps; }
+        }
+
+        /// <summary>
+        /// How far it is, 0..1, for the panel's Recapture button (the author, 2026-11-12: "show a
+        /// 'loading' state on a flag when it's set to Loop motion as it generates the motion"): the
+        /// steps of a try run so far over a try's, below 1 until the loop is made (its seam is cut
+        /// after the last frame), 1 once it is (one that failed stays where it stopped: the renderer
+        /// says so the next frame, LoopState.Failed). It never runs back: a try begun again after a knot
+        /// holds where the last one had got to until the new one passes it. Read from the main
+        /// thread while the job may be running: it reads one int the job writes, nothing else of it.
+        /// </summary>
+        public float Progress
+        {
+            get
+            {
+                if (Finished && !Failed)
+                    return 1f;
+                float p = _shownSteps / (float)Math.Max(1, StepsTotal);
+                return p < 0f ? 0f : p > 0.99f ? 0.99f : p;
+            }
         }
 
         /// <summary>The sub-steps each step takes (the cost of a step, for the renderer's plan).</summary>
@@ -641,6 +664,11 @@ namespace RealFlag.Flags
                     _recorded++;
                 }
             }
+
+            // This try's steps so far, for Progress: kept at the most any try reached.
+            int done = (_settleSteps - Math.Max(0, _settleLeft)) + _recorded * FrameSteps + _sinceFrame;
+            if (done > _shownSteps)
+                _shownSteps = done;
 
             if (_recorded >= _recordFrames)
             {

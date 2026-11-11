@@ -181,6 +181,8 @@
   <String key="NewRecapture.Tooltip">Graba el bucle de nuevo, para que la bandera ondee de otra forma.</String>
   <String key="SelRecapture.Label">Recapturar</String>
   <String key="SelRecapture.Tooltip">Graba el bucle de nuevo, para que la bandera ondee de otra forma.</String>
+  <String key="Motion.Recording">Grabando... {0}%</String>
+  <String key="Motion.CantRecord">No se puede grabar</String>
   <String key="NewHeld.Label">Puntos de anclaje</String>
   <String key="NewHeld.Tooltip">Fija más partes de la bandera, para que quede abierta en vez de caer, como un banderín de farola. Sigue ondeando.</String>
   <String key="SelHeld.Label">Puntos de anclaje</String>

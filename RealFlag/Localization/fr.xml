@@ -184,6 +184,8 @@
   <String key="NewRecapture.Tooltip">Enregistre la boucle à nouveau, pour que le drapeau ondule autrement.</String>
   <String key="SelRecapture.Label">Recapturer</String>
   <String key="SelRecapture.Tooltip">Enregistre la boucle à nouveau, pour que le drapeau ondule autrement.</String>
+  <String key="Motion.Recording">Enregistrement... {0} %</String>
+  <String key="Motion.CantRecord">Impossible d'enregistrer</String>
   <String key="NewHeld.Label">Points d'ancrage</String>
   <String key="NewHeld.Tooltip">Fixe davantage le drapeau, pour qu'il reste ouvert au lieu de pendre, comme une bannière de lampadaire. Il ondule toujours.</String>
   <String key="SelHeld.Label">Points d'ancrage</String>

@@ -38,6 +38,15 @@ namespace RealFlag.Flags
         public bool Gone;
     }
 
+    /// <summary>Where a flag's own loop stands, for the panel (FlagRenderer.LoopStateOf): no loop to speak of, being recorded, made, or not to be made.</summary>
+    public enum LoopState
+    {
+        None,
+        Recording,
+        Ready,
+        Failed,
+    }
+
     /// <summary>
     /// Flags that play a loop (FlagMotion.Loop): the renderer's part. PURE of it: ClothLoop.cs
     /// (LoopMotion, LoopBake); the texture and the grids: FlagLoop.cs.
@@ -129,6 +138,124 @@ namespace RealFlag.Flags
 
             f.LoopWanted = e;
             return e;
+        }
+
+        // ---- what the panel reads (2026-11-12) -----------------------------------------------------
+
+        /// <summary>
+        /// The selected flag's own loop, for its Recapture button (the author, 2026-11-12: "it's a
+        /// bit confusing when I switch to Loop and nothing changes"): Recording with how far
+        /// (0..1) while the loop its design asks for is being made or waits to be begun, Ready
+        /// once made, Failed while it may not be made (its making failed, or no room: the flag
+        /// waves). None with no renderer, no such flag, a flag whose Motion is not Loop, or one out
+        /// of sight whose loop nothing asks for (it is begun when the camera comes to it). The
+        /// loop judged is the one its design asks for, never the one it is drawn with: after
+        /// Recapture the old loop shows until the new is made, and the button reads Recording
+        /// meanwhile. Reads only; makes no entry (the UI and the renderer share the main thread).
+        /// </summary>
+        public static LoopState LoopStateOf(uint prop, out float progress)
+        {
+            progress = 0f;
+            FlagRenderer r = Instance;
+            FlagInstance f;
+            if (r == null || prop == 0 || !r._byProp.TryGetValue(prop, out f) || f.Spec.Motion != FlagMotion.Loop)
+                return LoopState.None;
+
+            // As EntryFor finds it: the one kept on the flag while still good, else by its key.
+            int detail = LoopMotion.DetailFor(r._finest);
+            LoopEntry e = f.LoopWanted;
+            if (e == null || e.Gone || e.Detail != detail || e.SelfCollision != r._selfCollision)
+                r._loops.TryGetValue(LoopMotion.Key(f.Spec, detail, r._selfCollision), out e);
+
+            // None asked for, and none will be while it stays out of sight (WantLoop's own test):
+            // a flag picked from the list far off is not said to be recording.
+            if (e == null && !f.Visible && f.Pixels < MovePixels)
+                return LoopState.None;
+            return StateOf(e, out progress);
+        }
+
+        /// <summary>
+        /// The same for a design not placed yet -- the New flag window's, the flag being placed --
+        /// by its key alone: the ghost is let go while the pointer is over a window (FlagTool
+        /// places nothing there), and its loop's entry with it a second later (Unwanted). No entry
+        /// reads Recording at 0: it is begun once the ghost is back on the map.
+        /// </summary>
+        public static LoopState LoopStateOf(FlagSpec spec, out float progress)
+        {
+            progress = 0f;
+            FlagRenderer r = Instance;
+            if (r == null || spec.Motion != FlagMotion.Loop)
+                return LoopState.None;
+
+            LoopEntry e;
+            r._loops.TryGetValue(LoopMotion.Key(spec, LoopMotion.DetailFor(r._finest), r._selfCollision), out e);
+            return StateOf(e, out progress);
+        }
+
+        /// <summary>
+        /// The flag being placed keeps its loop wanted, in hand, for as long as the tool places --
+        /// the pointer on the map or on a window (2026-11-12). The ghost alone asked for it, and
+        /// FlagTool has no ghost while the pointer is over a window: choosing Loop there (the
+        /// pointer is on the window then) began nothing, the button read "Recording... 0%" until
+        /// the pointer went back to the map, and going back to the window to watch it let the
+        /// unfinished loop go a second later (Unwanted), to begin again. The entry is the ghost's
+        /// own (the same key); looked up again only when the design or the options change.
+        /// </summary>
+        private void WantNewFlagLoop(float now)
+        {
+            if (!FlagTool.IsPlacing)
+            {
+                _newLoop = null;
+                return;
+            }
+
+            FlagSpec spec = Settings.NewSpec();
+            if (spec.Motion != FlagMotion.Loop)
+            {
+                _newLoop = null;
+                return;
+            }
+
+            int detail = LoopMotion.DetailFor(_finest);
+            LoopEntry e = _newLoop;
+            if (e == null || e.Gone || e.Detail != detail || e.SelfCollision != _selfCollision || !Same(spec, _newLoopSpec))
+            {
+                string key = LoopMotion.Key(spec, detail, _selfCollision);
+                if (!_loops.TryGetValue(key, out e))
+                {
+                    e = new LoopEntry { Key = key, Spec = spec, Detail = detail, SelfCollision = _selfCollision, Since = now, Wanted = now };
+                    _loops[key] = e;
+                    _loopList.Add(e);
+                }
+
+                _newLoop = e;
+                _newLoopSpec = spec;
+            }
+
+            e.Wanted = now;
+            e.Real = now;
+            e.InHand = now;
+        }
+
+        private LoopEntry _newLoop;
+        private FlagSpec _newLoopSpec;
+
+        /// <summary>An entry's state: no entry yet, or one wanted and not begun (Debounce, MaxBakes), reads Recording at 0.</summary>
+        private static LoopState StateOf(LoopEntry e, out float progress)
+        {
+            progress = 0f;
+            if (e != null && e.Loop != null)
+            {
+                progress = 1f;
+                return LoopState.Ready;
+            }
+
+            if (e != null && e.Bake == null && Time.realtimeSinceStartup < e.FailedUntil)
+                return LoopState.Failed;
+
+            if (e != null && e.Bake != null)
+                progress = e.Bake.Progress;
+            return LoopState.Recording;
         }
 
         /// <summary>

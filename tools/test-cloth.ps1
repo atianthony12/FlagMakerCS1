@@ -3093,7 +3093,19 @@ public static class ClothTests
         LoopBake a = LoopBake.Make(s, FlagCloth.CellsAlong, true);
         var b = new LoopBake(s, FlagCloth.CellsAlong, true);
         int jobs = 0;
-        while (!b.Finished) { b.StepsNext = 7; b.Run(); jobs++; }
+
+        // Its progress for the panel (LoopBake.Progress, 2026-11-12): 0 before the first job,
+        // never back, below 1 until made, 1 once made.
+        float first = b.Progress, last = first, highest = 0f;
+        bool back = false;
+        while (!b.Finished)
+        {
+            b.StepsNext = 7; b.Run(); jobs++;
+            float p = b.Progress;
+            if (p < last) back = true;
+            if (!b.Finished) highest = Math.Max(highest, p);
+            last = p;
+        }
         LoopBake d = LoopBake.Make(s, FlagCloth.CellsAlong, true);
         if (a.Failed || b.Failed || d.Failed || a.Frames != b.Frames || a.Frames != d.Frames) return "NaN,NaN," + jobs + ",NaN";
 
@@ -3110,7 +3122,8 @@ public static class ClothTests
         double between = 0;
         for (int k = 0; k < n; k++)
             between = Math.Max(between, Math.Abs(x[k] - (0.75f * x0[k] + 0.25f * x1[k])) + Math.Abs(y[k] - (0.75f * y0[k] + 0.25f * y1[k])) + Math.Abs(z[k] - (0.75f * z0[k] + 0.25f * z1[k])));
-        return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs + "," + between.ToString("G3", Inv);
+        return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs + "," + between.ToString("G3", Inv) + "," +
+               first.ToString("G3", Inv) + "," + back + "," + highest.ToString("G3", Inv) + "," + last.ToString("G3", Inv) + "," + b.Tries;
     }
 
     /// <summary>
@@ -5913,6 +5926,7 @@ $lsw = [ClothTests]::LoopSwaps() -split ","
 Check "a loop standing in: the shift puts a flag at a frame, its motion there is the frame, a cloth given it is found at that frame (within one at a finer grid) and flies on towards the next; the breeze's shares" ($lsw.Count -ge 9 -and $lsw[0] -eq "True" -and (N $lsw[1]) -lt 1e-3 -and $lsw[2] -eq "True" -and $lsw[3] -eq "17" -and [math]::Abs([int]$lsw[4] - 17) -le 1 -and (N $lsw[5]) -lt (N $lsw[6]) -and $lsw[7] -eq "True" -and $lsw[8] -eq "0.5/0.25/1/0.75") ($lsw -join ", ")
 $lsp = [ClothTests]::LoopSplit() -split ","
 Check "a loop is the same however its steps are split into jobs, and made twice; between two frames is their blend" ($lsp[0] -eq "0" -and $lsp[1] -eq "0" -and (N $lsp[3]) -lt 1e-6) ("split into " + $lsp[2] + " jobs: " + $lsp[0] + " off; twice: " + $lsp[1] + "; between: " + $lsp[3])
+Check "a loop's progress for the panel: 0 before its first job, never back, below 1 until made (at least 0.9 by its last job), 1 once made" ($lsp.Count -ge 9 -and $lsp[4] -eq "0" -and $lsp[5] -eq "False" -and (N $lsp[6]) -lt 1 -and (N $lsp[6]) -ge 0.9 -and $lsp[7] -eq "1") ("first " + $lsp[4] + ", back " + $lsp[5] + ", highest unmade " + $lsp[6] + ", made " + $lsp[7] + ", tries " + $lsp[8])
 foreach ($case in @(
         @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 18; C = 0; S = 1; B = $false; Name = "3 m at Low" },
         @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "3 m at High" },
