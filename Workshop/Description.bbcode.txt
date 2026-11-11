@@ -1,4 +1,4 @@
-
+Fully animated, customizable flags that react to wind. Supports custom images (with cropping and adjusting), comes with all UN countries' flags, and a simple pattern creator.
 
 [hr][/hr]
 [h1]How to use[/h1]
@@ -6,49 +6,47 @@
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a city[/b] (new or saved). The mod does not run in the editors.
 [*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
-[*][b]Click + New flag[/b], choose a design, then click on the map to place it. Right-click rotates, Page Up and Page Down raise and lower it.
-[*][b]To change a placed flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
+[*][b]Click + New flag[/b], choose a country flag, pattern or upload your own image.
+[*][b]To edit a flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
 [/olist]
-[h3]Your own pictures[/h3]
-Put .png or .jpg files in the [i]FlagMaker\Images[/i] folder (the Image window has a button that opens it), then crop them onto the flag.
 
 [hr][/hr]
 [h1]Features[/h1]
-[h3]Designs[/h3]
+[h3]Flags[/h3]
 [list]
-[*]250+ country and territory flags
-[*]15 patterns in your own colours
-[*]Your own pictures
-[*]Any size up to 30 m, hoisted from the side or the top
-[*]Waving, still or flat
-[*]Wear and tear: worn, torn, dirty and holed flags
+[*]250+ countries flags (including EU, UN)
+[*]Simple pattern creator
+[*]Ability to upload your own flag picture
+[*]Flags can be up to 30m wide/tall, hoisted from the side or the top
+[*]Wear and tear, and dirt
 [/list]
-[h3]Cloth and wind[/h3]
+[h3]Flag motion[/h3]
 [list]
-[*]Real cloth simulation, lit by the game's sun, shadows and street lights
-[*]Wet in the rain
-[*]Flies in the game's wind, or set your own speed, gusts and direction
-[*]Stronger wind up high and on rooftops, calmer between buildings
-[*]Follows [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]'s wind and gusts
-[*]Drapes over roofs, walls, props and trees instead of passing through them
+[*][b]Waving[/b]: the default, the flag waves in the wind and collides with other buildings
+[*][b]Still[/b]: the flag animation will be paused. Useful for taking screenshots
+[*][b]Flat[/b]: no motion at all, just a 2D flag
+[*][b]Loop[/b]: will replay the flag animation over and over, so the flag no longer is affected by physics or wind. This is useful for taking videos, and saves performance if you have a lot of flags near each other and/or don't need them to react to the wind
 [/list]
 [h3]Flagpoles[/h3]
 [list]
-[*]Optional, with a ball, flat or spear top
-[*]Halyard ropes
-[*]Your own colours, height and thickness
-[*]Tilt and lean, for poles on walls
+[*]Multiple base and top options, and it's optional so you can use existing poles or just attach them anywhere on your map
+[*]Changeable colors, height and thickness
+[*]Wear and tear, rust and dirt on the pole itself
 [/list]
+[h3]Performance[/h3]
+By default the preset is set to High, you can set it to Low or Medium if your system struggles to animate the flags. You can also separately change the cloth quality itself.
+[b]Technical info[/b]
+The flags run on your CPU. By default it uses a minimal amount of cores but this is changeable in the Settings tab if you want a big amount of flags to animate at the same time. But you may never need to change this setting, because the mod employs a few ways to optimize performance, such as stopping flags animations except those near the camera, or having a shared motion/animation between flags, etc.
 [h3]Mod options[/h3]
 [list]
-[*]Move It: move, copy and paste flags with their designs
-[*]4 panel looks
-[*]Localizations: English, Spanish, French and Simplified Chinese
+[*]4 panel themes
+[*]Localization: English, Spanish, French and Simplified Chinese
 [/list]
 
 [hr][/hr]
 [h1]Compatibility[/h1]
-[b]Removing the mod[/b] will not corrupt your save, but when you save without it, the existing flags will be deleted permanently.
+Tested with hundreds of mods, none of which conflicted.
+[b]Removing the mod[/b] will not corrupt your save, but when you save without it the existing flags will be deleted permanently.
 [h3]Works with[/h3]
 [list]
 [*][b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b]: the flags can be moved, rotated and deleted as Props.
@@ -56,7 +54,7 @@ Put .png or .jpg files in the [i]FlagMaker\Images[/i] folder (the Image window h
 [/list]
 [h3]Known issues / limitations[/h3]
 [list]
-[*][b]Flags can't turn to Procedural Objects[/b]: This is intentional for now, since you can make flags not move anyway.
+[*][b]Flags can't turn to Procedural Objects[/b]: this is intentional for now, but if it becomes requested I will look into it.
 [/list]
 
 [hr][/hr]
