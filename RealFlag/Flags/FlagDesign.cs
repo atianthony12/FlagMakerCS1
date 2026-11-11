@@ -248,6 +248,9 @@ namespace RealFlag.Flags
         public static readonly string[] NameKeys = { "Held.Top", "Held.Bottom", "Held.Fly", "Held.Corners" };
         public static readonly string[] TooltipKeys = { "Held.Top.Tooltip", "Held.Bottom.Tooltip", "Held.Fly.Tooltip", "Held.Corners.Tooltip" };
 
+        /// <summary>The same four for a banner hoisted from its top, as seen from its front: its left and right sides, its bottom edge, its bottom corners.</summary>
+        public static readonly string[] BannerTooltipKeys = { "Held.Top.Banner", "Held.Bottom.Banner", "Held.Fly.Banner", "Held.Corners.Banner" };
+
         public static string LogName(int mask)
         {
             if (mask == None)

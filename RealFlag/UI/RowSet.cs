@@ -542,6 +542,17 @@ namespace RealFlag.UI
                     ShowCutIcon(row, control.CutIcons[i], row.ChoiceValues[i]);
             }
 
+            // Tooltips that follow the flag (the holds' names for a banner from its top).
+            if (row.ChoiceTooltips != null)
+            {
+                for (int i = 0; i < control.Options.Count; i++)
+                {
+                    string tip = row.ChoiceTooltips(i);
+                    if (control.Options[i].tooltip != tip)
+                        control.Options[i].tooltip = tip;
+                }
+            }
+
             for (int i = 0; i < control.Options.Count; i++)
             {
                 bool lit = row.Kind == RowKind.Shape
@@ -831,12 +842,14 @@ namespace RealFlag.UI
                         // "tooltip texts all the same").
                         string own = row.ChoiceKeys != null && i < row.ChoiceKeys.Length && Localization.HasEnglish(row.ChoiceKeys[i] + ".Tooltip")
                             ? Localization.Get(row.ChoiceKeys[i] + ".Tooltip") : null;
-                        button.tooltip = own ?? (drawn ? row.ChoiceName(i) : row.Tooltip);
+                        button.tooltip = row.ChoiceTooltips != null ? row.ChoiceTooltips(i) : own ?? (drawn ? row.ChoiceName(i) : row.Tooltip);
                         if (row.CutIcons || row.HoldIcons)
                         {
                             // "Shape   [▭] [⊲] [⋲] [▷] ...": the cut as a little flag, its name the tooltip;
                             // "Also held at": the flag's own cut, the edge each holds in gold.
-                            var cutIcon = new CutIcon(button, new Vector3(Mathf.Round(0.5f * (width - 26f)), 3f), new Vector2(26f, 22f));
+                            // The holds' little flags larger than the cuts' (their gold edge must read at a glance).
+                            Vector2 box = row.HoldIcons ? new Vector2(Mathf.Min(34f, width - 6f), 24f) : new Vector2(26f, 22f);
+                            var cutIcon = new CutIcon(button, new Vector3(Mathf.Round(0.5f * (width - box.x)), Mathf.Round(0.5f * (height - box.y))), box);
                             control.CutIcons.Add(cutIcon);
                             ShowCutIcon(row, cutIcon, value);
                         }

@@ -228,14 +228,21 @@ namespace RealFlag.UI
 
         private readonly OwnedTextureSprite _sprite;
         private readonly Vector2 _box;
+        /// <summary>The hoist's bar on a hold button: a pole's grey, so the gold there is the held edge alone.</summary>
+        private static readonly Color32 PoleColour = new Color32(140, 146, 156, 255);
+
         private int _cut = -1, _hoist = -1, _held = -1;
         private float _depth = -1f;
 
-        /// <summary>A held edge's gold, pixels from the edge in (the hold row's, FlagHold).</summary>
-        private const float HeldPixels = 2.5f;
+        /// <summary>
+        /// A held edge's gold, texture pixels from the edge in (the hold row's, FlagHold): 3 UI
+        /// pixels at 2 a unit (the author, 2026-11-11: 2.5, 1.25 UI pixels, was "very small and not
+        /// easily noticeable").
+        /// </summary>
+        private const float HeldPixels = 6f;
 
         /// <summary>A held corner's gold runs this share of the flag along each edge from it.</summary>
-        private const float HeldCorner = 0.28f;
+        private const float HeldCorner = 0.38f;
 
         /// <param name="parent">The button it is drawn on.</param>
         /// <param name="at">The box's top left corner on it.</param>
@@ -301,7 +308,8 @@ namespace RealFlag.UI
                                      : x >= fx - bar && x < fx && py >= fy - 2f && py < fy + fh + 2f;
                     if (onBar)
                     {
-                        pixels[row * w + x] = BarColour;
+                        // On a hold button the pole's side is grey: only the edge it holds is gold.
+                        pixels[row * w + x] = held != 0 ? PoleColour : BarColour;
                         continue;
                     }
 

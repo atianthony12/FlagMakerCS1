@@ -119,7 +119,31 @@ namespace RealFlag.UI
         public static void RefreshOpen()
         {
             if (_instance != null && _instance.isVisible && _instance._rows != null)
+            {
+                _instance.Relayout();
                 _instance._rows.RefreshValues();
+            }
+        }
+
+        /// <summary>
+        /// Rows shown only while something holds (Row.ShownWhile: Recapture while the Motion is
+        /// Loop) shown or hidden, the window as tall as that, its bottom kept on the screen.
+        /// </summary>
+        private void Relayout()
+        {
+            if (!_built || !_rows.Layout())
+                return;
+
+            float? content = _rows.HeightOf(_page);
+            if (!content.HasValue)
+                return;
+
+            _pageHeight = content.Value;
+            _page.height = _pageHeight;
+            height = TitleBarHeight + 4f + _pageHeight + Margin;
+            Vector2 screen = GetUIView().GetScreenResolution();
+            if (relativePosition.y + height > screen.y)
+                relativePosition = new Vector3(relativePosition.x, Mathf.Max(0f, screen.y - height));
         }
 
         /// <summary>With the panel it belongs to.</summary>
@@ -157,6 +181,7 @@ namespace RealFlag.UI
             {
                 if (visible)
                 {
+                    Relayout();
                     _rows.RefreshValues();
                     _rows.RefreshStatus();
                     return;
@@ -233,6 +258,7 @@ namespace RealFlag.UI
 
             _nextRefreshTime = Time.realtimeSinceStartup + RefreshInterval;
             _rows.RefreshStatus();
+            Relayout();
             _rows.RefreshValues();
         }
 

@@ -192,6 +192,9 @@ namespace RealFlag.UI
         public bool HoldIcons;
         public IntSetting IconCut;
 
+        /// <summary>Segmented rows whose buttons' tooltips change with the flag (the holds: a banner from its top has sides where a flag has a top and a bottom): the tooltip of choice i now.</summary>
+        public Func<int, string> ChoiceTooltips;
+
         /// <summary>
         /// A slider whose name column is only as wide as the page's wide rows' names need, not the
         /// page's 196: the track gets the rest (the flag's Width and Height, 0.5-30 m -- the author,
@@ -1153,6 +1156,7 @@ namespace RealFlag.UI
                 MaskBits = true,
                 HoldIcons = true,
                 IconCut = cut,
+                ChoiceTooltips = i => Localization.Get(hoistedFrom.value == FlagHoist.Top ? FlagHold.BannerTooltipKeys[i] : FlagHold.TooltipKeys[i]),
                 CutDepth = cutDepth,
                 PresetHoist = () => hoistedFrom.value,
                 AfterChange = () =>
@@ -1200,7 +1204,8 @@ namespace RealFlag.UI
                 Enabled = enabled,
             });
 
-            // Recapture: another take of the same motion (a still flag's pose, a loop's few seconds).
+            // Recapture: another loop of the same flag (the author, 2026-11-11: "only visible if
+            // Motion is set to Loop" -- Still makes a new pose by itself each time it is chosen).
             Add(new Row
             {
                 Kind = RowKind.Button,
@@ -1211,7 +1216,8 @@ namespace RealFlag.UI
                     newTake();
                     (changed ?? Nothing)();
                 },
-                Enabled = () => (enabled == null || enabled()) && (motion.value == FlagMotion.Still || motion.value == FlagMotion.Loop),
+                Enabled = () => (enabled == null || enabled()) && motion.value == FlagMotion.Loop,
+                ShownWhile = () => motion.value == FlagMotion.Loop,
             });
 
             Add(new Row
@@ -1915,8 +1921,13 @@ namespace RealFlag.UI
 
             for (int i = firstSelected; i < Rows.Count; i++)
             {
-                if (Rows[i].Panel == PanelPage.Existing)
-                    Rows[i].ShownWhile = selected;
+                if (Rows[i].Panel != PanelPage.Existing)
+                    continue;
+
+                // A row with a condition of its own (Recapture: while the Motion is Loop) keeps it,
+                // and needs a selection too.
+                Func<bool> own = Rows[i].ShownWhile;
+                Rows[i].ShownWhile = own == null ? selected : () => selected() && own();
             }
         }
 
