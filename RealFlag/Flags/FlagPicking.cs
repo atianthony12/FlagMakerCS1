@@ -247,14 +247,16 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
-    /// The disc a flag's highlight is painted with -- Move It's and the bulldozer's (the game's
-    /// PropTool.RenderOverlay, patched: FlagOverlayPatch) and the mod's own hover -- over whatever
-    /// lies between its heights. From the flag's place, hoist and size alone, never its cloth: it
-    /// stands still while the flag waves (the author: "the selector goes all over the place, it's
+    /// A disc round a flag, from its place, hoist and size alone, never its cloth, over whatever
+    /// lies between its heights. Two uses: <see cref="For"/> is everything the cloth can reach
+    /// (the city gathered round a flag, FlagRenderer.KeepOffCity); <see cref="Selector"/> is the
+    /// disc its highlight is painted with -- Move It's and the bulldozer's (the game's
+    /// PropTool.RenderOverlay, patched: FlagOverlayPatch) and the mod's own hover -- which stands
+    /// still while the flag waves (the author: "the selector goes all over the place, it's
     /// reacting to the flag animation"). PURE (Unity's Vector3 only).
     /// </summary>
     /// <remarks>
-    /// It is round everything the cloth can reach, whatever the wind: each particle is held within
+    /// <see cref="For"/> is round everything the cloth can reach, whatever the wind: each particle is held within
     /// its flat distance of its row's hoist point (FlagCloth's long range attachments, the last
     /// constraint of every pass), so the whole cloth lies within the flag's length of its hoist --
     /// the disc spans the hoist's own reach across and that length round it, and the heights that
@@ -293,6 +295,36 @@ namespace RealFlag.Flags
                 MinY = Mathf.Min(anchor.y, end.y) - reach,
                 MaxY = Mathf.Max(anchor.y, end.y) + reach,
             };
+            return o;
+        }
+
+        /// <summary>
+        /// The flag length up to which <see cref="Selector"/> is <see cref="For"/>'s whole reach:
+        /// a regular flag's (1.02 x 4 + 0.5 = 4.58 m round its hoist).
+        /// </summary>
+        public const float SelectorRegular = 4f;
+
+        /// <summary>The share of the reach past <see cref="SelectorRegular"/>'s that <see cref="Selector"/> keeps.</summary>
+        public const float SelectorShare = 0.25f;
+
+        /// <summary>
+        /// The highlight's disc (2026-11-11, the author: "The selector around flags, especially for
+        /// big flags, is massive ... for regular sized flags it's fine but for bigger ones only"):
+        /// <see cref="For"/>'s, its reach as it is up to a <see cref="SelectorRegular"/> m flag
+        /// and only <see cref="SelectorShare"/> of the rest past it -- a 3 m flag's disc 3.56 m
+        /// round its hoist as before, a 10 m flag's 6.1 m (was 10.7), a 20 m flag's 8.7 m (was
+        /// 20.9), a 30 m flag's 11.2 m (was 31.1). It marks the flag; a big flag's fly may reach
+        /// past it (the city round the flag is still gathered by <see cref="For"/>). Its heights are
+        /// <see cref="For"/>'s: it still paints the cloth and the ground under the pole.
+        /// </summary>
+        public static FlagOutline Selector(Vector3 anchor, Vector3 hoist, float hoistLength, float length)
+        {
+            FlagOutline o = For(anchor, hoist, hoistLength, length);
+            float reach = 1.02f * length + Margin;
+            float regular = 1.02f * SelectorRegular + Margin;
+            if (reach > regular)
+                o.Radius -= (1f - SelectorShare) * (reach - regular);
+
             return o;
         }
 

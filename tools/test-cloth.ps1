@@ -3687,6 +3687,53 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The highlight's disc (FlagOutline.Selector, 2026-11-11): a 3 m flag's the outline's own
+    /// (radius and heights), a big flag's smaller than its reach and growing with its length
+    /// (4 to 60 m), its heights the outline's; a banner from its top under the same rule (its
+    /// crossbar's half span kept whole). Returns the four answers, then the radii of 3, 10, 20
+    /// and 30 m side flags (the outline's in brackets).
+    /// </summary>
+    public static string SelectorDisc()
+    {
+        UnityEngine.Vector3 down = new UnityEngine.Vector3(0f, -1f, 0f);
+        FlagOutline o3 = FlagOutline.For(UnityEngine.Vector3.zero, down, 2f, 3f);
+        FlagOutline s3 = FlagOutline.Selector(UnityEngine.Vector3.zero, down, 2f, 3f);
+        bool regular = s3.Radius == o3.Radius && s3.MinY == o3.MinY && s3.MaxY == o3.MaxY && s3.X == o3.X && s3.Z == o3.Z;
+
+        bool smaller = true, grows = true;
+        float last = 0f;
+        for (float length = 4f; length <= 60f; length += 0.5f)
+        {
+            FlagOutline o = FlagOutline.For(UnityEngine.Vector3.zero, down, length * 2f / 3f, length);
+            FlagOutline s = FlagOutline.Selector(UnityEngine.Vector3.zero, down, length * 2f / 3f, length);
+            if (length > FlagOutline.SelectorRegular && !(s.Radius < o.Radius)) smaller = false;
+            if (length == FlagOutline.SelectorRegular && s.Radius != o.Radius) smaller = false;
+            if (s.MinY != o.MinY || s.MaxY != o.MaxY) smaller = false;
+            if (!(s.Radius > last)) grows = false;
+            last = s.Radius;
+        }
+
+        // A banner from its top: a 6 m crossbar along the heading, 9 m hanging from it.
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        UnityEngine.Vector3 bar = new UnityEngine.Vector3(hx, hy, hz);
+        FlagOutline ob = FlagOutline.For(UnityEngine.Vector3.zero, bar, 6f, 9f);
+        FlagOutline sb = FlagOutline.Selector(UnityEngine.Vector3.zero, bar, 6f, 9f);
+        float rule = 1.02f * FlagOutline.SelectorRegular + FlagOutline.Margin + FlagOutline.SelectorShare * (1.02f * 9f - 1.02f * FlagOutline.SelectorRegular);
+        bool top = Math.Abs(sb.Radius - (3f + rule)) < 1e-3f && sb.Radius < ob.Radius && sb.MinY == ob.MinY && sb.MaxY == ob.MaxY;
+
+        string radii = "";
+        foreach (float length in new float[] { 3f, 10f, 20f, 30f })
+        {
+            FlagOutline o = FlagOutline.For(UnityEngine.Vector3.zero, down, length * 2f / 3f, length);
+            FlagOutline s = FlagOutline.Selector(UnityEngine.Vector3.zero, down, length * 2f / 3f, length);
+            radii += (radii.Length > 0 ? " " : "") + length + " m " + s.Radius.ToString("F2", Inv) + " (" + o.Radius.ToString("F2", Inv) + ")";
+        }
+
+        return regular + "," + smaller + "," + grows + "," + top + "," + radii;
+    }
+
+    /// <summary>
     /// The pick volume stands still while the flag waves: a 3 x 2 m flag in a wind, the volume
     /// made every 0.1 s as the renderer makes it -- the first pick (the cloth's box as it was, in
     /// the axes of its fly edge as it was) against the held one (PickHold, in the wind's axes),
@@ -4549,11 +4596,18 @@ public static class ClothTests
     public static string HeldRunAt(int mask, float length, float height, float wind, float yawDegrees, bool halyard, int cut,
                                    int hoisted, bool plate, bool pole)
     {
+        return HeldRunDetail(mask, length, height, wind, yawDegrees, halyard, cut, hoisted, plate, pole, FlagCloth.CellsAlong);
+    }
+
+    /// <summary>The same at <paramref name="detail"/> cells (the game's default, High, is 32).</summary>
+    public static string HeldRunDetail(int mask, float length, float height, float wind, float yawDegrees, bool halyard, int cut,
+                                       int hoisted, bool plate, bool pole, int detail)
+    {
         float hx, hy, hz, fx, fy, fz;
         FlagOrientation.Frame(0f, 0f, 0f, hoisted, out hx, out hy, out hz, out fx, out fy, out fz);
         double yaw = yawDegrees * Math.PI / 180.0;
         float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw);
-        FlagCloth c = new FlagCloth(length, height, FlagFabric.Standard(1f), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz, cut, FlagCut.DefaultDepth);
+        FlagCloth c = new FlagCloth(length, height, FlagFabric.Standard(1f), dirX, dirZ, detail, hx, hy, hz, cut, FlagCut.DefaultDepth);
         c.GroundY = -30f;
         c.SetHalyard(halyard);
         if (plate)
@@ -4654,6 +4708,120 @@ public static class ClothTests
         freed.SetHolds(FlagHold.All, fx, fy, fz);
         freed.SetHolds(FlagHold.None, fx, fy, fz);
         return off.ToString("F4", Inv) + "," + kept + "," + (freed.LinkCount == never.LinkCount && freed.Passes == never.Passes);
+    }
+
+    /// <summary>
+    /// A held flag where the city (or the ground) is in its holds' way, 20 s at 32 cells stepped
+    /// as the game steps it (ClothWorker.Execute, 1/60 s frames; 2026-11-11): 0, a 3 x 2 m flag
+    /// whose far metre stands inside a building; 1, the same with a 30 cm wall between its hoist
+    /// and its fly; 2, a 6 x 2 m banner from its top on its plate, a facade 15 cm behind it (the
+    /// author's case: its holds clear, the surface kept); 3, a 19 x 4 m banner from its top 12 m
+    /// over the flat ground, held at its bottom below it. Finite, relaid as buried, knots, the
+    /// share of frames the surface was left out, whether a hold left it out at the end, the
+    /// frames it touched the city, the worst link after 4 s.
+    /// </summary>
+    public static string HeldInCity(int which, int mask, float wind, float yawDegrees)
+    {
+        bool top = which >= 2;
+        float length = which == 3 ? 19f : top ? 6f : 3f, height = which == 3 ? 4f : 2f;
+        int detail = which == 3 ? 40 : 32;
+        float[] box = which == 0 ? new float[] { 2f, -4f, 8f, 4f, -12f, 3f } : which == 1 ? new float[] { 1.4f, -4f, 1.7f, 4f, -12f, 3f } :
+                      which == 2 ? new float[] { -4f, 0.15f, 6f, 6.15f, -12f, 3f } : null;
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, top ? FlagHoist.Top : FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw);
+        FlagCloth c = new FlagCloth(length, height, FlagFabric.Standard(1f), dirX, dirZ, detail, hx, hy, hz, FlagCut.Rectangle, FlagCut.DefaultDepth);
+        c.GroundY = -12f;
+        if (top)
+            c.SetPlate(hz, -hx);
+        c.SetHolds(mask, fx, fy, fz);
+        c.LayOutNew(dirX, dirZ);
+        c.Calm(FlagCloth.CalmTime);
+        SurfaceGrid grid = null;
+        if (box != null)
+        {
+            grid = Grid(0f, 0f, 1.25f * (Math.Max(length, height) * 1.02f + 0.5f), -12f);
+            RaiseBox(grid, box[0], box[1], box[2], box[3], box[4], box[5]);
+            grid.Finish();
+            c.SetSurface(grid, 0f, 0f, 0f);
+            c.LayOutClear(dirX, dirZ);
+            c.Calm(FlagCloth.CalmTime);
+        }
+
+        int knots = c.Unknotted, relaid = c.Relaid, blocked = 0, touching = 0;
+        float worst = 1f;
+        int frames = 20 * 60;
+        for (int f = 0; f < frames; f++)
+        {
+            if (grid != null)
+                c.SetSurface(grid, 0f, 0f, 0f);
+            c.SetHolds(mask, fx, fy, fz);
+            var job = new ClothJob
+            {
+                Cloth = c, Steps = 1, Size = 1f / 60f, Time = f / 60f, Speed = wind, Gusts = 1f, DirX = dirX, DirZ = dirZ,
+                Height = 12f, Waviness = 1f, Length = length,
+            };
+            ClothWorker.Execute(ref job);
+            if (c.SurfaceBlocked) blocked++;
+            if (c.SurfaceInUse) touching++;
+            if (f >= 4 * 60) worst = Math.Max(worst, c.MaxStretch());
+        }
+
+        return c.IsFinite() + "," + (c.Relaid - relaid) + "," + (c.Unknotted - knots) + "," + ((float)blocked / frames).ToString("F2", Inv) + "," +
+               c.SurfaceBlockedByHold + "," + touching + "," + worst.ToString("F3", Inv);
+    }
+
+    /// <summary>
+    /// <see cref="MadeKnot"/>'s knot in a cloth held at <paramref name="mask"/> (2026-11-11: the
+    /// knot test leaves out the links at and beside a hold, FlagCloth.MarkNearHold): whole again
+    /// after. The holds pull the fold straight out in its first steps (391 and 62 pairs crossing
+    /// at first, none at the end, never taken for knotted), so this shows a held cloth does not
+    /// keep such a knot, not that the knot test finds one. The pairs crossing after one step, the
+    /// knots undone, the pairs crossing at the end, the worst stretch then.
+    /// </summary>
+    public static string MadeKnotHeld(int detail, int mask)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, detail);
+        c.GroundY = -40f;
+        c.SetHolds(mask, 1f, 0f, 0f);
+        int cols = c.Columns, rows = c.Rows;
+        float cu = c.CellU, cv = c.CellV, gap = 0.5f * Math.Min(cu, cv);
+        float[] x = new float[c.Count], y = new float[c.Count], z = new float[c.Count];
+        float[] px = new float[cols], pz = new float[cols];
+        int turn = cols / 2;
+        float cx = 0f, cz = 0f;
+        for (int i = 1; i < cols; i++)
+        {
+            if (i <= turn) { cx += cu; }
+            else if (i == turn + 1) { cz = gap; cx += 0.5f * cu; }
+            else if (cx > 1f && cz > 0f) { cx -= cu; }
+            else if (cz > 0f) { cz = -gap; }
+            else { cx -= cu; }
+            px[i] = cx; pz[i] = cz;
+        }
+
+        for (int j = 0; j < rows; j++)
+        {
+            for (int i = 0; i < cols; i++)
+            {
+                int k = j * cols + i;
+                x[k] = px[i]; y[k] = -j * cv; z[k] = pz[i];
+            }
+        }
+
+        c.SetShape(x, y, z, 0f);
+        int[] tris = Triangles(cols, rows);
+        float t = 0f;
+        int first = -1;
+        for (int s = 0; s < 480; s++)
+        {
+            FlagAir air = FlagWind.Air(0f, 1f, 1f, 0f, 40f, 1f, 3f, t, 0f, 0f);
+            c.Step(1f / 60f, ref air);
+            t += 1f / 60f;
+            if (s == 0) first = CrossingPairs(c, tris);
+        }
+        return first + "," + c.Unknotted + "," + CrossingPairs(c, tris) + "," + c.MaxStretch().ToString("F3", Inv) + "," + cols + "x" + rows;
     }
 
     public static string PlateRun(float wind, float yawDegrees, bool plate)
@@ -5258,6 +5426,8 @@ foreach ($speed in 2, 6, 12) {
 }
 $oc = [ClothTests]::OutlineCovers() -split ","
 Check "the outline holds the cloth whatever it does: flying, limp, tilted, from its top, on a halyard in a storm" ((N $oc[1]) -ge 0) ("nearest its edge: " + $oc[0] + ", " + $oc[1] + " m inside; the disc " + $oc[2] + " L round the hoist")
+$sd = [ClothTests]::SelectorDisc() -split ","
+Check "the highlight's disc: a 3 m flag's the outline's, a big flag's smaller and growing with it, its heights kept, a top banner alike" (($sd[0..3] | Where-Object { $_ -ne "True" }).Count -eq 0) ($sd -join ", ")
 
 # ---- tilted hoists and the pole ------------------------------------------------------------
 
@@ -5547,6 +5717,28 @@ foreach ($hc in @(@(7, 6, 2, 6, 0, $false, 1, $true, $false), @(7, 6, 2, 6, 270,
 }
 $ht = [ClothTests]::HeldTurn() -split ","
 Check "held edges turn with the flag, keep through a new detail, and let go leave the cloth as never held" ((N $ht[0]) -lt 1e-3 -and $ht[1] -eq "True" -and $ht[2] -eq "True") ("the held row off its turned line " + $ht[0] + " m, kept " + $ht[1] + ", let go as never " + $ht[2])
+# At the game's default detail (High, 32 cells) in strong winds, and cuts: a held membrane's links
+# beside its holds run over the knot test's 1.3 with no knot (2026-11-11: laid out afresh every
+# 2-20 s before MarkNearHold), so never taken for knotted. Cases: mask, length, height, wind, yaw, cut.
+foreach ($hc in @(@(3, 1, 2.5, 18, 90, 0), @(3, 1, 2.5, 30, 90, 0), @(8, 3, 2, 18, 0, 0), @(8, 3, 2, 30, 0, 0), @(8, 3, 2, 18, 90, 0),
+                  @(4, 3, 2, 12, 90, 4))) {
+    $hr = [ClothTests]::HeldRunDetail($hc[0], $hc[1], $hc[2], $hc[3], $hc[4], $false, $hc[5], 0, $false, $false, 32) -split ","
+    Check ("held at " + $hc[0] + " at 32 cells (" + $hc[1] + " x " + $hc[2] + " m, " + $hc[3] + " m/s at " + $hc[4] + " deg, cut " + $hc[5] + "): never taken for knotted, finite, out of its plane") ($hr[0] -eq "True" -and $hr[4] -eq "0" -and (N $hr[2]) -gt 0.1 -and (N $hr[1]) -le 1.7) ("worst link " + $hr[1] + ", out of its plane " + $hr[2] + " m rms, moving " + $hr[3] + " m/s rms, knots " + $hr[4])
+}
+# Held edges where the city is (2026-11-11): a hold inside a building, a wall between hoist and
+# hold, the ground over a hold -- the surface (or the ground) left out, never laid out afresh on
+# every step; the author's banner on its plate before a facade keeps its surface. Cases: which
+# (HeldInCity), mask, wind, yaw.
+foreach ($hc in @(@(0, 4, 6, 0), @(0, 8, 12, 90), @(0, 15, 12, 270), @(1, 4, 6, 0), @(1, 8, 12, 90))) {
+    $hi = [ClothTests]::HeldInCity($hc[0], $hc[1], $hc[2], $hc[3]) -split ","
+    Check ("held at " + $hc[1] + ", " + $(if ($hc[0] -eq 0) { "its far end inside a building" } else { "a wall between its hoist and its fly" }) + ", " + $hc[2] + " m/s at " + $hc[3] + " deg: the surface left out, relaid once at most, never knotted") ($hi[0] -eq "True" -and (N $hi[1]) -le 1 -and $hi[2] -eq "0" -and (N $hi[3]) -ge 0.99 -and $hi[4] -eq "True") ("relaid " + $hi[1] + ", knots " + $hi[2] + ", surface left out " + $hi[3] + " of the frames (by a hold: " + $hi[4] + "), worst link " + $hi[6])
+}
+foreach ($hc in @(@(2, 7, 12, 270), @(2, 7, 12, 90), @(2, 7, 6, 0))) {
+    $hi = [ClothTests]::HeldInCity($hc[0], $hc[1], $hc[2], $hc[3]) -split ","
+    Check ("a banner from its top on its plate, a facade 15 cm behind, held at 7, " + $hc[2] + " m/s at " + $hc[3] + " deg: keeps its surface, healthy") ($hi[0] -eq "True" -and $hi[1] -eq "0" -and $hi[2] -eq "0" -and (N $hi[3]) -eq 0 -and (N $hi[5]) -gt 0 -and (N $hi[6]) -le 1.2) ("relaid " + $hi[1] + ", knots " + $hi[2] + ", surface left out " + $hi[3] + ", touching it in " + $hi[5] + " frames, worst link " + $hi[6])
+}
+$hi = [ClothTests]::HeldInCity(3, 7, 12, 0) -split ","
+Check "a 19 x 4 m banner from its top 12 m up, held at its bottom below the ground: the ground lowered under the hold, healthy" ($hi[0] -eq "True" -and $hi[2] -eq "0" -and (N $hi[6]) -le 1.2) ("knots " + $hi[2] + ", worst link " + $hi[6])
 
 # ---- the pole's looks (format 17: profile, base, shine, wear, rust, dirt, rope thickness) --------
 
@@ -5831,6 +6023,12 @@ Check "dropped undamped (the first settle), a 3 m 1:2 flag at Ultra: whole after
 foreach ($detail in 24, 40) {
     $mk = [ClothTests]::MadeKnot($detail) -split ","
     Check ("a knot made by hand at $detail cells (a fold's third layer through its first): found, laid out afresh, whole again") ((N $mk[0]) -gt 0 -and (N $mk[1]) -ge 1 -and (N $mk[2]) -eq 0 -and (N $mk[3]) -lt 1.25) ($mk[4] + ": " + $mk[0] + " pairs crossing at first, knots undone " + $mk[1] + ", " + $mk[2] + " crossing at the end, stretch " + $mk[3])
+}
+# The same knot in a held cloth (2026-11-11; the knot test leaves out the links at and beside a
+# hold, FlagCloth.MarkNearHold): its holds pull it out, whole again with or without the knot test.
+foreach ($mk in @(@(32, 3), @(18, 8))) {
+    $mh = [ClothTests]::MadeKnotHeld($mk[0], $mk[1]) -split ","
+    Check ("a knot made by hand in a cloth held at " + $mk[1] + ", " + $mk[0] + " cells: whole again (pulled out by its holds, or found)") ((N $mh[0]) -gt 0 -and (N $mh[2]) -eq 0 -and (N $mh[3]) -lt 1.25) ($mh[4] + ": " + $mh[0] + " pairs crossing at first, knots undone " + $mh[1] + ", " + $mh[2] + " crossing at the end, stretch " + $mh[3])
 }
 
 # The thirteenth run's flag that kept "resetting": low on its tilted pole, light wind from

@@ -3616,8 +3616,9 @@ namespace RealFlag.Flags
             if (cloth.SurfaceBlocked && !f.LoggedBlocked && !ghost)
             {
                 f.LoggedBlocked = true;
-                Log.Msg("flags: " + Who(f) + "'s hoist stands under a roof or inside a building: its cloth leaves the " +
-                        "surface there out (the flat ground, props and trees still count)");
+                Log.Msg("flags: " + Who(f) + (cloth.SurfaceBlockedByHold ? "'s held edge lies" : "'s hoist stands") +
+                        " under a roof or inside a building: its cloth leaves the surface there out (the flat ground, " +
+                        "props and trees still count)");
             }
 
             if (cloth.DrapeDistance > 0f && !f.LoggedWall && !ghost)
@@ -4431,13 +4432,14 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
-        /// What a flag's outline covers (FlagOutline): everywhere its cloth can reach from its
-        /// hoist, and its pole from foot to tip when the mod draws one -- from its place and size,
-        /// not its cloth, so it stands still while the flag waves.
+        /// What a flag's outline covers (FlagOutline.Selector): round its hoist, as far as its cloth
+        /// can reach for a regular flag and less of a big one's reach (2026-11-11), and its pole
+        /// from foot to tip when the mod draws one -- from its place and size, not its cloth, so it
+        /// stands still while the flag waves.
         /// </summary>
         private static FlagOutline OutlineOf(FlagInstance f)
         {
-            FlagOutline outline = FlagOutline.For(f.Anchor, f.Hoist, f.Spec.Height, f.Spec.Length);
+            FlagOutline outline = FlagOutline.Selector(f.Anchor, f.Hoist, f.Spec.Height, f.Spec.Length);
             if (f.Spec.HasPole && f.PoleMesh != null)
             {
                 FlagPoleShape pole = f.PoleShape;

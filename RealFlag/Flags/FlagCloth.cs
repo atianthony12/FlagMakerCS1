@@ -1136,9 +1136,9 @@ namespace RealFlag.Flags
             if (grid == null)
                 return inside;
 
-            // Its hoist under it: not in use, so not counted -- unless only a wall's slope, kept back.
+            // Its hoist or a held edge under it: not in use, so not counted -- unless only a wall's slope, kept back.
             float ox, oz, oy = _surfaceY;
-            if (!HoistClear(grid, out ox, out oz))
+            if (!HoistClear(grid, out ox, out oz) || HoldsUnder(grid, ox, oz))
                 return inside;
 
             float h, sx, sz;
@@ -1612,6 +1612,7 @@ namespace RealFlag.Flags
         /// </summary>
         private void BuildHeld()
         {
+            _heldVersion++;
             _heldCount = 0;
             if (_heldMark != null)
                 Array.Clear(_heldMark, 0, _heldMark.Length);
@@ -1770,6 +1771,7 @@ namespace RealFlag.Flags
             {
                 _surfaceOn = false;
                 _surfaceBlocked = false;
+                _blockedByHold = false;
                 _heaped = 0;
             }
         }
@@ -2131,12 +2133,16 @@ namespace RealFlag.Flags
                     KnotRow = a / Columns;
                 }
 
-                LayOutClear(wx, wz);
+                int left = LayOutClear(wx, wz);
                 Calm(CalmTime);
                 _knotted = 0f;
                 if (buried)
                 {
                     Relaid++;
+
+                    // Held, it lays one way only: still in the way, the surface is left out.
+                    if (_heldCount > 0 && left > 0 && _surface != null)
+                        HoldsInTheWay();
                 }
                 else
                 {
@@ -2328,6 +2334,16 @@ namespace RealFlag.Flags
                     ground = Y[k] - 0.02f;
             }
 
+            // ... and under a buried held edge's place (2026-11-11): held below the ground, a 19 m
+            // banner 12 m up, held at its bottom, had its last free column held up by the ground
+            // 5.5 m from its hold -- links 11.6 times their length, "knotted" every 2 s.
+            for (int m = 0; m < _heldCount; m++)
+            {
+                float y = _heldDown[m] * _hy + _heldAlong[m] * _holdFy - 0.02f;
+                if (y < ground)
+                    ground = y;
+            }
+
             _ground = ground;
 
             // ---- the city in reach this step: the surface under the cloth, the capsules near it ----
@@ -2442,16 +2458,18 @@ namespace RealFlag.Flags
         /// few seconds -- 0.1.0.42392 in the game; offline a 3 m flag on a halyard, the wind from
         /// behind, 174 times a cloth-hour, and none with these links left out, every genuine knot
         /// still found (the knots harness, 2026-09-29). Only a link that would be the worst so far
-        /// is looked at more closely.
+        /// is looked at more closely. A cloth with held edges leaves out the links at and beside
+        /// its holds too (<see cref="MarkNearHold"/>).
         /// </summary>
         private float WorstFreeStretch()
         {
             float worst = 1f;
             int worstLink = -1;
             bool posts = _poleOn || _capCount > 0;
+            bool held = _heldCount > 0;
             for (int c = 0; c < _links; c++)
             {
-                if (_kind[c] != Structural)
+                if (_kind[c] != Structural || (held && _nearHold[c]))
                     continue;
 
                 int a = _a[c], b = _b[c];
@@ -2790,6 +2808,17 @@ namespace RealFlag.Flags
             {
                 float ox, oy = _surfaceY, oz;
                 bool blocked = !HoistClear(grid, out ox, out oz);
+                _blockedByHold = false;
+                if (!blocked && HoldsUnder(grid, ox, oz))
+                {
+                    // A held edge inside the city: left out as for the hoist, nothing kept back.
+                    blocked = true;
+                    _blockedByHold = true;
+                    WallShift = 0f;
+                    HoistOnEdge = false;
+                    DrapeDistance = 0f;
+                }
+
                 _effX = ox;
                 _effZ = oz;
                 _surfaceBlocked = blocked;
@@ -2828,6 +2857,20 @@ namespace RealFlag.Flags
 
                     float y = Y[k] < bottom ? bottom : Y[k] > top ? top : Y[k];
                     float dx = X[k] - cx, dy = Y[k] - y, dz = Z[k] - cz;
+                    float d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                    if (d < nearest)
+                        nearest = d;
+                }
+
+                // ... and the held edges' places, as the hoist's (2026-11-11): a 3 x 2 m flag
+                // held at its far corners, a post of 25 cm at the top one, was pushed off the post
+                // and put back on its hold every pass, and taken for knotted at 12 m/s.
+                for (int m = 0; m < _heldCount; m++)
+                {
+                    float a = _heldAlong[m], dn = _heldDown[m];
+                    float hx = dn * _hx + a * _holdFx, hy = dn * _hy + a * _holdFy, hz = dn * _hz + a * _holdFz;
+                    float y = hy < bottom ? bottom : hy > top ? top : hy;
+                    float dx = hx - cx, dy = hy - y, dz = hz - cz;
                     float d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
                     if (d < nearest)
                         nearest = d;
@@ -3052,6 +3095,92 @@ namespace RealFlag.Flags
 
             return sx * sx + sz * sz < WallSlope * WallSlope || Y[k] - Length >= h + oy;
         }
+
+        /// <summary>
+        /// A held edge's place (where <see cref="PlaceHeld"/> puts it) lies under the surface by more
+        /// than <see cref="HoistUnder"/>, sampled from the surface's point (<paramref name="ox"/>,
+        /// <paramref name="oz"/>) <see cref="HoistClear"/> gave: the surface is left out, as it is
+        /// over a hoist under it (2026-11-11). The hold is put back on its place every pass and
+        /// the surface, last, pushed it out again: a 3 x 2 m flag whose fly end was held a metre
+        /// inside a wall was buried, laid out afresh along its hold (the only way it lays) and
+        /// buried again on every sub-step -- 2399-3599 times in 20 s, its links 2.7-3.5 times
+        /// their length (the held-edge stress harness, "Cloth avoids buildings" on). Its places,
+        /// not its particles: the surface has already lifted those. Asked again only when the
+        /// surface, its point, the hoist or the holds change (a flag standing still: compares
+        /// alone). True too while a buried cloth laid out afresh along its holds was still in the
+        /// way there (<see cref="HoldsInTheWay"/>).
+        /// </summary>
+        private bool HoldsUnder(SurfaceGrid grid, float ox, float oz)
+        {
+            if (_heldCount == 0)
+                return false;
+
+            float oy = _surfaceY;
+            if (_inWay && grid.MinX == _inWayMinX && grid.MinZ == _inWayMinZ && grid.Spacing == _inWaySpacing && grid.Columns == _inWayCols &&
+                grid.Rows == _inWayRows && grid.Top == _inWayTop && ox == _inWayX && oy == _inWayY && oz == _inWayZ && _heldVersion == _inWayVersion &&
+                _hx == _inWayHx && _hy == _inWayHy && _hz == _inWayHz && _holdFx == _inWayFx && _holdFy == _inWayFy && _holdFz == _inWayFz)
+                return true;
+
+            if (grid == _underGrid && ox == _underX && oy == _underY && oz == _underZ && _heldVersion == _underVersion &&
+                _hx == _underHx && _hy == _underHy && _hz == _underHz && _holdFx == _underFx && _holdFy == _underFy && _holdFz == _underFz)
+                return _underAnswer;
+
+            _underGrid = grid; _underX = ox; _underY = oy; _underZ = oz; _underVersion = _heldVersion;
+            _underHx = _hx; _underHy = _hy; _underHz = _hz; _underFx = _holdFx; _underFy = _holdFy; _underFz = _holdFz;
+            _underAnswer = true;
+
+            float h, sx, sz;
+            for (int n = 0; n < _heldCount; n++)
+            {
+                float a = _heldAlong[n], d = _heldDown[n];
+                float x = d * _hx + a * _holdFx, y = d * _hy + a * _holdFy, z = d * _hz + a * _holdFz;
+                if (grid.Sample(x - ox, z - oz, out h, out sx, out sz) && y < h + oy - HoistUnder)
+                    return true;
+            }
+
+            _underAnswer = false;
+            return false;
+        }
+
+        /// <summary>
+        /// A buried held cloth laid out afresh (<see cref="Step"/>) is still in the way: its holds
+        /// clear, the sheet between them is not -- a 3 x 2 m flag held at its fly end with a 30 cm
+        /// wall between hoist and hold was relaid on every sub-step (2399-3599 times in 20 s, its
+        /// links 5.8 times their length), as it lays along its holds alone. The surface is left out
+        /// as for a hold inside it (<see cref="HoldsUnder"/>) while the surface's place, layout and
+        /// highest point, its point, the hoist and the holds stay as they are -- not the grid
+        /// itself, which FlagSurroundings gathers afresh every 30 s: a flag standing still is laid
+        /// out once (a building changed under it may lay it out once more), a dragged one as often
+        /// as any flag carried into a building.
+        /// </summary>
+        private void HoldsInTheWay()
+        {
+            SurfaceGrid grid = _surface;
+            _inWay = true;
+            _inWayMinX = grid.MinX; _inWayMinZ = grid.MinZ; _inWaySpacing = grid.Spacing; _inWayCols = grid.Columns; _inWayRows = grid.Rows; _inWayTop = grid.Top;
+            _inWayX = _effX; _inWayY = _surfaceY; _inWayZ = _effZ; _inWayVersion = _heldVersion;
+            _inWayHx = _hx; _inWayHy = _hy; _inWayHz = _hz; _inWayFx = _holdFx; _inWayFy = _holdFy; _inWayFz = _holdFz;
+        }
+
+        /// <summary>Where HoldsInTheWay last found a held cloth's only layout in the way.</summary>
+        private bool _inWay;
+        private float _inWayMinX, _inWayMinZ, _inWaySpacing, _inWayTop, _inWayX, _inWayY, _inWayZ;
+        private float _inWayHx, _inWayHy, _inWayHz, _inWayFx, _inWayFy, _inWayFz;
+        private int _inWayCols, _inWayRows, _inWayVersion;
+
+        /// <summary>HoldsUnder's last question and answer; the held particles' version (<see cref="BuildHeld"/>).</summary>
+        private SurfaceGrid _underGrid;
+        private float _underX, _underY, _underZ, _underHx, _underHy, _underHz, _underFx, _underFy, _underFz;
+        private int _underVersion = -1, _heldVersion;
+        private bool _underAnswer;
+
+        /// <summary>The last step left the surface out for a held edge inside it, not the hoist (<see cref="SurfaceBlocked"/>, <see cref="HoldsUnder"/>): for the log.</summary>
+        public bool SurfaceBlockedByHold
+        {
+            get { return _blockedByHold; }
+        }
+
+        private bool _blockedByHold;
 
         /// <summary>HoistClear's last question and answer.</summary>
         private SurfaceGrid _clearGrid;
@@ -3785,11 +3914,61 @@ namespace RealFlag.Flags
         private void BuildLinks()
         {
             if (_shaped)
-            {
                 BuildCutLinks();
-                return;
+            else
+                BuildGridLinks();
+
+            if (_heldCount > 0)
+                MarkNearHold();
+        }
+
+        /// <summary>
+        /// The links the knot test leaves out of a cloth with held edges (<see cref="WorstFreeStretch"/>):
+        /// those with an end on a held particle or beside one (its eight neighbours).
+        /// </summary>
+        private bool[] _nearHold;
+
+        /// <summary>
+        /// Marks <see cref="_nearHold"/> (2026-11-11). Where a held edge stops beside a free one --
+        /// a held corner's arm, a held top edge meeting the free fly -- a membrane in the wind
+        /// carries its pressure into that point (the stress at the end of a held boundary is
+        /// singular), and the links there stay over KnotStretch with no knot at all, worse the
+        /// finer the cloth: at 32 cells, held at its far corners or top and bottom in 12-30 m/s,
+        /// 1.4-1.7 for a third to a half of the time within a cell of a hold, the rest of the cloth
+        /// over 1.3 at most 0.4 s straight (to 1.35) in 150 s (the held-edge stress harness,
+        /// 2026-11-11); laid out afresh as knotted every 2-20 s, a visible reset. As links round a
+        /// post are (OnPost), they are left out; a knot shows in the rest of the cloth (not shown
+        /// offline: a knot made by hand in a held cloth was pulled out by its holds first). NOT
+        /// enough for a tongued or swallowtail cut held at its corners: the notch-side edge of each
+        /// tail pulls into the corner's last held particle, 1.4-1.7 further in than a cell (in 120 s
+        /// at 32 cells: tongued 8 knots at 12 m/s and 15 at 18; swallowtail none and 4).
+        /// </summary>
+        private void MarkNearHold()
+        {
+            if (_nearHold == null || _nearHold.Length < _a.Length)
+                _nearHold = new bool[_a.Length];
+
+            bool[] near = new bool[Count];
+            for (int n = 0; n < _heldCount; n++)
+            {
+                int k = _heldK[n], i = k % Columns, j = k / Columns;
+                for (int dj = -1; dj <= 1; dj++)
+                {
+                    for (int di = -1; di <= 1; di++)
+                    {
+                        int ii = i + di, jj = j + dj;
+                        if (ii >= 0 && ii < Columns && jj >= 0 && jj < Rows)
+                            near[jj * Columns + ii] = true;
+                    }
+                }
             }
 
+            for (int c = 0; c < _links; c++)
+                _nearHold[c] = near[_a[c]] || near[_b[c]];
+        }
+
+        private void BuildGridLinks()
+        {
             _links = 0;
 
             // Structural first, from the hoist outwards: tension reaches the fly in one pass.
