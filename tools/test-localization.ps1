@@ -45,6 +45,9 @@ Check "en.xml: no key twice" ($en.Duplicates -join ", ") ""
 # ---- what the code needs ------------------------------------------------------------------
 
 $needed = New-Object 'System.Collections.Generic.HashSet[string]'
+# A row's tooltip is optional (Row.Tooltip: none without its key, 2026-11-11): a tooltip key is
+# allowed for every row, required for none.
+$optional = New-Object 'System.Collections.Generic.HashSet[string]'
 
 # Setting property -> its name, from Settings.cs.
 $settingsSrc = Get-Content (Join-Path $root "Settings.cs") -Raw
@@ -78,9 +81,9 @@ foreach ($b in $blocks) {
 
     if ($kind -ne 'Status' -and $kind -ne 'FlagList') {
         [void]$needed.Add("$name.Label")
-        if ($shown) { [void]$needed.Add("$name.Tooltip") }
+        if ($shown) { [void]$optional.Add("$name.Tooltip") }
     }
-    if ($b -match 'Id2 = "(\w+)"') { [void]$needed.Add($Matches[1] + ".Label"); [void]$needed.Add($Matches[1] + ".Tooltip") }
+    if ($b -match 'Id2 = "(\w+)"') { [void]$needed.Add($Matches[1] + ".Label"); [void]$optional.Add($Matches[1] + ".Tooltip") }
     if ($b -match 'HasNote = true') { [void]$needed.Add("$name.Note") }
     if ($b -match 'Confirm = true') { [void]$needed.Add("$name.Confirm") }
     if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
@@ -94,10 +97,10 @@ foreach ($call in $designCalls) {
     foreach ($m in [regex]::Matches($call.Groups[1].Value, 'Settings\.(\w+)')) {
         $name = $nameOf[$m.Groups[1].Value]
         if ($name -match '^(New|Sel)(Length|Proportion)$') { continue }
-        if ($name) { [void]$needed.Add("$name.Label"); [void]$needed.Add("$name.Tooltip") }
+        if ($name) { [void]$needed.Add("$name.Label"); [void]$optional.Add("$name.Tooltip") }
     }
     foreach ($m in [regex]::Matches($call.Groups[1].Value, '"(\w+)"')) {
-        [void]$needed.Add($m.Groups[1].Value + ".Label"); [void]$needed.Add($m.Groups[1].Value + ".Tooltip")
+        [void]$needed.Add($m.Groups[1].Value + ".Label"); [void]$optional.Add($m.Groups[1].Value + ".Tooltip")
     }
 }
 Check "the design rows are read from the New flag window's and the Flags tab's AddDesign calls" $designCalls.Count 2
@@ -108,12 +111,12 @@ $poleCalls = [regex]::Matches($catalog, 'AddPole(?:Wear)?\(PanelPage\.\w+,([^;]*
 foreach ($call in $poleCalls) {
     foreach ($m in [regex]::Matches($call.Groups[1].Value, 'Settings\.(\w+)')) {
         $name = $nameOf[$m.Groups[1].Value]
-        if ($name) { [void]$needed.Add("$name.Label"); [void]$needed.Add("$name.Tooltip") }
+        if ($name) { [void]$needed.Add("$name.Label"); [void]$optional.Add("$name.Tooltip") }
     }
 }
 Check "the pole rows are read from both tabs' AddPole and AddPoleWear calls" $poleCalls.Count 4
 $buttonCalls = [regex]::Matches($catalog, 'AddPoleButton\(PanelPage\.\w+, PanelPage\.\w+, "(\w+)"')
-foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".Label"); [void]$needed.Add($call.Groups[1].Value + ".Tooltip") }
+foreach ($call in $buttonCalls) { [void]$needed.Add($call.Groups[1].Value + ".Label"); [void]$optional.Add($call.Groups[1].Value + ".Tooltip") }
 Check "the Flagpole buttons are read from both tabs' AddPoleButton calls" $buttonCalls.Count 2
 Write-Host "      ($rows rows in the catalog, 24 of them made twice by AddDesign, 15 by AddPole, 3 by AddPoleWear, 1 by AddPoleButton)"
 
@@ -135,7 +138,7 @@ foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.
 $missing = @($needed | Where-Object { -not $en.Table.ContainsKey($_) } | Sort-Object)
 Check "English has every key the code needs ($($needed.Count))" ($missing -join ", ") ""
 
-$unused = @($en.Table.Keys | Where-Object { -not $needed.Contains($_) } | Sort-Object)
+$unused = @($en.Table.Keys | Where-Object { -not $needed.Contains($_) -and -not $optional.Contains($_) } | Sort-Object)
 Check "English has no key nothing uses" ($unused -join ", ") ""
 
 # ---- every text ---------------------------------------------------------------------------

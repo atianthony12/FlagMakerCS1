@@ -531,9 +531,8 @@ namespace RealFlag.Flags
             // A pole that stands: its height. Otherwise (none, a crossbar, one still being found) the
             // Flags tab's Pole height row, what it would stand with -- as that row shows.
             float height = FlagStand.PoleStands(spec) && spec.PoleLength > 0f ? spec.PoleLength : Settings.SelHeight.value;
+            // Past the slider's 50 m it is kept as it is (the row's readout says it).
             height = Mathf.Clamp(Mathf.Round(height * 100f) / 100f, FlagPoleShape.MinLength, Settings.Defaults.MaxNewHeight);
-            if (height > Settings.Defaults.LockedHeight)
-                Settings.UnlockPoleHeight.value = true;
             Settings.NewHeight.value = height;
             Settings.NewRotation.value = FlagOrientation.WholeDegrees(Mathf.Repeat(e.Angle * Mathf.Rad2Deg, 360f));
             Log.Msg("flags: flag #" + Selected + " copied to the new flag (" + spec.Describe() + "; pole height " +
@@ -618,19 +617,6 @@ namespace RealFlag.Flags
             {
                 Log.Error("flags: could not ask about deleting the flag, so it was not deleted.", ex);
             }
-        }
-
-        /// <summary>The line over the selected flag's controls.</summary>
-        public static string Describe()
-        {
-            FlagEntry e;
-            if (!TryEntry(out e))
-                return Localization.Get("Existing.NoneSelected");
-
-            // Invariant: the sliders show "2.5 m" on every system, so the status line does too.
-            return Localization.Get("Existing.Selected", Title(e), e.Anchor.x.ToString("F0", CultureInfo.InvariantCulture),
-                                    e.Anchor.z.ToString("F0", CultureInfo.InvariantCulture),
-                                    (e.Anchor.y - e.Ground).ToString("F1", CultureInfo.InvariantCulture));
         }
 
         /// <summary>"Flag 12", or its name.</summary>

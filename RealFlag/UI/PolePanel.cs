@@ -81,7 +81,35 @@ namespace RealFlag.UI
         public static void RefreshOpen()
         {
             if (_instance != null && _instance.isVisible && _instance._rows != null)
+            {
+                _instance.Relayout();
                 _instance._rows.RefreshValues();
+            }
+        }
+
+        /// <summary>
+        /// Rows shown or hidden since (ShownWhile: the rope's rows without a rope, the author,
+        /// 2026-11-11: "if there's no rope, hide this row"): both pages closed up, the popup as tall
+        /// as the page shown, its bottom kept on the screen.
+        /// </summary>
+        private void Relayout()
+        {
+            if (!_built || !_rows.Layout())
+                return;
+
+            float? create = _rows.HeightOf(_create), existing = _rows.HeightOf(_existing);
+            if (create.HasValue)
+                _createHeight = create.Value;
+            if (existing.HasValue)
+                _existingHeight = existing.Value;
+
+            bool onCreate = _page == PanelPage.PoleNew;
+            float content = onCreate ? _createHeight : _existingHeight;
+            (onCreate ? _create : _existing).height = content;
+            height = TitleBarHeight + 4f + content + Margin;
+            Vector2 screen = GetUIView().GetScreenResolution();
+            if (relativePosition.y + height > screen.y)
+                relativePosition = new Vector3(relativePosition.x, Mathf.Max(0f, screen.y - height));
         }
 
         public override void Start()

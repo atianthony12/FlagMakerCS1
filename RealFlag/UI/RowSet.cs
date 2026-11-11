@@ -259,11 +259,12 @@ namespace RealFlag.UI
                 // A design's colours share one line: "Colours [1] [2] [3]", one reset icon for them.
                 if (row.Kind == RowKind.Colour)
                 {
-                    if (coloursLine == null || coloursInLine >= 3)
+                    // A ColourAlone row: a line of its own under its own name.
+                    if (coloursLine == null || coloursInLine >= 3 || row.ColourAlone)
                     {
                         coloursLine = new ColourLine();
                         coloursInLine = 0;
-                        _ui.AddName(page, Localization.Get("Colours.Label"), new Vector3(0f, y + 8f), _ui.LabelWidth);
+                        _ui.AddName(page, row.ColourAlone ? row.Label : Localization.Get("Colours.Label"), new Vector3(0f, y + 8f), _ui.LabelWidth);
                         coloursLine.Reset = _ui.AddReset(page, y, row.ResetHint);
                         if (coloursLine.Reset != null)
                         {
@@ -279,6 +280,8 @@ namespace RealFlag.UI
                     Control swatch = BuildSwatch(page, row, y - rowHeight, coloursInLine);
                     _controls.Add(swatch);
                     coloursInLine++;
+                    if (row.ColourAlone)
+                        coloursLine = null;
                     continue;
                 }
 
@@ -457,7 +460,8 @@ namespace RealFlag.UI
                         FlagWidgets.SetSwatch(control.Swatch, (uint)row.Int.value);
 
                         // Its code on it, to read off or type in elsewhere.
-                        string tip = row.Label + " " + FlagColours.Hex((uint)row.Int.value) + ": " + row.Tooltip;
+                        // A colour without a tooltip of its own (Row.Tooltip null) is named alone: the swatch has no other words.
+                        string tip = row.Label + " " + FlagColours.Hex((uint)row.Int.value) + (row.Tooltip != null ? ": " + row.Tooltip : "");
                         if (control.Swatch.tooltip != tip)
                             control.Swatch.tooltip = tip;
                     }
@@ -627,7 +631,7 @@ namespace RealFlag.UI
             float width = Mathf.Min(70f, Mathf.Floor((Right(page) - Column - 2f * gap) / 3f));
             UIButton swatch = FlagWidgets.AddSwatch(page, new Vector2(width, 22f), new Vector3(Column + index * (width + gap), y + 6f),
                                                     row.Int != null ? (uint)row.Int.value : 0xFFFFFFu);
-            swatch.tooltip = row.Label + ": " + row.Tooltip;
+            swatch.tooltip = row.Tooltip != null ? row.Label + ": " + row.Tooltip : row.Label;
             Row captured = row;
             swatch.eventClick += (component, e) =>
             {
@@ -931,6 +935,15 @@ namespace RealFlag.UI
                         Changed(captured);
                     });
                     Tip(choice, row.Tooltip);
+
+                    // A segment with a tooltip of its own (ChoiceKeys[i] + ".Tooltip" in en.xml, as
+                    // the Segmented rows read them) says it instead of the row's.
+                    for (int i = 0; i < choice.Segments.Count && row.ChoiceKeys != null && i < row.ChoiceKeys.Length; i++)
+                    {
+                        if (Localization.HasEnglish(row.ChoiceKeys[i] + ".Tooltip"))
+                            choice.Segments[i].tooltip = Localization.Get(row.ChoiceKeys[i] + ".Tooltip");
+                    }
+
                     control.Choice = choice;
                     control.Parts.AddRange(choice.Parts);
                     break;

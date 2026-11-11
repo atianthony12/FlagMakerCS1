@@ -202,6 +202,13 @@ namespace RealFlag.UI
         /// </summary>
         public bool WideSlider;
 
+        /// <summary>
+        /// A colour row on a line of its own, named by its own label ("Pole color [ ]"), not one of
+        /// three swatches under "Colors" (the author, 2026-11-11, of the Flagpole popup's two
+        /// "Colors" lines: "it's not clear which is which").
+        /// </summary>
+        public bool ColourAlone;
+
         /// <summary>Image rows: the window's settings the Image window works on.</summary>
         public ImageTarget Image;
 
@@ -246,9 +253,15 @@ namespace RealFlag.UI
             get { return Localization.Get(Name + ".Label"); }
         }
 
+        /// <summary>
+        /// The row's tooltip, or null: a row has one only if en.xml has its key (the author,
+        /// 2026-11-11, of the Flags tab: "Remove all of the tooltips here, except on:
+        /// Proportions/Shape/Anchor Points buttons, Motion" -- a tooltip is removed by deleting its
+        /// text, no dead key left for translators).
+        /// </summary>
         public string Tooltip
         {
-            get { return Localization.Get(Name + ".Tooltip"); }
+            get { return Localization.HasEnglish(Name + ".Tooltip") ? Localization.Get(Name + ".Tooltip") : null; }
         }
 
         public string Label2
@@ -258,7 +271,7 @@ namespace RealFlag.UI
 
         public string Tooltip2
         {
-            get { return Id2 != null ? Localization.Get(Id2 + ".Tooltip") : null; }
+            get { return Id2 != null && Localization.HasEnglish(Id2 + ".Tooltip") ? Localization.Get(Id2 + ".Tooltip") : null; }
         }
 
         public string Note
@@ -310,14 +323,9 @@ namespace RealFlag.UI
 
             yield return Name + ".Label";
 
-            if (Panel != PanelPage.None || Options != OptionsPage.None)
-                yield return Name + ".Tooltip";
-
+            // Tooltips are optional (Tooltip): a row without one is not missing a key.
             if (Id2 != null)
-            {
                 yield return Id2 + ".Label";
-                yield return Id2 + ".Tooltip";
-            }
 
             if (HasNote)
                 yield return Name + ".Note";
@@ -1182,9 +1190,14 @@ namespace RealFlag.UI
                 take.value = FlagSpec.NextTake(take.value);
                 Log.Msg("flags: " + who + "'s " + (motion.value == FlagMotion.Loop ? "loop" : "still shape") + " is made afresh (take " + take.value + ")");
             };
+            // A choice row (the strip Ropes and Base use), not separate buttons: four buttons at
+            // the column's quarter cut "Waving" (the author, 2026-11-11: "Waving is overflowing.
+            // change these from pills to tabs"); the strip reaches into the names' column, or is a
+            // dropdown where a language's names don't fit (ChoiceFit). Each segment keeps its own
+            // tooltip (RowSet's Choice case, Motion.*.Tooltip).
             Add(new Row
             {
-                Kind = RowKind.Segmented,
+                Kind = RowKind.Choice,
                 Panel = page,
                 Int = motion,
                 DefaultInt = Settings.Defaults.Motion,
@@ -1375,13 +1388,12 @@ namespace RealFlag.UI
             });
 
             // How tall a pole that stands is (its foot to the flag's top); a crossbar reaching out
-            // level finds its own length, along to its wall. The slider goes to LockedHeight until
-            // its range is unlocked (the author: "The range is too far ... add an option 'Unlock
-            // range'? But by default it's locked to the lower limit"); a pole taller than the
-            // slider reaches keeps its height, and its readout says it.
+            // level finds its own length, along to its wall. The slider goes to LockedHeight (the
+            // author: "The range is too far"); its "Allow taller poles" switch is gone (2026-11-11:
+            // "let's just remove this. no need for it"). A pole taller than the slider reaches (an
+            // older one, a copy, the file's value) keeps its height, and its readout says it.
             Func<bool> standing = () => drawn() && Stands(tilt, lean, hoistedFrom);
-            Func<float> top = () => Settings.UnlockPoleHeight != null && Settings.UnlockPoleHeight.value
-                ? Settings.Defaults.MaxNewHeight : Settings.Defaults.LockedHeight;
+            Func<float> top = () => Settings.Defaults.LockedHeight;
             Add(new Row
             {
                 Kind = RowKind.Value,
@@ -1393,17 +1405,6 @@ namespace RealFlag.UI
                 Format = Metres,
                 ReadoutOverride = () => height.value > top() + 0.01f ? Metres(height.value) : null,
                 AfterChange = heightChanged,
-                Enabled = standing,
-            });
-
-            // One switch for both windows.
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = page,
-                Bool = Settings.UnlockPoleHeight,
-                DefaultBool = Settings.Defaults.UnlockPoleHeight,
-                AfterChange = State("pole height's range unlocked", OnOff(Settings.UnlockPoleHeight)),
                 Enabled = standing,
             });
 
@@ -1432,6 +1433,10 @@ namespace RealFlag.UI
                 Enabled = drawn,
             });
 
+            // The rope's rows are shown only with a rope (the author, 2026-11-11: "if there's no rope,
+            // hide this row"); PolePanel.Relayout closes the popup up. One condition, shared.
+            Func<bool> hasRopes = () => ropes.value > 0;
+
             // How thick the ropes are against the pole's own (the author, 2026-11-09: "we can add a
             // thickness slider" for the ropes).
             Add(new Row
@@ -1443,6 +1448,7 @@ namespace RealFlag.UI
                 Min = FlagSpec.MinRopeThickness * 100f, Max = FlagSpec.MaxRopeThickness * 100f, Step = 5f,
                 AfterChange = changed,
                 Enabled = () => drawn() && ropes.value > 0,
+                ShownWhile = hasRopes,
             });
 
             Add(new Row
@@ -1450,6 +1456,7 @@ namespace RealFlag.UI
                 Kind = RowKind.Colour,
                 Panel = page,
                 Int = poleColour,
+                ColourAlone = true,
                 DefaultInt = Settings.Defaults.PoleColour,
                 AfterChange = changed,
                 Enabled = drawn,
@@ -1473,6 +1480,7 @@ namespace RealFlag.UI
                 Kind = RowKind.Colour,
                 Panel = page,
                 Int = topColour,
+                ColourAlone = true,
                 DefaultInt = Settings.Defaults.TopColour,
                 AfterChange = changed,
                 Enabled = () => drawn() && (pole.value == FlagPoleStyle.Ball || pole.value == FlagPoleStyle.Spear),
@@ -1483,9 +1491,11 @@ namespace RealFlag.UI
                 Kind = RowKind.Colour,
                 Panel = page,
                 Int = ropeColour,
+                ColourAlone = true,
                 DefaultInt = Settings.Defaults.RopeColour,
                 AfterChange = changed,
                 Enabled = () => drawn() && ropes.value > 0,
+                ShownWhile = hasRopes,
             });
 
             Add(new Row
@@ -1677,6 +1687,11 @@ namespace RealFlag.UI
                 Format = Degrees,
             });
 
+            // Snap to edges and Back plate are a top banner's only: shown only while the new flag
+            // hangs from its top (the author, 2026-11-11: "show these only when flags hang from the
+            // top, no need to show them otherwise"). One condition for both: one block (RowSet).
+            Func<bool> newTop = () => Settings.NewHoistedFrom.value == FlagHoist.Top;
+
             // A banner hoisted from its top snaps to a roof's edge (the author, 2026-11-07: "snap to
             // edge too"): one flag at a time, not Line Tool's rows.
             Add(new Row
@@ -1687,6 +1702,7 @@ namespace RealFlag.UI
                 DefaultBool = Settings.Defaults.SnapEdges,
                 AfterChange = State("snap to roof edges", OnOff(Settings.NewSnapEdges)),
                 Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && Settings.NewPlacing.value == LineFlags.Single,
+                ShownWhile = newTop,
             });
 
             // Under it: a banner from its top keeps in front of a plate through its hoist, never
@@ -1699,6 +1715,7 @@ namespace RealFlag.UI
                 DefaultBool = Settings.Defaults.BackPlate,
                 AfterChange = State("back plate", OnOff(Settings.NewBackPlate)),
                 Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && FlagMotion.Moves(Settings.NewMotion.value),
+                ShownWhile = newTop,
             });
 
             Add(new Row
@@ -1822,16 +1839,12 @@ namespace RealFlag.UI
                 Id = "FlagList",
             });
 
-            Add(new Row
-            {
-                Kind = RowKind.Status,
-                Panel = PanelPage.Existing,
-                Id = "SelectedFlag",
-                StatusText = FlagEditor.Describe,
-            });
+            // No status line under the list (the author, 2026-11-11, of "Flag 1043 at x 312, z -1180,
+            // 12.0 m up." / "Nothing selected ...": "remove this entirely"): the list's lit row says
+            // which flag is selected.
 
             // Everything below is the selected flag's, shown only while one is selected: with
-            // none the tab is the button, the list and the line under it (the author, 2026-11-08:
+            // none the tab is the button and the list (the author, 2026-11-08:
             // "if a flag is not selected, let's not show all the options in the panel, it's
             // overwhelming. Only when a flag is selected should we show all the options").
             Func<bool> selected = () => FlagEditor.HasSelection;
@@ -1891,6 +1904,8 @@ namespace RealFlag.UI
                 DefaultBool = Settings.Defaults.BackPlate,
                 AfterChange = FlagEditor.ApplyDesign,
                 Enabled = () => selected() && Settings.SelHoistedFrom.value == FlagHoist.Top && FlagMotion.Moves(Settings.SelMotion.value),
+                // A top banner's only (the author, 2026-11-11); the selection's own condition is added below.
+                ShownWhile = () => Settings.SelHoistedFrom.value == FlagHoist.Top,
             });
 
             Add(new Row

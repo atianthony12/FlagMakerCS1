@@ -40,9 +40,20 @@ namespace RealFlag.UI
         private UIButton _preview;
         private UITextField _hex;
         private ModsLibCS1.UI.Builder _ui;
-        private ModsLibCS1.UI.SliderRow _hue, _saturation, _brightness;
         private bool _refreshing;
         private float _h, _s, _v;
+
+        /// <summary>The square's size (saturation across, brightness up) and its texture's, drawn smooth between.</summary>
+        private const float FieldHeight = 132f;
+        private const int FieldTexWidth = 128, FieldTexHeight = 64;
+        private const float HueHeight = 14f;
+
+        private OwnedTextureSprite _field, _hueBar, _fieldMark, _hueMark;
+        private const int Dragging = 0, DragField = 1, DragHue = 2;
+        private int _dragging = Dragging;
+
+        /// <summary>The hue the square was last drawn for (it is drawn again only when the hue moves).</summary>
+        private float _fieldHue = -1f;
 
         /// <summary>Opens the picker on a colour row, beside the panel; the same row again closes it.</summary>
         public static void Toggle(Row row, UIComponent beside)
@@ -124,20 +135,27 @@ namespace RealFlag.UI
 
             y += ((FlagColours.Palette.Length + PerRow - 1) / PerRow) * (Swatch + 3f) + 6f;
 
-            // Hue, saturation, brightness: the library's slider rows in a strip inside the margins,
-            // a short name and a short readout.
-            UIPanel sliders = AddUIComponent<UIPanel>();
-            sliders.size = new Vector2(PanelWidth - 24f, 3f * 28f);
-            sliders.relativePosition = new Vector3(12f, y - 2f);
-            _ui.LabelWidth = 70f;
-            _ui.ValueWidth = 48f;
-            _hue = _ui.AddSlider(sliders, 0f, Localization.Get("Picker.Hue"), 0f, 359f, 1f, 0f,
-                                 v => v.ToString("F0") + "°", v => Slide());
-            _saturation = _ui.AddSlider(sliders, 28f, Localization.Get("Picker.Saturation"), 0f, 100f, 1f, 0f,
-                                        v => v.ToString("F0") + "%", v => Slide());
-            _brightness = _ui.AddSlider(sliders, 56f, Localization.Get("Picker.Brightness"), 0f, 100f, 1f, 0f,
-                                        v => v.ToString("F0") + "%", v => Slide());
-            y += 3f * 28f + 6f;
+            // Any other colour: a square of saturation (across) and brightness (up) for the hue, and
+            // the hue strip under it, both dragged on (the author, 2026-11-11: "i don't like hue /
+            // saturation / brightness. let's do a color picker instead" -- the three sliders went).
+            float inner = PanelWidth - 24f;
+            _field = AddUIComponent<OwnedTextureSprite>();
+            _field.size = new Vector2(inner, FieldHeight);
+            _field.relativePosition = new Vector3(12f, y);
+            _field.isInteractive = true;
+            HookDrag(_field, DragField);
+            _fieldMark = AddMark(_field, MarkTexture(12, 12, true), new Vector2(12f, 12f));
+            y += FieldHeight + 8f;
+
+            _hueBar = AddUIComponent<OwnedTextureSprite>();
+            _hueBar.size = new Vector2(inner, HueHeight);
+            _hueBar.relativePosition = new Vector3(12f, y);
+            _hueBar.isInteractive = true;
+            _hueBar.Own = HueTexture();
+            _hueBar.texture = _hueBar.Own;
+            HookDrag(_hueBar, DragHue);
+            _hueMark = AddMark(_hueBar, MarkTexture(4, (int)HueHeight + 6, false), new Vector2(4f, HueHeight + 6f));
+            y += HueHeight + 12f;
 
             UIButton done = _ui.AddButton(this, Localization.Get("Picker.Done"), new Vector2(PanelWidth - 24f, 28f), new Vector3(12f, y));
             done.eventClick += (component, e) => Hide();
@@ -285,9 +303,7 @@ namespace RealFlag.UI
                 FlagWidgets.SetSwatch(_preview, rgb);
                 if (field)
                     _hex.text = FlagColours.Hex(rgb);
-                _hue.SetValue(_h);
-                _saturation.SetValue(_s * 100f);
-                _brightness.SetValue(_v * 100f);
+                ShowMarks();
             }
             finally
             {
@@ -295,22 +311,169 @@ namespace RealFlag.UI
             }
         }
 
-        /// <summary>A colour chosen whole (the palette, the hex code): the sliders follow it.</summary>
-        private void Pick(uint rgb, bool field = true)
+        /// <summary>The square drawn for the hue (again only when it moved), and both marks where the colour is.</summary>
+        private void ShowMarks()
         {
-            FlagColours.ToHsv(rgb, out _h, out _s, out _v);
-            Store(rgb);
-            ShowColour(rgb, field);
-        }
-
-        private void Slide()
-        {
-            if (_refreshing || _row == null)
+            if (_field == null)
                 return;
 
-            _h = _hue.Slider.value;
-            _s = _saturation.Slider.value / 100f;
-            _v = _brightness.Slider.value / 100f;
+            if (Mathf.Abs(_h - _fieldHue) > 0.01f || _field.Own == null)
+                DrawField();
+
+            _fieldMark.relativePosition = new Vector3(Mathf.Round(_s * _field.width - 0.5f * _fieldMark.width),
+                                                      Mathf.Round((1f - _v) * _field.height - 0.5f * _fieldMark.height));
+            _hueMark.relativePosition = new Vector3(Mathf.Round(_h / 360f * _hueBar.width - 0.5f * _hueMark.width), -3f);
+        }
+
+        /// <summary>Saturation 0..1 across, brightness 0..1 up, for the picker's hue.</summary>
+        private void DrawField()
+        {
+            Texture2D texture = _field.Own;
+            if (texture == null)
+            {
+                texture = NewTexture(FieldTexWidth, FieldTexHeight, "RealFlag colour field");
+                _field.Own = texture;
+                _field.texture = texture;
+            }
+
+            var pixels = new Color32[FieldTexWidth * FieldTexHeight];
+            for (int row = 0; row < FieldTexHeight; row++)
+            {
+                // A texture's first row is its bottom: brightness up.
+                float v = row / (float)(FieldTexHeight - 1);
+                for (int x = 0; x < FieldTexWidth; x++)
+                    pixels[row * FieldTexWidth + x] = ToColour32(FlagColours.FromHsv(_h, x / (float)(FieldTexWidth - 1), v));
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false);
+            _fieldHue = _h;
+        }
+
+        /// <summary>The hue strip: 0..360 degrees across at full saturation and brightness.</summary>
+        private static Texture2D HueTexture()
+        {
+            const int width = 256;
+            Texture2D texture = NewTexture(width, 2, "RealFlag hue strip");
+            var pixels = new Color32[width * 2];
+            for (int x = 0; x < width; x++)
+                pixels[x] = pixels[width + x] = ToColour32(FlagColours.FromHsv(360f * x / (width - 1), 1f, 1f));
+            texture.SetPixels32(pixels);
+            texture.Apply(false);
+            return texture;
+        }
+
+        /// <summary>
+        /// A mark on the square (a ring, white in a dark edge) or the strip (a bar), a child that
+        /// lets the mouse through to its parent.
+        /// </summary>
+        private static Texture2D MarkTexture(int w, int h, bool ring)
+        {
+            Texture2D texture = NewTexture(w, h, "RealFlag colour mark");
+            var pixels = new Color32[w * h];
+            var white = new Color32(255, 255, 255, 255);
+            var dark = new Color32(20, 24, 30, 230);
+            var clear = new Color32(0, 0, 0, 0);
+            float cx = 0.5f * (w - 1), cy = 0.5f * (h - 1), r = 0.5f * Mathf.Min(w, h);
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c;
+                    if (ring)
+                    {
+                        float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                        c = d > r - 0.5f ? clear : d > r - 2f ? dark : d > r - 4f ? white : d > r - 5f ? dark : clear;
+                    }
+                    else
+                    {
+                        c = x == 0 || x == w - 1 || y == 0 || y == h - 1 ? dark : white;
+                    }
+
+                    pixels[y * w + x] = c;
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false);
+            return texture;
+        }
+
+        private static OwnedTextureSprite AddMark(UIComponent parent, Texture2D texture, Vector2 size)
+        {
+            OwnedTextureSprite mark = parent.AddUIComponent<OwnedTextureSprite>();
+            mark.Own = texture;
+            mark.texture = texture;
+            mark.size = size;
+            mark.isInteractive = false;
+            return mark;
+        }
+
+        private static Texture2D NewTexture(int w, int h, string name)
+        {
+            return new Texture2D(w, h, TextureFormat.RGBA32, false, false)
+            {
+                name = name,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+        }
+
+        private static Color32 ToColour32(uint rgb)
+        {
+            return new Color32((byte)((rgb >> 16) & 0xFF), (byte)((rgb >> 8) & 0xFF), (byte)(rgb & 0xFF), 255);
+        }
+
+        /// <summary>Press, drag and let go on the square or the strip (the Image window's crop view does the same).</summary>
+        private void HookDrag(UIComponent target, int what)
+        {
+            target.eventMouseDown += (component, p) =>
+            {
+                if (!p.buttons.IsFlagSet(UIMouseButton.Left))
+                    return;
+
+                _dragging = what;
+                DragAt(target, p);
+                p.Use();
+            };
+            target.eventMouseMove += (component, p) =>
+            {
+                if (_dragging != what || !p.buttons.IsFlagSet(UIMouseButton.Left))
+                    return;
+
+                DragAt(target, p);
+                p.Use();
+            };
+            target.eventMouseUp += (component, p) =>
+            {
+                if (_dragging != what)
+                    return;
+
+                _dragging = Dragging;
+                if (_row != null && _row.Int != null)
+                    Log.Msg("colour picker: " + _row.Label + " now " + FlagColours.Hex((uint)_row.Int.value));
+            };
+        }
+
+        /// <summary>The pointer's place on the square (saturation, brightness) or the strip (hue), the colour taken from it.</summary>
+        private void DragAt(UIComponent target, UIMouseEventParameter p)
+        {
+            Vector2 at;
+            if (_row == null || !_row.IsEnabled || !Local(target, p.ray, out at))
+                return;
+
+            float across = Mathf.Clamp01(at.x / Mathf.Max(1f, target.width));
+            if (_dragging == DragField)
+            {
+                _s = across;
+                _v = 1f - Mathf.Clamp01(at.y / Mathf.Max(1f, target.height));
+            }
+            else
+            {
+                _h = Mathf.Min(across * 360f, 359.9f);
+            }
+
             uint rgb = FlagColours.FromHsv(_h, _s, _v);
             Store(rgb);
 
@@ -319,11 +482,42 @@ namespace RealFlag.UI
             {
                 FlagWidgets.SetSwatch(_preview, rgb);
                 _hex.text = FlagColours.Hex(rgb);
+                ShowMarks();
             }
             finally
             {
                 _refreshing = false;
             }
+        }
+
+        /// <summary>Where a ray meets a component, in its own units from its top left (ImagePanel's Local, for any component).</summary>
+        private static bool Local(UIComponent target, Ray ray, out Vector2 at)
+        {
+            at = Vector2.zero;
+            Vector3[] corners = target.GetCorners();
+            if (corners == null || corners.Length < 4)
+                return false;
+
+            // Corners: top left, top right, bottom right, bottom left.
+            Vector3 origin = corners[0], across = corners[1] - corners[0], down = corners[3] - corners[0];
+            Vector3 normal = Vector3.Cross(across, down);
+            float facing = Vector3.Dot(ray.direction, normal);
+            if (Mathf.Abs(facing) < 1e-9f)
+                return false;
+
+            float t = Vector3.Dot(origin - ray.origin, normal) / facing;
+            Vector3 hit = ray.origin + ray.direction * t - origin;
+            at = new Vector2(Vector3.Dot(hit, across) / Mathf.Max(across.sqrMagnitude, 1e-12f) * target.width,
+                             Vector3.Dot(hit, down) / Mathf.Max(down.sqrMagnitude, 1e-12f) * target.height);
+            return true;
+        }
+
+        /// <summary>A colour chosen whole (the palette, the hex code): the sliders follow it.</summary>
+        private void Pick(uint rgb, bool field = true)
+        {
+            FlagColours.ToHsv(rgb, out _h, out _s, out _v);
+            Store(rgb);
+            ShowColour(rgb, field);
         }
 
         private void Store(uint rgb)

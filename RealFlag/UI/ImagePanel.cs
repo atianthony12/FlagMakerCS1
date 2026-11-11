@@ -155,7 +155,8 @@ namespace RealFlag.UI
             UIButton open = _ui.AddButton(this, Localization.Get("Image.Open"), new Vector2(Inner, 28f), new Vector3(Margin, y));
             open.textHorizontalAlignment = UIHorizontalAlignment.Left;
             open.textPadding = new RectOffset(36, 8, 7, 0);
-            open.tooltip = Localization.Get("Image.OpenTip");
+            // No tooltips in this window (the author, 2026-11-11: "remove all tooltips here"); the
+            // design rows' folder button keeps Image.OpenTip.
             new FolderIcon(open, new Vector3(10f, 7f), new Vector2(18f, 14f));
             open.eventClick += (component, e) =>
             {
@@ -170,7 +171,6 @@ namespace RealFlag.UI
             _hint.wordWrap = true;
             _hint.size = new Vector2(Inner, 30f);
             _ui.Paint(_hint, _ui.Theme.Status);
-            _hint.tooltip = FlagImageFolder.FolderPath;
             y += 34f;
 
             // The list: a dark box of rows, the scrollbar at its right.
@@ -233,7 +233,6 @@ namespace RealFlag.UI
             _canvas.size = new Vector2(Inner, CanvasHeight);
             _canvas.relativePosition = new Vector3(Margin, y);
             _canvas.isInteractive = true;
-            _canvas.tooltip = Localization.Get("Image.DragTip");
             _canvas.eventMouseDown += (component, p) => BeginDrag(p);
             _canvas.eventMouseMove += (component, p) => DragTo(p);
             _canvas.eventMouseUp += (component, p) => EndDrag();
@@ -258,21 +257,15 @@ namespace RealFlag.UI
                     SetZoom(ZoomOf(v), 0.5f, 0.5f);
                 });
             foreach (UIComponent part in _zoom.Parts)
-            {
-                part.tooltip = Localization.Get("Image.ZoomTip");
                 _cropParts.Add(part);
-            }
             y += 30f;
 
             float third = (Inner - 12f) / 3f;
             _fill = _ui.AddButton(this, Localization.Get("Image.Fill"), new Vector2(third, 28f), new Vector3(Margin, y));
-            _fill.tooltip = Localization.Get("Image.FillTip");
             _fill.eventClick += (component, e) => Fill();
             _whole = _ui.AddButton(this, Localization.Get("Image.Whole"), new Vector2(third, 28f), new Vector3(Margin + third + 6f, y));
-            _whole.tooltip = Localization.Get("Image.WholeTip");
             _whole.eventClick += (component, e) => Whole();
             _turn = _ui.AddButton(this, Localization.Get("Image.Turn"), new Vector2(third, 28f), new Vector3(Margin + 2f * (third + 6f), y));
-            _turn.tooltip = Localization.Get("Image.TurnTip");
             _turn.eventClick += (component, e) =>
             {
                 if (_target != null && _cropEnabled)
@@ -284,7 +277,6 @@ namespace RealFlag.UI
             y += 32f;
 
             _shape = _ui.AddButton(this, "", new Vector2(Inner, 28f), new Vector3(Margin, y));
-            _shape.tooltip = Localization.Get("Image.ShapeTip");
             _shape.eventClick += (component, e) => TakeShape();
             _cropParts.Add(_shape);
             y += 34f;
@@ -293,14 +285,12 @@ namespace RealFlag.UI
             _seeThrough = _ui.AddName(this, Localization.Get("Image.SeeThrough"), new Vector3(Margin, y + 4f), 108f);
             float half = (Inner - 112f - 6f) * 0.5f;
             _cut = _ui.AddButton(this, Localization.Get("Image.Cut"), new Vector2(half, 26f), new Vector3(Margin + 112f, y));
-            _cut.tooltip = Localization.Get("Image.CutTip");
             _cut.eventClick += (component, e) =>
             {
                 if (_target != null && _alphaEnabled)
                     _target.SetAlpha(FlagImageAlpha.Cut);
             };
             _through = _ui.AddButton(this, Localization.Get("Image.Through"), new Vector2(half, 26f), new Vector3(Margin + 112f + half + 6f, y));
-            _through.tooltip = Localization.Get("Image.ThroughTip");
             _through.eventClick += (component, e) =>
             {
                 if (_target != null && _alphaEnabled)

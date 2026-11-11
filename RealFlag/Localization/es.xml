@@ -78,18 +78,12 @@
   <String key="Colours.Label">Colores</String>
 
   <String key="NewCountry.Label">País</String>
-  <String key="NewCountry.Tooltip">Bandera de un país real.</String>
   <String key="SelCountry.Label">País</String>
-  <String key="SelCountry.Tooltip">Bandera de un país real.</String>
   <!-- A picture of the player's own, from the FlagMaker\Images folder: the row's button opens the Image window, its folder button the folder. -->
   <String key="NewImage.Label">Tu imagen</String>
-  <String key="NewImage.Tooltip">Una imagen tuya.</String>
   <String key="SelImage.Label">Tu imagen</String>
-  <String key="SelImage.Tooltip">Una imagen tuya.</String>
   <String key="NewPattern.Label">Diseño</String>
-  <String key="NewPattern.Tooltip">Diseño, colores y guardados.</String>
   <String key="SelPattern.Label">Diseño</String>
-  <String key="SelPattern.Tooltip">Diseño, colores y guardados.</String>
 
   <String key="Pattern.Plain">Liso</String>
   <String key="Pattern.HorizontalBicolour">Dos franjas</String>
@@ -137,33 +131,20 @@
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
   <String key="NewShape.Label">Proporciones</String>
-  <String key="NewShape.Tooltip">Alto frente a ancho.</String>
   <String key="SelShape.Label">Proporciones</String>
-  <String key="SelShape.Tooltip">Alto frente a ancho.</String>
   <String key="NewWidth.Label">Ancho</String>
-  <String key="NewWidth.Tooltip">De lado a lado.</String>
   <String key="SelWidth.Label">Ancho</String>
-  <String key="SelWidth.Tooltip">De lado a lado.</String>
   <String key="NewTall.Label">Alto</String>
-  <String key="NewTall.Tooltip">De arriba abajo.</String>
   <String key="SelTall.Label">Alto</String>
-  <String key="SelTall.Tooltip">De arriba abajo.</String>
   <String key="LinkSize.Label">Ancho y alto juntos</String>
-  <String key="LinkSize.Tooltip">Mantiene la forma.</String>
   <String key="NewHoistedFrom.Label">Cuelga de</String>
-  <String key="NewHoistedFrom.Tooltip">El borde que sujeta.</String>
   <String key="SelHoistedFrom.Label">Cuelga de</String>
-  <String key="SelHoistedFrom.Tooltip">El borde que sujeta.</String>
   <String key="Hoist.Side">Lado</String>
   <String key="Hoist.Top">Arriba</String>
   <String key="NewCut.Label">Forma</String>
-  <String key="NewCut.Tooltip">El contorno del vuelo.</String>
   <String key="SelCut.Label">Forma</String>
-  <String key="SelCut.Tooltip">El contorno del vuelo.</String>
   <String key="NewCutDepth.Label">Profundidad</String>
-  <String key="NewCutDepth.Tooltip">Muesca o punta.</String>
   <String key="SelCutDepth.Label">Profundidad</String>
-  <String key="SelCutDepth.Tooltip">Muesca o punta.</String>
   <String key="Cut.Rectangle">Rectángulo</String>
   <String key="Cut.Swallowtail">Cola de golondrina</String>
   <String key="Cut.Tongued">Tres puntas</String>
@@ -200,61 +181,43 @@
   <String key="NewRecapture.Tooltip">Graba el bucle de nuevo, para que la bandera ondee de otra forma.</String>
   <String key="SelRecapture.Label">Recapturar</String>
   <String key="SelRecapture.Tooltip">Graba el bucle de nuevo, para que la bandera ondee de otra forma.</String>
-  <String key="NewHeld.Label">También sujeta en</String>
-  <String key="NewHeld.Tooltip">Fija más partes de la tela, para que siga extendida pero ondee.</String>
-  <String key="SelHeld.Label">También sujeta en</String>
-  <String key="SelHeld.Tooltip">Fija más partes de la tela, para que siga extendida pero ondee.</String>
+  <String key="NewHeld.Label">Puntos de anclaje</String>
+  <String key="NewHeld.Tooltip">Fija más partes de la bandera, para que quede abierta en vez de caer, como un banderín de farola. Sigue ondeando.</String>
+  <String key="SelHeld.Label">Puntos de anclaje</String>
+  <String key="SelHeld.Tooltip">Fija más partes de la bandera, para que quede abierta en vez de caer, como un banderín de farola. Sigue ondeando.</String>
   <String key="Held.Top">Borde superior</String>
-  <String key="Held.Top.Tooltip">Mantiene recto el borde superior, como la barra de arriba de un banderín de farola.</String>
-  <String key="Held.Top.Banner">Mantiene recto el borde izquierdo (visto de frente).</String>
+  <String key="Held.Top.Tooltip">Fija el borde de arriba.</String>
+  <String key="Held.Top.Banner">Fija el borde izquierdo.</String>
   <String key="Held.Bottom">Borde inferior</String>
-  <String key="Held.Bottom.Tooltip">Mantiene recto el borde inferior, como la barra de abajo de un banderín de farola.</String>
-  <String key="Held.Bottom.Banner">Mantiene recto el borde derecho (visto de frente).</String>
+  <String key="Held.Bottom.Tooltip">Fija el borde de abajo.</String>
+  <String key="Held.Bottom.Banner">Fija el borde derecho.</String>
   <String key="Held.Fly">Borde exterior</String>
-  <String key="Held.Fly.Tooltip">Sujeta el borde más alejado del mástil, para que la bandera siga extendida.</String>
-  <String key="Held.Fly.Banner">Mantiene recto el borde inferior, como una barra con peso abajo.</String>
+  <String key="Held.Fly.Tooltip">Fija el borde lejos del mástil.</String>
+  <String key="Held.Fly.Banner">Fija el borde de abajo.</String>
   <String key="Held.Corners">Esquinas exteriores</String>
-  <String key="Held.Corners.Tooltip">Ata las dos esquinas más alejadas del mástil.</String>
-  <String key="Held.Corners.Banner">Ata las dos esquinas inferiores.</String>
+  <String key="Held.Corners.Tooltip">Fija las dos esquinas lejos del mástil.</String>
+  <String key="Held.Corners.Banner">Fija las dos esquinas de abajo.</String>
   <String key="NewWaviness.Label">Cuánto ondea</String>
-  <String key="NewWaviness.Tooltip">Cuánto se riza.</String>
   <String key="SelWaviness.Label">Cuánto ondea</String>
-  <String key="SelWaviness.Tooltip">Cuánto se riza.</String>
-  <String key="NewWindShare.Label">Viento sobre ella</String>
-  <String key="NewWindShare.Tooltip">Cuánto viento le llega.</String>
-  <String key="SelWindShare.Label">Viento sobre ella</String>
-  <String key="SelWindShare.Tooltip">Cuánto viento le llega.</String>
+  <String key="NewWindShare.Label">Efecto del viento</String>
+  <String key="SelWindShare.Label">Efecto del viento</String>
   <String key="NewDarkness.Label">Oscuridad</String>
-  <String key="NewDarkness.Tooltip">Oscurece los colores vivos.</String>
   <String key="SelDarkness.Label">Oscuridad</String>
-  <String key="SelDarkness.Tooltip">Oscurece los colores vivos.</String>
   <String key="Group.Wear">Desgaste y deterioro</String>
   <String key="NewWear.Label">Gastada</String>
-  <String key="NewWear.Tooltip">Descolorida, bordes deshilachados.</String>
   <String key="SelWear.Label">Gastada</String>
-  <String key="SelWear.Tooltip">Descolorida, bordes deshilachados.</String>
   <String key="NewTear.Label">Rasgada</String>
-  <String key="NewTear.Tooltip">Hecha jirones.</String>
   <String key="SelTear.Label">Rasgada</String>
-  <String key="SelTear.Tooltip">Hecha jirones.</String>
   <String key="NewTearEdges.Label">Bordes rasgados</String>
-  <String key="NewTearEdges.Tooltip">Arriba y abajo, rotos.</String>
   <String key="SelTearEdges.Label">Bordes rasgados</String>
-  <String key="SelTearEdges.Tooltip">Arriba y abajo, rotos.</String>
   <String key="NewDirt.Label">Suciedad</String>
-  <String key="NewDirt.Tooltip">Mugre y marcas de lluvia.</String>
   <String key="SelDirt.Label">Suciedad</String>
-  <String key="SelDirt.Tooltip">Mugre y marcas de lluvia.</String>
   <String key="NewHoles.Label">Agujeros</String>
-  <String key="NewHoles.Tooltip">Balas, quemaduras, desgarrones.</String>
   <String key="SelHoles.Label">Agujeros</String>
-  <String key="SelHoles.Tooltip">Balas, quemaduras, desgarrones.</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Asta</String>
-  <String key="NewPoleButton.Tooltip">Asta, cuerdas, inclinación.</String>
   <String key="SelPoleButton.Label">Asta</String>
-  <String key="SelPoleButton.Tooltip">Asta, cuerdas, inclinación.</String>
   <String key="PoleButton.None">Asta: ninguna</String>
   <!-- A flag hoisted from its top has no pole (its choice kept for the side). -->
   <String key="PoleButton.Top">Asta: ninguna (cuelga de arriba)</String>
@@ -267,140 +230,90 @@
   <String key="Tab.PoleExisting">Asta de la bandera seleccionada</String>
 
   <String key="NewPole.Label">Asta</String>
-  <String key="NewPole.Tooltip">Estilo, o ninguna.</String>
   <String key="SelPole.Label">Asta</String>
-  <String key="SelPole.Tooltip">Estilo, o ninguna.</String>
   <String key="Pole.None">Ninguna</String>
   <String key="Pole.Ball">Punta de bola</String>
   <String key="Pole.Flat">Punta plana</String>
   <String key="Pole.Spear">Punta de lanza</String>
 
   <String key="NewPoleProfile.Label">Forma</String>
-  <String key="NewPoleProfile.Tooltip">El fuste del mástil.</String>
   <String key="SelPoleProfile.Label">Forma</String>
-  <String key="SelPoleProfile.Tooltip">El fuste del mástil.</String>
   <String key="Profile.Tapered">Cónico</String>
   <String key="Profile.Straight">Recto</String>
   <String key="Profile.Sectional">Por tramos</String>
   <String key="Profile.Fluted">Acanalado</String>
 
   <String key="NewPoleBase.Label">Base</String>
-  <String key="NewPoleBase.Tooltip">Sobre qué se apoya.</String>
   <String key="SelPoleBase.Label">Base</String>
-  <String key="SelPoleBase.Tooltip">Sobre qué se apoya.</String>
   <String key="Base.Collar">Collarín</String>
   <String key="Base.Cast">Base fundida</String>
   <String key="Base.None">Ninguna</String>
 
   <String key="NewPoleShine.Label">Brillo</String>
-  <String key="NewPoleShine.Tooltip">De mate a brillante.</String>
   <String key="SelPoleShine.Label">Brillo</String>
-  <String key="SelPoleShine.Tooltip">De mate a brillante.</String>
 
   <String key="NewRopes.Label">Cuerdas</String>
-  <String key="NewRopes.Tooltip">Bandera sujeta a una cuerda.</String>
   <String key="SelRopes.Label">Cuerdas</String>
-  <String key="SelRopes.Tooltip">Bandera sujeta a una cuerda.</String>
   <String key="Ropes.None">Ninguna</String>
   <String key="Ropes.One">Una</String>
   <String key="Ropes.Two">Dos</String>
   <String key="NewRopeThickness.Label">Grosor de las cuerdas</String>
-  <String key="NewRopeThickness.Tooltip">100% se ve realista.</String>
   <String key="SelRopeThickness.Label">Grosor de las cuerdas</String>
-  <String key="SelRopeThickness.Tooltip">100% se ve realista.</String>
   <String key="NewPolePosition.Label">Posición en el asta</String>
   <String key="NewPolePosition.Tooltip">100% arriba, 50% a media asta.</String>
   <String key="SelPolePosition.Label">Posición en el asta</String>
   <String key="SelPolePosition.Tooltip">100% arriba, 50% a media asta.</String>
 
   <String key="NewPoleColour.Label">Color del asta</String>
-  <String key="NewPoleColour.Tooltip">Asta, tapa, base.</String>
   <String key="NewTopColour.Label">Color del remate</String>
-  <String key="NewTopColour.Tooltip">Bola o lanza.</String>
   <String key="NewRopeColour.Label">Color de las cuerdas</String>
-  <String key="NewRopeColour.Tooltip">Las cuerdas.</String>
   <String key="SelPoleColour.Label">Color del asta</String>
-  <String key="SelPoleColour.Tooltip">Asta, tapa, base.</String>
   <String key="SelTopColour.Label">Color del remate</String>
-  <String key="SelTopColour.Tooltip">Bola o lanza.</String>
   <String key="SelRopeColour.Label">Color de las cuerdas</String>
-  <String key="SelRopeColour.Tooltip">Las cuerdas.</String>
 
   <String key="NewPoleThickness.Label">Grosor</String>
-  <String key="NewPoleThickness.Tooltip">100% se ve realista.</String>
   <String key="SelPoleThickness.Label">Grosor</String>
-  <String key="SelPoleThickness.Tooltip">100% se ve realista.</String>
 
   <String key="NewTilt.Label">Inclinación</String>
-  <String key="NewTilt.Tooltip">Se inclina hacia la bandera.</String>
   <String key="SelTilt.Label">Inclinación</String>
-  <String key="SelTilt.Tooltip">Se inclina hacia la bandera.</String>
   <String key="NewLean.Label">Ladeo</String>
-  <String key="NewLean.Tooltip">Se inclina a un lado.</String>
   <String key="SelLean.Label">Ladeo</String>
-  <String key="SelLean.Tooltip">Se inclina a un lado.</String>
   <String key="NewPoleWear.Label">Gastado</String>
-  <String key="NewPoleWear.Tooltip">Desconchado, descolorido, curtido.</String>
   <String key="SelPoleWear.Label">Gastado</String>
-  <String key="SelPoleWear.Tooltip">Desconchado, descolorido, curtido.</String>
   <String key="NewPoleRust.Label">Óxido</String>
-  <String key="NewPoleRust.Tooltip">Solo acero pintado.</String>
   <String key="SelPoleRust.Label">Óxido</String>
-  <String key="SelPoleRust.Tooltip">Solo acero pintado.</String>
   <String key="NewPoleDirt.Label">Suciedad</String>
-  <String key="NewPoleDirt.Tooltip">Mugre desde el pie.</String>
   <String key="SelPoleDirt.Label">Suciedad</String>
-  <String key="SelPoleDirt.Tooltip">Mugre desde el pie.</String>
 
   <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
   <String key="NewPlacing.Label">Colocar</String>
-  <String key="NewPlacing.Tooltip">Una bandera o una hilera.</String>
   <String key="Placing.Single">Una bandera</String>
   <String key="Placing.Line">Línea recta</String>
   <String key="Placing.Curve">Curva</String>
   <String key="Placing.Freeform">Trazo libre</String>
   <String key="Placing.Circle">Círculo</String>
   <String key="NewLineSpacing.Label">Separación</String>
-  <String key="NewLineSpacing.Tooltip">Metros entre banderas.</String>
   <String key="NewLineAlong.Label">Apuntar según la línea</String>
-  <String key="NewLineAlong.Tooltip">El giro se suma.</String>
   <String key="NewSnapEdges.Label">Ajustar a bordes</String>
-  <String key="NewSnapEdges.Tooltip">Colgar del borde del tejado.</String>
   <String key="NewBackPlate.Label">Placa trasera</String>
-  <String key="NewBackPlate.Tooltip">Nunca vuelve contra la pared.</String>
 
   <String key="NewRotation.Label">Giro</String>
-  <String key="NewRotation.Tooltip">Hacia dónde apunta.</String>
   <String key="SelRotation.Label">Giro</String>
-  <String key="SelRotation.Tooltip">Hacia dónde apunta.</String>
   <String key="SelBackPlate.Label">Placa trasera</String>
-  <String key="SelBackPlate.Tooltip">Nunca vuelve contra la pared.</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">Altura del asta</String>
-  <String key="NewHeight.Tooltip">Base hasta lo alto.</String>
   <String key="SelHeight.Label">Altura del asta</String>
-  <String key="SelHeight.Tooltip">La base no se mueve.</String>
-  <!-- Under the pole height in both Flagpole popups: its slider to 200 m instead of 50 m (Settings.Defaults.LockedHeight / MaxNewHeight). -->
-  <String key="UnlockPoleHeight.Label">Permitir astas más altas</String>
-  <String key="UnlockPoleHeight.Tooltip">Hasta 200 m.</String>
 
   <!-- The Flags tab. -->
   <String key="NewFlag.Label">+ Nueva bandera</String>
-  <String key="NewFlag.Tooltip">Pon una bandera nueva.</String>
   <String key="Existing.Empty">Aún no hay banderas. Pulsa + Nueva bandera.</String>
-  <String key="Existing.NoneSelected">Nada seleccionado. Pulsa una bandera de arriba o elígela en el mapa.</String>
-  <String key="Existing.Selected">{0} en x {1}, z {2}, {3} m de altura.</String>
   <String key="Flag.Title">Bandera {0}</String>
 
   <String key="GoToFlag.Label">Ir a</String>
-  <String key="GoToFlag.Tooltip">Mueve la cámara aquí.</String>
   <String key="PickFlag.Label">Elegir en el mapa</String>
-  <String key="PickFlag.Tooltip">Pulsa una bandera para elegirla.</String>
   <String key="CopyToNew.Label">Copiar</String>
-  <String key="CopyToNew.Tooltip">Pon otra igual.</String>
   <String key="DeleteFlag.Label">Eliminar</String>
-  <String key="DeleteFlag.Tooltip">Quita esta bandera.</String>
   <String key="DeleteFlag.Confirm">¿Eliminar esta bandera?</String>
 
   <!-- Status lines. -->
@@ -433,9 +346,6 @@
   <String key="Gizmo.Lean">Ladeada {0}°</String>
 
   <!-- The colour picker. -->
-  <String key="Picker.Hue">Tono</String>
-  <String key="Picker.Saturation">Saturación</String>
-  <String key="Picker.Brightness">Brillo</String>
   <String key="Picker.Done">Listo</String>
   <String key="Picker.HexTip">Escribe o pega #RRGGBB.</String>
   <String key="Picker.Copy">Copiar</String>
@@ -449,7 +359,7 @@
   <String key="Image.TitleNew">Imagen de la nueva bandera</String>
   <String key="Image.TitleExisting">Imagen de la bandera seleccionada</String>
   <String key="Image.Open">Abrir la carpeta de imágenes</String>
-  <String key="Image.OpenTip">Pon aquí .png o .jpg.</String>
+  <String key="Image.OpenTip">Abrir carpeta (pon aquí .png/.jpg)</String>
   <String key="Image.Hint">Pon archivos .png o .jpg en la carpeta Images y aparecerán aquí.</String>
   <String key="Image.Empty">Aún no hay imágenes. Abre la carpeta y pon en ella archivos .png o .jpg.</String>
   <String key="Image.None">Ninguna</String>
@@ -457,28 +367,19 @@
   <String key="Image.Row">{0} ({1} × {2})</String>
   <String key="Image.Missing">{0} (falta)</String>
   <String key="Image.Drag">Arrastra para mover, rueda para ampliar.</String>
-  <String key="Image.DragTip">Arrastrar mueve, la rueda amplía.</String>
   <String key="Image.Zoom">Zoom</String>
-  <String key="Image.ZoomTip">100% llena la bandera.</String>
   <String key="Image.Fill">Llenar</String>
-  <String key="Image.FillTip">Llena la bandera, recortada.</String>
-  <String key="Image.Whole">Imagen entera</String>
-  <String key="Image.WholeTip">Muestra todo.</String>
+  <String key="Image.Whole">Ajustar</String>
   <String key="Image.Turn">Girar 90°</String>
-  <String key="Image.TurnTip">Cuarto de vuelta a la derecha.</String>
   <String key="Image.Shape">Igual que su forma: {0}</String>
   <String key="Image.ShapeNone">Igual que su forma</String>
-  <String key="Image.ShapeTip">La bandera toma su forma.</String>
   <String key="Image.SeeThrough">Partes transparentes</String>
   <String key="Image.Cut">Recortar</String>
-  <String key="Image.CutTip">Se vuelven agujeros.</String>
-  <String key="Image.Through">Mostrar la bandera</String>
-  <String key="Image.ThroughTip">La bandera se ve a través.</String>
+  <String key="Image.Through">Ver tela</String>
 
   <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
   <String key="Group.Wind">Viento</String>
   <String key="WindFromGame.Label">Usar el viento del juego</String>
-  <String key="WindFromGame.Tooltip">O el de Volumetric Weather, si está activo.</String>
   <String key="GameWindNow.Status">Ahora {0} a 10 m, hacia {1}°</String>
   <String key="GameWindNow.Weather">Volumetric Weather: {0} a 10 m, hacia {1}°</String>
   <String key="GameWindNow.Rain">, lluvia +{0}%</String>
@@ -486,16 +387,12 @@
   <String key="GameWindNow.Own">Tu propio viento, abajo</String>
   <String key="GameWindNow.NoCity">El viento del juego, al cargar una ciudad</String>
   <String key="WindSpeed.Label">Velocidad del viento</String>
-  <String key="WindSpeed.Tooltip">A 10 m de altura.</String>
   <String key="WindGusts.Label">Ráfagas</String>
-  <String key="WindGusts.Tooltip">100% es un pueblo normal.</String>
   <String key="WindMode.Label">Dirección</String>
-  <String key="WindMode.Tooltip">Hacia dónde vuelan las banderas.</String>
   <String key="WindMode.EachFlag">Según la rotación de cada bandera</String>
   <String key="WindMode.Fixed">Fija</String>
   <String key="WindMode.Game">La del juego</String>
   <String key="WindDirection.Label">Ángulo</String>
-  <String key="WindDirection.Tooltip">Solo con Fija.</String>
 
   <!-- ==================== La página de opciones del juego ==================== -->
 
@@ -523,14 +420,11 @@
 
   <String key="Group.Flags">Banderas</String>
   <String key="FreezeWhenPaused.Label">Congelar banderas en pausa</String>
-  <String key="FreezeWhenPaused.Tooltip">Útil para capturas.</String>
   <String key="RainWetness.Label">Mojadas con lluvia</String>
-  <String key="RainWetness.Tooltip">Cuánto se mojan.</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Tela</String>
   <String key="Quality.Label">Calidad</String>
-  <String key="Quality.Tooltip">Ajusta las opciones de tela de abajo.</String>
   <String key="Quality.Low">Bajo</String>
   <String key="Quality.Medium">Medio</String>
   <String key="Quality.High">Alto</String>
@@ -538,7 +432,6 @@
   <String key="Quality.Ultra">Ultra</String>
   <String key="Quality.Custom">Personalizado</String>
   <String key="ClothDetail.Label">Detalle de la tela</String>
-  <String key="ClothDetail.Tooltip">Más se ve mejor, cuesta más.</String>
   <String key="ClothDetail.Low">Bajo</String>
   <String key="ClothDetail.Medium">Medio</String>
   <String key="ClothDetail.High">Alto</String>
@@ -546,17 +439,14 @@
   <String key="ClothDetail.Ultra">Ultra</String>
   <String key="ClothDetail.Extreme">Extremo</String>
   <String key="SelfCollision.Label">La tela choca consigo misma</String>
-  <String key="SelfCollision.Tooltip">Evita que los pliegues se atraviesen.</String>
   <String key="CityCollision.Label">La tela evita edificios, objetos y árboles</String>
-  <String key="CityCollision.Tooltip">Evita que los atraviese.</String>
   <String key="DetailedBuildings.Label">Formas detalladas de edificios</String>
   <String key="DetailedBuildings.Tooltip">La tela evita los edificios tal como se ven.</String>
   <String key="ClothThreads.Label">Hilos de CPU para la tela</String>
-  <String key="ClothThreads.Tooltip">Más banderas en movimiento, más CPU.</String>
   <!-- {0}: how many threads Auto takes on this machine. -->
   <String key="ClothThreads.Auto">Automático ({0})</String>
   <String key="SharedMotion.Label">Movimiento compartido</String>
-  <String key="SharedMotion.Tooltip">Banderas parecidas se mueven igual.</String>
+  <String key="SharedMotion.Tooltip">Las banderas parecidas reutilizan el movimiento de una sola, lo que ahorra mucha CPU cuando hay muchas banderas.</String>
 
   <String key="Group.Diagnostics">Diagnóstico</String>
   <String key="DetailedLogging.Label">Registro detallado</String>

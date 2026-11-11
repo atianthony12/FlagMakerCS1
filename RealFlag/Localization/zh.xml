@@ -71,18 +71,12 @@
   <String key="Colours.Label">颜色</String>
 
   <String key="NewCountry.Label">国家</String>
-  <String key="NewCountry.Tooltip">真实国家的国旗。</String>
   <String key="SelCountry.Label">国家</String>
-  <String key="SelCountry.Tooltip">真实国家的国旗。</String>
   <!-- A picture of the player's own, from the FlagMaker\Images folder: the row's button opens the Image window, its folder button the folder. -->
   <String key="NewImage.Label">你的图片</String>
-  <String key="NewImage.Tooltip">你自己的图片。</String>
   <String key="SelImage.Label">你的图片</String>
-  <String key="SelImage.Tooltip">你自己的图片。</String>
   <String key="NewPattern.Label">图案</String>
-  <String key="NewPattern.Tooltip">图案、颜色和已保存项。</String>
   <String key="SelPattern.Label">图案</String>
-  <String key="SelPattern.Tooltip">图案、颜色和已保存项。</String>
 
   <String key="Pattern.Plain">纯色</String>
   <String key="Pattern.HorizontalBicolour">两条横带</String>
@@ -130,33 +124,20 @@
 
   <!-- A flag's size and shape, as it is seen hanging. {1} of Unit.MetresShape is its shape, height to width: 2:3. -->
   <String key="NewShape.Label">比例</String>
-  <String key="NewShape.Tooltip">高与宽之比。</String>
   <String key="SelShape.Label">比例</String>
-  <String key="SelShape.Tooltip">高与宽之比。</String>
   <String key="NewWidth.Label">宽度</String>
-  <String key="NewWidth.Tooltip">左右的宽度。</String>
   <String key="SelWidth.Label">宽度</String>
-  <String key="SelWidth.Tooltip">左右的宽度。</String>
   <String key="NewTall.Label">高度</String>
-  <String key="NewTall.Tooltip">上下的高度。</String>
   <String key="SelTall.Label">高度</String>
-  <String key="SelTall.Tooltip">上下的高度。</String>
   <String key="LinkSize.Label">宽高一起变</String>
-  <String key="LinkSize.Tooltip">保持形状。</String>
   <String key="NewHoistedFrom.Label">悬挂边</String>
-  <String key="NewHoistedFrom.Tooltip">被握住的那一边。</String>
   <String key="SelHoistedFrom.Label">悬挂边</String>
-  <String key="SelHoistedFrom.Tooltip">被握住的那一边。</String>
   <String key="Hoist.Side">侧边</String>
   <String key="Hoist.Top">顶边</String>
   <String key="NewCut.Label">形状</String>
-  <String key="NewCut.Tooltip">旗尾的轮廓。</String>
   <String key="SelCut.Label">形状</String>
-  <String key="SelCut.Tooltip">旗尾的轮廓。</String>
   <String key="NewCutDepth.Label">切口深度</String>
-  <String key="NewCutDepth.Tooltip">缺口或尖角的深度。</String>
   <String key="SelCutDepth.Label">切口深度</String>
-  <String key="SelCutDepth.Tooltip">缺口或尖角的深度。</String>
   <String key="Cut.Rectangle">矩形</String>
   <String key="Cut.Swallowtail">燕尾</String>
   <String key="Cut.Tongued">三尾</String>
@@ -193,61 +174,43 @@
   <String key="NewRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
   <String key="SelRecapture.Label">重新捕捉</String>
   <String key="SelRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
-  <String key="NewHeld.Label">其他固定处</String>
-  <String key="NewHeld.Tooltip">固定更多布面，让旗帜保持展开，同时仍会飘动。</String>
-  <String key="SelHeld.Label">其他固定处</String>
-  <String key="SelHeld.Tooltip">固定更多布面，让旗帜保持展开，同时仍会飘动。</String>
+  <String key="NewHeld.Label">锚点</String>
+  <String key="NewHeld.Tooltip">固定旗帜的更多部位，让它像街灯横幅一样保持展开、不会垂下，同时仍会飘动。</String>
+  <String key="SelHeld.Label">锚点</String>
+  <String key="SelHeld.Tooltip">固定旗帜的更多部位，让它像街灯横幅一样保持展开、不会垂下，同时仍会飘动。</String>
   <String key="Held.Top">上边</String>
-  <String key="Held.Top.Tooltip">把上边拉直固定，就像街灯横幅顶部的横杆。</String>
-  <String key="Held.Top.Banner">把左边拉直固定（从正面看）。</String>
+  <String key="Held.Top.Tooltip">固定上边。</String>
+  <String key="Held.Top.Banner">固定左边。</String>
   <String key="Held.Bottom">下边</String>
-  <String key="Held.Bottom.Tooltip">把下边拉直固定，就像街灯横幅底部的横杆。</String>
-  <String key="Held.Bottom.Banner">把右边拉直固定（从正面看）。</String>
+  <String key="Held.Bottom.Tooltip">固定下边。</String>
+  <String key="Held.Bottom.Banner">固定右边。</String>
   <String key="Held.Fly">外边</String>
-  <String key="Held.Fly.Tooltip">固定离旗杆最远的一边，让旗帜保持展开。</String>
-  <String key="Held.Fly.Banner">把下边拉直固定，就像底部的配重横杆。</String>
+  <String key="Held.Fly.Tooltip">固定远离旗杆的一边。</String>
+  <String key="Held.Fly.Banner">固定下边。</String>
   <String key="Held.Corners">外角</String>
-  <String key="Held.Corners.Tooltip">系住离旗杆最远的两个角。</String>
-  <String key="Held.Corners.Banner">系住底部的两个角。</String>
+  <String key="Held.Corners.Tooltip">固定远离旗杆的两个角。</String>
+  <String key="Held.Corners.Banner">固定底部的两个角。</String>
   <String key="NewWaviness.Label">起伏程度</String>
-  <String key="NewWaviness.Tooltip">波纹有多大。</String>
   <String key="SelWaviness.Label">起伏程度</String>
-  <String key="SelWaviness.Tooltip">波纹有多大。</String>
-  <String key="NewWindShare.Label">受风</String>
-  <String key="NewWindShare.Tooltip">吹到它的风有多大。</String>
-  <String key="SelWindShare.Label">受风</String>
-  <String key="SelWindShare.Tooltip">吹到它的风有多大。</String>
+  <String key="NewWindShare.Label">风力影响</String>
+  <String key="SelWindShare.Label">风力影响</String>
   <String key="NewDarkness.Label">暗度</String>
-  <String key="NewDarkness.Tooltip">压暗鲜艳的颜色。</String>
   <String key="SelDarkness.Label">暗度</String>
-  <String key="SelDarkness.Tooltip">压暗鲜艳的颜色。</String>
   <String key="Group.Wear">磨损与破旧</String>
   <String key="NewWear.Label">磨损</String>
-  <String key="NewWear.Tooltip">褪色，边缘磨毛。</String>
   <String key="SelWear.Label">磨损</String>
-  <String key="SelWear.Tooltip">褪色，边缘磨毛。</String>
   <String key="NewTear.Label">撕裂</String>
-  <String key="NewTear.Tooltip">撕成碎条。</String>
   <String key="SelTear.Label">撕裂</String>
-  <String key="SelTear.Tooltip">撕成碎条。</String>
   <String key="NewTearEdges.Label">边缘撕裂</String>
-  <String key="NewTearEdges.Tooltip">上下边缘撕破。</String>
   <String key="SelTearEdges.Label">边缘撕裂</String>
-  <String key="SelTearEdges.Tooltip">上下边缘撕破。</String>
   <String key="NewDirt.Label">脏污</String>
-  <String key="NewDirt.Tooltip">污垢和雨痕。</String>
   <String key="SelDirt.Label">脏污</String>
-  <String key="SelDirt.Tooltip">污垢和雨痕。</String>
   <String key="NewHoles.Label">破洞</String>
-  <String key="NewHoles.Tooltip">弹孔、烧洞、撕口。</String>
   <String key="SelHoles.Label">破洞</String>
-  <String key="SelHoles.Tooltip">弹孔、烧洞、撕口。</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">旗杆</String>
-  <String key="NewPoleButton.Tooltip">杆、绳索、倾斜。</String>
   <String key="SelPoleButton.Label">旗杆</String>
-  <String key="SelPoleButton.Tooltip">杆、绳索、倾斜。</String>
   <String key="PoleButton.None">旗杆：无</String>
   <!-- A flag hoisted from its top has no pole (its choice kept for the side). -->
   <String key="PoleButton.Top">旗杆：无（从顶边悬挂）</String>
@@ -260,140 +223,90 @@
   <String key="Tab.PoleExisting">选中旗帜的旗杆</String>
 
   <String key="NewPole.Label">旗杆</String>
-  <String key="NewPole.Tooltip">样式，或无。</String>
   <String key="SelPole.Label">旗杆</String>
-  <String key="SelPole.Tooltip">样式，或无。</String>
   <String key="Pole.None">无</String>
   <String key="Pole.Ball">球形杆顶</String>
   <String key="Pole.Flat">平顶</String>
   <String key="Pole.Spear">矛形杆顶</String>
 
   <String key="NewPoleProfile.Label">形状</String>
-  <String key="NewPoleProfile.Tooltip">旗杆的杆身。</String>
   <String key="SelPoleProfile.Label">形状</String>
-  <String key="SelPoleProfile.Tooltip">旗杆的杆身。</String>
   <String key="Profile.Tapered">锥形</String>
   <String key="Profile.Straight">直杆</String>
   <String key="Profile.Sectional">分节</String>
   <String key="Profile.Fluted">凹槽</String>
 
   <String key="NewPoleBase.Label">底座</String>
-  <String key="NewPoleBase.Tooltip">立在什么上。</String>
   <String key="SelPoleBase.Label">底座</String>
-  <String key="SelPoleBase.Tooltip">立在什么上。</String>
   <String key="Base.Collar">护圈</String>
   <String key="Base.Cast">铸造底座</String>
   <String key="Base.None">无</String>
 
   <String key="NewPoleShine.Label">光泽</String>
-  <String key="NewPoleShine.Tooltip">从哑光到亮面。</String>
   <String key="SelPoleShine.Label">光泽</String>
-  <String key="SelPoleShine.Tooltip">从哑光到亮面。</String>
 
   <String key="NewRopes.Label">绳索</String>
-  <String key="NewRopes.Tooltip">旗子夹在绳上。</String>
   <String key="SelRopes.Label">绳索</String>
-  <String key="SelRopes.Tooltip">旗子夹在绳上。</String>
   <String key="Ropes.None">无</String>
   <String key="Ropes.One">一根</String>
   <String key="Ropes.Two">两根</String>
   <String key="NewRopeThickness.Label">绳的粗细</String>
-  <String key="NewRopeThickness.Tooltip">100% 较逼真。</String>
   <String key="SelRopeThickness.Label">绳的粗细</String>
-  <String key="SelRopeThickness.Tooltip">100% 较逼真。</String>
   <String key="NewPolePosition.Label">旗杆上的位置</String>
   <String key="NewPolePosition.Tooltip">100% 在顶端，50% 为降半旗。</String>
   <String key="SelPolePosition.Label">旗杆上的位置</String>
   <String key="SelPolePosition.Tooltip">100% 在顶端，50% 为降半旗。</String>
 
   <String key="NewPoleColour.Label">杆的颜色</String>
-  <String key="NewPoleColour.Tooltip">杆、顶帽、底座。</String>
   <String key="NewTopColour.Label">顶饰颜色</String>
-  <String key="NewTopColour.Tooltip">球或矛。</String>
   <String key="NewRopeColour.Label">绳的颜色</String>
-  <String key="NewRopeColour.Tooltip">绳索。</String>
   <String key="SelPoleColour.Label">杆的颜色</String>
-  <String key="SelPoleColour.Tooltip">杆、顶帽、底座。</String>
   <String key="SelTopColour.Label">顶饰颜色</String>
-  <String key="SelTopColour.Tooltip">球或矛。</String>
   <String key="SelRopeColour.Label">绳的颜色</String>
-  <String key="SelRopeColour.Tooltip">绳索。</String>
 
   <String key="NewPoleThickness.Label">粗细</String>
-  <String key="NewPoleThickness.Tooltip">100% 较逼真。</String>
   <String key="SelPoleThickness.Label">粗细</String>
-  <String key="SelPoleThickness.Tooltip">100% 较逼真。</String>
 
   <String key="NewTilt.Label">倾斜</String>
-  <String key="NewTilt.Tooltip">向旗子一侧倾。</String>
   <String key="SelTilt.Label">倾斜</String>
-  <String key="SelTilt.Tooltip">向旗子一侧倾。</String>
   <String key="NewLean.Label">侧倾</String>
-  <String key="NewLean.Tooltip">向侧面倾。</String>
   <String key="SelLean.Label">侧倾</String>
-  <String key="SelLean.Tooltip">向侧面倾。</String>
   <String key="NewPoleWear.Label">磨损</String>
-  <String key="NewPoleWear.Tooltip">掉漆、褪色、风化。</String>
   <String key="SelPoleWear.Label">磨损</String>
-  <String key="SelPoleWear.Tooltip">掉漆、褪色、风化。</String>
   <String key="NewPoleRust.Label">锈蚀</String>
-  <String key="NewPoleRust.Tooltip">仅限喷漆钢。</String>
   <String key="SelPoleRust.Label">锈蚀</String>
-  <String key="SelPoleRust.Tooltip">仅限喷漆钢。</String>
   <String key="NewPoleDirt.Label">脏污</String>
-  <String key="NewPoleDirt.Tooltip">从底部往上的污垢。</String>
   <String key="SelPoleDirt.Label">脏污</String>
-  <String key="SelPoleDirt.Tooltip">从底部往上的污垢。</String>
 
   <!-- Rows of flags, by the Line Tool mod: only there with it. The five are the Place row's tooltips. -->
   <String key="NewPlacing.Label">放置</String>
-  <String key="NewPlacing.Tooltip">单面旗帜或一排旗帜。</String>
   <String key="Placing.Single">单面旗帜</String>
   <String key="Placing.Line">直线</String>
   <String key="Placing.Curve">曲线</String>
   <String key="Placing.Freeform">自由线条</String>
   <String key="Placing.Circle">圆形</String>
   <String key="NewLineSpacing.Label">间距</String>
-  <String key="NewLineSpacing.Tooltip">旗帜之间的米数。</String>
   <String key="NewLineAlong.Label">沿线指向</String>
-  <String key="NewLineAlong.Tooltip">朝向在此基础上叠加。</String>
   <String key="NewSnapEdges.Label">吸附边缘</String>
-  <String key="NewSnapEdges.Tooltip">挂在屋顶边缘。</String>
   <String key="NewBackPlate.Label">背板</String>
-  <String key="NewBackPlate.Tooltip">不会向后摆进墙里。</String>
 
   <String key="NewRotation.Label">朝向</String>
-  <String key="NewRotation.Tooltip">指向哪边。</String>
   <String key="SelRotation.Label">朝向</String>
-  <String key="SelRotation.Tooltip">指向哪边。</String>
   <String key="SelBackPlate.Label">背板</String>
-  <String key="SelBackPlate.Tooltip">不会向后摆进墙里。</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
   <String key="NewHeight.Label">杆高</String>
-  <String key="NewHeight.Tooltip">杆底到旗顶。</String>
   <String key="SelHeight.Label">杆高</String>
-  <String key="SelHeight.Tooltip">杆底不动。</String>
-  <!-- Under the pole height in both Flagpole popups: its slider to 200 m instead of 50 m (Settings.Defaults.LockedHeight / MaxNewHeight). -->
-  <String key="UnlockPoleHeight.Label">允许更高的旗杆</String>
-  <String key="UnlockPoleHeight.Tooltip">最高 200 米。</String>
 
   <!-- The Flags tab. -->
   <String key="NewFlag.Label">+ 新建旗帜</String>
-  <String key="NewFlag.Tooltip">放置一面新旗帜。</String>
   <String key="Existing.Empty">还没有旗帜。点击“+ 新建旗帜”。</String>
-  <String key="Existing.NoneSelected">未选中。点击上方的旗帜，或在地图上选择。</String>
-  <String key="Existing.Selected">{0}，位于 x {1}、z {2}，高 {3} 米。</String>
   <String key="Flag.Title">旗帜 {0}</String>
 
   <String key="GoToFlag.Label">前往</String>
-  <String key="GoToFlag.Tooltip">镜头移到这里。</String>
   <String key="PickFlag.Label">在地图上选择</String>
-  <String key="PickFlag.Tooltip">点击旗帜以选中。</String>
   <String key="CopyToNew.Label">复制</String>
-  <String key="CopyToNew.Tooltip">再放一面相同的。</String>
   <String key="DeleteFlag.Label">删除</String>
-  <String key="DeleteFlag.Tooltip">删除这面旗帜。</String>
   <String key="DeleteFlag.Confirm">删除这面旗帜？</String>
 
   <!-- Status lines. -->
@@ -426,9 +339,6 @@
   <String key="Gizmo.Lean">已侧倾 {0}°</String>
 
   <!-- The colour picker. -->
-  <String key="Picker.Hue">色相</String>
-  <String key="Picker.Saturation">饱和度</String>
-  <String key="Picker.Brightness">亮度</String>
   <String key="Picker.Done">完成</String>
   <String key="Picker.HexTip">输入或粘贴 #RRGGBB。</String>
   <String key="Picker.Copy">复制</String>
@@ -442,7 +352,7 @@
   <String key="Image.TitleNew">新旗帜的图片</String>
   <String key="Image.TitleExisting">选中旗帜的图片</String>
   <String key="Image.Open">打开 Images 文件夹</String>
-  <String key="Image.OpenTip">把 .png 或 .jpg 文件放这里。</String>
+  <String key="Image.OpenTip">打开文件夹（在此添加 .png/.jpg）</String>
   <String key="Image.Hint">把 .png 或 .jpg 文件放入 Images 文件夹，它们就会出现在这里。</String>
   <String key="Image.Empty">还没有图片。打开文件夹，把 .png 或 .jpg 文件放进去。</String>
   <String key="Image.None">无</String>
@@ -450,28 +360,19 @@
   <String key="Image.Row">{0}（{1} × {2}）</String>
   <String key="Image.Missing">{0}（缺失）</String>
   <String key="Image.Drag">拖动可移动图片，滚轮缩放。</String>
-  <String key="Image.DragTip">拖动移动，滚轮缩放。</String>
   <String key="Image.Zoom">缩放</String>
-  <String key="Image.ZoomTip">100% 充满旗帜。</String>
   <String key="Image.Fill">填满</String>
-  <String key="Image.FillTip">裁切后填满旗帜。</String>
-  <String key="Image.Whole">整张图片</String>
-  <String key="Image.WholeTip">显示全部。</String>
+  <String key="Image.Whole">适应</String>
   <String key="Image.Turn">旋转 90°</String>
-  <String key="Image.TurnTip">顺时针转四分之一圈。</String>
   <String key="Image.Shape">匹配其形状：{0}</String>
   <String key="Image.ShapeNone">匹配其形状</String>
-  <String key="Image.ShapeTip">旗帜采用图片的形状。</String>
   <String key="Image.SeeThrough">透明部分</String>
   <String key="Image.Cut">抠出</String>
-  <String key="Image.CutTip">变成孔洞。</String>
   <String key="Image.Through">显示旗帜</String>
-  <String key="Image.ThroughTip">旗帜透过显示。</String>
 
   <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
   <String key="Group.Wind">风</String>
   <String key="WindFromGame.Label">使用游戏的风</String>
-  <String key="WindFromGame.Tooltip">若已开启，则用体积天气的风。</String>
   <String key="GameWindNow.Status">当前 10 米高处 {0}，吹向 {1}°</String>
   <String key="GameWindNow.Weather">体积天气：10 米高处 {0}，吹向 {1}°</String>
   <String key="GameWindNow.Rain">，雨 +{0}%</String>
@@ -479,16 +380,12 @@
   <String key="GameWindNow.Own">你自己的风，见下方</String>
   <String key="GameWindNow.NoCity">加载城市后显示游戏的风</String>
   <String key="WindSpeed.Label">风速</String>
-  <String key="WindSpeed.Tooltip">10 米高处。</String>
   <String key="WindGusts.Label">阵风</String>
-  <String key="WindGusts.Tooltip">100% 为典型城镇。</String>
   <String key="WindMode.Label">方向</String>
-  <String key="WindMode.Tooltip">旗帜朝哪边飘。</String>
   <String key="WindMode.EachFlag">沿各旗帜的旋转方向</String>
   <String key="WindMode.Fixed">固定</String>
   <String key="WindMode.Game">游戏的</String>
   <String key="WindDirection.Label">角度</String>
-  <String key="WindDirection.Tooltip">仅在选择“固定”时使用。</String>
 
   <!-- ==================== The game's options page ==================== -->
 
@@ -516,14 +413,11 @@
 
   <String key="Group.Flags">旗帜</String>
   <String key="FreezeWhenPaused.Label">暂停时冻结旗帜</String>
-  <String key="FreezeWhenPaused.Tooltip">方便截图。</String>
   <String key="RainWetness.Label">雨中湿润</String>
-  <String key="RainWetness.Tooltip">旗帜被淋湿的程度。</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">布料</String>
   <String key="Quality.Label">画质</String>
-  <String key="Quality.Tooltip">设置下面的布料选项。</String>
   <String key="Quality.Low">低</String>
   <String key="Quality.Medium">中</String>
   <String key="Quality.High">高</String>
@@ -531,7 +425,6 @@
   <String key="Quality.Ultra">极高</String>
   <String key="Quality.Custom">自定义</String>
   <String key="ClothDetail.Label">布料细节</String>
-  <String key="ClothDetail.Tooltip">越高越好看，越耗性能。</String>
   <String key="ClothDetail.Low">低</String>
   <String key="ClothDetail.Medium">中</String>
   <String key="ClothDetail.High">高</String>
@@ -539,17 +432,14 @@
   <String key="ClothDetail.Ultra">极高</String>
   <String key="ClothDetail.Extreme">极限</String>
   <String key="SelfCollision.Label">布料与自身碰撞</String>
-  <String key="SelfCollision.Tooltip">防止褶皱互相穿过。</String>
   <String key="CityCollision.Label">布料避开建筑、道具和树木</String>
-  <String key="CityCollision.Tooltip">防止穿过。</String>
   <String key="DetailedBuildings.Label">精细建筑形状</String>
   <String key="DetailedBuildings.Tooltip">布料按建筑的实际外形避让。</String>
   <String key="ClothThreads.Label">布料使用的 CPU 线程</String>
-  <String key="ClothThreads.Tooltip">飘动的旗帜更多，占用更多 CPU。</String>
   <!-- {0}: how many threads Auto takes on this machine. -->
   <String key="ClothThreads.Auto">自动（{0}）</String>
   <String key="SharedMotion.Label">共享运动</String>
-  <String key="SharedMotion.Tooltip">相似的旗帜共享运动。</String>
+  <String key="SharedMotion.Tooltip">相似的旗帜共用一面旗帜的动作，旗帜很多时能大幅节省 CPU。</String>
 
   <String key="Group.Diagnostics">诊断</String>
   <String key="DetailedLogging.Label">详细日志</String>
