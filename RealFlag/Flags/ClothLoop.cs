@@ -152,6 +152,43 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The seconds to add to <paramref name="clock"/> so that flag <paramref name="prop"/> is
+        /// at frame <paramref name="frame"/> exactly (<see cref="FrameAt"/>: a, blend 0), 0 up to
+        /// the loop's length: a loop standing in for a waving flag begins at the frame nearest the
+        /// pose its cloth was in (FlagRenderer.PlanStandIn, 2026-11-11).
+        /// </summary>
+        public static float ShiftTo(int frame, double clock, uint prop, int frames, float frameTime)
+        {
+            if (frames < 2 || frameTime <= 0f)
+                return 0f;
+
+            double at = clock / frameTime + Phase(prop) * frames;
+            double d = frame - at;
+            d -= Math.Floor(d / frames) * frames;
+            return (float)(d * frameTime);
+        }
+
+        /// <summary>The shares of its breeze a stand-in's loop is made at (<see cref="ShareFor"/>).</summary>
+        public const int ShareSteps = 4;
+
+        /// <summary>
+        /// The share of its loop's breeze (FlagSpec.WindShare, the bake's) nearest the wind a waving
+        /// flag flies in, in quarters, a quarter at least: a loop standing in for it is the one
+        /// made in about its own wind (<paramref name="speed"/>, m/s on its cloth, against
+        /// <paramref name="breeze"/>, the loop's at a full share), so the flag that takes it does
+        /// not jump from drooping in a light air to flying in a fresh breeze. A loop is never made
+        /// in more than its breeze: past it, the whole.
+        /// </summary>
+        public static float ShareFor(float speed, float breeze)
+        {
+            if (!(breeze > 1e-3f))
+                return 1f;
+
+            int step = (int)Math.Round(ShareSteps * speed / breeze);
+            return Math.Max(1, Math.Min(ShareSteps, step)) / (float)ShareSteps;
+        }
+
+        /// <summary>
         /// The two frames a flag shows at <paramref name="clock"/> seconds and how far between
         /// them, 0..1: its loop of <paramref name="frames"/> frames <paramref name="frameTime"/>
         /// apart, begun at its own <see cref="Phase"/>, going round for ever (the last frame is
@@ -201,6 +238,139 @@ namespace RealFlag.Flags
         }
 
         public static readonly int[] DrawnCells = { 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128 };
+    }
+
+    /// <summary>
+    /// A made loop's frames on our side (2026-11-11; 1-2 MB a loop): each particle's place in each
+    /// frame, as the texture holds them (LoopBake.Data, kept). A loop that stands in for a waving
+    /// flag (FlagRenderer.PlanStandIn) begins at the frame nearest its cloth's pose
+    /// (<see cref="Nearest"/>) and hands its pose and motion back to a new cloth
+    /// (<see cref="Motion"/>, FlagCloth.SetMotion), so neither swap shows. PURE.
+    /// </summary>
+    public sealed class LoopFrames
+    {
+        public readonly int Columns, Rows, Frames, TilesX;
+        public readonly float FrameTime;
+
+        /// <param name="bake">Finished, not failed; its Data is kept here (not copied).</param>
+        public LoopFrames(LoopBake bake)
+        {
+            Columns = bake.Columns;
+            Rows = bake.Rows;
+            Frames = bake.Frames;
+            TilesX = bake.TilesX;
+            FrameTime = bake.FrameTime;
+            _data = bake.Data;
+            _width = bake.Width;
+        }
+
+        private readonly float[] _data;
+        private readonly int _width;
+
+        private int Texel(int frame, int k)
+        {
+            int tx = frame % TilesX, ty = frame / TilesX;
+            int i = k % Columns, j = k / Columns;
+            return ((ty * Rows + j) * _width + tx * Columns + i) * 4;
+        }
+
+        /// <summary>The cloth has this loop's grid: a particle of it for each of the loop's.</summary>
+        public bool Fits(FlagCloth cloth)
+        {
+            return cloth != null && _data != null && cloth.Columns == Columns && cloth.Rows == Rows;
+        }
+
+        /// <summary>
+        /// The loop as it is drawn at <paramref name="clock"/> for the flag of <paramref name="prop"/>
+        /// (<see cref="Bind"/>'s two frames and blend), in the flag's own frame (heading 0): each
+        /// particle's place and its velocity there (the next frame less this one over a frame's
+        /// time: the motion the shader shows), into arrays of Columns x Rows.
+        /// </summary>
+        public void Motion(double clock, uint prop, float[] x, float[] y, float[] z, float[] vx, float[] vy, float[] vz)
+        {
+            int a, b;
+            float blend;
+            LoopMotion.FrameAt(clock, prop, Frames, FrameTime, out a, out b, out blend);
+            float per = FrameTime > 0f ? 1f / FrameTime : 0f;
+            int count = Columns * Rows;
+            for (int k = 0; k < count; k++)
+            {
+                int da = Texel(a, k), db = Texel(b, k);
+                float ax = _data[da], ay = _data[da + 1], az = _data[da + 2];
+                float bx = _data[db], by = _data[db + 1], bz = _data[db + 2];
+                x[k] = ax + (bx - ax) * blend;
+                y[k] = ay + (by - ay) * blend;
+                z[k] = az + (bz - az) * blend;
+                vx[k] = (bx - ax) * per;
+                vy[k] = (by - ay) * per;
+                vz[k] = (bz - az) * per;
+            }
+        }
+
+        /// <summary>Points of the cloth weighed by <see cref="Nearest"/>: a few down the fly's end, the middle and a quarter along.</summary>
+        private const int NearRows = 5;
+        private static readonly float[] NearAlong = { 1f, 0.5f, 0.25f };
+
+        /// <summary>A velocity's weight against a place's in <see cref="Nearest"/>, seconds: the frame that is where the cloth will be this much later counts as near as one where it is.</summary>
+        private const float NearSeconds = 0.15f;
+
+        /// <summary>
+        /// The frame nearest a cloth's pose: <paramref name="cloth"/> (any grid of the same flag)
+        /// turned back by its heading <paramref name="radians"/> into the flag's own frame, a few
+        /// of its particles' places and velocities against each frame's (the frame's velocity:
+        /// to the next one). A swap from the cloth to the loop begins there (LoopMotion.ShiftTo).
+        /// </summary>
+        public int Nearest(FlagCloth cloth, float radians)
+        {
+            if (_data == null || cloth == null || Frames < 2)
+                return 0;
+
+            float c = (float)Math.Cos(-radians), s = (float)Math.Sin(-radians);
+            int n = NearRows * NearAlong.Length;
+            var mine = new int[n];
+            var px = new float[n]; var py = new float[n]; var pz = new float[n];
+            var qx = new float[n]; var qy = new float[n]; var qz = new float[n];
+            int m = 0;
+            foreach (float along in NearAlong)
+            {
+                for (int r = 0; r < NearRows; r++)
+                {
+                    float down = r / (float)(NearRows - 1);
+                    int k = (int)Math.Round(down * (cloth.Rows - 1)) * cloth.Columns + (int)Math.Round(along * (cloth.Columns - 1));
+                    mine[m] = (int)Math.Round(down * (Rows - 1)) * Columns + (int)Math.Round(along * (Columns - 1));
+                    float x = cloth.X[k], z = cloth.Z[k];
+                    px[m] = x * c - z * s; py[m] = cloth.Y[k]; pz[m] = x * s + z * c;
+                    x = cloth.Vx[k]; z = cloth.Vz[k];
+                    qx[m] = (x * c - z * s) * NearSeconds; qy[m] = cloth.Vy[k] * NearSeconds; qz[m] = (x * s + z * c) * NearSeconds;
+                    m++;
+                }
+            }
+
+            int best = 0;
+            float least = float.MaxValue;
+            float lead = FrameTime > 0f ? NearSeconds / FrameTime : 0f;
+            for (int f = 0; f < Frames; f++)
+            {
+                int next = f + 1 < Frames ? f + 1 : 0;
+                float cost = 0f;
+                for (int i = 0; i < n && cost < least; i++)
+                {
+                    int da = Texel(f, mine[i]), db = Texel(next, mine[i]);
+                    float ax = _data[da], ay = _data[da + 1], az = _data[da + 2];
+                    float dx = px[i] - ax, dy = py[i] - ay, dz = pz[i] - az;
+                    float ex = qx[i] - (_data[db] - ax) * lead, ey = qy[i] - (_data[db + 1] - ay) * lead, ez = qz[i] - (_data[db + 2] - az) * lead;
+                    cost += dx * dx + dy * dy + dz * dz + ex * ex + ey * ey + ez * ez;
+                }
+
+                if (cost < least)
+                {
+                    least = cost;
+                    best = f;
+                }
+            }
+
+            return best;
+        }
     }
 
     /// <summary>

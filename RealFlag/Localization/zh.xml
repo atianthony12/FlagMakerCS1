@@ -440,6 +440,8 @@
   <String key="ClothThreads.Auto">自动（{0}）</String>
   <String key="SharedMotion.Label">共享运动</String>
   <String key="SharedMotion.Tooltip">相似的旗帜共用一面旗帜的动作，旗帜很多时能大幅节省 CPU。</String>
+  <String key="LoopStandIns.Label">旗帜过多时循环</String>
+  <String key="LoopStandIns.Tooltip">视野内旗帜太多、无法全部模拟时，其余旗帜播放循环动画，而不是静止不动。</String>
 
   <String key="Group.Diagnostics">诊断</String>
   <String key="DetailedLogging.Label">详细日志</String>

@@ -108,6 +108,14 @@ namespace RealFlag
         public static BoolSetting SharedMotion { get; private set; }
 
         /// <summary>
+        /// Loops stand in (ClothPlan.StandsIn, FlagRenderer.PlanStandIn): a waving flag the cloth
+        /// threads have no room to move plays a loop instead of standing frozen at its last step,
+        /// and waves again when it has room. On by default (the author, 2026-11-11: "it's a huge
+        /// fix"); off, such flags stand still as before. Nothing of it is in a save.
+        /// </summary>
+        public static BoolSetting LoopStandIns { get; private set; }
+
+        /// <summary>
         /// The overall Quality (UI.QualityPreset: Low .. Ultra, or Custom), DERIVED from the cloth
         /// detail, self-collision, shared motion and buildings as drawn -- never in the file;
         /// choosing a level sets those four.
@@ -363,6 +371,7 @@ namespace RealFlag
             /// <summary>Auto (the author's choice, 2026-10-31: players raise it themselves).</summary>
             public const int ClothThreads = 0;
             public const bool SharedMotion = true;
+            public const bool LoopStandIns = true;
 
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
@@ -514,6 +523,7 @@ namespace RealFlag
                 DetailedBuildings = new BoolSetting("DetailedBuildings", Defaults.DetailedBuildings);
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
                 SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
+                LoopStandIns = new BoolSetting("LoopStandIns", Defaults.LoopStandIns);
                 Quality = new IntSetting("Quality", UI.QualityPreset.High, true);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);

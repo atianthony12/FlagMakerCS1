@@ -89,14 +89,21 @@ namespace RealFlag.Flags
             };
             _texture.LoadRawTextureData(bake.Raw);
 
-            // No copy of it kept on our side (the texture is never read back).
+            // No copy of it kept on the engine's side (the texture is never read back). Ours of
+            // the places is kept (2026-11-11, 1-2 MB a loop): a loop standing in for a waving flag
+            // begins at the frame nearest its cloth's pose, and hands its pose back to a new cloth
+            // (Nearest, Motion). The bytes go.
             _texture.Apply(false, true);
+            Places = new LoopFrames(bake);
             if (!keepData)
             {
                 bake.Data = null;
                 bake.Raw = null;
             }
         }
+
+        /// <summary>The frames on our side, for the swaps to and from a cloth (LoopFrames).</summary>
+        public readonly LoopFrames Places;
 
         /// <summary>The slab's axis out (see <see cref="MinU"/>), in the flag's own frame.</summary>
         public readonly Vector3 Out;

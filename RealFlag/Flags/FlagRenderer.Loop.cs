@@ -27,6 +27,13 @@ namespace RealFlag.Flags
         /// <summary>Real time: last asked for by a flag that waits for it undrawn (no cloth to wave meanwhile).</summary>
         public float Waited = -1e6f;
 
+        /// <summary>
+        /// Real time: last asked for by a flag whose own Motion is Loop. One only waving flags'
+        /// stand-ins ask for (FlagRenderer.PlanStandIn) is made within a reserve and gives way to
+        /// the player's own loops (PlanLoops, MakeRoom).
+        /// </summary>
+        public float Real = -1e6f;
+
         /// <summary>No longer kept (let go, or never made): a flag still naming it looks its loop up again.</summary>
         public bool Gone;
     }
@@ -141,7 +148,13 @@ namespace RealFlag.Flags
             if (f.Loop != null)
                 f.Loop.Wanted = now;
             if (f.Spec.Motion == FlagMotion.Loop)
-                EntryFor(f, now).Wanted = now;
+            {
+                LoopEntry e = EntryFor(f, now);
+                e.Wanted = now;
+                e.Real = now;
+                if (f.Loop != null)
+                    f.Loop.Real = now;
+            }
         }
 
         /// <summary>
@@ -155,6 +168,7 @@ namespace RealFlag.Flags
             float now = Time.realtimeSinceStartup;
             LoopEntry e = EntryFor(f, now);
             e.Wanted = now;
+            e.Real = now;
             bool inHand = ghost || f.Prop == FlagEditor.Selected || f.AwakeUntil > now;
             if (inHand)
                 e.InHand = now;
@@ -163,6 +177,8 @@ namespace RealFlag.Flags
             {
                 if (f.Loop != e || f.Cloth != null)
                 {
+                    // From a cloth that waved meanwhile: the loop begins at the frame nearest its pose.
+                    f.LoopShift = f.Cloth != null && f.Settled ? ShiftToPose(f, e.Loop) : 0f;
                     f.Loop = e;
                     f.LoopCells = 0;
                     LetClothGo(f);
@@ -183,6 +199,210 @@ namespace RealFlag.Flags
 
             e.Waited = now;
             return true;
+        }
+
+        // ---- loops standing in for waving flags with no room to move (2026-11-11) -----------------
+
+        /// <summary>Loops only stand-ins ask for: made one at a time, and only while fewer than this many loops are kept (the player's own Loop flags keep the rest of <see cref="MaxLoops"/>).</summary>
+        private const int StandInLoops = MaxLoops / 2;
+        private const int StandInBakes = 1;
+
+        private bool _standIns = true, _planFrozen, _standInSaid;
+        private int _standing, _frozenPastMost, _frozenTouching, _frozenNoLoop, _standInsTaken, _standInsBack;
+
+        /// <summary>A loop stands in for this waving flag: it has no cloth of its own, and a made loop it is drawn with.</summary>
+        private static bool StandingIn(FlagInstance f)
+        {
+            return f.Spec.Motion == FlagMotion.Waves && f.Cloth == null && f.Loop != null && f.Loop.Loop != null;
+        }
+
+        /// <summary>
+        /// A waving flag the plan has no room to move this frame -- past the <see cref="MaxMoving"/>
+        /// biggest on the screen -- stood frozen at its last step until the camera came nearer
+        /// (the author, 2026-11-11: "a part of them just stops animating until i pan my camera
+        /// near them ... if we can substitute that with Loop that would be so much better"). Now
+        /// a loop stands in for it (ClothPlan.StandsIn): the loop of its own size and shape
+        /// (LoopMotion.Key, the one it would play were its Motion Loop), taken once that is made --
+        /// its settled cloth stands frozen until then, as before, never undrawn -- its cloth, mesh
+        /// and city let go. Its Motion stays Waves: nothing of this is saved. With room again (or
+        /// in the player's hand, at once) the plan goes on as for any flag with no cloth: a new one
+        /// settles, from a like flag's shape if it can, the loop showing until it has (ShowsLoop).
+        /// True: a loop stands in, nothing to step. NOT taken: by a flag whose cloth touches the
+        /// city (a loop knows no walls), with the wind not along each flag's own rotation (a loop
+        /// flies that way alone), while the game is paused and the flags frozen (no change either
+        /// way: a screenshot does not pop), or with the option off.
+        /// </summary>
+        private bool PlanStandIn(FlagInstance f, bool moving, bool ghost, Wind wind)
+        {
+            if (ghost || f.Prop == 0)
+                return false;
+
+            bool standing = StandingIn(f);
+            if (_unseenPass)
+                return standing;
+
+            float now = Time.realtimeSinceStartup;
+            if (moving)
+                f.RoomAt = now;
+            else
+                f.NoRoomAt = now;
+
+            bool want = standing;
+            if (!_planFrozen)
+            {
+                bool inHand = f.Prop == FlagEditor.Selected || f.AwakeUntil > now;
+                bool able = _standIns && !inHand && wind.Mode == Settings.WindModes.EachFlag && (standing || f.Pixels >= MovePixels);
+                want = ClothPlan.StandsIn(standing, able, moving, f.Order, MaxMoving, now - f.RoomAt, now - f.NoRoomAt);
+            }
+
+            if (!want)
+            {
+                // Given back: PlanFlag makes its cloth now, flying on from the loop's pose (TakePose).
+                if (standing)
+                {
+                    _standInsBack++;
+                    f.PoseFrom = f.Loop;
+                }
+                else if (!moving && f.Pixels >= MovePixels && f.Cloth != null && f.Settled)
+                    _frozenPastMost++;
+                return false;
+            }
+
+            if (!standing)
+            {
+                // A settled cloth standing still is stood in for. One still to settle settles first
+                // while the cloth keeps off the city -- only its cloth says whether it touches a
+                // wall -- and never waits on its loop being made (a city's flags settle as ever);
+                // with the city off, it takes a loop already made and settles none.
+                bool settled = f.Cloth != null && f.Settled;
+                if (!settled && _cityCollision)
+                    return false;
+
+                if (settled)
+                    _frozenPastMost++;
+                if (settled && _cityCollision && (f.Cloth.SurfaceInUse || f.Cloth.CapsulesInUse > 0))
+                {
+                    _frozenTouching++;
+                    return false;
+                }
+
+                LoopEntry e = StandInEntry(f, now, wind);
+                e.Wanted = now;
+                if (e.Loop == null)
+                {
+                    if (settled)
+                        _frozenNoLoop++;
+                    return false;
+                }
+
+                // The loop begins at the frame nearest the cloth's pose, not anywhere.
+                f.LoopShift = settled ? ShiftToPose(f, e.Loop) : 0f;
+                f.Loop = e;
+                f.LoopCells = 0;
+                LetClothGo(f);
+                if (settled)
+                    _frozenPastMost--;
+                _standInsTaken++;
+                if (!_standInSaid)
+                {
+                    _standInSaid = true;
+                    Log.Msg("flags: loops stand in -- a waving flag with no room to move (past the " + MaxMoving + " biggest on the screen) plays a loop " +
+                            "instead of standing frozen, and waves again when it has room (the first: #" + f.Prop + ", " + f.Spec.Describe() + ")");
+                }
+            }
+
+            // Its pick volume's axis out: its fly at rest, as a loop flag's.
+            f.WindDir = f.Fly;
+            f.Pending = 0f;
+            _standing++;
+            return true;
+        }
+
+        /// <summary>
+        /// The loop that stands in for a waving flag: its own key's (LoopMotion.Key) but made in
+        /// the share of its breeze nearest the wind the flag flies in (LoopMotion.ShareFor) -- a
+        /// flag drooping in a light air does not jump to flying in a fresh breeze. Kept on the
+        /// flag (LoopWanted, StandInShare) until its design, the options or that share change.
+        /// </summary>
+        private LoopEntry StandInEntry(FlagInstance f, float now, Wind wind)
+        {
+            // The wind on its cloth: as it last flew in it, or where it stands.
+            float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
+            float at10 = f.WindAt10 >= 0f ? f.WindAt10 : wind.SpeedFor(f.Anchor, f.Ground) * f.Spec.WindShare;
+            float speed = FlagWind.ClothSpeed(at10, height, f.Roughness);
+
+            // Its loop's breeze at a full share, as LoopBake takes it.
+            float hx, hy, hz, fx, fy, fz, dirX, dirZ, breeze;
+            FlagOrientation.Frame(0f, f.Spec.Tilt, f.Spec.Lean, f.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+            LoopMotion.Wind(hx, hz, fx, fy, fz, f.Spec.Length, f.Spec.Height, 1f, out dirX, out dirZ, out breeze);
+            float share = LoopMotion.ShareFor(speed, breeze);
+
+            int detail = LoopMotion.DetailFor(_finest);
+            LoopEntry e = f.LoopWanted;
+            if (e != null && !e.Gone && e.Detail == detail && e.SelfCollision == _selfCollision && f.StandInShare == share)
+                return e;
+
+            FlagSpec spec = f.Spec;
+            spec.WindShare = share;
+            string key = LoopMotion.Key(spec, detail, _selfCollision);
+            if (!_loops.TryGetValue(key, out e))
+            {
+                e = new LoopEntry { Key = key, Spec = spec, Detail = detail, SelfCollision = _selfCollision, Since = now, Wanted = now };
+                _loops[key] = e;
+                _loopList.Add(e);
+            }
+
+            f.LoopWanted = e;
+            f.StandInShare = share;
+            return e;
+        }
+
+        /// <summary>The seconds that put the flag's loop at the frame nearest its cloth's pose now (FlagLoop.Nearest, LoopMotion.ShiftTo).</summary>
+        private float ShiftToPose(FlagInstance f, FlagLoop loop)
+        {
+            int frame = loop.Places.Nearest(f.Cloth, f.Angle);
+            return LoopMotion.ShiftTo(frame, _loopClock + f.OwnTime, f.Prop, loop.Frames, loop.FrameTime);
+        }
+
+        private float[] _poseX, _poseY, _poseZ, _poseVx, _poseVy, _poseVz;
+
+        /// <summary>
+        /// A cloth just made for a flag a loop stood in for takes the loop's pose and motion as
+        /// drawn now (FlagLoop.Motion, FlagCloth.SetMotion) and counts as settled: it flies on from
+        /// there in its own wind, where a cloth settled afresh from a like flag's shape popped in
+        /// (the author, 2026-11-11: "the animation 'pops-in' when the camera nears the huge amount
+        /// of flags"). Its mesh is refreshed for the next draw, when the loop is let go.
+        /// </summary>
+        private void TakePose(FlagInstance f, FlagLoop loop)
+        {
+            int n = loop.Columns * loop.Rows;
+            if (_poseX == null || _poseX.Length < n)
+            {
+                _poseX = new float[n]; _poseY = new float[n]; _poseZ = new float[n];
+                _poseVx = new float[n]; _poseVy = new float[n]; _poseVz = new float[n];
+            }
+
+            loop.Places.Motion(_loopClock + f.OwnTime + f.LoopShift, f.Prop, _poseX, _poseY, _poseZ, _poseVx, _poseVy, _poseVz);
+            f.Cloth.SetMotion(_poseX, _poseY, _poseZ, _poseVx, _poseVy, _poseVz, f.Angle, Step);
+            f.Settled = true;
+            f.SettleLeft = 0f;
+            f.LaidOut = true;
+            f.Pending = 0f;
+            f.ShownAlpha = 1f;
+            f.MeshDirty = true;
+            f.Fresh = false;
+        }
+
+        /// <summary>For the 5 s line: the loops standing in, those taken and given back since the last, and the flags still frozen past the most that move, by why.</summary>
+        private string StandInsText()
+        {
+            if (_standing == 0 && _standInsTaken == 0 && _standInsBack == 0 && _frozenPastMost == 0)
+                return string.Empty;
+
+            return "; " + _standing + " standing in for waving flags (" + _standInsTaken + " taken, " + _standInsBack + " given back since the last line), " +
+                   _frozenPastMost + " frozen with no room" +
+                   (_frozenPastMost > 0 ? " (" + _frozenTouching + " touching the city, " + _frozenNoLoop + " their loop not made" +
+                                          (_standIns ? "" : "; the option is off") + ")" : "");
         }
 
         /// <summary>
@@ -297,6 +517,11 @@ namespace RealFlag.Flags
                         if (baking >= MaxBakes || now - e.Since < Debounce)
                             continue;
 
+                        // One only stand-ins ask for (no flag whose Motion is Loop): within its
+                        // reserve, one at a time, and quietly -- the flags stand frozen meanwhile.
+                        if (now - e.Real > Unwanted && (baking >= StandInBakes || kept >= StandInLoops))
+                            continue;
+
                         if (kept >= MaxLoops && !MakeRoom(now))
                         {
                             e.FailedUntil = now + RetrySeconds;
@@ -357,6 +582,15 @@ namespace RealFlag.Flags
             {
                 LoopEntry e = _loopList[i];
                 if (e.Loop != null && now - e.Wanted > 10f && (oldest < 0 || e.Wanted < _loopList[oldest].Wanted))
+                    oldest = i;
+            }
+
+            // None unwanted: one only stand-ins use gives way to a player's own loop (its flags
+            // get their cloths back, and stand frozen again if they have no room).
+            for (int i = 0; oldest < 0 && i < _loopList.Count; i++)
+            {
+                LoopEntry e = _loopList[i];
+                if (e.Loop != null && now - e.Real > Unwanted)
                     oldest = i;
             }
 
@@ -429,7 +663,7 @@ namespace RealFlag.Flags
         {
             FlagLoop loop = f.Loop.Loop;
             PutBlock(f);
-            loop.Bind(f.Block, _loopClock + f.OwnTime, f.Prop);
+            loop.Bind(f.Block, _loopClock + f.OwnTime + f.LoopShift, f.Prop);
 
             // The grid: cells of about PixelsPerCell on the screen, changed only once the size has
             // moved RefineBand past where another would be chosen (no flicker between two).

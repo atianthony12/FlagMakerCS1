@@ -447,6 +447,8 @@
   <String key="ClothThreads.Auto">Automático ({0})</String>
   <String key="SharedMotion.Label">Movimiento compartido</String>
   <String key="SharedMotion.Tooltip">Las banderas parecidas reutilizan el movimiento de una sola, lo que ahorra mucha CPU cuando hay muchas banderas.</String>
+  <String key="LoopStandIns.Label">Bucle en grandes grupos</String>
+  <String key="LoopStandIns.Tooltip">Cuando hay demasiadas banderas a la vista para simularlas, las demás reproducen un bucle en vez de quedarse quietas.</String>
 
   <String key="Group.Diagnostics">Diagnóstico</String>
   <String key="DetailedLogging.Label">Registro detallado</String>

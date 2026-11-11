@@ -1530,6 +1530,32 @@ public static class ClothTests
                ClothPlan.SettleSteps(0.68, 8.0, 64.0, 3) + "," + ClothPlan.SettleSteps(0.68, 8.0, 64.0, 0) + "," + ClothPlan.SettleSteps(50.0, 8.0, 64.0, 45);
     }
 
+    /// <summary>
+    /// ClothPlan.StandsIn (a loop standing in for a waving flag with no room to move): taken only
+    /// after StandInAfter frozen, never with room or when it may not; kept while there is none;
+    /// given back at once when it no longer may or well inside the moving ones, near the edge only
+    /// after StandInBack with room.
+    /// </summary>
+    public static string StandInRule()
+    {
+        int most = 160;
+        bool[] r =
+        {
+            ClothPlan.StandsIn(false, true, false, 300, most, 0.1f, 0f),      // frozen a tenth of a second: not yet
+            ClothPlan.StandsIn(false, true, false, 300, most, 0.3f, 0f),      // past StandInAfter: taken
+            ClothPlan.StandsIn(false, true, true, 10, most, 9f, 9f),          // it has room: never
+            ClothPlan.StandsIn(false, false, false, 300, most, 9f, 0f),       // it may not: never
+            ClothPlan.StandsIn(true, true, false, 300, most, 9f, 0f),         // standing, no room: kept
+            ClothPlan.StandsIn(true, true, true, 150, most, 0f, 1f),          // room, near the edge, a second of it: kept
+            ClothPlan.StandsIn(true, true, true, 150, most, 0f, 3f),          // ... three: given back
+            ClothPlan.StandsIn(true, true, true, 100, most, 0f, 0.1f),        // room well inside: given back at once
+            ClothPlan.StandsIn(true, false, false, 300, most, 9f, 0f),        // it may no longer: given back at once
+        };
+        var s = new System.Text.StringBuilder();
+        foreach (bool b in r) s.Append(b ? '1' : '0');
+        return s.ToString();
+    }
+
     /// <summary>Followers' delays for props 1..2000: least, most, mean, and the share of props one apart that are under 0.3 s apart.</summary>
     public static string Delays()
     {
@@ -2983,6 +3009,76 @@ public static class ClothTests
                blended.ToString("F3", Inv) + "," + held.ToString("G3", Inv) + "," + behind.ToString("F3", Inv) + "," + (100 * b.SeamGap).ToString("F1", Inv) + "," +
                b.MinZ.ToString("F2", Inv) + "," + b.MaxZ.ToString("F2", Inv) + "," + ms.ToString("F0", Inv) + "," + b.StepsRun + "," + b.Speed.ToString("F1", Inv) + "," +
                b.Width + "x" + b.Height;
+    }
+
+    /// <summary>
+    /// The swaps between a cloth and a loop standing in for it (LoopFrames, LoopMotion.ShiftTo /
+    /// ShareFor, FlagCloth.SetMotion): the shift that puts a flag at a frame does; the loop's
+    /// motion at that moment is the frame; a cloth given it at a heading is found nearest that
+    /// frame, at its own grid and (within one) at a finer one; stepped on a frame's time in the
+    /// loop's breeze it ends nearer the loop's next frame than where it began (it flies on); and
+    /// the shares of the breeze. Returns: shift ok, motion off the frame (m), the frames found,
+    /// its rms distance to the next frame after a frame's time and the frames' own rms apart (m),
+    /// the shares.
+    /// </summary>
+    public static string LoopSwaps()
+    {
+        FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 0f, false, 1f, FlagCut.Rectangle, 1f, false);
+        LoopBake bake = LoopBake.Make(s, FlagCloth.CellsAlong, true);
+        if (bake.Failed) return "failed";
+        var frames = new LoopFrames(bake);
+        int n = bake.Count, at = 17;
+        uint prop = 4711;
+        double clock = 123.456;
+        float[] x = new float[n], y = new float[n], z = new float[n], vx = new float[n], vy = new float[n], vz = new float[n];
+        float[] fx = new float[n], fy = new float[n], fz = new float[n], gx = new float[n], gy = new float[n], gz = new float[n];
+
+        float shift = LoopMotion.ShiftTo(at, clock, prop, frames.Frames, frames.FrameTime);
+        int a, b; float blend;
+        LoopMotion.FrameAt(clock + shift + 1e-4, prop, frames.Frames, frames.FrameTime, out a, out b, out blend);
+        bool shifted = a == at && blend < 0.01f && shift >= 0f && shift <= frames.Frames * frames.FrameTime;
+
+        frames.Motion(clock + shift + 1e-4, prop, x, y, z, vx, vy, vz);
+        bake.Frame(at, fx, fy, fz);
+        bake.Frame(at + 1, gx, gy, gz);
+        double off = 0, apart = 0;
+        for (int k = 0; k < n; k++)
+        {
+            off = Math.Max(off, Math.Abs(x[k] - fx[k]) + Math.Abs(y[k] - fy[k]) + Math.Abs(z[k] - fz[k]));
+            double dx = gx[k] - fx[k], dy = gy[k] - fy[k], dz = gz[k] - fz[k];
+            apart += dx * dx + dy * dy + dz * dz;
+        }
+        apart = Math.Sqrt(apart / n);
+
+        // A cloth at a heading given the loop's pose and motion: found at that frame.
+        float heading = 0.7f, cs = (float)Math.Cos(heading), sn = (float)Math.Sin(heading);
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), cs, sn, FlagCloth.CellsAlong, 0f, -1f, 0f);
+        bool fits = frames.Fits(c);
+        c.SetMotion(x, y, z, vx, vy, vz, heading, 1f / 60f);
+        int found = frames.Nearest(c, heading);
+        FlagCloth fine = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), cs, sn, 32, 0f, -1f, 0f);
+        fine.TakeShape(c, true);
+        int foundFine = frames.Nearest(fine, heading);
+
+        // Stepped on a frame's time in the loop's breeze along its heading: towards the next frame.
+        var job = new ClothJob
+        {
+            Cloth = c, Steps = bake.FrameSteps, Size = LoopMotion.StepSize, Time = 0f, Speed = bake.Speed, Gusts = 0f,
+            DirX = cs, DirZ = sn, Height = StillPose.Height, Waviness = 1f, Length = 3f,
+        };
+        ClothWorker.Execute(ref job);
+        double on = 0;
+        for (int k = 0; k < n; k++)
+        {
+            double wx = gx[k] * cs - gz[k] * sn, wz = gx[k] * sn + gz[k] * cs;
+            double dx = c.X[k] - wx, dy = c.Y[k] - gy[k], dz = c.Z[k] - wz;
+            on += dx * dx + dy * dy + dz * dz;
+        }
+        on = Math.Sqrt(on / n);
+
+        return shifted + "," + off.ToString("G3", Inv) + "," + fits + "," + found + "," + foundFine + "," + on.ToString("F4", Inv) + "," + apart.ToString("F4", Inv) + "," +
+               c.IsFinite() + "," + LoopMotion.ShareFor(5.2f, 9.6f).ToString("G3", Inv) + "/" + LoopMotion.ShareFor(0.5f, 9.6f).ToString("G3", Inv) + "/" +
+               LoopMotion.ShareFor(30f, 9.6f).ToString("G3", Inv) + "/" + LoopMotion.ShareFor(7.5f, 9.6f).ToString("G3", Inv);
     }
 
     /// <summary>
@@ -5577,6 +5673,8 @@ Check "a like flag takes a settled one's motion turned to it, exactly; the other
 Check "and flies on from it: no jump, no tear, no knot, as far out as one settled on its own" ((N $sc[2]) -le 2.0 -and (N $sc[3]) -le 1.15 -and [int]$sc[4] -eq 0 -and [math]::Abs((N $sc[5]) - 1) -le 0.1) ("first own step " + $sc[2] + "x the donor's mean, worst stretch " + $sc[3] + " in 3 s, " + $sc[4] + " knot(s), reach " + $sc[5] + "x the own-settled one's")
 $ss = [ClothTests]::SettleStepRule()
 Check "a settle's steps: a thread's share at its cost, within the budget's room, one at least, never past what is left" ($ss -eq "11,2,1,3,0,1") $ss
+$si = [ClothTests]::StandInRule()
+Check "a loop stands in for a waving flag with no room: after a moment frozen, kept while there is none, given back inside the moving ones or after 3 s of room, at once when it may not" ($si -eq "010011000") $si
 $ky = [ClothTests]::ShareKeys() -split ","
 Check "the share key: designs, colours and details alike; length, waviness, pole, self-collision not; wind in 25% steps; a pole's angles in 30 deg round 360, none without; a tilted flag's 10 deg; joined within 30% and 25 / any / 7 deg" (($ky -join ",") -eq "True,True,True,True,True,True,True") ($ky -join ",")
 $ls = [ClothTests]::LoadShared() -split "\|"
@@ -5811,6 +5909,8 @@ Check "a loop's key: the cloth and its breeze, never the design (colours, wear, 
 Check "a loop's length grows as the root of the flag's (5 s to 3 m, 12 s at most), a frame every 2 steps under 6 m, 4 from there; no finer than High" ($ln[4] -eq "5.0/2 5.0/2 7.1/4 10.0/4 12.0/4" -and $ln[5] -eq "32 18") ("1, 3, 6, 12, 30 m: " + $ln[4] + "; detail under Extreme / Low: " + $ln[5])
 $cl = [ClothTests]::CodecLoop()
 Check "a looping flag through the save: kept; a motion past the last known pulled back to waving; it moves, keeps no one shape, says so" ($cl -eq "3,0,True,False,True") $cl
+$lsw = [ClothTests]::LoopSwaps() -split ","
+Check "a loop standing in: the shift puts a flag at a frame, its motion there is the frame, a cloth given it is found at that frame (within one at a finer grid) and flies on towards the next; the breeze's shares" ($lsw.Count -ge 9 -and $lsw[0] -eq "True" -and (N $lsw[1]) -lt 1e-3 -and $lsw[2] -eq "True" -and $lsw[3] -eq "17" -and [math]::Abs([int]$lsw[4] - 17) -le 1 -and (N $lsw[5]) -lt (N $lsw[6]) -and $lsw[7] -eq "True" -and $lsw[8] -eq "0.5/0.25/1/0.75") ($lsw -join ", ")
 $lsp = [ClothTests]::LoopSplit() -split ","
 Check "a loop is the same however its steps are split into jobs, and made twice; between two frames is their blend" ($lsp[0] -eq "0" -and $lsp[1] -eq "0" -and (N $lsp[3]) -lt 1e-6) ("split into " + $lsp[2] + " jobs: " + $lsp[0] + " off; twice: " + $lsp[1] + "; between: " + $lsp[3])
 foreach ($case in @(

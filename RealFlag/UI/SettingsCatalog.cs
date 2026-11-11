@@ -2262,6 +2262,23 @@ namespace RealFlag.UI
                 },
             });
 
+            // Loops stand in (2026-11-11; the author: flags past the ones that move "just stop
+            // animating until i pan my camera near them ... if we can substitute that with Loop
+            // that would be so much better"): outside the Quality levels, as the threads are.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Bool = Settings.LoopStandIns,
+                DefaultBool = Settings.Defaults.LoopStandIns,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: loops stand in for flags with no room to wave = " + OnOff(Settings.LoopStandIns)());
+                    FlagRenderer.ClothOptionsChanged();
+                },
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Toggle,

@@ -450,6 +450,8 @@
   <String key="ClothThreads.Auto">Auto ({0})</String>
   <String key="SharedMotion.Label">Mouvement partagé</String>
   <String key="SharedMotion.Tooltip">Les drapeaux semblables reprennent le mouvement d’un seul, ce qui économise beaucoup de CPU quand il y a beaucoup de drapeaux.</String>
+  <String key="LoopStandIns.Label">Boucle pour les grands groupes</String>
+  <String key="LoopStandIns.Tooltip">Quand trop de drapeaux sont visibles pour être simulés, les autres jouent une boucle au lieu de rester immobiles.</String>
 
   <String key="Group.Diagnostics">Diagnostic</String>
   <String key="DetailedLogging.Label">Journal détaillé</String>

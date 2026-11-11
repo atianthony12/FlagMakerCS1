@@ -512,6 +512,42 @@ namespace RealFlag.Flags
             return Math.Max(1, Math.Min(left, steps));
         }
 
+        /// <summary>A waving flag with no room to move takes a loop after standing frozen this long, seconds (<see cref="StandsIn"/>).</summary>
+        public const float StandInAfter = 0.25f;
+
+        /// <summary>A flag standing in gets its cloth back after this long with room to move, seconds, or at once well inside the moving ones (<see cref="StandInInside"/>).</summary>
+        public const float StandInBack = 3f;
+
+        /// <summary>... this share of the most that move: nearer the edge than that it waits <see cref="StandInBack"/>.</summary>
+        public const float StandInInside = 0.85f;
+
+        /// <summary>
+        /// Whether a loop stands in for a waving flag this frame (2026-11-11; the author: "if I
+        /// place hundreds of flags that are Wavy ... a part of them just stops animating until i
+        /// pan my camera near them ... if we can substitute that with Loop that would be so much
+        /// better"): the flags past the most that move stood frozen at their last step.
+        /// <paramref name="standing"/>: it does already. <paramref name="able"/>: it may (the
+        /// option on, not in the player's hand, the wind along each flag's own rotation -- a loop
+        /// flies that way alone). <paramref name="room"/>: the plan would move it this frame --
+        /// it is the <paramref name="index"/>th biggest on the screen of the <paramref name="most"/>
+        /// that move. Taken after <see cref="StandInAfter"/> with no room
+        /// (<paramref name="idle"/>, seconds since it last had some); given back at once when it
+        /// no longer may, and with room only well inside the moving ones or after
+        /// <see cref="StandInBack"/> of it (<paramref name="back"/>, seconds since it last had
+        /// none) -- the flags are ordered by their size on the screen, so a row of like ones
+        /// trades places at every nudge of the camera, and each one back costs a cloth to settle.
+        /// </summary>
+        public static bool StandsIn(bool standing, bool able, bool room, int index, int most, float idle, float back)
+        {
+            if (!able)
+                return false;
+            if (!standing)
+                return !room && idle >= StandInAfter;
+            if (!room)
+                return true;
+            return !(index < StandInInside * most || back >= StandInBack);
+        }
+
         /// <summary>
         /// The frame time the budget is planned on: down to a shorter frame at once, up a tenth of
         /// the way a frame to a longer one -- one slow frame (a save, a hitch) does not plan the

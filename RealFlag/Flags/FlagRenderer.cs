@@ -215,6 +215,25 @@ namespace RealFlag.Flags
         public LoopEntry Loop;
         public LoopEntry LoopWanted;
         public int LoopCells;
+
+        /// <summary>
+        /// For a loop standing in for a waving flag with no room to move (FlagRenderer.PlanStandIn):
+        /// its place among the flags in view this frame, biggest on the screen first (Plan), and the
+        /// real time it last had room to move, and last had none.
+        /// </summary>
+        public int Order;
+        public float RoomAt, NoRoomAt;
+
+        /// <summary>
+        /// Seconds added to the loops' clock for this flag (DrawLoop): a loop taken by a flag
+        /// that had a cloth begins at the frame nearest that cloth's pose (FlagLoop.Nearest). The
+        /// share of its breeze the loop standing in was looked up at (LoopMotion.ShareFor), with
+        /// <see cref="LoopWanted"/>. And the loop a cloth made this frame takes its pose from
+        /// (PlanStandIn's give-back; PlanFlag consumes it).
+        /// </summary>
+        public float LoopShift;
+        public float StandInShare;
+        public LoopEntry PoseFrom;
     }
 
     /// <summary>
@@ -810,6 +829,7 @@ namespace RealFlag.Flags
             _threadsChosen = Settings.ClothThreads != null ? Settings.ClothThreads.value : Settings.Defaults.ClothThreads;
             _sharing = Settings.SharedMotion == null || Settings.SharedMotion.value;
             _load.Sharing = _sharing;
+            _standIns = Settings.LoopStandIns == null || Settings.LoopStandIns.value;
         }
 
         /// <summary>The "Cloth threads" option as read, and as the threads running were started with.</summary>
@@ -2009,6 +2029,13 @@ namespace RealFlag.Flags
             _demand = 0.0;
             float now = Time.realtimeSinceStartup;
 
+            // Loops standing in for waving flags (PlanStandIn): none taken or given back while frozen.
+            _planFrozen = frozen;
+            _standing = 0;
+            _frozenPastMost = 0;
+            _frozenTouching = 0;
+            _frozenNoLoop = 0;
+
             // Shared motion's sources first (they always step: each stands for several flags), on
             // their followers' wind of last frame; then this frame's followers counted afresh.
             _planFrame++;
@@ -2035,9 +2062,18 @@ namespace RealFlag.Flags
                 PlanFlag(_ghost, ghostDt, wind, true, true, ref spent, ref settles);
             }
 
+            // Each flag's place among those that want a cloth's room, biggest on the screen first:
+            // one that plays its own loop, stands still or lies flat takes none (2026-11-11: the
+            // author's 3,022 loop flags in view held most of the MaxMoving places by their size, and
+            // his 320 waving ones among them stood frozen, or traded places at every camera move).
             int n = InView();
+            int rank = 0;
             for (int i = 0; i < n; i++)
-                _order[i].WaitedLast = _order[i].Waiting;
+            {
+                FlagInstance f = _order[i];
+                f.WaitedLast = f.Waiting;
+                f.Order = FlagMotion.KeepsShape(f.Spec.Motion) || (f.Spec.Motion == FlagMotion.Loop && f.Cloth == null) ? -1 : rank++;
+            }
 
             for (int pass = 0; pass < 2; pass++)
             {
@@ -2048,7 +2084,7 @@ namespace RealFlag.Flags
                     if (f.WaitedLast != waited)
                         continue;
 
-                    bool moving = i < MaxMoving && f.Pixels >= MovePixels;
+                    bool moving = (f.Order >= 0 ? f.Order : i) < MaxMoving && f.Pixels >= MovePixels;
 
                     // Paused, frozen: only the flags being handled step, for a moment, slowing to a still.
                     // Under a load even the coarsest cannot take, the rest slow evenly (ClothLoad);
@@ -2099,7 +2135,7 @@ namespace RealFlag.Flags
                 // (A flag that plays a loop has nothing to settle: it takes its loop the frame it is seen.)
                 bool due = FlagMotion.KeepsShape(f.Spec.Motion) ? f.Cloth == null || f.Pose != null
                          : f.Spec.Motion == FlagMotion.Loop ? f.Cloth != null && !f.Settled
-                         : f.Cloth == null || !f.Settled;
+                         : !StandingIn(f) && (f.Cloth == null || !f.Settled);   // (nor has one a loop stands in for)
                 if (!due)
                     continue;
 
@@ -2561,25 +2597,42 @@ namespace RealFlag.Flags
             if (f.Spec.Motion == FlagMotion.Loop && PlanLoop(f, ghost))
                 return;
 
+            // Waving, with no room to move (past MaxMoving): a loop stands in for its frozen cloth,
+            // until it has room again -- then a new cloth settles behind the loop, as below.
+            if (f.Spec.Motion == FlagMotion.Waves && PlanStandIn(f, moving, ghost, wind))
+                return;
+
             Vector3 start = wind.DirectionFor(f.Angle);
             if (f.Cloth == null)
             {
                 // Made and settled at 18 cells (six 1/30 s steps a frame at 40 would be 35 ms of
                 // one thread), then made finer as its size on the screen asks (ChooseDetail),
                 // hanging from its hoist's line (FlagOrientation, set by Place).
-                f.Detail = FlagCloth.CellsAlong;
+                // A loop that stood in for it hands its pose on (PlanStandIn): the cloth is made at
+                // the loop's own grid and flies on from where the loop is, neither laid out nor settled.
+                LoopEntry from = f.PoseFrom;
+                f.PoseFrom = null;
+                FlagLoop pose = from != null && !from.Gone ? from.Loop : null;
+
+                f.Detail = pose != null ? from.Detail : FlagCloth.CellsAlong;
                 f.Cloth = new FlagCloth(f.Spec.Length, f.Spec.Height, FlagFabric.Standard(f.Spec.Waviness), start.x, start.z, f.Detail,
                                         f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Spec.Cut, f.Spec.CutDepth);
                 f.Cloth.SelfCollision = _selfCollision;
+                if (pose != null && !pose.Places.Fits(f.Cloth))
+                    pose = null;
 
                 // A banner in front of its back plate is laid out in front of it, whatever the wind;
                 // a level hoist's banner laid hanging, not level along the wind (FlagCloth.LayOutNew).
                 ApplyPlate(f.Cloth, f);
                 f.Cloth.SetHolds(f.Spec.HeldNow, f.Fly.x, f.Fly.y, f.Fly.z);
-                f.Cloth.LayOutNew(start.x, start.z);
+                if (pose == null)
+                {
+                    f.Cloth.LayOutNew(start.x, start.z);
 
-                // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
-                f.Cloth.Calm(FlagCloth.CalmTime);
+                    // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
+                    f.Cloth.Calm(FlagCloth.CalmTime);
+                }
+
                 f.Mesh = new FlagMesh(f.Cloth, f.Refine);
                 f.Refine = f.Mesh.Refine;
                 f.Settled = false;
@@ -2598,6 +2651,9 @@ namespace RealFlag.Flags
                     f.PoleShape.ApplyTo(f.Cloth, f.Fly.x, f.Fly.y, f.Fly.z);
                     f.PoleApplied = true;
                 }
+
+                if (pose != null)
+                    TakePose(f, pose);
             }
 
             f.Cloth.GroundY = f.Ground - f.Anchor.y;
@@ -4122,7 +4178,7 @@ namespace RealFlag.Flags
                 }
 
                 Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept; " +
-                           looping + " playing a loop, " + LoopsText() + "), " +
+                           looping + " playing a loop, " + LoopsText() + StandInsText() + "), " +
                            VisibleCount + " in view (" + unshown + " not drawn yet: settling" +
                            (_released > 0 ? "; " + _released + " cloth(s) let go out of view so far" : "") + "), settled in " + seconds.ToString("F0") + " s: " +
                            _settledSeen + " in view, " + _settledUnseen + " out of view, " + _settleCopies + " from a like flag's shape; " + _moving + " moving, " + _waiting +
@@ -4156,6 +4212,8 @@ namespace RealFlag.Flags
             _settledSeen = 0;
             _settledUnseen = 0;
             _settleCopies = 0;
+            _standInsTaken = 0;
+            _standInsBack = 0;
             _nextReport = now + 5f;
         }
 

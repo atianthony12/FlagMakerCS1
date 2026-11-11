@@ -446,6 +446,8 @@
   <String key="ClothThreads.Auto">Auto ({0})</String>
   <String key="SharedMotion.Label">Shared motion</String>
   <String key="SharedMotion.Tooltip">Similar flags reuse one flag's movement, which saves a lot of CPU when there are many flags.</String>
+  <String key="LoopStandIns.Label">Loop in big crowds</String>
+  <String key="LoopStandIns.Tooltip">When too many flags are in view to simulate, the rest play a loop instead of standing still.</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>
   <String key="DetailedLogging.Label">Detailed logging</String>

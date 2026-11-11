@@ -1362,6 +1362,35 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The cloth takes the places AND the motion a cloth of the same grid had in the flag's own
+        /// frame, turned <paramref name="radians"/> about the vertical (as <see cref="SetShape"/>),
+        /// and steps on from them: the velocities given, its places before a step of
+        /// <paramref name="step"/> seconds back along them. A loop that stood in for a waving flag
+        /// hands its pose back this way (FlagLoop.Motion, 2026-11-11): the new cloth flies on from
+        /// where the loop was, not settled afresh from another shape. Not let down (no Calm): it
+        /// is already flying.
+        /// </summary>
+        public void SetMotion(float[] x, float[] y, float[] z, float[] vx, float[] vy, float[] vz, float radians, float step)
+        {
+            float c = (float)Math.Cos(radians), s = (float)Math.Sin(radians);
+            for (int k = 0; k < Count; k++)
+            {
+                X[k] = x[k] * c - z[k] * s;
+                Y[k] = y[k];
+                Z[k] = x[k] * s + z[k] * c;
+                Vx[k] = vx[k] * c - vz[k] * s;
+                Vy[k] = vy[k];
+                Vz[k] = vx[k] * s + vz[k] * c;
+                PrevX[k] = X[k] - Vx[k] * step;
+                PrevY[k] = Y[k] - Vy[k] * step;
+                PrevZ[k] = Z[k] - Vz[k] * step;
+            }
+
+            _knotted = 0f;
+            Resume();
+        }
+
+        /// <summary>
         /// Its places, places before and velocities were written from outside (shared motion:
         /// MotionRecord.Play) and it steps on from them: the held particles back on its own hoist's
         /// line, the normals made, the self-collision list and the prediction made afresh.
