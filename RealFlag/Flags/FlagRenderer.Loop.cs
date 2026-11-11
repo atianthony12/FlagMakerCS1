@@ -24,6 +24,9 @@ namespace RealFlag.Flags
         /// <summary>Real time: first asked for, last asked for, last asked for by a flag in the player's hand, and when its making began.</summary>
         public float Since, Wanted, InHand = -1e6f, Began;
 
+        /// <summary>Real time: last asked for by a flag that waits for it undrawn (no cloth to wave meanwhile).</summary>
+        public float Waited = -1e6f;
+
         /// <summary>No longer kept (let go, or never made): a flag still naming it looks its loop up again.</summary>
         public bool Gone;
     }
@@ -66,6 +69,17 @@ namespace RealFlag.Flags
         /// </summary>
         private const double BakeMs = 6.0;
         private const double BakeMsInHand = 12.0;
+
+        /// <summary>
+        /// A loop the player is waiting for -- one in hand, or one whose flags wait undrawn (a
+        /// city just loaded) -- gets this share of the frame itself, however long the frame: its
+        /// job runs on a cloth thread while the frame is drawn, so a long frame has that much
+        /// room. Held to 4 frames of <see cref="BakeMs"/> (24 ms) it crawled at a low frame rate:
+        /// the author's city of 3,019 loop flags, 2026-11-11, loaded at 7-32 fps and its one loop
+        /// took 11.8 s to make, the flags undrawn meanwhile (3.7 s when it was first made, in
+        /// hand at 77 fps; ~2.8 s of a thread's work).
+        /// </summary>
+        private const double BakeShareWaited = 0.75;
 
         /// <summary>A loop whose making failed for want of room is tried again after this long, seconds.</summary>
         private const float RetrySeconds = 60f;
@@ -164,7 +178,11 @@ namespace RealFlag.Flags
                 return false;
 
             // Not made yet: a flag with a cloth, or in hand, waves meanwhile; the rest wait.
-            return f.Cloth == null && !inHand;
+            if (f.Cloth != null || inHand)
+                return false;
+
+            e.Waited = now;
+            return true;
         }
 
         /// <summary>
@@ -300,6 +318,10 @@ namespace RealFlag.Flags
                     // Some steps of it, as a job: what its share of a thread's frame holds.
                     LoopBake bake = e.Bake;
                     double room = (inHand ? BakeMsInHand : BakeMs) * Mathf.Clamp(_frameTime / Step, 1f, 4f);
+
+                    // Waited for (in hand, or its flags undrawn): most of the frame itself.
+                    if (inHand || now - e.Waited < Unwanted)
+                        room = Math.Max(room, BakeShareWaited * _frameTime * 1000.0);
                     double stepCost = Math.Max(1e-6, (double)bake.SubSteps * bake.Count * _unitCost);
                     bake.StepsNext = (int)Math.Max(bake.FrameSteps, Math.Min(4096.0, room / stepCost));
                     spent += bake.StepsNext * stepCost;
