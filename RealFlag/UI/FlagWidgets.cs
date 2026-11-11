@@ -228,8 +228,14 @@ namespace RealFlag.UI
 
         private readonly OwnedTextureSprite _sprite;
         private readonly Vector2 _box;
-        private int _cut = -1, _hoist = -1;
+        private int _cut = -1, _hoist = -1, _held = -1;
         private float _depth = -1f;
+
+        /// <summary>A held edge's gold, pixels from the edge in (the hold row's, FlagHold).</summary>
+        private const float HeldPixels = 2.5f;
+
+        /// <summary>A held corner's gold runs this share of the flag along each edge from it.</summary>
+        private const float HeldCorner = 0.28f;
 
         /// <param name="parent">The button it is drawn on.</param>
         /// <param name="at">The box's top left corner on it.</param>
@@ -243,15 +249,17 @@ namespace RealFlag.UI
             _sprite.relativePosition = at;
         }
 
-        public void Show(int cut, float depth, int hoist)
+        /// <param name="held">FlagHold bits drawn in gold along their edges (the hold row's buttons); 0 none.</param>
+        public void Show(int cut, float depth, int hoist, int held = 0)
         {
             Texture2D texture = _sprite.Own;
-            if (cut == _cut && hoist == _hoist && Mathf.Abs(depth - _depth) < 1e-3f && texture != null)
+            if (cut == _cut && hoist == _hoist && held == _held && Mathf.Abs(depth - _depth) < 1e-3f && texture != null)
                 return;
 
             _cut = cut;
             _depth = depth;
             _hoist = hoist;
+            _held = held;
             int w = Mathf.Max(4, Mathf.RoundToInt(_box.x * PixelsPerUnit)), h = Mathf.Max(4, Mathf.RoundToInt(_box.y * PixelsPerUnit));
             if (texture == null || texture.width != w || texture.height != h)
             {
@@ -315,6 +323,8 @@ namespace RealFlag.UI
 
                     Color32 c = ClothColour;
                     c.a = (byte)(255 * inside / (S * S));
+                    if (inside > 0 && held != 0 && Held(held, cut, depth, top, x + 0.5f - fx, py + 0.5f - fy, fw, fh))
+                        c = new Color32(BarColour.r, BarColour.g, BarColour.b, c.a);
                     pixels[row * w + x] = c;
                 }
             }
@@ -322,6 +332,27 @@ namespace RealFlag.UI
             texture.SetPixels32(pixels);
             texture.Apply(false);
             _sprite.texture = texture;
+        }
+
+        /// <summary>
+        /// The pixel at (x, y) from the flag's corner (fw x fh as seen) lies on a held edge: within
+        /// <see cref="HeldPixels"/> of the cloth's first or last row, of its fly's end (the cut's
+        /// outline, FlagCut.Edge), or of either near the far corners.
+        /// </summary>
+        private static bool Held(int held, int cut, float depth, bool top, float x, float y, float fw, float fh)
+        {
+            float ax = x / fw, ay = y / fh;
+            float u = top ? ay : ax, v = top ? ax : ay;
+            float perU = top ? fh : fw, perV = top ? fw : fh;
+            float end = Flags.FlagCut.Edge(cut, depth, Mathf.Clamp01(v));
+            bool first = v * perV < HeldPixels, last = (1f - v) * perV < HeldPixels, fly = (end - u) * perU < HeldPixels;
+            if ((held & Flags.FlagHold.TopEdge) != 0 && first) return true;
+            if ((held & Flags.FlagHold.BottomEdge) != 0 && last) return true;
+            if ((held & Flags.FlagHold.FlyEdge) != 0 && fly) return true;
+            if ((held & Flags.FlagHold.FlyCorners) != 0 &&
+                ((fly && (v < HeldCorner || v > 1f - HeldCorner)) || ((first || last) && u > end - HeldCorner)))
+                return true;
+            return false;
         }
     }
 

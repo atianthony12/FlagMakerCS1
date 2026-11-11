@@ -129,7 +129,7 @@ namespace RealFlag.Flags
         /// <summary>
         /// What makes a loop: every flag with the same key plays the same one. The cloth's size,
         /// cut, hoist line, fabric, halyard and back plate, its share of the breeze, the detail it
-        /// is made at and whether the cloth collides with itself.
+        /// is made at, whether the cloth collides with itself, and its take (FlagSpec.Take).
         /// </summary>
         public static string Key(FlagSpec spec, int detail, bool selfCollision)
         {
@@ -137,7 +137,7 @@ namespace RealFlag.Flags
             return spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
                    spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
                    (selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "") + "|" +
-                   spec.WindShare.ToString("R", inv) + "|" + (spec.HasBackPlate ? 1 : 0) + "|" + detail;
+                   spec.WindShare.ToString("R", inv) + "|" + (spec.HasBackPlate ? 1 : 0) + "|" + detail + "|" + spec.Take + "|" + spec.HeldNow;
         }
 
         /// <summary>
@@ -300,7 +300,7 @@ namespace RealFlag.Flags
         public float FrameMove { get; private set; }
         public float WrapMove { get; private set; }
 
-        private readonly float _waviness, _length;
+        private readonly float _waviness, _length, _fieldX, _fieldZ;
         private readonly bool _smoothEdges;
         private readonly int _settleSteps, _blend, _minFrames, _maxFrames, _recordFrames;
         private readonly float[] _rx, _ry, _rz;
@@ -327,6 +327,9 @@ namespace RealFlag.Flags
             _length = spec.Length;
             _smoothEdges = smoothEdges;
 
+            // Its take (FlagSpec.Take): where in the breeze's eddies it is flown, as a still flag's.
+            StillPose.FieldFor(spec.Take, out _fieldX, out _fieldZ);
+
             Cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, detail, hx, hy, hz, spec.Cut, spec.CutDepth);
             Cloth.SelfCollision = selfCollision;
             Cloth.SetHalyard(spec.OnHalyard);
@@ -334,6 +337,9 @@ namespace RealFlag.Flags
             // Its back plate (FlagRenderer.ApplyPlate): the front is the flag's -Z.
             if (spec.HasBackPlate)
                 Cloth.SetPlate(hz, -hx);
+
+            // Its held edges, along its fly at rest (before it is laid out: laid where they hold it).
+            Cloth.SetHolds(spec.HeldNow, fx, fy, fz);
             Cloth.LayOut(fx, fy, fz, true);
 
             Columns = Cloth.Columns;
@@ -417,6 +423,8 @@ namespace RealFlag.Flags
                     Height = StillPose.Height,
                     Waviness = _waviness,
                     Length = _length,
+                    AnchorX = _fieldX,
+                    AnchorZ = _fieldZ,
                 };
                 work += ClothWorker.Execute(ref job);
                 StepsRun += n;

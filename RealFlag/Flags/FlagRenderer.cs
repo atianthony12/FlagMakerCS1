@@ -1837,7 +1837,7 @@ namespace RealFlag.Flags
         {
             return a.Pattern == b.Pattern && a.Colour1 == b.Colour1 && a.Colour2 == b.Colour2 && a.Colour3 == b.Colour3 &&
                    a.SameShape(b) && Mathf.Approximately(a.Waviness, b.Waviness) && Mathf.Approximately(a.WindShare, b.WindShare) &&
-                   a.Motion == b.Motion && a.Name == b.Name && a.BackPlate == b.BackPlate &&
+                   a.Motion == b.Motion && a.Take == b.Take && a.Held == b.Held && a.Name == b.Name && a.BackPlate == b.BackPlate &&
                    (a.Country ?? string.Empty) == (b.Country ?? string.Empty) && a.SamePole(b) && a.SamePoleColours(b) && a.SameHoist(b) &&
                    Mathf.Approximately(a.Darkness, b.Darkness) && a.SameImage(b) && a.SameWeather(b);
         }
@@ -2400,7 +2400,7 @@ namespace RealFlag.Flags
             float hx, hy, hz, fx, fy, fz;
             FlagOrientation.Frame(0f, f.Spec.Tilt, f.Spec.Lean, f.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
             FlagCloth own = StillCloth(f.Spec, motion, hx, hy, hz, fx, fy, fz);
-            f.Pose = new StillPoseRun(own, fx, fy, fz, f.Spec.Waviness, f.Spec.Length);
+            f.Pose = new StillPoseRun(own, fx, fy, fz, f.Spec.Waviness, f.Spec.Length, f.Spec.Take);
             f.PoseKey = key;
         }
 
@@ -2415,6 +2415,10 @@ namespace RealFlag.Flags
             var cloth = new FlagCloth(spec.Length, spec.Height, FlagFabric.Standard(spec.Waviness), fx, fz, FlagCloth.CellsAlong, hx, hy, hz,
                                       spec.Cut, spec.CutDepth);
             cloth.SelfCollision = _selfCollision;
+
+            // Held edges (none on a flat flag: HeldNow), before it is laid: laid where they hold it.
+            if (motion == FlagMotion.Still)
+                cloth.SetHolds(spec.HeldNow, fx, fy, fz);
             StillPose.Lay(cloth, motion, spec.OnHalyard, fx, fy, fz);
             return cloth;
         }
@@ -2425,7 +2429,8 @@ namespace RealFlag.Flags
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             return spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
                    spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
-                   (_selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "");
+                   (_selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "") + "|" +
+                   spec.Take + "|" + spec.HeldNow;
         }
 
         /// <summary>A still shape made in the flag's own frame (heading 0): kept for the next flag like it.</summary>
@@ -2567,8 +2572,11 @@ namespace RealFlag.Flags
                                         f.Hoist.x, f.Hoist.y, f.Hoist.z, f.Spec.Cut, f.Spec.CutDepth);
                 f.Cloth.SelfCollision = _selfCollision;
 
-                // A banner in front of its back plate is laid out in front of it, whatever the wind.
+                // A banner in front of its back plate is laid out in front of it, whatever the wind;
+                // a level hoist's banner laid hanging, not level along the wind (FlagCloth.LayOutNew).
                 ApplyPlate(f.Cloth, f);
+                f.Cloth.SetHolds(f.Spec.HeldNow, f.Fly.x, f.Fly.y, f.Fly.z);
+                f.Cloth.LayOutNew(start.x, start.z);
 
                 // Let down into the air while it settles and a moment after, not dropped flat (FlagCloth.CalmDamping).
                 f.Cloth.Calm(FlagCloth.CalmTime);
@@ -2596,6 +2604,21 @@ namespace RealFlag.Flags
 
             // Its back plate, every frame: the cloth may be new (a detail, a size), the hoist turned, the option changed.
             ApplyPlate(f.Cloth, f);
+
+            // Its held edges (FlagHold), every frame: a turned flag turns its held cloth with it;
+            // holds changed on the panel lay the cloth out afresh where they hold it, let down.
+            int held = f.Spec.HeldNow;
+            if (f.Cloth.Holds != held)
+            {
+                f.Cloth.SetHolds(held, f.Fly.x, f.Fly.y, f.Fly.z);
+                f.Cloth.LayOutNew(start.x, start.z);
+                f.Cloth.Calm(FlagCloth.CalmTime);
+                f.LaidOut = false;
+            }
+            else if (held != FlagHold.None)
+            {
+                f.Cloth.SetHolds(held, f.Fly.x, f.Fly.y, f.Fly.z);
+            }
 
             // Settled and not moving this frame (small on the screen, or past MaxMoving): nothing
             // of the city, the wind or the air is worth reading for it -- its city is read again
@@ -2901,6 +2924,9 @@ namespace RealFlag.Flags
         {
             if (ghost || f.Prop == 0 || !f.Settled || f.Cloth == null || f.Cloth.Calming || f.AwakeUntil > now || f.Prop == FlagEditor.Selected)
                 return false;
+            // Held edges (FlagHold): a follower is turned by the wind's angle, its holds by its heading -- never shared.
+            if (f.Spec.HeldNow != FlagHold.None)
+                return false;
             if (f.Spec.HasPole && !f.PoleApplied)
                 return false;
             if (_cityCollision && f.Surface == null)
@@ -2922,6 +2948,9 @@ namespace RealFlag.Flags
         private bool CopyFit(FlagInstance f)
         {
             if (f.Prop == 0 || f.Cloth == null || FlagMotion.KeepsShape(f.Spec.Motion) || f.Cloth.Detail != FlagCloth.CellsAlong)
+                return false;
+            // Held edges: the copy is turned by the wind's angle, the holds by the heading (as CanShare).
+            if (f.Spec.HeldNow != FlagHold.None)
                 return false;
             if (f.Prop == FlagEditor.Selected || f.AwakeUntil > Time.realtimeSinceStartup)
                 return false;
@@ -4050,6 +4079,9 @@ namespace RealFlag.Flags
             Shader.SetGlobalVector(FlagLook.IdSunDir, new Vector4(dir.x, dir.y, dir.z, 0f));
             Shader.SetGlobalVector(FlagLook.IdSunColor, new Vector4(light.r, light.g, light.b, 0f));
 
+            // How wet the cloth gets in the rain (the shader's RFWetness: the ground's wetness x this).
+            Shader.SetGlobalFloat(FlagLook.IdWetScale, Settings.RainWetness != null ? Mathf.Clamp01(Settings.RainWetness.value) : Settings.Defaults.RainWetness);
+
             // The sky a glossy pole reflects: Real Glass's, else the game's (PoleSky).
             try
             {
@@ -4265,7 +4297,8 @@ namespace RealFlag.Flags
             bool pole = g.PoleMesh != null && spec.HasPole && _poleMaterial != null && g.PoleBlockReady;
             if (pole)
                 g.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, 0f);   // the row's poles get no Real Glass finish: their own sky
-            bool turns = FlagMotion.KeepsShape(spec.Motion) || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f;
+            bool turns = FlagMotion.KeepsShape(spec.Motion) || spec.HoistedFrom != FlagHoist.Side || spec.Tilt != 0f || spec.Lean != 0f ||
+                         spec.HeldNow != FlagHold.None;
             float lift = FlagTool.Lift;
 
             for (int i = 1; i < _linePoints.Count; i++)

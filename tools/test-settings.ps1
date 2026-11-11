@@ -272,5 +272,28 @@ Check "an empty file is refused" ($r.Error -is [System.FormatException]) "True"
 $r = Parse "<FlagMaker><!-- a -- b --><A>1</A></FlagMaker>"
 Check "a '--' in a hand-written comment is refused, not half-read" ($r.Error -is [System.FormatException]) "True"
 
+# A row over bits (Row.MaskBits: the "Also held at" toggles, FlagHold): any sum of its choices is
+# read back as written, the rest of a number dropped -- a choice row would refuse 3 as "not one of".
+$rowType = $asm.GetType("RealFlag.UI.Row")
+$intType = $asm.GetType("RealFlag.IntSetting")
+$kindType = $asm.GetType("RealFlag.UI.RowKind")
+$applyInt = $asm.GetType("RealFlag.SettingsXml").GetMethod("ApplyInt", [System.Reflection.BindingFlags]"NonPublic, Static")
+$mask = [Activator]::CreateInstance($rowType)
+$bits = [Activator]::CreateInstance($intType, @("TestHeld", 0, $true))
+$rowType.GetField("Kind").SetValue($mask, [Enum]::Parse($kindType, "Segmented"))
+$rowType.GetField("Int").SetValue($mask, $bits)
+$rowType.GetField("ChoiceValues").SetValue($mask, [int[]]@(1, 2, 4, 8))
+$rowType.GetField("MaskBits").SetValue($mask, $true)
+$said = $applyInt.Invoke($null, @($mask, "3"))
+Check "bits: 3 (top and bottom) read as written" ("" + ($null -eq $said) + "," + $bits.value) "True,3"
+$said = $applyInt.Invoke($null, @($mask, "15"))
+Check "bits: 15 (all four) read as written" ("" + ($null -eq $said) + "," + $bits.value) "True,15"
+$said = $applyInt.Invoke($null, @($mask, "0"))
+Check "bits: 0 (none) read as written" ("" + ($null -eq $said) + "," + $bits.value) "True,0"
+$said = $applyInt.Invoke($null, @($mask, "19"))
+Check "bits: 19 pulled in to 3, and said" ("" + ($null -ne $said) + "," + $bits.value) "True,3"
+$said = $applyInt.Invoke($null, @($mask, "top"))
+Check "bits: words refused, the value kept" ("" + ($null -ne $said) + "," + $bits.value) "True,3"
+
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

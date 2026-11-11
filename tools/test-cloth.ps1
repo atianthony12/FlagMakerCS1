@@ -1779,7 +1779,7 @@ public static class ClothTests
         a = a.Sanitised();
         FlagSpec back;
         bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out back) && Math.Abs(back.PolePosition - 0.5f) < 1e-6f;
-        bool old = FlagSpec.Default.PolePosition == 1f && FlagCodec.Version == 18;
+        bool old = FlagSpec.Default.PolePosition == 1f && FlagCodec.Version >= 18;
         FlagSpec bad = a; bad.PolePosition = float.NaN;
         FlagSpec big = a; big.PolePosition = 3f;
         bool pulled = bad.Sanitised().PolePosition == 1f && big.Sanitised().PolePosition == 1f;
@@ -2746,6 +2746,128 @@ public static class ClothTests
             twice = Math.Max(twice, Math.Abs(a.X[k] - d.X[k]) + Math.Abs(a.Y[k] - d.Y[k]) + Math.Abs(a.Z[k] - d.Z[k]));
         }
         return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs;
+    }
+
+    /// <summary>
+    /// A still flag's takes (FlagSpec.Take, format 19): saved and read back, 18 read as the first,
+    /// pulled into 0..255, the next take never the first again; the take in SamePose and in the
+    /// loop's key; take 0 the shape as made before (the default argument the same as 0, exactly);
+    /// and how far apart two takes' shapes are -- the largest particle's distance, metres -- for a
+    /// 3 m side flag at waviness 100% and 30%, and a 3 m banner from its top (it hangs in calm air).
+    /// </summary>
+    public static string Takes()
+    {
+        FlagSpec a = FlagSpec.Default;
+        a.Motion = FlagMotion.Still; a.Take = 7; a.Held = FlagHold.TopEdge | FlagHold.FlyCorners;
+        a = a.Sanitised();
+        FlagSpec back;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out back) && back.Take == 7 && back.Held == 9 && FlagCodec.Version == 19;
+        bool old;
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, a);
+            w.Flush();
+            byte[] all = ms.ToArray();
+            byte[] body = new byte[all.Length - 2];
+            Array.Copy(all, body, body.Length);
+            FlagSpec o = FlagCodec.Read(new System.IO.BinaryReader(new System.IO.MemoryStream(body)), 18);
+            old = o.Take == 0 && o.Held == FlagHold.None && o.Motion == FlagMotion.Still;
+        }
+        FlagSpec big = a; big.Take = 300; big.Held = 0xF5;
+        FlagSpec neg = a; neg.Take = -4;
+        FlagSpec flat = a; flat.Motion = FlagMotion.Flat;
+        bool pulled = big.Sanitised().Take == FlagSpec.MaxTake && neg.Sanitised().Take == 0 && FlagSpec.NextTake(0) == 1 &&
+                      FlagSpec.NextTake(3) == 4 && FlagSpec.NextTake(FlagSpec.MaxTake) == 1 && big.Sanitised().Held == 5 && flat.HeldNow == 0;
+        FlagSpec other = a; other.Take = 8;
+        FlagSpec loose = a; loose.Held = FlagHold.None;
+        bool keyed = !a.SamePose(other) && a.SamePose(a) && LoopMotion.Key(a, 32, true) != LoopMotion.Key(other, 32, true) &&
+                     !a.SamePose(loose) && LoopMotion.Key(a, 32, true) != LoopMotion.Key(loose, 32, true);
+
+        float fx, fy, fz;
+        FlagCloth d = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(d, FlagMotion.Still, true, fx, fy, fz, 1f, 3f);
+        FlagCloth z = StillCloth(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(z, FlagMotion.Still, true, fx, fy, fz, 1f, 3f, 0);
+        bool first = Apart(d, z) == 0.0;
+
+        return round + "," + old + "," + pulled + "," + keyed + "," + first + "," +
+               TakesApart(3f, 667, FlagHoist.Side, true, 1f).ToString("F3", Inv) + "," +
+               TakesApart(3f, 667, FlagHoist.Side, true, 0.3f).ToString("F3", Inv) + "," +
+               TakesApart(3f, 1500, FlagHoist.Top, false, 1f).ToString("F3", Inv);
+    }
+
+    static double TakesApart(float length, int proportion, int hoisted, bool halyard, float waviness)
+    {
+        float fx, fy, fz;
+        FlagCloth a = StillCloth(length, proportion, hoisted, 0f, halyard, waviness, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(a, FlagMotion.Still, halyard, fx, fy, fz, waviness, length, 0);
+        FlagCloth b = StillCloth(length, proportion, hoisted, 0f, halyard, waviness, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(b, FlagMotion.Still, halyard, fx, fy, fz, waviness, length, 1);
+        FlagCloth c = StillCloth(length, proportion, hoisted, 0f, halyard, waviness, FlagMotion.Still, out fx, out fy, out fz);
+        StillPose.Make(c, FlagMotion.Still, halyard, fx, fy, fz, waviness, length, 2);
+        return Math.Min(Apart(a, b), Math.Min(Apart(a, c), Apart(b, c)));
+    }
+
+    static double Apart(FlagCloth a, FlagCloth b)
+    {
+        double most = 0;
+        for (int k = 0; k < a.Count; k++)
+        {
+            double dx = a.X[k] - b.X[k], dy = a.Y[k] - b.Y[k], dz = a.Z[k] - b.Z[k];
+            most = Math.Max(most, Math.Sqrt(dx * dx + dy * dy + dz * dz));
+        }
+        return most;
+    }
+
+    /// <summary>
+    /// A new waving cloth's first layout (FlagCloth.LayOutNew): a banner from its top hangs (its
+    /// highest free particle's height and its lowest's, metres; the most any lies behind its back
+    /// plate), a side flag exactly as the constructor laid it (the largest difference, metres).
+    /// </summary>
+    public static string LayOutNew()
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Top, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagCloth t = new FlagCloth(7f, 3f, FlagFabric.Standard(1f), 0f, 1f, FlagCloth.CellsAlong, hx, hy, hz);
+        t.SetPlate(hz, -hx);
+        t.LayOutNew(0.3f, -0.95f);
+        double top = double.MinValue, low = double.MaxValue, behind = 0;
+        for (int k = 0; k < t.Count; k++)
+        {
+            if (k % t.Columns == 0)
+                continue;
+            top = Math.Max(top, t.Y[k]);
+            low = Math.Min(low, t.Y[k]);
+            behind = Math.Max(behind, -(t.X[k] * hz + t.Z[k] * -hx));
+        }
+
+        // LayOutClear with nothing of the city round it (the city on, its surface not in reach):
+        // the author's 9 m and 19.2 m banners laid hanging too, not refused for their noise.
+        double clear = 0;
+        float[][] sizes = { new float[] { 9f, 5.5f }, new float[] { 19.2f, 9.6f } };
+        foreach (float[] size in sizes)
+        {
+            FlagCloth c = new FlagCloth(size[0], size[1], FlagFabric.Standard(0.5f), 0f, 1f, FlagCloth.CellsAlong, hx, hy, hz);
+            c.SetPlate(hz, -hx);
+            int left = c.LayOutClear(0.3f, -0.95f);
+            double lowest = double.MaxValue;
+            for (int k = 0; k < c.Count; k++)
+                lowest = Math.Min(lowest, c.Y[k]);
+            clear = Math.Max(clear, left + Math.Abs(lowest + size[0]));
+        }
+
+        FOrientation(out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagCloth s = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 0.6f, 0.8f, FlagCloth.CellsAlong, hx, hy, hz);
+        FlagCloth n = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 0.6f, 0.8f, FlagCloth.CellsAlong, hx, hy, hz);
+        n.LayOutNew(0.6f, 0.8f);
+        return top.ToString("F4", Inv) + "," + low.ToString("F3", Inv) + "," + behind.ToString("F4", Inv) + "," + Apart(s, n).ToString("G3", Inv) + "," +
+               clear.ToString("F3", Inv);
+    }
+
+    static void FOrientation(out float hx, out float hy, out float hz, out float fx, out float fy, out float fz)
+    {
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
     }
 
     /// <summary>
@@ -4274,9 +4396,9 @@ public static class ClothTests
             var w = new System.IO.BinaryWriter(ms);
             FlagCodec.Write(w, a);
             w.Flush();
-            // 17's body: 18's less its last float (the position on the pole).
+            // 17's body: 19's less its last two bytes (the take, the holds) and the float before them (the position on the pole).
             byte[] all = ms.ToArray();
-            body = new byte[all.Length - 4];
+            body = new byte[all.Length - 6];
             Array.Copy(all, body, body.Length);
             ms.Position = 0;
             FlagSpec as15 = FlagCodec.Read(new System.IO.BinaryReader(ms), 15);
@@ -4406,6 +4528,134 @@ public static class ClothTests
     /// the most any free particle was behind the plate after 2 s (m, negative: behind), the
     /// furthest in front, the worst stretch, knots, and whether a plate set to (0, 0) is none.
     /// </summary>
+    /// <summary>
+    /// A flag held at more than its hoist (FlagCloth.SetHolds, FlagHold bits), from its side at
+    /// heading 0 (its fly along +x, its plane z = 0), flown 20 s in <paramref name="wind"/> m/s at
+    /// <paramref name="yawDegrees"/> from its fly (0 along it, 90 across): finite, the worst
+    /// stretch, how far out of its plane the cloth goes (rms of z over the free cloth, metres),
+    /// how fast it moves there (rms of dz/dt, m/s: the ripple), knots, and the most a held
+    /// particle of its first row ended off its line (m; 0 when that edge is not held).
+    /// </summary>
+    public static string HeldRun(int mask, float length, float height, float wind, float yawDegrees, bool halyard, int cut)
+    {
+        return HeldRunAt(mask, length, height, wind, yawDegrees, halyard, cut, FlagHoist.Side, false, false);
+    }
+
+    /// <summary>
+    /// The same, hoisted from <paramref name="hoisted"/> (from its top: its hoist along +x, its
+    /// fly down, the plane still z = 0), in front of its back plate, or on a drawn pole (its
+    /// collider, as the game applies it).
+    /// </summary>
+    public static string HeldRunAt(int mask, float length, float height, float wind, float yawDegrees, bool halyard, int cut,
+                                   int hoisted, bool plate, bool pole)
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, hoisted, out hx, out hy, out hz, out fx, out fy, out fz);
+        double yaw = yawDegrees * Math.PI / 180.0;
+        float dirX = (float)Math.Cos(yaw), dirZ = (float)Math.Sin(yaw);
+        FlagCloth c = new FlagCloth(length, height, FlagFabric.Standard(1f), dirX, dirZ, FlagCloth.CellsAlong, hx, hy, hz, cut, FlagCut.DefaultDepth);
+        c.GroundY = -30f;
+        c.SetHalyard(halyard);
+        if (plate)
+            c.SetPlate(hz, -hx);
+        if (pole)
+        {
+            FlagSpec ps = FlagSpec.Default;
+            ps.Length = length; ps.Proportion = (int)Math.Round(1000f * height / length);
+            ps.Pole = FlagPoleStyle.Ball; ps.Ropes = halyard ? 2 : 0;
+            FlagPoleShape.For(ps.Sanitised(), 12f).ApplyTo(c, fx, fy, fz);
+        }
+        c.SetHolds(mask, fx, fy, fz);
+        c.LayOutNew(dirX, dirZ);
+        c.Calm(FlagCloth.CalmTime);
+        int knots = c.Unknotted;
+
+        float h10 = 12f, worst = 1f;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, h10), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        int steps = (int)(20f / dt);
+        double sumZ = 0, sumV = 0;
+        long nZ = 0, nV = 0;
+        float[] lastZ = new float[c.Count];
+        for (int s = 0; s < steps; s++)
+        {
+            float t = s * dt;
+            FlagAir air = FlagWind.Air(wind, 1f, dirX, dirZ, h10, 1f, c.Length, t, 0f, 0f);
+            c.Step(dt, ref air);
+            if (t < 4f)
+            {
+                for (int k = 0; k < c.Count; k++) lastZ[k] = c.Z[k];
+                continue;
+            }
+            worst = Math.Max(worst, c.MaxStretch());
+            if (s % sub != 0)
+                continue;
+            for (int k = 0; k < c.Count; k++)
+            {
+                if (k % c.Columns == 0 || !c.IsCloth(k))
+                    continue;
+                sumZ += c.Z[k] * c.Z[k];
+                nZ++;
+                float v = (c.Z[k] - lastZ[k]) * 60f;
+                sumV += v * v;
+                nV++;
+                lastZ[k] = c.Z[k];
+            }
+        }
+
+        // A held first row off the line along the fly through the anchor; the most behind a plate.
+        double off = 0, behind = 0;
+        if ((mask & FlagHold.TopEdge) != 0)
+        {
+            for (int i = 1; i < c.Columns; i++)
+            {
+                double along = c.X[i] * fx + c.Y[i] * fy + c.Z[i] * fz;
+                double all = c.X[i] * c.X[i] + c.Y[i] * c.Y[i] + c.Z[i] * c.Z[i];
+                off = Math.Max(off, Math.Sqrt(Math.Max(0.0, all - along * along)));
+            }
+        }
+        if (plate)
+            for (int k = 0; k < c.Count; k++)
+                behind = Math.Max(behind, -(c.X[k] * hz - c.Z[k] * hx));
+        return c.IsFinite() + "," + worst.ToString("F3", Inv) + "," + Math.Sqrt(sumZ / Math.Max(1, nZ)).ToString("F3", Inv) + "," +
+               Math.Sqrt(sumV / Math.Max(1, nV)).ToString("F3", Inv) + "," + (c.Unknotted - knots) + "," + off.ToString("F4", Inv) + "," +
+               behind.ToString("F4", Inv);
+    }
+
+    /// <summary>
+    /// Held edges turn with the flag (SetHolds with its fly turned a quarter about the hoist: the
+    /// cloth turned rigidly, its first row on the new fly), keep through a new detail (TakeShape)
+    /// and let go: the most the first row is off its new line (m), the holds after TakeShape, and
+    /// the links of a cloth whose holds were let go against a never-held one's.
+    /// </summary>
+    public static string HeldTurn()
+    {
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0f, 0f, 0f, FlagHoist.Side, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, FlagCloth.CellsAlong, hx, hy, hz);
+        c.SetHolds(FlagHold.TopEdge | FlagHold.BottomEdge, fx, fy, fz);
+        c.LayOutNew(1f, 0f);
+        for (int s = 0; s < 60; s++)
+        {
+            FlagAir air = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, c.Length, s / 60f, 0f, 0f);
+            c.Step(1f / 60f, ref air);
+        }
+        c.SetHolds(FlagHold.TopEdge | FlagHold.BottomEdge, 0f, 0f, 1f);
+        double off = 0;
+        for (int i = 1; i < c.Columns; i++)
+            off = Math.Max(off, Math.Abs(c.X[i]) + Math.Abs(c.Y[i]));
+
+        FlagCloth finer = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32, hx, hy, hz);
+        finer.TakeShape(c);
+        bool kept = finer.Holds == (FlagHold.TopEdge | FlagHold.BottomEdge);
+
+        FlagCloth never = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, FlagCloth.CellsAlong, hx, hy, hz);
+        FlagCloth freed = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, FlagCloth.CellsAlong, hx, hy, hz);
+        freed.SetHolds(FlagHold.All, fx, fy, fz);
+        freed.SetHolds(FlagHold.None, fx, fy, fz);
+        return off.ToString("F4", Inv) + "," + kept + "," + (freed.LinkCount == never.LinkCount && freed.Passes == never.Passes);
+    }
+
     public static string PlateRun(float wind, float yawDegrees, bool plate)
     {
         float hx, hy, hz, fx, fy, fz;
@@ -5278,6 +5528,26 @@ foreach ($pcase in @(@(6, 0), @(12, 0), @(12, 180), @(20, 0))) {
 $pfree = [ClothTests]::PlateRun(12, 90, $false) -split ","
 Check "the same banner with no plate, the wind at the wall's side: it does swing back (what the plate stops)" ((N $pfree[1]) -lt -0.5) ("most behind " + $pfree[1] + " m, worst link " + $pfree[3])
 
+# ---- held edges (FlagHold: a banner held top and bottom, at its far edge or corners) ----------
+# Cases: mask, length, height, wind, yaw from the fly, halyard, cut. The worst link within 1.30
+# (a held membrane carries the wind as tension: corners 1.25-1.29 measured 2026-11-11), no knot,
+# the cloth out of its plane (it moves), a held first row on its line.
+foreach ($hc in @(@(3, 3, 2, 6, 0, $false, 0), @(3, 3, 2, 6, 90, $false, 0), @(4, 3, 2, 6, 90, $false, 0), @(8, 3, 2, 6, 45, $false, 0),
+                  @(8, 3, 2, 12, 90, $false, 0), @(15, 3, 2, 6, 0, $false, 0), @(3, 1, 2.5, 6, 90, $false, 0), @(8, 3, 2, 6, 90, $true, 0),
+                  @(15, 3, 2, 6, 90, $false, 1))) {
+    $hr = [ClothTests]::HeldRun($hc[0], $hc[1], $hc[2], $hc[3], $hc[4], $hc[5], $hc[6]) -split ","
+    Check ("held at " + $hc[0] + " (" + $hc[1] + " x " + $hc[2] + " m, " + $hc[3] + " m/s at " + $hc[4] + " deg, halyard " + $hc[5] + ", cut " + $hc[6] + "): healthy, moving, the held edge on its line") ($hr[0] -eq "True" -and (N $hr[1]) -le 1.30 -and (N $hr[2]) -gt 0.1 -and $hr[4] -eq "0" -and (N $hr[5]) -lt 1e-3) ("worst link " + $hr[1] + ", out of its plane " + $hr[2] + " m rms, moving " + $hr[3] + " m/s rms, knots " + $hr[4] + ", first row off its line " + $hr[5] + " m")
+}
+# A building's banner from its top in front of its plate, held at its sides and bottom (the
+# author's second case); and flags on a pole with the wind from behind, blown onto it.
+foreach ($hc in @(@(7, 6, 2, 6, 0, $false, 1, $true, $false), @(7, 6, 2, 6, 270, $false, 1, $true, $false), @(4, 6, 2, 6, 270, $false, 1, $true, $false),
+                  @(3, 3, 2, 6, 180, $false, 0, $false, $true), @(8, 3, 2, 6, 135, $false, 0, $false, $true), @(8, 3, 2, 12, 180, $true, 0, $false, $true))) {
+    $hr = [ClothTests]::HeldRunAt($hc[0], $hc[1], $hc[2], $hc[3], $hc[4], $hc[5], 0, $hc[6], $hc[7], $hc[8]) -split ","
+    Check ("held at " + $hc[0] + " (" + $hc[1] + " x " + $hc[2] + " m, " + $(if ($hc[6] -eq 1) { "from its top, plate" } else { "on a pole" }) + ", " + $hc[3] + " m/s at " + $hc[4] + " deg): healthy, the held edge on its line, never behind its plate") ($hr[0] -eq "True" -and (N $hr[1]) -le 1.30 -and $hr[4] -eq "0" -and (N $hr[5]) -lt 2e-3 -and (N $hr[6]) -le 1e-3) ("worst link " + $hr[1] + ", out of its plane " + $hr[2] + " m rms, moving " + $hr[3] + " m/s rms, knots " + $hr[4] + ", first row off " + $hr[5] + " m, behind " + $hr[6] + " m")
+}
+$ht = [ClothTests]::HeldTurn() -split ","
+Check "held edges turn with the flag, keep through a new detail, and let go leave the cloth as never held" ((N $ht[0]) -lt 1e-3 -and $ht[1] -eq "True" -and $ht[2] -eq "True") ("the held row off its turned line " + $ht[0] + " m, kept " + $ht[1] + ", let go as never " + $ht[2])
+
 # ---- the pole's looks (format 17: profile, base, shine, wear, rust, dirt, rope thickness) --------
 
 $po = [ClothTests]::CodecPoleLooks() -split ","
@@ -5317,6 +5587,11 @@ Check "a swallowtail's tails fly apart: at 12 m/s their tips' distance swings mo
 
 $ss = [ClothTests]::StillSplit() -split ","
 Check "a still flag's shape is the same however its steps are split into jobs, and made twice" ($ss[0] -eq "0" -and $ss[1] -eq "0") ("split into " + $ss[2] + " jobs: " + $ss[0] + " m off; twice: " + $ss[1] + " m")
+$tk = [ClothTests]::Takes() -split ","
+Check "a still or looping flag's take: saved, older ones the first, pulled in, in its pose's and its loop's keys; take 0 the shape as before" (($tk[0..4] | Where-Object { $_ -ne "True" }).Count -eq 0) ("format 19 round trip " + $tk[0] + ", 18 the first " + $tk[1] + ", pulled " + $tk[2] + ", keys " + $tk[3] + ", take 0 as before " + $tk[4])
+Check "another take is another still shape (side flags at 100% and 30% wavy)" ((N $tk[5]) -gt 0.02 -and (N $tk[6]) -gt 0.02) ("the closest of three takes apart: " + $tk[5] + " m at 100%, " + $tk[6] + " m at 30%; a top banner in calm air " + $tk[7] + " m")
+$lo = [ClothTests]::LayOutNew() -split ","
+Check "a new banner from its top is laid hanging, in front of its plate; a side flag as before" ((N $lo[0]) -le 1e-4 -and [math]::Abs((N $lo[1]) + 7) -lt 0.05 -and (N $lo[2]) -le 1e-6 -and $lo[3] -eq "0" -and (N $lo[4]) -lt 0.05) ("highest free particle " + $lo[0] + " m, lowest " + $lo[1] + " m, behind the plate " + $lo[2] + " m; a side flag " + $lo[3] + " m off; LayOutClear with no city, 9 m and 19.2 m banners: off hanging " + $lo[4] + " m")
 $ft = [ClothTests]::StillFlatTurn() -split ","
 Check "a flat flag is exactly flat and square; a flat banner hangs straight down its length" ((N $ft[0]) -eq 0 -and $ft[1] -eq "1.0000" -and (N $ft[2]) -eq 0 -and [math]::Abs((N $ft[3]) + 3) -lt 1e-3) ("off its plane " + $ft[0] + " m, stretch " + $ft[1] + "; the banner " + $ft[2] + " m off, its fly corner at " + $ft[3] + " m")
 Check "a still shape taken at another heading and turned again is the same shape turned, its clips on its (tilted) hoist line" ((N $ft[4]) -lt 1e-4 -and (N $ft[5]) -lt 1e-4) ("off the shape turned at once " + $ft[4] + " m, clips off the line " + $ft[5] + " m")

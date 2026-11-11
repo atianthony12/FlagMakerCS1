@@ -71,6 +71,13 @@ namespace RealFlag
         public static BoolSetting FreezeWhenPaused { get; private set; }
 
         /// <summary>
+        /// How wet the flags get in the rain, 0..1 of the game's ground wetness (the author,
+        /// 2026-11-11: "in rain, the flags look too wet ... by default it's around 10-20%"): the
+        /// shader's RFWetness times this (_RFWetScale, set every frame by FlagRenderer.SetSun).
+        /// </summary>
+        public static FloatSetting RainWetness { get; private set; }
+
+        /// <summary>
         /// The finest cloth a flag gets, cells along its longer side (one of FlagCloth.Details):
         /// the flags big on the screen get it, the others as fine as their size there needs.
         /// </summary>
@@ -254,6 +261,17 @@ namespace RealFlag
         public static FloatSetting NewPolePosition { get; private set; }
         public static FloatSetting SelPolePosition { get; private set; }
 
+        /// <summary>
+        /// Which take of its motion a still or looping flag shows (FlagSpec.Take): a new one each
+        /// time the flag is made still or a loop, or Recapture is pressed. No row of its own.
+        /// </summary>
+        public static IntSetting NewTake { get; private set; }
+        public static IntSetting SelTake { get; private set; }
+
+        /// <summary>What holds the cloth besides its hoist (FlagSpec.Held: FlagHold bits), the "Also held at" row's toggles.</summary>
+        public static IntSetting NewHeld { get; private set; }
+        public static IntSetting SelHeld { get; private set; }
+
         /// <summary>The hoist's lean, degrees: towards the fly, and to the side (FlagSpec.Tilt, Lean).</summary>
         public static FloatSetting NewTilt { get; private set; }
         public static FloatSetting NewLean { get; private set; }
@@ -337,6 +355,9 @@ namespace RealFlag
             /// <summary>Frosted glass (ModsLibCS1.UI.Skin.Frosted), as in Volumetric Weather and Real Glass.</summary>
             public const int PanelSkin = 3;
             public const bool FreezeWhenPaused = true;
+
+            /// <summary>15% of the ground's wetness (the author: "by default it's around 10-20%"; all of it before 2026-11-11).</summary>
+            public const float RainWetness = 0.15f;
 
             /// <summary>High: 32 cells along (2026-10-01, the author's choice; it was 18, now Low).</summary>
             public const int ClothDetail = 32;
@@ -451,6 +472,12 @@ namespace RealFlag
 
             /// <summary>At the top of its pole (full mast).</summary>
             public const float PolePosition = 1f;
+
+            /// <summary>The first take: every flag's still shape and loop before 2026-11-11.</summary>
+            public const int Take = 0;
+
+            /// <summary>Held at its hoist alone.</summary>
+            public const int Held = 0;
             public const float Tilt = 0f;
             public const float Lean = 0f;
         }
@@ -490,6 +517,7 @@ namespace RealFlag
                 Language = new IntSetting("Language", Defaults.Language);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 FreezeWhenPaused = new BoolSetting("FreezeWhenPaused", Defaults.FreezeWhenPaused);
+                RainWetness = new FloatSetting("RainWetness", Defaults.RainWetness);
                 ClothDetail = new IntSetting("ClothDetail", Defaults.ClothDetail);
                 SelfCollision = new BoolSetting("SelfCollision", Defaults.SelfCollision);
                 CityCollision = new BoolSetting("CityCollision", Defaults.CityCollision);
@@ -552,6 +580,8 @@ namespace RealFlag
                 NewPoleDirt = new FloatSetting("NewPoleDirt", Defaults.PoleDirt);
                 NewRopeThickness = new FloatSetting("NewRopeThickness", Defaults.RopeThickness);
                 NewPolePosition = new FloatSetting("NewPolePosition", Defaults.PolePosition);
+                NewTake = new IntSetting("NewTake", Defaults.Take);
+                NewHeld = new IntSetting("NewHeld", Defaults.Held);
                 NewTilt = new FloatSetting("NewTilt", Defaults.Tilt);
                 NewLean = new FloatSetting("NewLean", Defaults.Lean);
 
@@ -597,6 +627,8 @@ namespace RealFlag
                 SelPoleDirt = new FloatSetting("SelPoleDirt", Defaults.PoleDirt, true);
                 SelRopeThickness = new FloatSetting("SelRopeThickness", Defaults.RopeThickness, true);
                 SelPolePosition = new FloatSetting("SelPolePosition", Defaults.PolePosition, true);
+                SelTake = new IntSetting("SelTake", Defaults.Take, true);
+                SelHeld = new IntSetting("SelHeld", Defaults.Held, true);
                 SelTilt = new FloatSetting("SelTilt", Defaults.Tilt, true);
                 SelLean = new FloatSetting("SelLean", Defaults.Lean, true);
 
@@ -675,6 +707,8 @@ namespace RealFlag
             spec.PoleDirt = NewPoleDirt.value;
             spec.RopeThickness = NewRopeThickness.value;
             spec.PolePosition = NewPolePosition.value;
+            spec.Take = NewTake.value;
+            spec.Held = NewHeld.value;
             spec.Tilt = NewTilt.value;
             spec.Lean = NewLean.value;
 

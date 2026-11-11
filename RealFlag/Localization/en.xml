@@ -180,6 +180,7 @@
   <String key="NewImageY.Label">New flag's image: flag's middle down it (0 top, 1 bottom)</String>
   <String key="NewImageZoom.Label">New flag's image: zoom (1 = fills the flag)</String>
   <String key="NewImageTurn.Label">New flag's image: quarter turns clockwise, 0 to 3</String>
+  <String key="NewTake.Label">New flag: take of its still pose or loop (0 the first)</String>
   <String key="NewImageAlpha.Label">New flag's image: see-through parts</String>
 
   <String key="NewMotion.Label">Motion</String>
@@ -194,6 +195,22 @@
   <String key="Motion.Still.Tooltip">One frozen pose.</String>
   <String key="Motion.Flat">Flat</String>
   <String key="Motion.Flat.Tooltip">Flat, no folds.</String>
+  <String key="NewRecapture.Label">Recapture</String>
+  <String key="NewRecapture.Tooltip">A new pose or loop.</String>
+  <String key="SelRecapture.Label">Recapture</String>
+  <String key="SelRecapture.Tooltip">A new pose or loop.</String>
+  <String key="NewHeld.Label">Also held at</String>
+  <String key="NewHeld.Tooltip">Fastens more of the cloth.</String>
+  <String key="SelHeld.Label">Also held at</String>
+  <String key="SelHeld.Tooltip">Fastens more of the cloth.</String>
+  <String key="Held.Top">Top edge</String>
+  <String key="Held.Top.Tooltip">Held along the gold edge.</String>
+  <String key="Held.Bottom">Bottom edge</String>
+  <String key="Held.Bottom.Tooltip">Held along the gold edge.</String>
+  <String key="Held.Fly">Far edge</String>
+  <String key="Held.Fly.Tooltip">Held along the gold edge.</String>
+  <String key="Held.Corners">Far corners</String>
+  <String key="Held.Corners.Tooltip">Held at the far corners.</String>
   <String key="NewWaviness.Label">How wavy</String>
   <String key="NewWaviness.Tooltip">How much it ripples.</String>
   <String key="SelWaviness.Label">How wavy</String>
@@ -502,6 +519,8 @@
   <String key="Group.Flags">Flags</String>
   <String key="FreezeWhenPaused.Label">Freeze flags when paused</String>
   <String key="FreezeWhenPaused.Tooltip">Handy for screenshots.</String>
+  <String key="RainWetness.Label">Wet in the rain</String>
+  <String key="RainWetness.Tooltip">How wet flags get.</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Cloth</String>
@@ -586,6 +605,7 @@
   <String key="File.Readout">(slider: {0} to {1})</String>
   <String key="File.Toggle">{0}. true or false, default {1}.</String>
   <String key="File.Choice">{0}. One of {1}; default {2}.</String>
+  <String key="File.Bits">{0}. Any of {1} added up (0 none); default {2}.</String>
   <String key="File.Colour">{0}. A color #RRGGBB; default {1}.</String>
   <String key="File.Country">{0}. A country code (fr, de, gb-sct, eu ...) or none; default {1}.</String>
   <String key="File.Image">{0}. A picture's file name in the Images folder, or none; default {1}.</String>

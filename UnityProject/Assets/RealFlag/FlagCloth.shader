@@ -159,10 +159,15 @@ Shader "RealFlag/FlagCloth"
         // follows the knit's weave (water's own is 1.0; a bare knit's, dry, ~0).
         #define FILM_POWER 36.8
 
-        // How wet the cloth is, 0..1: the game's ground (it wets and dries on the game's clock).
+        // How much of the ground's wetness the cloth takes, 0..1 (Settings.RainWetness, set globally
+        // every frame by FlagRenderer; the preview sets it too). The author, 2026-11-11: "in rain,
+        // the flags look too wet" -- all of it, as before, was too much; 15% by default.
+        float _RFWetScale;
+
+        // How wet the cloth is, 0..1: the game's ground (it wets and dries on the game's clock), times its share.
         float RFWetness()
         {
-            return saturate(_WeatherParams.w);
+            return saturate(_WeatherParams.w) * saturate(_RFWetScale);
         }
 
         struct SurfaceOutputCloth

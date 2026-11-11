@@ -156,6 +156,8 @@ namespace RealFlag.Flags
                     Settings.SelPoleDirt.value = e.Spec.PoleDirt;
                     Settings.SelRopeThickness.value = e.Spec.RopeThickness;
                     Settings.SelPolePosition.value = e.Spec.PolePosition;
+                    Settings.SelTake.value = e.Spec.Take;
+                    Settings.SelHeld.value = e.Spec.Held;
 
                     // With no pole that stands (none, a crossbar, one still being found), the Pole
                     // height is a new flag's: what it stands with if its hoist turns down.
@@ -234,6 +236,8 @@ namespace RealFlag.Flags
             spec.PoleDirt = Settings.SelPoleDirt.value;
             spec.RopeThickness = Settings.SelRopeThickness.value;
             spec.PolePosition = Settings.SelPolePosition.value;
+            spec.Take = Settings.SelTake.value;
+            spec.Held = Settings.SelHeld.value;
             spec.Tilt = Settings.SelTilt.value;
             spec.Lean = Settings.SelLean.value;
             spec = spec.Sanitised();
@@ -583,6 +587,8 @@ namespace RealFlag.Flags
             Settings.NewPoleDirt.value = s.PoleDirt;
             Settings.NewRopeThickness.value = s.RopeThickness;
             Settings.NewPolePosition.value = s.PolePosition;
+            Settings.NewTake.value = s.Take;
+            Settings.NewHeld.value = s.Held;
             Settings.NewTilt.value = s.Tilt;
             Settings.NewLean.value = s.Lean;
         }

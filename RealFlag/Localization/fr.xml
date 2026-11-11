@@ -184,6 +184,7 @@
   <String key="NewImageY.Label">Image du nouveau drapeau : centre en hauteur (0 haut, 1 bas)</String>
   <String key="NewImageZoom.Label">Image du nouveau drapeau : zoom (1 = remplit le drapeau)</String>
   <String key="NewImageTurn.Label">Image du nouveau drapeau : quarts de tour dans le sens horaire, 0 à 3</String>
+  <String key="NewTake.Label">Nouveau drapeau : prise de sa pose immobile ou de sa boucle (0 la première)</String>
   <String key="NewImageAlpha.Label">Image du nouveau drapeau : parties transparentes</String>
 
   <String key="NewMotion.Label">Mouvement</String>
@@ -198,6 +199,22 @@
   <String key="Motion.Still.Tooltip">Une pose figée.</String>
   <String key="Motion.Flat">Plat</String>
   <String key="Motion.Flat.Tooltip">À plat, sans plis.</String>
+  <String key="NewRecapture.Label">Recapturer</String>
+  <String key="NewRecapture.Tooltip">Nouvelle pose ou boucle.</String>
+  <String key="SelRecapture.Label">Recapturer</String>
+  <String key="SelRecapture.Tooltip">Nouvelle pose ou boucle.</String>
+  <String key="NewHeld.Label">Aussi tenu par</String>
+  <String key="NewHeld.Tooltip">Fixe davantage le tissu.</String>
+  <String key="SelHeld.Label">Aussi tenu par</String>
+  <String key="SelHeld.Tooltip">Fixe davantage le tissu.</String>
+  <String key="Held.Top">Bord supérieur</String>
+  <String key="Held.Top.Tooltip">Tenu par le bord doré.</String>
+  <String key="Held.Bottom">Bord inférieur</String>
+  <String key="Held.Bottom.Tooltip">Tenu par le bord doré.</String>
+  <String key="Held.Fly">Bord extérieur</String>
+  <String key="Held.Fly.Tooltip">Tenu par le bord doré.</String>
+  <String key="Held.Corners">Coins extérieurs</String>
+  <String key="Held.Corners.Tooltip">Tenu par les coins extérieurs.</String>
   <String key="NewWaviness.Label">Ondulation</String>
   <String key="NewWaviness.Tooltip">Combien il ondule.</String>
   <String key="SelWaviness.Label">Ondulation</String>
@@ -506,6 +523,8 @@
   <String key="Group.Flags">Drapeaux</String>
   <String key="FreezeWhenPaused.Label">Figer les drapeaux en pause</String>
   <String key="FreezeWhenPaused.Tooltip">Pratique pour les captures.</String>
+  <String key="RainWetness.Label">Mouillés sous la pluie</String>
+  <String key="RainWetness.Tooltip">À quel point ils se mouillent.</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Tissu</String>
@@ -590,6 +609,7 @@
   <String key="File.Readout">(curseur : {0} à {1})</String>
   <String key="File.Toggle">{0}. true ou false, par défaut {1}.</String>
   <String key="File.Choice">{0}. Une de {1} ; par défaut {2}.</String>
+  <String key="File.Bits">{0}. La somme de n'importe lesquelles de {1} (0 aucune) ; par défaut {2}.</String>
   <String key="File.Colour">{0}. Une couleur #RRGGBB ; par défaut {1}.</String>
   <String key="File.Country">{0}. Un code de pays (fr, de, gb-sct, eu ...) ou none ; par défaut {1}.</String>
   <String key="File.Image">{0}. Le nom d’un fichier du dossier Images, ou none ; par défaut {1}.</String>

@@ -274,11 +274,28 @@ namespace RealFlag.Flags
             return Roughness(cloth) / (shown * shown);
         }
 
-        /// <summary>Its steps <paramref name="first"/> to <paramref name="first"/> + <paramref name="steps"/> - 1, as a job.</summary>
-        public static ClothJob Job(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length, int first, int steps)
+        /// <summary>
+        /// Where in the breeze's field of eddies a take is made (FlagSpec.Take), metres in the
+        /// flag's own frame (the job's anchor, FlagWind.Air: every flag shares one field by its
+        /// place): the first take at the origin, as every still shape and loop was made before
+        /// 2026-11-11; each next one further along two unlike steps (no two takes in step with the
+        /// noise's lattice), many times an eddy's size apart -- other eddies, another shape.
+        /// </summary>
+        public static void FieldFor(int take, out float x, out float z)
+        {
+            x = take * TakeStepX;
+            z = take * TakeStepZ;
+        }
+
+        public const float TakeStepX = 37.13f, TakeStepZ = 23.61f;
+
+        /// <summary>Its steps <paramref name="first"/> to <paramref name="first"/> + <paramref name="steps"/> - 1, as a job (in take <paramref name="take"/>'s air).</summary>
+        public static ClothJob Job(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length, int first, int steps, int take = 0)
         {
             float dirX, dirZ, speed;
             Wind(flyX, flyY, flyZ, length, out dirX, out dirZ, out speed);
+            float atX, atZ;
+            FieldFor(take, out atX, out atZ);
             return new ClothJob
             {
                 Cloth = cloth,
@@ -293,17 +310,20 @@ namespace RealFlag.Flags
                 Height = Height,
                 Waviness = waviness,
                 Length = length,
+                AnchorX = atX,
+                AnchorZ = atZ,
             };
         }
 
         /// <summary>The whole shape, here and now (the preview, the tests): laid (<see cref="Lay"/>) and, still, run and chosen as the game does it (the run returned; null for a flat one).</summary>
-        public static StillPoseRun Make(FlagCloth cloth, int motion, bool halyard, float flyX, float flyY, float flyZ, float waviness, float length)
+        public static StillPoseRun Make(FlagCloth cloth, int motion, bool halyard, float flyX, float flyY, float flyZ, float waviness, float length,
+                                        int take = 0)
         {
             Lay(cloth, motion, halyard, flyX, flyY, flyZ);
             if (motion != FlagMotion.Still)
                 return null;
 
-            var run = new StillPoseRun(cloth, flyX, flyY, flyZ, waviness, length);
+            var run = new StillPoseRun(cloth, flyX, flyY, flyZ, waviness, length, take);
             while (!run.Finished)
             {
                 ClothJob job = run.Next(int.MaxValue);
@@ -334,6 +354,7 @@ namespace RealFlag.Flags
         public int Out;
 
         private readonly float _flyX, _flyY, _flyZ, _waviness, _length;
+        private readonly int _take;
         private readonly float[] _bestX, _bestY, _bestZ;
         private float _best = float.MaxValue;
 
@@ -341,12 +362,14 @@ namespace RealFlag.Flags
         public int BestStep = -1;
 
         /// <param name="cloth">Laid out already (StillPose.Lay).</param>
-        public StillPoseRun(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length)
+        /// <param name="take">FlagSpec.Take: the place in the breeze's eddies it is made in (StillPose.FieldFor).</param>
+        public StillPoseRun(FlagCloth cloth, float flyX, float flyY, float flyZ, float waviness, float length, int take = 0)
         {
             Cloth = cloth;
             _flyX = flyX; _flyY = flyY; _flyZ = flyZ;
             _waviness = waviness;
             _length = length;
+            _take = take;
             float dirX, dirZ, speed;
             StillPose.Wind(flyX, flyY, flyZ, length, out dirX, out dirZ, out speed);
             Total = StillPose.StepsFor(length, speed);
@@ -380,7 +403,7 @@ namespace RealFlag.Flags
             }
 
             Out = end - Done;
-            return StillPose.Job(Cloth, _flyX, _flyY, _flyZ, _waviness, _length, Done, Out);
+            return StillPose.Job(Cloth, _flyX, _flyY, _flyZ, _waviness, _length, Done, Out, _take);
         }
 
         /// <summary>The last job is done: its steps counted, and the shape weighed if this is a step to.</summary>

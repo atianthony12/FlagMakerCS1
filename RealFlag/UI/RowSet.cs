@@ -535,20 +535,19 @@ namespace RealFlag.UI
                 }
             }
 
-            // The cut row's little flags: hoisted as the flag is, at its depth (each redraws only on a change).
-            if (row.CutIcons)
+            // The cut and hold rows' little flags: hoisted as the flag is, at its depth (each redraws only on a change).
+            if (row.CutIcons || row.HoldIcons)
             {
-                int hoist = row.PresetHoist != null ? row.PresetHoist() : Flags.FlagHoist.Side;
-                float depth = row.CutDepth != null ? row.CutDepth.value : Flags.FlagCut.DefaultDepth;
                 for (int i = 0; i < control.CutIcons.Count && i < row.ChoiceValues.Length; i++)
-                    control.CutIcons[i].Show(row.ChoiceValues[i], depth, hoist);
+                    ShowCutIcon(row, control.CutIcons[i], row.ChoiceValues[i]);
             }
 
             for (int i = 0; i < control.Options.Count; i++)
             {
                 bool lit = row.Kind == RowKind.Shape
                     ? row.PresetActive != null && i < row.Presets.Length && row.PresetActive(row.Presets[i])
-                    : row.Int != null && row.ChoiceValues != null && i < row.ChoiceValues.Length && row.Int.value == row.ChoiceValues[i];
+                    : row.Int != null && row.ChoiceValues != null && i < row.ChoiceValues.Length &&
+                      (row.MaskBits ? (row.Int.value & row.ChoiceValues[i]) != 0 : row.Int.value == row.ChoiceValues[i]);
 
                 int state = lit ? 1 : 0;
                 if (control.Lit[i] == state)
@@ -557,6 +556,17 @@ namespace RealFlag.UI
                 control.Lit[i] = state;
                 PanelLook.SetLit(_ui, control.Options[i], lit);
             }
+        }
+
+        /// <summary>A cut row's button (its value the cut) or a hold row's (its value the edge held, the flag's own cut drawn).</summary>
+        private static void ShowCutIcon(Row row, CutIcon icon, int value)
+        {
+            int hoist = row.PresetHoist != null ? row.PresetHoist() : Flags.FlagHoist.Side;
+            float depth = row.CutDepth != null ? row.CutDepth.value : Flags.FlagCut.DefaultDepth;
+            if (row.HoldIcons)
+                icon.Show(row.IconCut != null ? row.IconCut.value : Flags.FlagCut.Rectangle, depth, hoist, value);
+            else
+                icon.Show(value, depth, hoist);
         }
 
         private static string ReadoutText(Row row, float display)
@@ -814,7 +824,7 @@ namespace RealFlag.UI
                     for (int i = 0; i < count; i++)
                     {
                         int value = row.ChoiceValues[i];
-                        bool drawn = row.CutIcons || (row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]));
+                        bool drawn = row.CutIcons || row.HoldIcons || (row.ChoiceIcons != null && FlagWidgets.HasIcon(row.ChoiceIcons[i]));
                         UIButton button = _ui.AddButton(page, drawn ? string.Empty : row.ChoiceName(i), new Vector2(width, height), new Vector3(column + i * (width + gap), y + 3f));
                         // A choice with a tooltip of its own ("Motion.Loop.Tooltip") says what it does; else
                         // a drawn one its name, a named one the row's (the author, 2026-11-10: Motion's
@@ -822,13 +832,13 @@ namespace RealFlag.UI
                         string own = row.ChoiceKeys != null && i < row.ChoiceKeys.Length && Localization.HasEnglish(row.ChoiceKeys[i] + ".Tooltip")
                             ? Localization.Get(row.ChoiceKeys[i] + ".Tooltip") : null;
                         button.tooltip = own ?? (drawn ? row.ChoiceName(i) : row.Tooltip);
-                        if (row.CutIcons)
+                        if (row.CutIcons || row.HoldIcons)
                         {
-                            // "Shape   [▭] [⊲] [⋲] [▷] ...": the cut as a little flag, its name the tooltip.
+                            // "Shape   [▭] [⊲] [⋲] [▷] ...": the cut as a little flag, its name the tooltip;
+                            // "Also held at": the flag's own cut, the edge each holds in gold.
                             var cutIcon = new CutIcon(button, new Vector3(Mathf.Round(0.5f * (width - 26f)), 3f), new Vector2(26f, 22f));
-                            cutIcon.Show(value, row.CutDepth != null ? row.CutDepth.value : Flags.FlagCut.DefaultDepth,
-                                         row.PresetHoist != null ? row.PresetHoist() : Flags.FlagHoist.Side);
                             control.CutIcons.Add(cutIcon);
+                            ShowCutIcon(row, cutIcon, value);
                         }
                         else
                         if (drawn)
@@ -836,10 +846,21 @@ namespace RealFlag.UI
 
                         button.eventClick += (component, e) =>
                         {
-                            if (!captured.IsEnabled || captured.Int == null || captured.Int.value == value)
+                            if (!captured.IsEnabled || captured.Int == null)
                                 return;
 
-                            captured.Int.value = value;
+                            // A bit's toggle (Row.MaskBits), or the one choice.
+                            if (captured.MaskBits)
+                            {
+                                captured.Int.value ^= value;
+                            }
+                            else
+                            {
+                                if (captured.Int.value == value)
+                                    return;
+                                captured.Int.value = value;
+                            }
+
                             Changed(captured);
                         };
 

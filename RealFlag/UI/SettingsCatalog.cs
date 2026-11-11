@@ -183,6 +183,16 @@ namespace RealFlag.UI
         public FloatSetting CutDepth;
 
         /// <summary>
+        /// Segmented rows over BITS (FlagHold): each button toggles its value's bit in
+        /// <see cref="Int"/>, lit while the bit is set; any number lit at once.
+        /// </summary>
+        public bool MaskBits;
+
+        /// <summary>Segmented rows over the holds: each button a little flag (cut by <see cref="IconCut"/>, hoisted as <see cref="PresetHoist"/>) with its held edge in gold.</summary>
+        public bool HoldIcons;
+        public IntSetting IconCut;
+
+        /// <summary>
         /// A slider whose name column is only as wide as the page's wide rows' names need, not the
         /// page's 196: the track gets the rest (the flag's Width and Height, 0.5-30 m -- the author,
         /// 2026-11-10: "too aggressive ... enlarge the slider itself").
@@ -882,12 +892,12 @@ namespace RealFlag.UI
         /// switch under them is off, and the edge it is hoisted from (the side, or the top: a
         /// banner), which turns what the width and height are of the cloth.
         /// </remarks>
-        private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, IntSetting country, IntSetting image,
+        private static void AddDesign(PanelPage page, string shapeId, string widthId, string heightId, string recaptureId, IntSetting country, IntSetting image,
                                       ImageTarget pictures, IntSetting pattern, IntSetting c1, IntSetting c2, IntSetting c3, FloatSetting length,
                                       IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting windShare,
                                       FloatSetting darkness,
                                       FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes,
-                                      IntSetting cut, FloatSetting cutDepth, Action changed, Func<bool> enabled)
+                                      IntSetting cut, FloatSetting cutDepth, IntSetting held, Action changed, Func<bool> enabled)
         {
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
@@ -1128,10 +1138,46 @@ namespace RealFlag.UI
                 Enabled = () => (enabled == null || enabled()) && FlagCut.UsesDepth(cut.value),
             });
 
+            // Also held at (the author, 2026-11-11: banners "hoisted from the side, but are steady
+            // at the top and bottom ... the flag itself is cloth and ripples"; "Yes, toggles"): a
+            // toggle a bit (FlagHold), each a little flag with the edge it holds in gold, hoisted
+            // and cut as the flag. Nothing to hold on a flat flag.
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = page,
+                Int = held,
+                DefaultInt = Settings.Defaults.Held,
+                ChoiceValues = FlagHold.Values,
+                ChoiceKeys = FlagHold.NameKeys,
+                MaskBits = true,
+                HoldIcons = true,
+                IconCut = cut,
+                CutDepth = cutDepth,
+                PresetHoist = () => hoistedFrom.value,
+                AfterChange = () =>
+                {
+                    Log.Msg("flags: " + whose + " held at " + FlagHold.LogName(held.value));
+                    (changed ?? Nothing)();
+                },
+                Enabled = () => (enabled == null || enabled()) && motion.value != FlagMotion.Flat,
+            });
+
             // Whether it moves (the author: "Some flags should be also static"): an option of its
             // own, not How wavy at 0% (which is a stiff cloth that still flies); How wavy shapes a
             // still flag's ripples too, and has nothing to do on a flat one.
             string who = page == PanelPage.New ? "the new flag" : "the selected flag";
+
+            // Its take (FlagSpec.Take; the author, 2026-11-11: "if i make a flag Still then back to
+            // waving, then Still again, the flag state will be the same as the first time, so the
+            // motion should recapture on its own"): a new one each time it is made still or a loop,
+            // and on Recapture -- a new still shape, a new loop.
+            IntSetting take = page == PanelPage.New ? Settings.NewTake : Settings.SelTake;
+            Action newTake = () =>
+            {
+                take.value = FlagSpec.NextTake(take.value);
+                Log.Msg("flags: " + who + "'s " + (motion.value == FlagMotion.Loop ? "loop" : "still shape") + " is made afresh (take " + take.value + ")");
+            };
             Add(new Row
             {
                 Kind = RowKind.Segmented,
@@ -1145,9 +1191,27 @@ namespace RealFlag.UI
                     Log.Msg("flags: " + who + " " + (motion.value == FlagMotion.Waves ? "waves in the wind" :
                                                      motion.value == FlagMotion.Loop ? "plays a loop" :
                                                      motion.value == FlagMotion.Still ? "keeps still" : "is held flat"));
+                    // Into Still only: a loop's take stays (like loop flags placed at other times
+                    // share one bake, 1-2.5 MB and ~2 s each); Recapture gives it another.
+                    if (motion.value == FlagMotion.Still)
+                        newTake();
                     (changed ?? Nothing)();
                 },
                 Enabled = enabled,
+            });
+
+            // Recapture: another take of the same motion (a still flag's pose, a loop's few seconds).
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = page,
+                Id = recaptureId,
+                OnClick = () =>
+                {
+                    newTake();
+                    (changed ?? Nothing)();
+                },
+                Enabled = () => (enabled == null || enabled()) && (motion.value == FlagMotion.Still || motion.value == FlagMotion.Loop),
             });
 
             Add(new Row
@@ -1544,11 +1608,11 @@ namespace RealFlag.UI
                 Colour1 = Settings.NewColour1,
             };
 
-            AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
+            AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", "NewRecapture", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewWindShare, Settings.NewDarkness,
                       Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
-                      Settings.NewCut, Settings.NewCutDepth, null, null);
+                      Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null);
 
             // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
             // Elevation of its own. Its pole's height is in the Flagpole popup.
@@ -1695,6 +1759,15 @@ namespace RealFlag.UI
                 Min = 0f, Max = 3f, Step = 1f,
             });
 
+            // The new flag's take of its motion (FlagSpec.Take): the Motion row and Recapture set it.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Int = Settings.NewTake,
+                DefaultInt = Settings.Defaults.Take,
+                Min = 0f, Max = FlagSpec.MaxTake, Step = 1f,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Choice,
@@ -1775,11 +1848,11 @@ namespace RealFlag.UI
                 Enabled = selected,
             };
 
-            AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
+            AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", "SelRecapture", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelWindShare, Settings.SelDarkness,
                       Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles,
-                      Settings.SelCut, Settings.SelCutDepth, FlagEditor.ApplyDesign, selected);
+                      Settings.SelCut, Settings.SelCutDepth, Settings.SelHeld, FlagEditor.ApplyDesign, selected);
 
             // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
             // in the Flagpole popup; Page Up, Page Down and the gizmo move the whole flag.
@@ -2033,6 +2106,20 @@ namespace RealFlag.UI
                 Bool = Settings.FreezeWhenPaused,
                 DefaultBool = Settings.Defaults.FreezeWhenPaused,
                 AfterChange = State("flags stop while the game is paused", OnOff(Settings.FreezeWhenPaused)),
+            });
+
+            // Wet in the rain (the author, 2026-11-11: "in rain, the flags look too wet. Maybe we can
+            // have a slider in the Settings tab, and by default it's around 10-20%"): the share of
+            // the game's ground wetness the cloth takes (the shader's _RFWetScale).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Float = Settings.RainWetness,
+                DefaultFloat = Settings.Defaults.RainWetness,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = () => Log.Msg("setting: flags wet in the rain = " + (Settings.RainWetness.value * 100f).ToString("F0", CultureInfo.InvariantCulture) + "%"),
             });
 
             // The overall Quality (2026-11-07; the author: "an overall Quality Preset"): it sets the

@@ -348,6 +348,9 @@ namespace RealFlag.Flags
         public static readonly int IdHighlight = Shader.PropertyToID("_RFHighlight");
         public static readonly int IdSunDir = Shader.PropertyToID("_RFSunDir");
         public static readonly int IdSunColor = Shader.PropertyToID("_RFSunColor");
+
+        /// <summary>How wet the cloth gets of the ground's wetness, 0..1 (Settings.RainWetness), globally.</summary>
+        public static readonly int IdWetScale = Shader.PropertyToID("_RFWetScale");
         public static readonly int IdImage = Shader.PropertyToID("_RFImage");
         public static readonly int IdUseImage = Shader.PropertyToID("_RFUseImage");
         public static readonly int IdImageMap = Shader.PropertyToID("_RFImageMap");

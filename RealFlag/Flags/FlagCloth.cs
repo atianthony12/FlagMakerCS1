@@ -750,7 +750,7 @@ namespace RealFlag.Flags
         /// </summary>
         public int Passes
         {
-            get { return Math.Max(1, _fabric.Iterations) + Math.Max(0, (Detail - CellsAlong) / 10); }
+            get { return Math.Max(1, _fabric.Iterations) + Math.Max(0, (Detail - CellsAlong) / 10) + (_heldCount > 0 ? HeldPasses : 0); }
         }
 
         /// <summary>
@@ -854,6 +854,12 @@ namespace RealFlag.Flags
         /// </summary>
         public void LayOut(float dirX, float dirY, float dirZ, bool wobble)
         {
+            // Held edges (SetHolds): only along the fly they are held along, whatever was asked.
+            if (_heldCount > 0)
+            {
+                dirX = _holdFx; dirY = _holdFy; dirZ = _holdFz;
+            }
+
             float hx = _hx, hy = _hy, hz = _hz;
 
             // The given direction, less its part along the hoist.
@@ -899,6 +905,9 @@ namespace RealFlag.Flags
                 }
             }
 
+            if (_heldCount > 0)
+                PlaceHeld(true);
+
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _primed = false;
             _listed = false;
@@ -914,6 +923,55 @@ namespace RealFlag.Flags
                 Array.Clear(_exit, 0, _exit.Length);
             _exiting = 0;
             _laid = true;
+        }
+
+        /// <summary>
+        /// A new cloth's first layout where it waves, before anything of the city is known: a level
+        /// hoist (<see cref="LevelHoist"/>: a banner from its top, a crossbar) laid HANGING, as
+        /// LayOutClear lays it first -- the noise only out in front of its back plate, if it has
+        /// one; any other hoist as <see cref="Reset"/> (towards the wind), exactly as before. The
+        /// author, 2026-11-11: banners from their top "start out horizontal, and then the cloth
+        /// motion sets in and they get lowered" -- laid level along the wind, a 19 m banner let
+        /// down by its calm (CalmDamping) had not fallen in its 1.5 s of settling and was shown
+        /// level, falling; with the city off nothing laid it hanging.
+        /// </summary>
+        public void LayOutNew(float dirX, float dirZ)
+        {
+            if (HoistY <= -LevelHoist)
+            {
+                Reset(dirX, dirZ);
+                return;
+            }
+
+            LayHanging();
+        }
+
+        /// <summary>
+        /// Laid hanging straight down (a level hoist's way, LayOutClear's first), wobbled, the noise
+        /// mirrored in front of its back plate: hung in the plate's plane, a big banner's noise
+        /// (0.002 L, 3.8 cm at 19 m) behind it was past PlateSlack and the hanging way refused.
+        /// </summary>
+        private void LayHanging()
+        {
+            LayOut(0f, -1f, 0f, true);
+            if (!_plateOn)
+                return;
+
+            // The layout's noise is across the sheet, which hangs in the plate's plane: mirrored
+            // to the front where it went behind (KeepInFront would push it there in the first step).
+            for (int k = 0; k < Count; k++)
+            {
+                float d = X[k] * _plateX + Z[k] * _plateZ;
+                if (d >= 0f)
+                    continue;
+
+                X[k] -= 2f * d * _plateX;
+                Z[k] -= 2f * d * _plateZ;
+                PrevX[k] = X[k];
+                PrevZ[k] = Z[k];
+            }
+
+            ComputeNormals(X, Y, Z, Nx, Ny, Nz);
         }
 
         /// <summary>
@@ -944,7 +1002,7 @@ namespace RealFlag.Flags
             // over the roof and stayed there (the preview, 2026-11-07), the roof under it holding it.
             if (HoistY > -LevelHoist)
             {
-                LayOut(0f, -1f, 0f, true);
+                LayHanging();
                 if (InTheWay() == 0)
                     return 0;
 
@@ -1004,6 +1062,10 @@ namespace RealFlag.Flags
         private void LayDraped(float dirX, float dirZ, float distance)
         {
             LayOut(dirX, 0f, dirZ, true);
+
+            // Held edges keep it where they hold it: never draped.
+            if (_heldCount > 0)
+                return;
 
             // The way it went (LayOut took the part along the hoist away) and how far along it
             // the edge is: as far as the edge is along (dirX, dirZ), over its share of that way.
@@ -1147,6 +1209,13 @@ namespace RealFlag.Flags
                 Rotate(X, Y, Z, ax, ay, az, c, s);
                 Rotate(PrevX, PrevY, PrevZ, ax, ay, az, c, s);
                 Rotate(Vx, Vy, Vz, ax, ay, az, c, s);
+
+                // The held edges' fly turns with the cloth (SetHolds would turn it again otherwise).
+                float d = 1f - c, fx = _holdFx, fy = _holdFy, fz = _holdFz;
+                float dot = (ax * fx + ay * fy + az * fz) * d;
+                _holdFx = fx * c + (ay * fz - az * fy) * s + ax * dot;
+                _holdFy = fy * c + (az * fx - ax * fz) * s + ay * dot;
+                _holdFz = fz * c + (ax * fy - ay * fx) * s + az * dot;
             }
 
             _hx = x; _hy = y; _hz = z;
@@ -1180,6 +1249,10 @@ namespace RealFlag.Flags
             BuildLinks();
             SetFabric(_fabric);
             PinHoist();
+
+            // Held edges go by the hoist's places down its line, which a halyard draws up.
+            if (_holds != 0)
+                BuildHeld();
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
             _listed = false;
         }
@@ -1234,6 +1307,8 @@ namespace RealFlag.Flags
             _hx = hx; _hz = hz;
             float px = _poleX * c - _poleZ * s, pz = _poleX * s + _poleZ * c;
             _poleX = px; _poleZ = pz;
+            float fx = _holdFx * c - _holdFz * s, fz = _holdFx * s + _holdFz * c;
+            _holdFx = fx; _holdFz = fz;
 
             PinHoist();
             ComputeNormals(X, Y, Z, Nx, Ny, Nz);
@@ -1408,6 +1483,220 @@ namespace RealFlag.Flags
             _plateZ = z / len;
         }
 
+        // ---- held edges (FlagHold) ----------------------------------------------------------------
+
+        /// <summary>
+        /// The share of a held span left slack, so the cloth between two holds can bow and ripple
+        /// (held at its full flat length it is a board): along the fly when the far edge or the far
+        /// corners are held (against the hoist), down the hoist when the top and the bottom edges
+        /// are (against each other).
+        /// </summary>
+        public const float HoldSlack = 0.04f;
+
+        /// <summary>
+        /// Passes added to a cloth with held edges: a membrane held round carries the wind's
+        /// pressure as tension (offline, 3 x 2 m held at its corners, the wind across: worst link
+        /// 1.47 with 5 passes and knotted twice in 20 s, 1.29 with 7 and none).
+        /// </summary>
+        public const int HeldPasses = 2;
+
+        /// <summary>The slack along the fly (the far edge or corners held against the hoist), its own: see <see cref="HoldSlack"/>.</summary>
+        public const float HoldSlackAlong = 0.08f;
+
+        /// <summary>
+        /// The slack down the hoist grows from none at the hoist (held there whole) to all of it
+        /// this share of the length along: a held bottom edge drawn up a little, not kinked at the pole.
+        /// </summary>
+        public const float HoldRamp = 0.25f;
+
+        /// <summary>
+        /// A held corner (FlagHold.FlyCorners) is held along both its edges this share of the
+        /// flag's shorter side (at least a cell each way), as a grommet on a bracket is: one
+        /// particle held alone took the whole free edge's pull (offline, 3 x 2 m at 6 m/s: its
+        /// links 2.1-2.7 times their length, knotted 5-9 times in 20 s).
+        /// </summary>
+        public const float CornerShare = 0.15f;
+
+        private int _holds;
+        private float _holdFx = 1f, _holdFy, _holdFz;
+        private int[] _heldK;
+        private float[] _heldAlong, _heldDown;
+        private bool[] _heldMark;
+        private int _heldCount;
+
+        /// <summary>The edges held besides the hoist (FlagHold), 0 for none.</summary>
+        public int Holds
+        {
+            get { return _holds; }
+        }
+
+        /// <summary>
+        /// Holds more of the cloth than its hoist (the author, 2026-11-11: banners "hoisted from the
+        /// side, but are steady at the top and bottom so the whole advertisement on the banner is
+        /// visible but the flag itself is cloth and ripples"): its first row (the top edge of a
+        /// flag from its side), its last row, the fly's end of every row, or of the first and last
+        /// rows only (FlagHold bits), each held where the flat flag along (flyX, flyY, flyZ) would
+        /// have it -- the fly at rest, square to the hoist, the flag's heading -- less
+        /// <see cref="HoldSlack"/> between opposing holds. A held particle stays FREE (its inverse
+        /// mass, its links, everything that reads a pinned particle as the hoist unchanged) and is
+        /// put on its hold every pass after the attachments, as the pole and the back plate are
+        /// kept off (KeepHeld): the surface still wins over it. The fly at rest turned (the flag
+        /// turned with its prop) turns the cloth rigidly with it. Set between steps; 0 lets go.
+        /// </summary>
+        public void SetHolds(int mask, float flyX, float flyY, float flyZ)
+        {
+            mask &= FlagHold.All;
+
+            // The fly square to the hoist.
+            float along = flyX * _hx + flyY * _hy + flyZ * _hz;
+            float fx = flyX - along * _hx, fy = flyY - along * _hy, fz = flyZ - along * _hz;
+            float len = (float)Math.Sqrt(fx * fx + fy * fy + fz * fz);
+            if (len < 1e-4f)
+            {
+                fx = _holdFx; fy = _holdFy; fz = _holdFz;
+            }
+            else
+            {
+                fx /= len; fy /= len; fz /= len;
+            }
+
+            bool turned = false;
+            if (_holds != 0 && mask != 0)
+            {
+                float c = _holdFx * fx + _holdFy * fy + _holdFz * fz;
+                if (c < 0.99999f)
+                {
+                    // Old x new; opposite ways turn half round the hoist.
+                    float ax = _holdFy * fz - _holdFz * fy, ay = _holdFz * fx - _holdFx * fz, az = _holdFx * fy - _holdFy * fx;
+                    float s = (float)Math.Sqrt(ax * ax + ay * ay + az * az);
+                    if (s < 1e-6f)
+                    {
+                        ax = _hx; ay = _hy; az = _hz;
+                        s = 0f;
+                        c = -1f;
+                    }
+                    else
+                    {
+                        ax /= s; ay /= s; az /= s;
+                    }
+
+                    Rotate(X, Y, Z, ax, ay, az, c, s);
+                    Rotate(PrevX, PrevY, PrevZ, ax, ay, az, c, s);
+                    Rotate(Vx, Vy, Vz, ax, ay, az, c, s);
+                    turned = true;
+                }
+            }
+
+            _holdFx = fx; _holdFy = fy; _holdFz = fz;
+            if (mask != _holds)
+            {
+                _holds = mask;
+                BuildHeld();
+            }
+
+            if (turned)
+            {
+                PinHoist();
+                PlaceHeld(true);
+                ComputeNormals(X, Y, Z, Nx, Ny, Nz);
+                _primed = false;
+                _listed = false;
+            }
+        }
+
+        /// <summary>
+        /// The held particles of <see cref="Holds"/> and where each is held, in the hoist's and the
+        /// fly's terms; then the links made again, a held particle weighed in them as a pinned one
+        /// is (it gives nothing back: snapped onto its hold each pass, half of every link's pull
+        /// on it was lost, its neighbours stretched).
+        /// </summary>
+        private void BuildHeld()
+        {
+            _heldCount = 0;
+            if (_heldMark != null)
+                Array.Clear(_heldMark, 0, _heldMark.Length);
+
+            if (_holds != 0)
+                FindHeld();
+
+            BuildLinks();
+            SetFabric(_fabric);
+        }
+
+        private void FindHeld()
+        {
+            if (_heldK == null || _heldK.Length < Count)
+            {
+                _heldK = new int[Count];
+                _heldAlong = new float[Count];
+                _heldDown = new float[Count];
+                _heldMark = new bool[Count];
+            }
+
+            bool top = (_holds & FlagHold.TopEdge) != 0, bottom = (_holds & FlagHold.BottomEdge) != 0;
+            bool fly = (_holds & FlagHold.FlyEdge) != 0, corners = (_holds & FlagHold.FlyCorners) != 0;
+            float slackU = fly || corners ? HoldSlackAlong : 0f;
+            float slackV = top && bottom ? HoldSlack : 0f;
+            float ramp = Math.Max(HoldRamp * Length, 1e-3f);
+            int last = Rows - 1;
+            float corner = CornerShare * Math.Min(Length, Height);
+            int cornerCols = Math.Max(1, (int)Math.Round(corner / CellU)), cornerRows = Math.Max(1, (int)Math.Round(corner / CellV));
+
+            for (int j = 0; j < Rows; j++)
+            {
+                // The fly's end of this row: its last cloth particle (a cut's outline).
+                int end = 0;
+                for (int i = Columns - 1; i > 0; i--)
+                {
+                    if (IsCloth(j * Columns + i))
+                    {
+                        end = i;
+                        break;
+                    }
+                }
+
+                for (int i = 1; i <= end; i++)
+                {
+                    int k = j * Columns + i;
+                    if (!IsCloth(k))
+                        continue;
+
+                    // A corner: along its edge and down (or up) the fly a little way from it.
+                    bool nearCorner = corners && i == end && (j <= cornerRows || j >= last - cornerRows) ||
+                                      corners && (j == 0 || j == last) && i >= end - cornerCols;
+                    bool held = (top && j == 0) || (bottom && j == last) || (fly && i == end) || nearCorner;
+                    if (!held)
+                        continue;
+
+                    float u = i * CellU;
+                    _heldK[_heldCount] = k;
+                    _heldAlong[_heldCount] = u * (1f - slackU);
+                    _heldDown[_heldCount] = HoistDown(j) * (1f - slackV * Math.Min(1f, u / ramp));
+                    _heldMark[k] = true;
+                    _heldCount++;
+                }
+            }
+        }
+
+        /// <summary>Every held particle on its hold (predicted places, in a pass); with <paramref name="still"/>, its place, last place and velocity too (a layout).</summary>
+        private void PlaceHeld(bool still)
+        {
+            float[] x = still ? X : _px, y = still ? Y : _py, z = still ? Z : _pz;
+            for (int n = 0; n < _heldCount; n++)
+            {
+                int k = _heldK[n];
+                float a = _heldAlong[n], d = _heldDown[n];
+                x[k] = d * _hx + a * _holdFx;
+                y[k] = d * _hy + a * _holdFy;
+                z[k] = d * _hz + a * _holdFz;
+                if (still)
+                {
+                    PrevX[k] = X[k]; PrevY[k] = Y[k]; PrevZ[k] = Z[k];
+                    Vx[k] = 0f; Vy[k] = 0f; Vz[k] = 0f;
+                }
+            }
+        }
+
         /// <summary>No back plate (the cloth free to swing either way, as it always was).</summary>
         public void ClearPlate()
         {
@@ -1539,6 +1828,14 @@ namespace RealFlag.Flags
 
             // The same air goes on blowing on it: its gusts and eddies where they were.
             Air = old.Air;
+
+            // Its held edges as the old cloth's (on this grid): a new detail is not a new hold.
+            _holdFx = old._holdFx; _holdFy = old._holdFy; _holdFz = old._holdFz;
+            if (old._holds != _holds)
+            {
+                _holds = old._holds;
+                BuildHeld();
+            }
 
             for (int j = 0; j < Rows; j++)
             {
@@ -2088,6 +2385,10 @@ namespace RealFlag.Flags
                     KeepOffCapsules();
 
                 Attach();
+
+                // Held edges on their holds (SetHolds): after the attachments, before the city.
+                if (_heldCount > 0)
+                    PlaceHeld(false);
 
                 // Last: a roof or a wall is never gone through, whatever pulled the cloth there --
                 // and what began the step inside the city goes no deeper, on its way out.
@@ -3579,17 +3880,27 @@ namespace RealFlag.Flags
             if (_invMass[a] == 0f && _invMass[b] == 0f)
                 return;
 
+            // A held particle (SetHolds) weighs as a pinned one; two held, nothing to hold.
+            float ma = _invMass[a], mb = _invMass[b];
+            if (_heldCount > 0)
+            {
+                if (_heldMark[a]) ma = 0f;
+                if (_heldMark[b]) mb = 0f;
+                if (ma == 0f && mb == 0f)
+                    return;
+            }
+
             int ia = a % Columns, ja = a / Columns;
             int ib = b % Columns, jb = b / Columns;
             float du = (ib - ia) * CellU, dv = (jb - ja) * CellV;
 
-            float w = _invMass[a] + _invMass[b];
+            float w = ma + mb;
             _a[_links] = a;
             _b[_links] = b;
             _rest[_links] = (float)Math.Sqrt(du * du + dv * dv);
             _kind[_links] = kind;
-            _wa[_links] = _invMass[a] / w;
-            _wb[_links] = _invMass[b] / w;
+            _wa[_links] = ma / w;
+            _wb[_links] = mb / w;
             _links++;
         }
 

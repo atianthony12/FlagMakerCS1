@@ -174,6 +174,7 @@
   <String key="NewImageY.Label">新旗帜的图片：旗帜中心的纵向位置（0 上，1 下）</String>
   <String key="NewImageZoom.Label">新旗帜的图片：缩放（1 = 充满旗帜）</String>
   <String key="NewImageTurn.Label">新旗帜的图片：顺时针转的四分之一圈数，0 到 3</String>
+  <String key="NewTake.Label">新旗帜：静止姿态或循环的版本（0 为第一个）</String>
   <String key="NewImageAlpha.Label">新旗帜的图片：透明部分</String>
 
   <String key="NewMotion.Label">飘动方式</String>
@@ -188,6 +189,22 @@
   <String key="Motion.Still.Tooltip">定格的一个姿态。</String>
   <String key="Motion.Flat">平放</String>
   <String key="Motion.Flat.Tooltip">平整，无褶皱。</String>
+  <String key="NewRecapture.Label">重新捕捉</String>
+  <String key="NewRecapture.Tooltip">新的姿态或循环。</String>
+  <String key="SelRecapture.Label">重新捕捉</String>
+  <String key="SelRecapture.Tooltip">新的姿态或循环。</String>
+  <String key="NewHeld.Label">其他固定处</String>
+  <String key="NewHeld.Tooltip">固定更多布面。</String>
+  <String key="SelHeld.Label">其他固定处</String>
+  <String key="SelHeld.Tooltip">固定更多布面。</String>
+  <String key="Held.Top">上边</String>
+  <String key="Held.Top.Tooltip">沿金色边固定。</String>
+  <String key="Held.Bottom">下边</String>
+  <String key="Held.Bottom.Tooltip">沿金色边固定。</String>
+  <String key="Held.Fly">外边</String>
+  <String key="Held.Fly.Tooltip">沿金色边固定。</String>
+  <String key="Held.Corners">外角</String>
+  <String key="Held.Corners.Tooltip">固定外侧两角。</String>
   <String key="NewWaviness.Label">起伏程度</String>
   <String key="NewWaviness.Tooltip">波纹有多大。</String>
   <String key="SelWaviness.Label">起伏程度</String>
@@ -496,6 +513,8 @@
   <String key="Group.Flags">旗帜</String>
   <String key="FreezeWhenPaused.Label">暂停时冻结旗帜</String>
   <String key="FreezeWhenPaused.Tooltip">方便截图。</String>
+  <String key="RainWetness.Label">雨中湿润</String>
+  <String key="RainWetness.Tooltip">旗帜被淋湿的程度。</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">布料</String>
@@ -578,6 +597,7 @@
   <String key="File.Readout">（滑块：{0} 到 {1}）</String>
   <String key="File.Toggle">{0}。true 或 false，默认 {1}。</String>
   <String key="File.Choice">{0}。可选 {1}；默认 {2}。</String>
+  <String key="File.Bits">{0}。{1} 中任意几项相加（0 为无）；默认 {2}。</String>
   <String key="File.Colour">{0}。颜色 #RRGGBB；默认 {1}。</String>
   <String key="File.Country">{0}。国家代码（fr、de、gb-sct、eu ...）或 none；默认 {1}。</String>
   <String key="File.Image">{0}。Images 文件夹中图片的文件名，或 none；默认 {1}。</String>

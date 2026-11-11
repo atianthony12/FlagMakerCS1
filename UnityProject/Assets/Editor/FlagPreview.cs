@@ -149,6 +149,9 @@ public static class FlagPreview
         FlagMesh.SmoothEdges = Env("RF_SMOOTH", "1") != "0";
         bool collide = Env("RF_COLLIDE", "1") != "0";
         bool plate = Env("RF_PLATE", "0") == "1";
+
+        // RF_HELD: what holds the cloth besides its hoist (FlagHold bits: 1 top, 2 bottom, 4 far edge, 8 far corners).
+        int heldMask = (int)ParseFloat(Env("RF_HELD", "0"));
         string[] countries = Env("RF_COUNTRIES", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         float[] darknesses = ParseFloats(Env("RF_DARKNESS", "0"));
 
@@ -454,6 +457,15 @@ public static class FlagPreview
                     cloth.Calm(FlagCloth.CalmTime);
                     Debug.Log("RF PREVIEW: a back plate through the hoist, its front towards (" +
                               hz.ToString("F2", CultureInfo.InvariantCulture) + ", " + (-hx).ToString("F2", CultureInfo.InvariantCulture) + ")");
+                }
+
+                // RF_HELD: its held edges, set before it is laid, as the game sets them (FlagRenderer.PlanFlag, StillCloth).
+                flag.Held = heldMask;
+                if (flag.HeldNow != FlagHold.None && motion != FlagMotion.Loop)
+                {
+                    cloth.SetHolds(flag.HeldNow, fx, fy, fz);
+                    cloth.LayOutNew(1f, 0f);
+                    Debug.Log("RF PREVIEW: held at its " + FlagHold.LogName(flag.HeldNow));
                 }
 
                 FlagMesh mesh = new FlagMesh(cloth, refine);
@@ -849,6 +861,10 @@ public static class FlagPreview
         // (temperature, rain, fog, the ground's wetness); the cloth reads the wetness (RF_WET).
         float wet = Mathf.Clamp01(ParseFloat(Env("RF_WET", "0")));
         Shader.SetGlobalVector("_WeatherParams", new Vector4(15f, wet, 0f, wet));
+
+        // The cloth's share of it (the game's Settings.RainWetness): all of it here unless -WetScale
+        // says (-Wet is then the cloth's own wetness, as every picture before 2026-11-11 had it).
+        Shader.SetGlobalFloat(FlagLook.IdWetScale, Mathf.Clamp01(ParseFloat(Env("RF_WETSCALE", "1"))));
 
         // What PoleSky binds in the game: a sky for a glossy pole -- here a gradient cube standing in
         // for the game's environment map (zenith blue, a pale horizon, the ground below), dark at night.

@@ -181,6 +181,7 @@
   <String key="NewImageY.Label">Imagen de la nueva bandera: centro a lo alto (0 arriba, 1 abajo)</String>
   <String key="NewImageZoom.Label">Imagen de la nueva bandera: zoom (1 = llena la bandera)</String>
   <String key="NewImageTurn.Label">Imagen de la nueva bandera: cuartos de vuelta a la derecha, 0 a 3</String>
+  <String key="NewTake.Label">Nueva bandera: toma de su pose quieta o bucle (0 la primera)</String>
   <String key="NewImageAlpha.Label">Imagen de la nueva bandera: partes transparentes</String>
 
   <String key="NewMotion.Label">Movimiento</String>
@@ -195,6 +196,22 @@
   <String key="Motion.Still.Tooltip">Una pose congelada.</String>
   <String key="Motion.Flat">Plana</String>
   <String key="Motion.Flat.Tooltip">Plana, sin pliegues.</String>
+  <String key="NewRecapture.Label">Recapturar</String>
+  <String key="NewRecapture.Tooltip">Nueva pose o bucle.</String>
+  <String key="SelRecapture.Label">Recapturar</String>
+  <String key="SelRecapture.Tooltip">Nueva pose o bucle.</String>
+  <String key="NewHeld.Label">También sujeta en</String>
+  <String key="NewHeld.Tooltip">Fija más partes de la tela.</String>
+  <String key="SelHeld.Label">También sujeta en</String>
+  <String key="SelHeld.Tooltip">Fija más partes de la tela.</String>
+  <String key="Held.Top">Borde superior</String>
+  <String key="Held.Top.Tooltip">Sujeta por el borde dorado.</String>
+  <String key="Held.Bottom">Borde inferior</String>
+  <String key="Held.Bottom.Tooltip">Sujeta por el borde dorado.</String>
+  <String key="Held.Fly">Borde exterior</String>
+  <String key="Held.Fly.Tooltip">Sujeta por el borde dorado.</String>
+  <String key="Held.Corners">Esquinas exteriores</String>
+  <String key="Held.Corners.Tooltip">Sujeta por las esquinas exteriores.</String>
   <String key="NewWaviness.Label">Cuánto ondea</String>
   <String key="NewWaviness.Tooltip">Cuánto se riza.</String>
   <String key="SelWaviness.Label">Cuánto ondea</String>
@@ -503,6 +520,8 @@
   <String key="Group.Flags">Banderas</String>
   <String key="FreezeWhenPaused.Label">Congelar banderas en pausa</String>
   <String key="FreezeWhenPaused.Tooltip">Útil para capturas.</String>
+  <String key="RainWetness.Label">Mojadas con lluvia</String>
+  <String key="RainWetness.Tooltip">Cuánto se mojan.</String>
 
   <!-- On the options page and in the in-game panel's Settings tab. -->
   <String key="Group.Cloth">Tela</String>
@@ -587,6 +606,7 @@
   <String key="File.Readout">(control: {0} a {1})</String>
   <String key="File.Toggle">{0}. true o false, predeterminado {1}.</String>
   <String key="File.Choice">{0}. Uno de {1}; predeterminado {2}.</String>
+  <String key="File.Bits">{0}. La suma de cualesquiera de {1} (0 ninguno); predeterminado {2}.</String>
   <String key="File.Colour">{0}. Un color #RRGGBB; predeterminado {1}.</String>
   <String key="File.Country">{0}. Un código de país (fr, de, gb-sct, eu ...) o none; predeterminado {1}.</String>
   <String key="File.Image">{0}. Nombre de un archivo de imagen en la carpeta Images, o none; predeterminado {1}.</String>

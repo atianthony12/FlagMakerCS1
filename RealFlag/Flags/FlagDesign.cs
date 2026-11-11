@@ -227,6 +227,41 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// What holds the cloth besides its hoist (FlagSpec.Held, FlagCloth.SetHolds): BITS, stored
+    /// by value in the save, APPEND ONLY. In the cloth's own terms -- its first and last rows (the
+    /// top and bottom edges of a flag hoisted from its side; the two sides of a banner from its
+    /// top), the fly's end of every row, or of the first and last rows only. The author,
+    /// 2026-11-11: "vertical flags like banners are hoisted from the side, but are steady at the
+    /// top and bottom so the whole advertisement on the banner is visible".
+    /// </summary>
+    public static class FlagHold
+    {
+        public const int None = 0;
+        public const int TopEdge = 1;
+        public const int BottomEdge = 2;
+        public const int FlyEdge = 4;
+        public const int FlyCorners = 8;
+        public const int All = TopEdge | BottomEdge | FlyEdge | FlyCorners;
+
+        /// <summary>The panel's toggles, one a bit.</summary>
+        public static readonly int[] Values = { TopEdge, BottomEdge, FlyEdge, FlyCorners };
+        public static readonly string[] NameKeys = { "Held.Top", "Held.Bottom", "Held.Fly", "Held.Corners" };
+        public static readonly string[] TooltipKeys = { "Held.Top.Tooltip", "Held.Bottom.Tooltip", "Held.Fly.Tooltip", "Held.Corners.Tooltip" };
+
+        public static string LogName(int mask)
+        {
+            if (mask == None)
+                return "its hoist only";
+            var parts = new System.Collections.Generic.List<string>();
+            if ((mask & TopEdge) != 0) parts.Add("first edge");
+            if ((mask & BottomEdge) != 0) parts.Add("last edge");
+            if ((mask & FlyEdge) != 0) parts.Add("far edge");
+            if ((mask & FlyCorners) != 0) parts.Add("far corners");
+            return string.Join(", ", parts.ToArray());
+        }
+    }
+
+    /// <summary>
     /// A flag's size as it is SEEN hanging -- its width across and its height down -- against the
     /// cloth's own: its length from the hoist to the fly and its proportion (hoist / length x
     /// 1000). Hoisted from its side, the width is the length; from its top, the hoist runs across
@@ -783,6 +818,31 @@ namespace RealFlag.Flags
         public float PolePosition;
 
         /// <summary>
+        /// Which take of its motion a still or looping flag shows, 0..<see cref="MaxTake"/> (the
+        /// author, 2026-11-11: "if i make a flag Still then back to waving, then Still again, the
+        /// flag state will be the same as the first time, so the motion should recapture on its
+        /// own"; and for Loop, "recapture the motion"): the place in the breeze's eddies its still
+        /// shape or loop is made in (StillPose.FieldFor). 0 is every flag's before; a new one each
+        /// time the player makes the flag still or a loop, or presses Recapture. Kept in the save,
+        /// so the city loads with the shape the player saw. Format 19.
+        /// </summary>
+        public int Take;
+
+        public const int MaxTake = 255;
+
+        /// <summary>
+        /// What holds the cloth besides its hoist (FlagHold bits; FlagCloth.SetHolds): its top and
+        /// bottom edges, its far edge, its far corners. 0, every flag's before 2026-11-11. Format 19.
+        /// </summary>
+        public int Held;
+
+        /// <summary>The holds that act: none on a flat flag (laid exactly flat, nothing to hold).</summary>
+        public int HeldNow
+        {
+            get { return Motion == FlagMotion.Flat ? FlagHold.None : Held & FlagHold.All; }
+        }
+
+        /// <summary>
         /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped to primer), rust (in the
         /// chips and running down from them) and dirt (grime up from the foot, streaks down). Its
         /// look only (FlagPole.shader).
@@ -1006,6 +1066,8 @@ namespace RealFlag.Flags
                 s.RopeThickness = 1f;
             s.RopeThickness = Math.Max(MinRopeThickness, Math.Min(s.RopeThickness, MaxRopeThickness));
             s.PolePosition = float.IsNaN(s.PolePosition) || float.IsInfinity(s.PolePosition) ? 1f : Share(s.PolePosition);
+            s.Take = Math.Max(0, Math.Min(s.Take, MaxTake));
+            s.Held &= FlagHold.All;
             return s;
         }
 
@@ -1071,7 +1133,13 @@ namespace RealFlag.Flags
         public bool SamePose(FlagSpec other)
         {
             return SameShape(other) && SameHoist(other) && Math.Abs(Waviness - other.Waviness) < 1e-5f && Motion == other.Motion &&
-                   OnHalyard == other.OnHalyard;
+                   OnHalyard == other.OnHalyard && Take == other.Take && HeldNow == other.HeldNow;
+        }
+
+        /// <summary>The take after <paramref name="take"/> (FlagSpec.Take), round to 1 after the last: 0 is the first only.</summary>
+        public static int NextTake(int take)
+        {
+            return take >= MaxTake || take < 0 ? 1 : take + 1;
         }
 
         /// <summary>Clipped to a drawn pole's halyard by its two grommets (FlagPoleShape.ApplyTo), not held along its whole hoist.</summary>
@@ -1126,7 +1194,9 @@ namespace RealFlag.Flags
             if (HoistedFrom != FlagHoist.Side)
                 text += ", hoisted from its " + FlagHoist.LogName(HoistedFrom) + (BackPlate ? " in front of a back plate" : " with no back plate");
             if (Motion != FlagMotion.Waves)
-                text += ", " + FlagMotion.LogName(Motion);
+                text += ", " + FlagMotion.LogName(Motion) + (Take != 0 && (Motion == FlagMotion.Still || Motion == FlagMotion.Loop) ? " (take " + Take + ")" : "");
+            if (HeldNow != FlagHold.None)
+                text += ", held at its " + FlagHold.LogName(HeldNow);
             if (WindShare < 1f)
                 text += ", " + (WindShare * 100f).ToString("F0", inv) + "% of the wind on it";
             if (Darkness > 0f)
@@ -1317,9 +1387,11 @@ namespace RealFlag.Flags
         /// base (two bytes), the shine, wear, rust, dirt and the ropes' thickness (five floats); 16's
         /// material read as a shine, its "ornate" profile as a tapered shaft on a cast base. 18
         /// (2026-11-10): the same, then where the flag flies on its pole (a float, 0..1; older ones
-        /// at the top). Every older one is still read.
+        /// at the top). 19 (2026-11-11): the same, then the take of a still or looping flag's
+        /// motion (a byte, FlagSpec.Take; older ones the first, 0) and what holds it besides its
+        /// hoist (a byte, FlagHold bits; older ones none). Every older one is still read.
         /// </summary>
-        public const byte Version = 18;
+        public const byte Version = 19;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1370,6 +1442,8 @@ namespace RealFlag.Flags
             w.Write(s.PoleDirt);
             w.Write(s.RopeThickness);
             w.Write(s.PolePosition);
+            w.Write((byte)Math.Max(0, Math.Min(s.Take, FlagSpec.MaxTake)));
+            w.Write((byte)(s.Held & FlagHold.All));
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1543,6 +1617,12 @@ namespace RealFlag.Flags
 
             // Before the position on the pole: at the top.
             s.PolePosition = version >= 18 ? r.ReadSingle() : 1f;
+
+            // Before the takes: the first, every still shape and loop as it was made.
+            s.Take = version >= 19 ? r.ReadByte() : 0;
+
+            // Before the holds: the hoist alone.
+            s.Held = version >= 19 ? r.ReadByte() : FlagHold.None;
 
             return s.Sanitised();
         }

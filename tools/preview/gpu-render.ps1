@@ -29,6 +29,7 @@
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 #   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
+#   ... -Held 3                    held besides its hoist (FlagHold bits: 1 top, 2 bottom, 4 far edge, 8 far corners)
 #   ... -Cuts "0,1,3,4:40"         each design once per cut (FlagCut: 0 rectangle, 1 swallowtail, 2 and tongue, 3 pennant,
 #                                  4 burgee, 5 pointed, 6 rounded), a depth in percent after a colon (33 by default)
 #   ... -Images "a.png,b.jpg" -ImageDir <folder>   pictures of the player's, laid on -Patterns' first pattern
@@ -81,6 +82,7 @@ param(
     [int]$WearSeed = 0,
     [double]$Sun = 1.3,
     [double]$Wet = 0,
+    [double]$WetScale = 1,
     [int]$Pole = 0,
     [int]$Ropes = 2,
     [double]$Thick = 1.0,
@@ -91,6 +93,7 @@ param(
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
     [switch]$Plate,
+    [int]$Held = 0,
     [string]$Images = "",
     [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\FlagMaker\Images"),
     [string]$Crops = "0.5,0.5,1,0",
@@ -165,6 +168,7 @@ $env:RF_CUTS = $Cuts
 $env:RF_WEARSEED = "$WearSeed"
 $env:RF_SUN = $Sun.ToString($inv)
 $env:RF_WET = $Wet.ToString($inv)
+$env:RF_WETSCALE = $WetScale.ToString($inv)
 $env:RF_POLE = "$Pole"
 $env:RF_ROPES = "$Ropes"
 $env:RF_THICK = $Thick.ToString($inv)
@@ -175,6 +179,7 @@ $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
 $env:RF_HOIST = $Hoist
 $env:RF_PLATE = if ($Plate) { "1" } else { "0" }
+$env:RF_HELD = "$Held"
 $env:RF_IMAGES = $Images
 $env:RF_IMAGEDIR = $ImageDir
 $env:RF_CROPS = $Crops

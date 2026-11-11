@@ -665,6 +665,20 @@ namespace RealFlag
                 return none || number != 0 ? null : "ignored: not a file name";
             }
 
+            if (row.ChoiceValues != null && row.MaskBits)
+            {
+                // Bits (FlagHold): any sum of the choices, the rest of the number dropped.
+                int bits;
+                if (!int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out bits))
+                    return "ignored: not a number";
+
+                int all = 0;
+                foreach (int v in row.ChoiceValues)
+                    all |= v;
+                row.Int.value = bits & all;
+                return (bits & ~all) != 0 ? "pulled in: only " + ChoiceList(row) + " and their sums" : null;
+            }
+
             if (row.ChoiceValues != null)
             {
                 int number;
@@ -800,7 +814,9 @@ namespace RealFlag
             else if (row.Int != null)
             {
                 string fallback = row.DefaultInt.ToString(CultureInfo.InvariantCulture);
-                text = row.ChoiceValues != null
+                text = row.ChoiceValues != null && row.MaskBits
+                    ? Localization.Get("File.Bits", label, ChoiceList(row), fallback)
+                    : row.ChoiceValues != null
                     ? Localization.Get("File.Choice", label, ChoiceList(row), fallback)
                     : Localization.Get("File.AnyNumber", label, fallback);
             }
