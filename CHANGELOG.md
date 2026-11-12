@@ -67,6 +67,9 @@ The first release.
   flag carries handles to move, turn, tilt and lean it, and every design setting applies to it live.
   **Go to**, **Copy** (its design into the New flag window) and **Delete** (or the Del key; it asks
   first).
+- **Undo and redo**: Ctrl+Z undoes and Ctrl+Y (or Ctrl+Shift+Z) redoes what you did to a flag
+  with Flag Maker: moving, turning and raising it, every design and flagpole change, placing a
+  flag and deleting one. One step per drag; up to 100 steps; not saved with the city.
 - **A reset icon** on every setting puts it back to its default.
 - **Line Tool**: with that mod on, the New flag window places rows of flags in a line, a curve,
   freeform or a circle, each flag previewed before the click.

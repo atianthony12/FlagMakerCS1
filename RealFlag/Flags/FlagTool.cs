@@ -183,6 +183,8 @@ namespace RealFlag.Flags
 
                 if (tool.CurrentMode != mode)
                 {
+                    // A drag cut short stays where it got to: its undo step closes here.
+                    FlagUndo.End();
                     tool._gizmo.Cancel();
                     tool._rightDown = false;
                     tool.EndRaise();
@@ -243,6 +245,8 @@ namespace RealFlag.Flags
             {
                 tool._gizmo.Cancel();
                 FlagEditor.ApplyTransform(tool._gizmo.Anchor, tool._gizmo.Angle, tool._gizmo.Tilt, tool._gizmo.Lean);
+                // The drag's undo step closes back where it began: nothing to undo (dropped).
+                FlagUndo.End();
                 Log.Msg("flags: the drag was given up; the flag is back where it was");
                 return "the drag given up";
             }
@@ -325,6 +329,9 @@ namespace RealFlag.Flags
         {
             FlagGizmo.Handle handle = _gizmo.Dragging;
             _gizmo.End();
+            // The drag, press to release, is one undo step (FlagUndo).
+            if (handle != FlagGizmo.Handle.None)
+                FlagUndo.End();
             uint flag = FlagEditor.Selected;
             if (handle == FlagGizmo.Handle.None || flag == 0)
                 return;
@@ -744,7 +751,7 @@ namespace RealFlag.Flags
             }
 
             _raiseAnchor.y += step;
-            FlagEditor.ApplyTransform(_raiseAnchor, _raiseAngle, _raiseTilt, _raiseLean);
+            FlagEditor.ApplyTransform(_raiseAnchor, _raiseAngle, _raiseTilt, _raiseLean, true);
             _raiseOwnUntil = now + RaiseOwnTime;
             Stepped(step, FlagEditor.Selected);
         }
@@ -771,6 +778,9 @@ namespace RealFlag.Flags
                 return;
 
             _raising = false;
+            // The run of steps, keys down to let go, is one undo step (FlagUndo).
+            if (_raisedFlag != 0)
+                FlagUndo.End();
             string keys = (_raiseKey != null ? _raiseKey.ToString() : "?") + " / " + (_lowerKey != null ? _lowerKey.ToString() : "?");
             string moved = (_raisedBy >= 0f ? "raised " : "lowered ") + Mathf.Abs(_raisedBy).ToString("0.###") + " m, pole and all";
             if (_raisedFlag != 0)
@@ -835,6 +845,12 @@ namespace RealFlag.Flags
                 return;
             }
 
+            // Undo and redo of what the mod did to placed flags (FlagUndo): its steps closed as
+            // their gestures end, the game's answers to a placing taken.
+            FlagUndo.Tick();
+            if (UndoKeys())
+                return;
+
             Vector3 hit;
             bool valid;
 
@@ -870,6 +886,58 @@ namespace RealFlag.Flags
             UpdatePick(valid, hit);
         }
 
+        /// <summary>
+        /// Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes (FlagUndo), one step a press. Not while
+        /// typing (Ctrl+Z in the hex code's field is the field's) or asked something, as Delete; not
+        /// with Alt (AltGr is Ctrl+Alt: a character on some keyboards); not with a mouse button down
+        /// (a drag or a slider under way; Ctrl snaps the gizmo's drag).
+        /// Nothing else acts on these while this tool is out (2026-11-12, the game's and Move It's
+        /// IL): the game binds Z (camera closer: CameraController.HandleKeyEvents) and Y (Game Areas:
+        /// GameKeyShortcuts.OnProcessKeyEvent) without Ctrl, and SavedInputKey.IsPressed wants Ctrl,
+        /// Shift and Alt as bound; its Ctrl+Z is the terrain tool's (TerrainTool.OnToolGUI, its own
+        /// tool's); Move It reads its Ctrl+Z / Ctrl+Y only in MoveItTool.OnToolGUI, its tool's. Not
+        /// Cmd on a Mac: IsPressed does not look at Cmd, so Cmd+Z would zoom the camera as well.
+        /// True if a key was taken.
+        /// </summary>
+        private bool UndoKeys()
+        {
+            bool z = Input.GetKeyDown(KeyCode.Z), y = Input.GetKeyDown(KeyCode.Y);
+            if (!z && !y)
+                return false;
+
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            if (!control || alt || ColossalFramework.UI.UIView.HasInputFocus() || ColossalFramework.UI.UIView.HasModalInput())
+                return false;
+
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (_gizmo.IsDragging || Input.GetMouseButton(0) || Input.GetMouseButton(1))
+            {
+                Log.Msg((y || shift ? "redo" : "undo") + ": not while a mouse button is held (a drag under way)");
+                return true;
+            }
+
+            if (y || shift)
+                FlagUndo.Redo();
+            else
+                FlagUndo.Undo();
+            return true;
+        }
+
+        /// <summary>
+        /// An undo or redo put the selected flag here (FlagEditor.Restored): the gizmo on it at
+        /// once, and the raise keys' own place for it forgotten -- the next Page Up starts from here.
+        /// </summary>
+        public static void ShowRestored(Vector3 anchor, float angle, float tilt, float lean)
+        {
+            FlagTool tool = Instance;
+            if (tool == null)
+                return;
+
+            tool._raiseOwnUntil = 0f;
+            tool._gizmo.Show(anchor, angle, tilt, lean);
+        }
+
         /// <summary>Pick mode: the gizmo on the selected flag (a drag under way, or a handle under the pointer), else the flag under it.</summary>
         private void UpdatePick(bool valid, Vector3 hit)
         {
@@ -899,7 +967,7 @@ namespace RealFlag.Flags
                     bool snap = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
                     bool fine = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                     if (_gizmo.Update(camera, mouse, snap, fine))
-                        _gizmo.Follow(FlagEditor.ApplyTransform(_gizmo.Anchor, _gizmo.Angle, _gizmo.Tilt, _gizmo.Lean));
+                        _gizmo.Follow(FlagEditor.ApplyTransform(_gizmo.Anchor, _gizmo.Angle, _gizmo.Tilt, _gizmo.Lean, true));
                     ShowToolInfo(true, _gizmo.Describe(), _gizmo.Anchor);
                     return;
                 }
@@ -1000,7 +1068,8 @@ namespace RealFlag.Flags
             bool onEdge = GhostPlace(hit, snap, spec, out anchor, out angle);
             float lift = _lift;
 
-            FlagProps.Create(anchor, angle, spec, prop =>
+            // Placed through FlagUndo: Ctrl+Z takes it away again, Ctrl+Y puts it back as placed.
+            FlagUndo.Place(anchor, angle, spec, prop =>
             {
                 if (prop == 0)
                     Log.Warn("flags: the flag was not placed (the city has as many props as it can hold)");

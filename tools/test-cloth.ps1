@@ -6570,6 +6570,272 @@ Check "a flag's hoist half into the ground: its cloth hangs into the ground from
 $keys = [ClothTests]::Keys()
 Check "Page Up/Down while placing step as Move It's: 0.125 m, Shift 1 m, Alt 1.6 cm, both 2 mm; once, then after 333 ms every event; both keys nothing" ($keys -eq "0.125 1 0.015625 0.001953125|0.125 0 0 0.125 1 0 -0.125 0 0 -0.015625") $keys
 
+# ---- undo and redo (FlagHistory, 2026-11-12) ----------------------------------------------
+# The pure stack under Ctrl+Z / Ctrl+Y (FlagUndo applies its states in the game): one step a
+# gesture, joined by time and held open by a drag or a button down, ended explicitly; unchanged
+# steps dropped; undo and redo in order, a new step clearing the redo side; at most 100; a flag
+# taken away and put back on a new prop keeps its steps (Rebind); one gone some other way takes
+# them with it, and a later flag on its index never gets them.
+$undoHarness = @'
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
+using RealFlag.Flags;
+
+public static class UndoTests
+{
+    static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+    static FlagState S(float x) { return FlagState.At(x, 10f, 0f, 0f, FlagSpec.Default); }
+
+    static string X(FlagState s) { return s.Present ? s.X.ToString("0.###", Inv) : "-"; }
+
+    /// <summary>Undoes (or redoes) one step: "from>to", each state by its x ("-" for absent), or "none".</summary>
+    static string U(FlagHistory h, bool undo, out int flag)
+    {
+        FlagState from, to;
+        bool got = undo ? h.TryUndo(out flag, out from, out to) : h.TryRedo(out flag, out from, out to);
+        return got ? X(from) + ">" + X(to) : "none";
+    }
+
+    static string U(FlagHistory h, bool undo)
+    {
+        int flag;
+        return U(h, undo, out flag);
+    }
+
+    /// <summary>A gizmo drag: five changes 0.1 s apart then its end -- one step, from the first's before to the last's after.</summary>
+    public static string Gesture()
+    {
+        var h = new FlagHistory();
+        for (int i = 0; i < 5; i++) h.Change(7, S(i), S(i + 1), i * 0.1f, true);
+        h.End();
+        return h.UndoCount + " " + U(h, true) + " " + h.RedoCount;
+    }
+
+    /// <summary>By time: 0.5 s apart join, 0.7 s apart do not; a Tick past 0.6 s closes; held, never by time; a button down (Keep) holds it.</summary>
+    public static string ByTime()
+    {
+        var h = new FlagHistory();
+        h.Change(7, S(0), S(1), 0f, false);
+        h.Change(7, S(1), S(2), 0.5f, false);
+        h.Change(7, S(2), S(3), 1.0f, false);
+        h.Change(7, S(3), S(4), 1.7f, false);
+        h.End();
+        string joined = h.UndoCount + "";
+
+        var t = new FlagHistory();
+        t.Change(7, S(0), S(1), 0f, false);
+        t.Tick(0.5f);
+        bool openAt05 = t.HasOpen;
+        t.Tick(0.7f);
+        string ticked = openAt05 + "," + t.HasOpen + "," + t.UndoCount;
+
+        var held = new FlagHistory();
+        held.Change(7, S(0), S(1), 0f, true);
+        held.Tick(30f);
+        held.Change(7, S(1), S(2), 31f, false);
+        bool stillOpen = held.HasOpen;
+        held.End();
+        string heldOne = stillOpen + "," + held.UndoCount;
+
+        var kept = new FlagHistory();
+        kept.Change(7, S(0), S(1), 0f, false);
+        for (int i = 1; i <= 6; i++) kept.Keep(i * 0.5f);
+        kept.Change(7, S(1), S(2), 3.4f, false);
+        kept.End();
+        return joined + "|" + ticked + "|" + heldOne + "|" + kept.UndoCount;
+    }
+
+    /// <summary>A change to another flag closes the open step; an explicit end closes it, the next change opens another.</summary>
+    public static string Closing()
+    {
+        var h = new FlagHistory();
+        h.Change(7, S(0), S(1), 0f, false);
+        h.Change(8, S(0), S(5), 0.1f, false);
+        h.End();
+        h.Change(8, S(5), S(6), 0.2f, false);
+        h.End();
+        return h.UndoCount + "";
+    }
+
+    /// <summary>A gesture back where it began is dropped (the redo side kept); a design change alone counts; within a millimetre is no change.</summary>
+    public static string Unchanged()
+    {
+        var h = new FlagHistory();
+        h.Change(7, S(0), S(1), 0f, false);
+        h.End();
+        U(h, true);
+        h.Change(7, S(0), S(3), 1f, false);
+        h.Change(7, S(3), S(0), 1.1f, false);
+        h.End();
+        string back = h.UndoCount + "," + h.RedoCount;
+
+        FlagSpec red = FlagSpec.Default;
+        red.Colour1 = 0xC8102E;
+        var d = new FlagHistory();
+        d.Change(7, S(0), FlagState.At(0f, 10f, 0f, 0f, red), 0f, false);
+        d.End();
+        d.Change(7, S(0), S(0.0005f), 5f, false);
+        d.End();
+        bool turnSame = FlagState.Same(FlagState.At(0f, 0f, 0f, 0.00001f, FlagSpec.Default), FlagState.At(0f, 0f, 0f, (float)(2 * Math.PI), FlagSpec.Default));
+        return back + "|" + d.UndoCount + "|" + turnSame;
+    }
+
+    /// <summary>Undo newest first, redo the last undone, a new step clears the redo side; nothing to undo or redo says so.</summary>
+    public static string Order()
+    {
+        var h = new FlagHistory();
+        h.Change(7, S(0), S(1), 0f, false); h.End();
+        h.Change(7, S(1), S(2), 1f, false); h.End();
+        h.Change(8, S(10), S(11), 2f, false); h.End();
+        string a = U(h, true) + " " + U(h, true) + " " + U(h, false);
+        int redoBefore = h.RedoCount;
+        h.Change(7, S(2), S(4), 3f, false); h.End();
+        string b = redoBefore + "," + h.RedoCount + " " + U(h, false);
+        var empty = new FlagHistory();
+        return a + "|" + b + "|" + U(empty, true) + " " + U(empty, false);
+    }
+
+    /// <summary>150 steps: 100 kept, the oldest let go.</summary>
+    public static string Cap()
+    {
+        var h = new FlagHistory();
+        for (int i = 0; i < 150; i++) { h.Change(7, S(i), S(i + 1), i, false); h.End(); }
+        int count = h.UndoCount;
+        string last = "";
+        while (h.UndoCount > 0) last = U(h, true);
+        return count + " " + last;
+    }
+
+    /// <summary>
+    /// Placed on #5, moved; both undone (the flag taken away: Unbind, then the renderer's finding
+    /// #5 gone forgets nothing); redone onto a new prop #9 (Rebind) -- the move redone names #9.
+    /// Deleted from #7 and put back on #12: the step before it names #12.
+    /// </summary>
+    public static string Remap()
+    {
+        var h = new FlagHistory();
+        h.Placed(5, S(1));
+        h.Change(5, S(1), S(2), 1f, false); h.End();
+        int f1, f2;
+        string a = U(h, true, out f1) + " " + U(h, true, out f2);
+        h.Unbind(f2);
+        h.Forget(5);
+        string kept = h.UndoCount + "," + h.RedoCount + "," + h.PropOf(f2);
+        int f3, f4;
+        string r1 = U(h, false, out f3);
+        bool bound = h.Rebind(f3, 9);
+        string r2 = U(h, false, out f4);
+        string placed = a + " " + kept + " " + r1 + " " + bound + " " + r2 + " " + h.PropOf(f4) + "," + (f1 == f4);
+
+        var d = new FlagHistory();
+        d.Change(7, S(0), S(3), 0f, false); d.End();
+        d.Deleted(7, S(3));
+        d.Forget(7);
+        int g1, g2;
+        string u1 = U(d, true, out g1);
+        bool rebound = d.Rebind(g1, 12);
+        string u2 = U(d, true, out g2);
+        return placed + "|" + d.RedoCount + " " + u1 + " " + rebound + " " + u2 + " " + d.PropOf(g2) + "," + (g1 == g2);
+    }
+
+    /// <summary>
+    /// A flag gone some other way takes its steps (and its open one) with it; the index taken by
+    /// a later flag: the steps of the flag we took away from it stay, the later one's go with it.
+    /// </summary>
+    public static string Staleness()
+    {
+        var h = new FlagHistory();
+        h.Change(3, S(0), S(1), 0f, false); h.End();
+        h.Change(4, S(0), S(2), 1f, false); h.End();
+        h.Change(3, S(1), S(5), 2f, false);
+        h.Forget(3);
+        string a = h.UndoCount + "," + h.HasOpen + " " + U(h, true);
+
+        var r = new FlagHistory();
+        r.Deleted(5, S(1));
+        r.Change(5, S(7), S(8), 1f, false); r.End();
+        int before = r.UndoCount;
+        r.Forget(5);
+        int flag;
+        string b = before + "," + r.UndoCount + " " + U(r, true, out flag);
+
+        // A prop placed on an index still bound (a flag gone unseen): the old flag's steps go.
+        var p = new FlagHistory();
+        p.Change(5, S(0), S(1), 0f, false); p.End();
+        p.Placed(5, S(9));
+        return a + "|" + b + "|" + p.UndoCount + " " + U(p, true);
+    }
+
+    /// <summary>
+    /// Each of FlagSpec's fields changed alone is a change (FlagState.Same compares the codec's
+    /// bytes): the number of fields, and the names of any a change of which made no step.
+    /// </summary>
+    public static string EveryField()
+    {
+        FlagSpec spec = FlagSpec.Default.Sanitised();
+        var untold = new List<string>();
+        FieldInfo[] fields = typeof(FlagSpec).GetFields(BindingFlags.Public | BindingFlags.Instance);
+        foreach (FieldInfo f in fields)
+        {
+            bool told = false;
+            foreach (int k in new[] { 1, -1 })
+            {
+                object o = spec;
+                object v = f.GetValue(o);
+                object w = null;
+                if (f.FieldType == typeof(int)) w = (int)v + k;
+                else if (f.FieldType == typeof(uint)) w = (uint)v ^ (k > 0 ? 1u : 0x100u);
+                else if (f.FieldType == typeof(float)) w = (float)v + k * 0.25f;
+                else if (f.FieldType == typeof(bool)) w = !(bool)v;
+                else if (f.FieldType == typeof(byte)) w = (byte)((byte)v + k);
+                else if (f.FieldType == typeof(string)) w = k > 0 ? "ab" : "cd.png";
+                if (w == null)
+                    continue;
+                f.SetValue(o, w);
+                if (!FlagState.Same(FlagState.At(0f, 0f, 0f, 0f, spec), FlagState.At(0f, 0f, 0f, 0f, (FlagSpec)o)))
+                {
+                    told = true;
+                    break;
+                }
+            }
+
+            if (!told)
+                untold.Add(f.Name);
+        }
+
+        return fields.Length + " " + (untold.Count == 0 ? "all told" : string.Join(",", untold.ToArray()));
+    }
+}
+'@
+$up = New-Object System.CodeDom.Compiler.CompilerParameters
+$up.GenerateInMemory = $true
+[void]$up.ReferencedAssemblies.Add("System.dll")
+[void]$up.ReferencedAssemblies.Add("System.Core.dll")
+[void]$up.ReferencedAssemblies.Add((Resolve-Path $Dll).Path)
+Add-Type -TypeDefinition $undoHarness -CompilerParameters $up
+
+$ug = [UndoTests]::Gesture()
+Check "undo: a gizmo drag, press to release, is one step from where it began to where it ended" ($ug -eq "1 5>0 1") $ug
+$ut = [UndoTests]::ByTime()
+Check "undo: changes 0.5 s apart join, 0.7 s apart do not; 0.6 s with none closes it; a drag held open 30 s and a mouse button held stay one step" ($ut -eq "2|True,False,1|True,1|1") $ut
+$uc = [UndoTests]::Closing()
+Check "undo: another flag's change, or the gesture's end, closes the step" ($uc -eq "3") $uc
+$uu = [UndoTests]::Unchanged()
+Check "undo: a gesture ending where it began is no step (the redo side kept); a colour alone is one; under a millimetre and a whole turn are no change" ($uu -eq "0,1|1|True") $uu
+$uo = [UndoTests]::Order()
+Check "undo: newest first, redo the last undone, a new step clears the redo side; nothing to undo or redo" ($uo -eq "11>10 2>1 1>2|1,0 none|none none") $uo
+$ux = [UndoTests]::Cap()
+Check "undo: at most 100 steps, the oldest let go" ($ux -eq "100 51>50") $ux
+$ur = [UndoTests]::Remap()
+Check "undo: a flag taken away and put back on a new prop keeps its steps (placed, then deleted)" ($ur -eq "2>1 1>- 0,2,0 ->1 True 1>2 9,True|2 ->3 True 3>0 12,True") $ur
+$us = [UndoTests]::Staleness()
+Check "undo: a flag gone another way takes its steps (its open one too); a later flag on its index never gets ours" ($us -eq "1,False 2>0|2,1 ->1|1 9>-") $us
+$uf = [UndoTests]::EveryField()
+Check "undo: a change of any one of a flag's fields alone is a step (the save's bytes compared)" ($uf -match " all told$") $uf
+
 # ---- cost ---------------------------------------------------------------------------------
 
 foreach ($speed in 0, 6, 12, 20, 30) {

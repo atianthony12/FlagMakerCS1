@@ -61,6 +61,8 @@ namespace RealFlag.Flags
         /// <summary>Selects a flag, and takes the tool out on it (the gizmo).</summary>
         public static void Select(uint prop)
         {
+            // The last flag's gesture is over (FlagUndo: one step per gesture).
+            FlagUndo.End();
             Selected = prop;
             _quietUntil = 0f;
             Load(true);
@@ -76,6 +78,7 @@ namespace RealFlag.Flags
         /// <summary>No flag selected (the tool, if out, stays out to pick another).</summary>
         public static void Deselect()
         {
+            FlagUndo.End();
             if (Selected == 0)
                 return;
 
@@ -90,11 +93,15 @@ namespace RealFlag.Flags
             Selected = 0;
         }
 
-        /// <summary>The flag is gone (the renderer found its prop deleted).</summary>
+        /// <summary>
+        /// The flag is gone (the renderer found its prop deleted): deselected, and its undo steps let
+        /// go -- unless a step of ours took it away (FlagUndo let go of the prop first).
+        /// </summary>
         public static void Forget(uint prop)
         {
             if (Selected == prop)
                 Deselect();
+            FlagUndo.Forget(prop);
         }
 
         /// <summary>
@@ -111,74 +118,85 @@ namespace RealFlag.Flags
             if (!all && Time.realtimeSinceStartup < _quietUntil)
                 return;
 
+            Fill(e.Spec, e.Angle, all);
+        }
+
+        /// <summary>
+        /// The tab's controls from a design and a heading: <see cref="Load"/>'s, the flag as the
+        /// renderer has it; an undo's (<see cref="Restored"/>), the state it put back -- the
+        /// renderer's copy is a frame behind the registry, and ApplyDesign builds the whole spec
+        /// from these controls: one left stale would undo the undo at the next row changed.
+        /// </summary>
+        private static void Fill(FlagSpec spec, float angle, bool all)
+        {
             _loading = true;
             try
             {
                 if (all)
                 {
-                    Settings.SelCountry.value = FlagCountries.NumberOf(e.Spec.Country);
-                    Settings.SelImage.value = FlagImageNames.NumberOf(e.Spec.Image);
-                    Settings.SelImageX.value = e.Spec.ImageX;
-                    Settings.SelImageY.value = e.Spec.ImageY;
-                    Settings.SelImageZoom.value = e.Spec.ImageZoom;
-                    Settings.SelImageTurn.value = e.Spec.ImageTurn;
-                    Settings.SelImageAlpha.value = e.Spec.ImageAlpha;
-                    Settings.SelPattern.value = e.Spec.Pattern;
-                    Settings.SelColour1.value = (int)e.Spec.Colour1;
-                    Settings.SelColour2.value = (int)e.Spec.Colour2;
-                    Settings.SelColour3.value = (int)e.Spec.Colour3;
-                    Settings.SelLength.value = e.Spec.Length;
-                    Settings.SelProportion.value = e.Spec.Proportion;
-                    Settings.SelHoistedFrom.value = e.Spec.HoistedFrom;
-                    Settings.SelMotion.value = e.Spec.Motion;
-                    Settings.SelWaviness.value = e.Spec.Waviness;
-                    Settings.SelWindShare.value = e.Spec.WindShare;
-                    Settings.SelCut.value = e.Spec.Cut;
-                    Settings.SelCutDepth.value = e.Spec.CutDepth;
-                    Settings.SelDarkness.value = e.Spec.Darkness;
-                    Settings.SelWear.value = e.Spec.Wear;
-                    Settings.SelDirt.value = e.Spec.Dirt;
-                    Settings.SelHoles.value = e.Spec.Holes;
-                    Settings.SelTear.value = e.Spec.Tear;
-                    Settings.SelTearEdges.value = e.Spec.TearEdges;
-                    Settings.SelBackPlate.value = e.Spec.BackPlate;
-                    Settings.SelPole.value = e.Spec.Pole;
-                    Settings.SelRopes.value = e.Spec.Ropes;
-                    Settings.SelPoleColour.value = (int)e.Spec.PoleColour;
-                    Settings.SelTopColour.value = (int)e.Spec.TopColour;
-                    Settings.SelRopeColour.value = (int)e.Spec.RopeColour;
-                    Settings.SelPoleThickness.value = e.Spec.PoleThickness;
-                    Settings.SelPoleProfile.value = e.Spec.PoleProfile;
-                    Settings.SelPoleBase.value = e.Spec.PoleBase;
-                    Settings.SelPoleShine.value = e.Spec.PoleShine;
-                    Settings.SelPoleWear.value = e.Spec.PoleWear;
-                    Settings.SelPoleRust.value = e.Spec.PoleRust;
-                    Settings.SelPoleDirt.value = e.Spec.PoleDirt;
-                    Settings.SelRopeThickness.value = e.Spec.RopeThickness;
-                    Settings.SelPolePosition.value = e.Spec.PolePosition;
-                    Settings.SelTake.value = e.Spec.Take;
-                    Settings.SelHeld.value = e.Spec.Held;
+                    Settings.SelCountry.value = FlagCountries.NumberOf(spec.Country);
+                    Settings.SelImage.value = FlagImageNames.NumberOf(spec.Image);
+                    Settings.SelImageX.value = spec.ImageX;
+                    Settings.SelImageY.value = spec.ImageY;
+                    Settings.SelImageZoom.value = spec.ImageZoom;
+                    Settings.SelImageTurn.value = spec.ImageTurn;
+                    Settings.SelImageAlpha.value = spec.ImageAlpha;
+                    Settings.SelPattern.value = spec.Pattern;
+                    Settings.SelColour1.value = (int)spec.Colour1;
+                    Settings.SelColour2.value = (int)spec.Colour2;
+                    Settings.SelColour3.value = (int)spec.Colour3;
+                    Settings.SelLength.value = spec.Length;
+                    Settings.SelProportion.value = spec.Proportion;
+                    Settings.SelHoistedFrom.value = spec.HoistedFrom;
+                    Settings.SelMotion.value = spec.Motion;
+                    Settings.SelWaviness.value = spec.Waviness;
+                    Settings.SelWindShare.value = spec.WindShare;
+                    Settings.SelCut.value = spec.Cut;
+                    Settings.SelCutDepth.value = spec.CutDepth;
+                    Settings.SelDarkness.value = spec.Darkness;
+                    Settings.SelWear.value = spec.Wear;
+                    Settings.SelDirt.value = spec.Dirt;
+                    Settings.SelHoles.value = spec.Holes;
+                    Settings.SelTear.value = spec.Tear;
+                    Settings.SelTearEdges.value = spec.TearEdges;
+                    Settings.SelBackPlate.value = spec.BackPlate;
+                    Settings.SelPole.value = spec.Pole;
+                    Settings.SelRopes.value = spec.Ropes;
+                    Settings.SelPoleColour.value = (int)spec.PoleColour;
+                    Settings.SelTopColour.value = (int)spec.TopColour;
+                    Settings.SelRopeColour.value = (int)spec.RopeColour;
+                    Settings.SelPoleThickness.value = spec.PoleThickness;
+                    Settings.SelPoleProfile.value = spec.PoleProfile;
+                    Settings.SelPoleBase.value = spec.PoleBase;
+                    Settings.SelPoleShine.value = spec.PoleShine;
+                    Settings.SelPoleWear.value = spec.PoleWear;
+                    Settings.SelPoleRust.value = spec.PoleRust;
+                    Settings.SelPoleDirt.value = spec.PoleDirt;
+                    Settings.SelRopeThickness.value = spec.RopeThickness;
+                    Settings.SelPolePosition.value = spec.PolePosition;
+                    Settings.SelTake.value = spec.Take;
+                    Settings.SelHeld.value = spec.Held;
 
                     // With no pole that stands (none, a crossbar, one still being found), the Pole
                     // height is a new flag's: what it stands with if its hoist turns down.
-                    if (!FlagStand.PoleStands(e.Spec) || e.Spec.PoleLength <= 0f)
+                    if (!FlagStand.PoleStands(spec) || spec.PoleLength <= 0f)
                         Settings.SelHeight.value = Settings.NewHeight.value;
                 }
 
-                float degrees = Mathf.Repeat(e.Angle * Mathf.Rad2Deg, 360f);
+                float degrees = Mathf.Repeat(angle * Mathf.Rad2Deg, 360f);
                 if (Mathf.Abs(Mathf.DeltaAngle(degrees, Settings.SelRotation.value)) > 0.05f)
                     Settings.SelRotation.value = Mathf.Round(degrees * 10f) / 10f;
 
                 // Its pole's height, if it stands (0 while an older save's is still being found). A
                 // crossbar's length is its own, found along it: the row keeps the height the pole
                 // stands with when its hoist turns down again.
-                if (FlagStand.PoleStands(e.Spec) && e.Spec.PoleLength > 0f && Mathf.Abs(e.Spec.PoleLength - Settings.SelHeight.value) > 0.01f)
-                    Settings.SelHeight.value = Mathf.Round(e.Spec.PoleLength * 100f) / 100f;
+                if (FlagStand.PoleStands(spec) && spec.PoleLength > 0f && Mathf.Abs(spec.PoleLength - Settings.SelHeight.value) > 0.01f)
+                    Settings.SelHeight.value = Mathf.Round(spec.PoleLength * 100f) / 100f;
 
-                if (Mathf.Abs(e.Spec.Tilt - Settings.SelTilt.value) > 0.05f)
-                    Settings.SelTilt.value = Mathf.Round(e.Spec.Tilt * 10f) / 10f;
-                if (Mathf.Abs(e.Spec.Lean - Settings.SelLean.value) > 0.05f)
-                    Settings.SelLean.value = Mathf.Round(e.Spec.Lean * 10f) / 10f;
+                if (Mathf.Abs(spec.Tilt - Settings.SelTilt.value) > 0.05f)
+                    Settings.SelTilt.value = Mathf.Round(spec.Tilt * 10f) / 10f;
+                if (Mathf.Abs(spec.Lean - Settings.SelLean.value) > 0.05f)
+                    Settings.SelLean.value = Mathf.Round(spec.Lean * 10f) / 10f;
             }
             finally
             {
@@ -193,6 +211,8 @@ namespace RealFlag.Flags
             if (_loading || !TryEntry(out e))
                 return;
 
+            // For undo (FlagUndo): the flag as it was, then as this left it.
+            FlagState before = FlagUndo.Now(Selected);
             FlagSpec old = Latest(e);
             FlagSpec spec = old;
             FlagCountry country = FlagCountries.At(Settings.SelCountry.value);
@@ -261,8 +281,12 @@ namespace RealFlag.Flags
             }
             FlagRegistry.Set(Selected, spec);
             if (stood)
+            {
                 FlagProps.Move(Selected, anchor);
+                FlagUndo.Sent(Selected, anchor, before.Present ? before.Angle : e.Angle);
+            }
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
+            FlagUndo.Changed(Selected, before, false);
 
             if (Log.Detailed)
                 Log.Detail("flags: flag #" + Selected + " redesigned: " + spec.Describe() +
@@ -275,13 +299,15 @@ namespace RealFlag.Flags
         /// the tab's controls showing the new values at once. Tilted or leaning, it stands again
         /// where it stood (Restand: a pole that stands pivots on its foot, as tall as it was).
         /// </summary>
+        /// <param name="held">A gizmo drag or a run of Page Up / Page Down: one undo step until FlagUndo.End (the drag or the keys let go).</param>
         /// <returns>Where the flag's anchor goes: <paramref name="anchor"/>, or where it stands again.</returns>
-        public static Vector3 ApplyTransform(Vector3 anchor, float angle, float tilt, float lean)
+        public static Vector3 ApplyTransform(Vector3 anchor, float angle, float tilt, float lean, bool held = false)
         {
             FlagEntry e;
             if (!TryEntry(out e))
                 return anchor;
 
+            FlagState before = FlagUndo.Now(Selected);
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
             FlagSpec old = Latest(e);
             if (Mathf.Abs(tilt - old.Tilt) > 1e-4f || Mathf.Abs(lean - old.Lean) > 1e-4f)
@@ -306,6 +332,8 @@ namespace RealFlag.Flags
                 FlagProps.Move(Selected, anchor);
             if (Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, e.Angle * Mathf.Rad2Deg)) > 1e-3f)
                 FlagProps.Rotate(Selected, angle);
+            FlagUndo.Sent(Selected, anchor, angle);
+            FlagUndo.Changed(Selected, before, held);
 
             _loading = true;
             try
@@ -334,9 +362,13 @@ namespace RealFlag.Flags
             if (_loading || !TryEntry(out e))
                 return;
 
+            FlagState before = FlagUndo.Now(Selected);
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
             LetBaseGo();
-            FlagProps.Rotate(Selected, Settings.SelRotation.value * Mathf.Deg2Rad);
+            float angle = Settings.SelRotation.value * Mathf.Deg2Rad;
+            FlagProps.Rotate(Selected, angle);
+            FlagUndo.Sent(Selected, before.Present ? new Vector3(before.X, before.Y, before.Z) : e.Anchor, angle);
+            FlagUndo.Changed(Selected, before, false);
         }
 
         /// <summary>
@@ -361,6 +393,7 @@ namespace RealFlag.Flags
                 return;
 
             // The foot, from where the flag stood when the slider began to move (HoldBase).
+            FlagState before = FlagUndo.Now(Selected);
             bool known = HoldBase(e, spec);
             _quietUntil = Time.realtimeSinceStartup + 0.6f;
             spec.PoleLength = length;
@@ -368,11 +401,65 @@ namespace RealFlag.Flags
             if (known)
             {
                 _baseHeight = length;
-                FlagProps.Move(Selected, StandAt(spec, e.Angle));
+                Vector3 anchor = StandAt(spec, e.Angle);
+                FlagProps.Move(Selected, anchor);
+                FlagUndo.Sent(Selected, anchor, before.Present ? before.Angle : e.Angle);
             }
+            FlagUndo.Changed(Selected, before, false);
 
             if (Log.Detailed)
                 Log.Detail("flags: flag #" + Selected + "'s pole " + length.ToString("F1") + " m tall now (was " + old.ToString("F1") + ")");
+        }
+
+        /// <summary>
+        /// An undo or redo (FlagUndo) put flag <paramref name="prop"/> back to <paramref name="state"/>
+        /// -- its design already the registry's, its prop's move and turn on their way. Picking, the
+        /// flag is selected, so the gizmo and the tab show what changed (placing, the New flag
+        /// window stays: selecting would put it away). Selected, the tab's controls, the pole's held
+        /// foot, the gizmo and the raise keys' own place all take the state now: none of what a
+        /// gesture just before held may pull the flag back.
+        /// </summary>
+        public static void Restored(uint prop, FlagState state)
+        {
+            FlagEntry e;
+            FlagRenderer r = FlagRenderer.Instance;
+            if (FlagTool.IsPicking && Selected != prop && r != null && r.TryGet(prop, out e))
+            {
+                Select(prop);
+                UI.FlagsPanel.ShowExisting();
+            }
+
+            if (Selected != prop)
+            {
+                if (_baseOf == prop)
+                    LetBaseGo();
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            _quietUntil = now + 0.6f;
+            Vector3 anchor = new Vector3(state.X, state.Y, state.Z);
+
+            // A pole that stands, of a known height: drawn from the foot it is put back on while
+            // the prop follows (TryHeldBase), and any change right after stands it from there.
+            if (FlagStand.PoleStands(state.Spec) && state.Spec.PoleLength > 0f)
+            {
+                float x, y, z;
+                FlagStand.Base(state.Spec, state.Angle, state.Spec.PoleLength, anchor.x, anchor.y, anchor.z, out x, out y, out z);
+                _base = new Vector3(x, y, z);
+                _baseHeight = state.Spec.PoleLength;
+                _baseKnown = true;
+                _baseOf = prop;
+                _baseUntil = now + HoldTime;
+            }
+            else
+            {
+                LetBaseGo();
+            }
+
+            Fill(state.Spec, state.Angle, true);
+            FlagTool.ShowRestored(anchor, state.Angle, state.Spec.Tilt, state.Spec.Lean);
+            UI.SettingsCatalog.RefreshAllUIs();
         }
 
         // ---- where the selected flag stands ---------------------------------------------------
@@ -607,6 +694,8 @@ namespace RealFlag.Flags
                     if (result != 1)
                         return;
 
+                    // A step to undo (FlagUndo): the flag as it was, put back on Ctrl+Z.
+                    FlagUndo.Deleting(prop);
                     FlagProps.Delete(prop);
                     Forget(prop);
                     Log.Msg("flags: flag #" + prop + " deleted from the panel");

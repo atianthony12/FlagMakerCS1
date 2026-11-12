@@ -89,6 +89,7 @@ colors or your own pictures, on a flagpole or hanging on its own.
 | Right click | Rotates it by 45° |
 | Right-click and drag | Rotates it freely |
 | Page Up / Page Down | Raises or lowers it, pole included: 12.5 cm per press, hold to keep going. Hold Shift to go 8× faster, Alt to go 8× finer |
+| Ctrl+Z | Takes away the flag you just placed. Ctrl+Y (or Ctrl+Shift+Z) puts it back |
 | Esc | Stops placing |
 
 **With a flag selected**
@@ -101,11 +102,12 @@ colors or your own pictures, on a flagpole or hanging on its own.
 | Hold Ctrl / Shift while dragging | Snaps / moves in finer steps |
 | Page Up / Page Down | Raises or lowers it, pole included |
 | Delete | Deletes it (asks first) |
+| Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) | Undoes / redoes what you did to a flag: moves, turns, every design and flagpole change, even a delete. One step per drag |
 | Esc, right click, or click somewhere else | Deselects it. Esc in the middle of a drag puts it back where it was |
 | Double-click it in the list | Moves the camera to it |
 
 On a Mac, the panel's key is Fn+F6 on most keyboards, and Page Up / Page Down are Fn+Up / Fn+Down
-on a laptop.
+on a laptop. Undo and redo use Ctrl there too, not Cmd.
 
 ## Guide
 

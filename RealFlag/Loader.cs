@@ -88,6 +88,7 @@ namespace RealFlag
                 Step(FlagTool.Remove, "the flag tool");
                 Step(LineFlags.Forget, "Line Tool");
                 Step(FlagEditor.Clear, "the selection");
+                Step(FlagUndo.Clear, "the undo steps");
                 Step(FlagRegistry.Clear, "the flags' designs");
                 Step(FlagSaveData.Forget, "the flags' kept data");
                 Step(FlagPrefab.Forget, "the flag prefab");

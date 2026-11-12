@@ -345,6 +345,22 @@ namespace RealFlag.Flags
 
         private float _holdUntil;
 
+        /// <summary>
+        /// An undo or redo put the flag here (FlagUndo): the gizmo on it at once, held there as
+        /// after a drag while the prop follows -- not left where a drag just before put it.
+        /// </summary>
+        public void Show(Vector3 anchor, float angle, float tilt, float lean)
+        {
+            if (IsDragging)
+                return;
+
+            Anchor = anchor;
+            Angle = angle;
+            Tilt = tilt;
+            Lean = lean;
+            _holdUntil = Time.realtimeSinceStartup + 0.4f;
+        }
+
         /// <summary>The drag given up (right-click, Esc): the flag's place and turn as the drag found them.</summary>
         public void Cancel()
         {
