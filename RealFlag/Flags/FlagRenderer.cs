@@ -238,6 +238,9 @@ namespace RealFlag.Flags
         public float LoopShift;
         public float StandInShare;
         public LoopEntry PoseFrom;
+
+        /// <summary>Real time the share above was last looked at (FlagRenderer.StandInEntry: again every StandInRecheck, not every frame).</summary>
+        public float StandInAt = -1e6f;
     }
 
     /// <summary>
@@ -2123,6 +2126,9 @@ namespace RealFlag.Flags
                 f.WaitedLast = f.Waiting;
                 f.Order = FlagMotion.KeepsShape(f.Spec.Motion) || (f.Spec.Motion == FlagMotion.Loop && f.Cloth == null) ? -1 : rank++;
             }
+
+            // A crowd coming: the stand-ins' loops asked for ahead (PlanStandIn, StandInSoon).
+            StandInsSoon(rank);
 
             for (int pass = 0; pass < 2; pass++)
             {

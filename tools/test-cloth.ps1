@@ -3039,6 +3039,47 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// A stand-in's share of its breeze held (LoopMotion.ShareFor with the share held,
+    /// ShareHold, 2026-11-12), against a 9.6 m/s breeze: twelve cases, then a wind of 6 +- 0.5
+    /// m/s round the halfway point between 50% and 75% over 600 samples -- how often the share
+    /// changes without the hold and with it.
+    /// </summary>
+    public static string ShareHoldRule()
+    {
+        float b = 9.6f;
+        float[] r =
+        {
+            LoopMotion.ShareFor(6.3f, b),          // halfway passed: 75% as ever
+            LoopMotion.ShareFor(6.3f, b, 0.5f),    // ... holding 50%: kept
+            LoopMotion.ShareFor(7.0f, b, 0.5f),    // clearly past: 75%
+            LoopMotion.ShareFor(3.2f, b, 0.5f),    // below halfway to 25%, not clearly: kept
+            LoopMotion.ShareFor(2.6f, b, 0.5f),    // clearly: 25%
+            LoopMotion.ShareFor(6.3f, b, 0f),      // none held: as ever
+            LoopMotion.ShareFor(7.8f, b, 1f),      // the whole held, not clearly under: kept
+            LoopMotion.ShareFor(7.6f, b, 1f),      // clearly: 75%
+            LoopMotion.ShareFor(0.1f, b, 0.25f),   // the least held in a calm: kept
+            LoopMotion.ShareFor(5f, 0f, 0.5f),     // no breeze: the whole
+            LoopMotion.ShareFor(30f, b, 0.25f),    // a gale from the least: the whole
+            LoopMotion.ShareFor(6.3f, b, 0.4f),    // no quarter held: as ever
+        };
+        var s = new System.Text.StringBuilder();
+        foreach (float v in r) s.Append(s.Length > 0 ? "," : "").Append(v.ToString("G3", Inv));
+
+        int plainFlips = 0, heldFlips = 0;
+        float plain = LoopMotion.ShareFor(6f, b), held = plain;
+        for (int i = 1; i < 600; i++)
+        {
+            float speed = 6f + 0.5f * (float)Math.Sin(0.1 * i);
+            float p = LoopMotion.ShareFor(speed, b), h = LoopMotion.ShareFor(speed, b, held);
+            if (p != plain) plainFlips++;
+            if (h != held) heldFlips++;
+            plain = p;
+            held = h;
+        }
+        return s + "|" + plainFlips + "," + heldFlips;
+    }
+
+    /// <summary>
     /// The swaps between a cloth and a loop standing in for it (LoopFrames, LoopMotion.ShiftTo /
     /// ShareFor, FlagCloth.SetMotion): the shift that puts a flag at a frame does; the loop's
     /// motion at that moment is the frame; a cloth given it at a heading is found nearest that
@@ -6058,6 +6099,9 @@ $cl = [ClothTests]::CodecLoop()
 Check "a looping flag through the save: kept; a motion past the last known pulled back to waving; it moves, keeps no one shape, says so" ($cl -eq "3,0,True,False,True") $cl
 $lsw = [ClothTests]::LoopSwaps() -split ","
 Check "a loop standing in: the shift puts a flag at a frame, its motion there is the frame, a cloth given it is found at that frame (within one at a finer grid) and flies on towards the next; the breeze's shares" ($lsw.Count -ge 9 -and $lsw[0] -eq "True" -and (N $lsw[1]) -lt 1e-3 -and $lsw[2] -eq "True" -and $lsw[3] -eq "17" -and [math]::Abs([int]$lsw[4] - 17) -le 1 -and (N $lsw[5]) -lt (N $lsw[6]) -and $lsw[7] -eq "True" -and $lsw[8] -eq "0.5/0.25/1/0.75") ($lsw -join ", ")
+$shr = [ClothTests]::ShareHoldRule() -split "\|"
+$shf = $shr[1] -split ","
+Check "a stand-in's share of its breeze held until the wind is clearly past halfway to another; gusts round halfway change it often without the hold, never with it" ($shr[0] -eq "0.75,0.5,0.75,0.5,0.25,0.75,1,0.75,0.25,1,1,0.75" -and [int]$shf[0] -ge 10 -and [int]$shf[1] -eq 0) ($shr[0] + "; changes in 600 samples: " + $shf[0] + " without the hold, " + $shf[1] + " with it")
 $lsp = [ClothTests]::LoopSplit() -split ","
 Check "a loop is the same however its steps are split into jobs, and made twice; between two frames is their blend" ($lsp[0] -eq "0" -and $lsp[1] -eq "0" -and (N $lsp[3]) -lt 1e-6) ("split into " + $lsp[2] + " jobs: " + $lsp[0] + " off; twice: " + $lsp[1] + "; between: " + $lsp[3])
 Check "a loop's progress for the panel: 0 before its first job, never back, below 1 until made (at least 0.9 by its last job), 1 once made" ($lsp.Count -ge 9 -and $lsp[4] -eq "0" -and $lsp[5] -eq "False" -and (N $lsp[6]) -lt 1 -and (N $lsp[6]) -ge 0.9 -and $lsp[7] -eq "1") ("first " + $lsp[4] + ", back " + $lsp[5] + ", highest unmade " + $lsp[6] + ", made " + $lsp[7] + ", tries " + $lsp[8])

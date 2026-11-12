@@ -34,6 +34,12 @@ namespace RealFlag.Flags
         /// </summary>
         public float Real = -1e6f;
 
+        /// <summary>
+        /// Waving flags that asked for it as their stand-in this frame, and those of them standing
+        /// frozen for want of it (PlanStandIn); the last frame's, for the detailed log (PlanLoops).
+        /// </summary>
+        public int Asked, Frozen, AskedLast, FrozenLast;
+
         /// <summary>No longer kept (let go, or never made): a flag still naming it looks its loop up again.</summary>
         public bool Gone;
     }
@@ -332,10 +338,37 @@ namespace RealFlag.Flags
 
         /// <summary>Loops only stand-ins ask for: made one at a time, and only while fewer than this many loops are kept (the player's own Loop flags keep the rest of <see cref="MaxLoops"/>).</summary>
         private const int StandInLoops = MaxLoops / 2;
+
+        /// <summary>Stand-in loops made at once (a player's own loop being made does not count: it never holds one back), within <see cref="MaxBakes"/>.</summary>
         private const int StandInBakes = 1;
 
-        private bool _standIns = true, _planFrozen, _standInSaid;
+        /// <summary>
+        /// Stand-ins' loops are asked for AHEAD (2026-11-12; the author's morning run: 320 waving
+        /// flags stood frozen ~20 s before any loop stood in -- it was asked for only once they
+        /// were frozen, and took 9.8 s to make): once the flags in view that want a cloth's room
+        /// are this share of <see cref="MaxMoving"/>, every one of them that may stand in keeps its
+        /// stand-in's loop wanted, settled or not, moving or not. A first guess.
+        /// </summary>
+        private const float StandInSoon = 0.75f;
+
+        /// <summary>
+        /// An unmade loop only stand-ins asked for, its making begun, is kept this long unwanted,
+        /// seconds -- not <see cref="Unwanted"/>'s 1 s: a camera move giving its flags room for a
+        /// moment threw away a 5-10 s bake. A player's own loops as ever.
+        /// </summary>
+        private const float StandInKeepBegun = 10f;
+
+        /// <summary>A waving flag's stand-in share (StandInEntry: its wind against its loop's breeze, some trig) is looked at again after this long, seconds; meanwhile its entry is taken as it is.</summary>
+        private const float StandInRecheck = 1f;
+
+        private bool _standIns = true, _planFrozen, _standInSaid, _standInsSoon;
         private int _standing, _frozenPastMost, _frozenTouching, _frozenNoLoop, _standInsTaken, _standInsBack;
+
+        /// <summary>No flag whose Motion is Loop (nor the new flag) has ever asked for this loop: only stand-ins have.</summary>
+        private static bool OnlyStandIns(LoopEntry e)
+        {
+            return e.Real < 0f;
+        }
 
         /// <summary>A loop stands in for this waving flag: it has no cloth of its own, and a made loop it is drawn with.</summary>
         private static bool StandingIn(FlagInstance f)
@@ -380,6 +413,16 @@ namespace RealFlag.Flags
                 bool inHand = f.Prop == FlagEditor.Selected || f.AwakeUntil > now;
                 bool able = _standIns && !inHand && wind.Mode == Settings.WindModes.EachFlag && (standing || f.Pixels >= MovePixels);
                 want = ClothPlan.StandsIn(standing, able, moving, f.Order, MaxMoving, now - f.RoomAt, now - f.NoRoomAt);
+
+                // A crowd coming: its loop asked for now, so it is made by the time the flag has
+                // no room (or has settled, with the city on). Never for one whose cloth touches
+                // the city (it never stands in).
+                if (able && !standing && _standInsSoon && !Touching(f))
+                {
+                    LoopEntry soon = StandInEntry(f, now, wind);
+                    soon.Wanted = now;
+                    soon.Asked++;
+                }
             }
 
             if (!want)
@@ -407,7 +450,7 @@ namespace RealFlag.Flags
 
                 if (settled)
                     _frozenPastMost++;
-                if (settled && _cityCollision && (f.Cloth.SurfaceInUse || f.Cloth.CapsulesInUse > 0))
+                if (Touching(f))
                 {
                     _frozenTouching++;
                     return false;
@@ -417,8 +460,14 @@ namespace RealFlag.Flags
                 e.Wanted = now;
                 if (e.Loop == null)
                 {
+                    // Frozen, waiting for it: its making gets the waited share of the frame, as
+                    // undrawn Loop flags' does (PlanLoops).
                     if (settled)
+                    {
                         _frozenNoLoop++;
+                        e.Waited = now;
+                        e.Frozen++;
+                    }
                     return false;
                 }
 
@@ -449,10 +498,21 @@ namespace RealFlag.Flags
         /// The loop that stands in for a waving flag: its own key's (LoopMotion.Key) but made in
         /// the share of its breeze nearest the wind the flag flies in (LoopMotion.ShareFor) -- a
         /// flag drooping in a light air does not jump to flying in a fresh breeze. Kept on the
-        /// flag (LoopWanted, StandInShare) until its design, the options or that share change.
+        /// flag (LoopWanted, StandInShare) until its design, the options or that share change --
+        /// the share looked at every <see cref="StandInRecheck"/>, and held against the wind's
+        /// small changes (LoopMotion.ShareHold, 2026-11-12).
         /// </summary>
         private LoopEntry StandInEntry(FlagInstance f, float now, Wind wind)
         {
+            // Asked for every frame by hundreds of flags once a crowd is coming: the entry it holds
+            // is taken as it is, its share looked at again only now and then.
+            int detail = LoopMotion.DetailFor(_finest);
+            LoopEntry e = f.LoopWanted;
+            bool held = e != null && !e.Gone && e.Detail == detail && e.SelfCollision == _selfCollision;
+            if (held && now - f.StandInAt < StandInRecheck)
+                return e;
+            f.StandInAt = now;
+
             // The wind on its cloth: as it last flew in it, or where it stands.
             float height = Mathf.Max(f.Anchor.y - f.Ground, 0.5f);
             float at10 = f.WindAt10 >= 0f ? f.WindAt10 : wind.SpeedFor(f.Anchor, f.Ground) * f.Spec.WindShare;
@@ -462,11 +522,11 @@ namespace RealFlag.Flags
             float hx, hy, hz, fx, fy, fz, dirX, dirZ, breeze;
             FlagOrientation.Frame(0f, f.Spec.Tilt, f.Spec.Lean, f.Spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
             LoopMotion.Wind(hx, hz, fx, fy, fz, f.Spec.Length, f.Spec.Height, 1f, out dirX, out dirZ, out breeze);
-            float share = LoopMotion.ShareFor(speed, breeze);
 
-            int detail = LoopMotion.DetailFor(_finest);
-            LoopEntry e = f.LoopWanted;
-            if (e != null && !e.Gone && e.Detail == detail && e.SelfCollision == _selfCollision && f.StandInShare == share)
+            // The share it holds kept until the wind is clearly past halfway to another (gusts
+            // near halfway changed its loop by turns, each a new bake).
+            float share = held ? LoopMotion.ShareFor(speed, breeze, f.StandInShare) : LoopMotion.ShareFor(speed, breeze);
+            if (held && f.StandInShare == share)
                 return e;
 
             FlagSpec spec = f.Spec;
@@ -482,6 +542,31 @@ namespace RealFlag.Flags
             f.LoopWanted = e;
             f.StandInShare = share;
             return e;
+        }
+
+        /// <summary>
+        /// Once a frame, from the flags in view that want a cloth's room (<paramref name="rank"/>,
+        /// Plan's count): whether the stand-ins' loops are asked for ahead this frame. Said in the
+        /// detailed log each time it begins.
+        /// </summary>
+        private void StandInsSoon(int rank)
+        {
+            bool soon = _standIns && rank >= StandInSoon * MaxMoving;
+            float now = Time.realtimeSinceStartup;
+            if (soon && !_standInsSoon && now - _standInsSoonSaidAt > 10f && Log.Detailed)
+            {
+                _standInsSoonSaidAt = now;
+                Log.Detail("flags: " + rank + " flag(s) in view want a cloth's room (" + MaxMoving + " can move): the stand-ins' loops are asked for ahead");
+            }
+            _standInsSoon = soon;
+        }
+
+        private float _standInsSoonSaidAt = -1e6f;
+
+        /// <summary>Its settled cloth touches the city (a loop knows no walls: it never stands in).</summary>
+        private bool Touching(FlagInstance f)
+        {
+            return f.Cloth != null && f.Settled && _cityCollision && (f.Cloth.SurfaceInUse || f.Cloth.CapsulesInUse > 0);
         }
 
         /// <summary>The seconds that put the flag's loop at the frame nearest its cloth's pose now (FlagLoop.Nearest, LoopMotion.ShiftTo).</summary>
@@ -582,10 +667,14 @@ namespace RealFlag.Flags
             if (_loopList.Count == 0)
                 return;
 
-            int baking = 0, kept = 0;
+            int baking = 0, standInBaking = 0, kept = 0;
             for (int i = _loopList.Count - 1; i >= 0; i--)
             {
                 LoopEntry e = _loopList[i];
+                e.AskedLast = e.Asked;
+                e.FrozenLast = e.Frozen;
+                e.Asked = 0;
+                e.Frozen = 0;
                 LoopBake bake = e.Bake;
                 if (bake != null && bake.Finished)
                 {
@@ -615,16 +704,24 @@ namespace RealFlag.Flags
                 }
 
                 // Let go: made, and wanted by no flag for as long as an unseen cloth is kept; being
-                // made or never begun, and wanted by none for a moment (a slider passed through it).
-                bool idle = e.Loop != null ? now - e.Wanted > ReleaseSeconds : now - e.Wanted > Unwanted && now >= e.FailedUntil;
+                // made or never begun, and wanted by none for a moment (a slider passed through it)
+                // -- one only stand-ins asked for, its making begun, after StandInKeepBegun.
+                float unwanted = e.Loop == null && e.Bake != null && OnlyStandIns(e) ? StandInKeepBegun : Unwanted;
+                bool idle = e.Loop != null ? now - e.Wanted > ReleaseSeconds : now - e.Wanted > unwanted && now >= e.FailedUntil;
                 if (idle)
                 {
+                    if (e.Loop == null && OnlyStandIns(e) && Log.Detailed)
+                        Log.Detail("flags: a stand-in loop let go unmade, wanted by no flag for " + (now - e.Wanted).ToString("F1") + " s (" +
+                                   (e.Bake != null ? "its making " + (e.Bake.Progress * 100f).ToString("F0") + "% done, begun " + (now - e.Began).ToString("F1") + " s ago"
+                                                   : "not begun") + "; at " + (e.Spec.WindShare * 100f).ToString("F0") + "% of its breeze) -- " + e.Spec.Describe());
                     DropLoop(i);
                     continue;
                 }
 
                 if (e.Bake != null)
                     baking++;
+                if (e.Bake != null && now - e.Real > Unwanted)
+                    standInBaking++;
                 if (e.Loop != null || e.Bake != null)
                     kept++;
             }
@@ -645,8 +742,10 @@ namespace RealFlag.Flags
                             continue;
 
                         // One only stand-ins ask for (no flag whose Motion is Loop): within its
-                        // reserve, one at a time, and quietly -- the flags stand frozen meanwhile.
-                        if (now - e.Real > Unwanted && (baking >= StandInBakes || kept >= StandInLoops))
+                        // reserve, one stand-in's at a time (a player's own loop being made holds
+                        // none back, 2026-11-12), and quietly.
+                        bool standIn = now - e.Real > Unwanted;
+                        if (standIn && (standInBaking >= StandInBakes || kept >= StandInLoops))
                             continue;
 
                         if (kept >= MaxLoops && !MakeRoom(now))
@@ -665,6 +764,14 @@ namespace RealFlag.Flags
                         e.Began = now;
                         baking++;
                         kept++;
+                        if (standIn)
+                        {
+                            standInBaking++;
+                            if (Log.Detailed)
+                                Log.Detail("flags: a stand-in loop begun, at " + (e.Spec.WindShare * 100f).ToString("F0") + "% of its breeze -- " +
+                                           e.AskedLast + " waving flag(s) asked for it ahead, " + e.FrozenLast + " standing frozen for it; wanted " +
+                                           (now - e.Since).ToString("F1") + " s (" + e.Spec.Describe() + ")");
+                        }
                     }
 
                     // Some steps of it, as a job: what its share of a thread's frame holds.

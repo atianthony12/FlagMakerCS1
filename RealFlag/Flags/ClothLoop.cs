@@ -189,6 +189,37 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// How far past the halfway point between two quarters, in quarters, the wind must go
+        /// before a flag gives up the share it holds (<see cref="ShareFor(float, float, float)"/>).
+        /// A first guess: 0.3 of a quarter is 0.7 m/s of a 9.6 m/s breeze.
+        /// </summary>
+        public const float ShareHold = 0.3f;
+
+        /// <summary>
+        /// <see cref="ShareFor(float, float)"/> for a flag that already holds the share
+        /// <paramref name="held"/> (2026-11-12): kept until the wind is <see cref="ShareHold"/>
+        /// of a quarter past the halfway point to the next, then the nearest. Without it, a flag in
+        /// Volumetric Weather's gusts near halfway changed loops by turns, each a new bake, the
+        /// last one thrown away. A held share that is no quarter (0: none yet) holds nothing.
+        /// </summary>
+        public static float ShareFor(float speed, float breeze, float held)
+        {
+            if (!(breeze > 1e-3f))
+                return 1f;
+
+            float steps = held * ShareSteps;
+            int h = (int)Math.Round(steps);
+            if (h < 1 || h > ShareSteps || Math.Abs(steps - h) > 1e-3f)
+                return ShareFor(speed, breeze);
+
+            float ratio = ShareSteps * speed / breeze;
+            float reach = 0.5f + ShareHold;
+            bool below = h > 1 && ratio < h - reach;
+            bool above = h < ShareSteps && ratio > h + reach;
+            return below || above ? ShareFor(speed, breeze) : held;
+        }
+
+        /// <summary>
         /// The two frames a flag shows at <paramref name="clock"/> seconds and how far between
         /// them, 0..1: its loop of <paramref name="frames"/> frames <paramref name="frameTime"/>
         /// apart, begun at its own <see cref="Phase"/>, going round for ever (the last frame is
