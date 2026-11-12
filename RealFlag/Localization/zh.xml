@@ -53,6 +53,10 @@
 
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">旗帜不能变成 Procedural Objects，它们保持原样。</String>
+  <String key="Mod.CrowdLoop">
+    大量飘动的旗帜挤在一起会拖慢游戏，所以这里的新旗帜改用循环：看起来几乎一样，几乎不耗性能。\n\n
+    想让它们飘动？在新建旗帜窗口选择飘动，或在设置中关闭“密集放置时用循环”。
+  </String>
 
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
   <String key="Prop.Title">布旗</String>
@@ -176,6 +180,7 @@
   <String key="SelRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
   <String key="Motion.Recording">正在录制... {0}%</String>
   <String key="Motion.CantRecord">无法录制</String>
+  <String key="Motion.CrowdNote">这里旗帜很多：新旗帜用循环。</String>
   <String key="NewHeld.Label">锚点</String>
   <String key="NewHeld.Tooltip">固定旗帜的更多部位，让它像街灯横幅一样保持展开、不会垂下，同时仍会飘动。</String>
   <String key="SelHeld.Label">锚点</String>
@@ -444,6 +449,9 @@
   <String key="SharedMotion.Tooltip">相似的旗帜共用一面旗帜的动作，旗帜很多时能大幅节省 CPU。</String>
   <String key="LoopStandIns.Label">旗帜过多时循环</String>
   <String key="LoopStandIns.Tooltip">视野内旗帜太多、无法全部模拟时，其余旗帜播放循环动画，而不是静止不动。</String>
+  <String key="CrowdLoops.Label">密集放置时用循环</String>
+  <String key="CrowdLoops.Tooltip">附近飘动旗帜超过 20 面时，新旗帜用循环。</String>
+  <String key="CrowdLoopsTold.Label">已提示过为何密集放置的新旗帜用循环</String>
 
   <String key="Group.Diagnostics">诊断</String>
   <String key="DetailedLogging.Label">详细日志</String>

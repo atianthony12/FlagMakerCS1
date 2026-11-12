@@ -549,6 +549,35 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// Crowds placed as Loop (2026-11-12; the author: players "are lazy and won't bother
+        /// changing the motion"): a new waving flag with this many waving flags already near it --
+        /// <see cref="CrowdRadius"/> on the map -- is placed as Loop, and the ones after it. Both
+        /// numbers a first guess.
+        /// </summary>
+        public const int CrowdMost = 20;
+
+        /// <summary>... within this, metres, on the map (x and z: a roof's flags are near the street's).</summary>
+        public const float CrowdRadius = 100f;
+
+        /// <summary>A flag <paramref name="dx"/>, <paramref name="dz"/> metres away on the map counts towards a crowd.</summary>
+        public static bool InCrowd(float dx, float dz)
+        {
+            return dx * dx + dz * dz <= CrowdRadius * CrowdRadius;
+        }
+
+        /// <summary>A new flag with <paramref name="wavingNear"/> waving flags near it is one too many: it goes to Loop.</summary>
+        public static bool Crowded(int wavingNear)
+        {
+            return wavingNear >= CrowdMost;
+        }
+
+        /// <summary>A row of <paramref name="points"/> flags (Line Tool's) is a crowd of its own: its last flag would be the one too many.</summary>
+        public static bool RowCrowded(int points)
+        {
+            return points > CrowdMost;
+        }
+
+        /// <summary>
         /// The frame time the budget is planned on: down to a shorter frame at once, up a tenth of
         /// the way a frame to a longer one -- one slow frame (a save, a hitch) does not plan the
         /// next batch as if the frames that follow were as long.

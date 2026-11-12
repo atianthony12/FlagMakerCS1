@@ -1222,6 +1222,9 @@ namespace RealFlag.UI
                     // share one bake, 1-2.5 MB and ~2 s each); Recapture gives it another.
                     if (motion.value == FlagMotion.Still)
                         newTake();
+                    // The player's own Waving after crowds went to Loop: kept while placing.
+                    if (page == PanelPage.New)
+                        FlagRenderer.CrowdMotionChosen(motion.value);
                     (changed ?? Nothing)();
                 },
                 Enabled = enabled,
@@ -1261,6 +1264,20 @@ namespace RealFlag.UI
                 },
                 ShownWhile = () => motion.value == FlagMotion.Loop,
             });
+
+            // Why the new flag went to Loop by itself (crowds placed as Loop, 2026-11-12): shown
+            // while that switch holds.
+            if (page == PanelPage.New)
+            {
+                Add(new Row
+                {
+                    Kind = RowKind.Status,
+                    Panel = page,
+                    Id = "NewCrowdNote",
+                    StatusText = () => Localization.Get("Motion.CrowdNote"),
+                    ShownWhile = FlagRenderer.CrowdNoteShown,
+                });
+            }
 
             Add(new Row
             {
@@ -2306,6 +2323,27 @@ namespace RealFlag.UI
                     Log.Msg("setting: loops stand in for flags with no room to wave = " + OnOff(Settings.LoopStandIns)());
                     FlagRenderer.ClothOptionsChanged();
                 },
+            });
+
+            // Crowds placed as Loop (2026-11-12; the author: players "are lazy and won't bother
+            // changing the motion"): past ClothPlan.CrowdMost waving flags near a new one, or a
+            // Line Tool row that long, the new flag's Motion goes to Loop (FlagRenderer.Crowd.cs).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Settings,
+                Options = OptionsPage.General,
+                Bool = Settings.CrowdLoops,
+                DefaultBool = Settings.Defaults.CrowdLoops,
+                AfterChange = State("crowds of new waving flags placed as Loop", OnOff(Settings.CrowdLoops)),
+            });
+
+            // Whether the one-off message about it has been shown: kept in the file, no row.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Bool = Settings.CrowdLoopsTold,
+                DefaultBool = Settings.Defaults.CrowdLoopsTold,
             });
 
             Add(new Row

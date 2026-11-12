@@ -1065,6 +1065,10 @@ namespace RealFlag.Flags
             if (_camera == null)
                 return;
 
+            // Crowds placed as Loop: armed again once placing is over, the one-off message shown
+            // here, outside the prop scan that may have asked for it.
+            CrowdTick();
+
             _cost.Reset();
             _cost.Start();
 
@@ -1355,8 +1359,14 @@ namespace RealFlag.Flags
                 Add(prop);
             }
 
+            // The city's own flags are all known once the buffer has been gone through: only then
+            // is a prop with no design a NEW flag (crowds placed as Loop, CrowdBeforeAdding).
+            if (end >= buffer.Length)
+                _scannedAll = true;
             _scanCursor = end >= buffer.Length ? 1 : end;
         }
+
+        private bool _scannedAll;
 
         private FlagInstance Add(uint prop)
         {
@@ -1364,7 +1374,9 @@ namespace RealFlag.Flags
             if (!FlagRegistry.TryGet(prop, out spec))
             {
                 // Placed without the mod's tool (Find It, the prop tool, a Move It paste of a
-                // flag copied before the mod was there): the new flag's design.
+                // flag copied before the mod was there): the new flag's design -- Loop if it is
+                // one waving flag too many there (FlagRenderer.Crowd.cs).
+                CrowdBeforeAdding(prop);
                 spec = Settings.NewSpec();
                 FlagRegistry.Set(prop, spec);
                 Log.Msg("flags: flag prop #" + prop + " had no design; given the new flag's (" + spec.Describe() + ")");
@@ -4378,6 +4390,10 @@ namespace RealFlag.Flags
             Vector3 pointer;
             if (!LineFlags.ReadPoints(_linePoints, out pointer))
                 return;
+
+            // A row too long for waving flags goes to Loop now, before it is placed: the preview
+            // shows it, the New flag window says why (FlagRenderer.Crowd.cs).
+            CrowdRow(_linePoints.Count);
 
             FlagSpec spec = Settings.NewSpec();
             float lift = FlagTool.Lift;

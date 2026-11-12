@@ -989,6 +989,10 @@ namespace RealFlag.Flags
             if (!TryGhostHit(out hit, out snap))
                 return;
 
+            // One waving flag too many round here: it and the next ones play a loop (crowds placed
+            // as Loop, FlagRenderer.Crowd.cs). OnToolGUI is the main thread's.
+            FlagRenderer.CrowdBeforePlacing(hit);
+
             // Its pole (if it stands) as tall as the Pole height says: the placed flag keeps it.
             FlagSpec spec = Settings.NewSpec();
             Vector3 anchor;

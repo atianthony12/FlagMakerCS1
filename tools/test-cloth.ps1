@@ -1556,6 +1556,33 @@ public static class ClothTests
         return s.ToString();
     }
 
+    /// <summary>
+    /// Crowds placed as Loop (ClothPlan.CrowdMost, CrowdRadius, InCrowd, Crowded, RowCrowded):
+    /// flags placed one by one along a line, each counting the waving ones placed before it
+    /// within the radius -- the first one that goes to Loop, 0 for none (5 m apart: the 21st;
+    /// 10 m apart: none, a sparse row never trips); flags 42, 100, 150 and 100.4 m away on the
+    /// map (in, in, out, out); Line Tool rows of 20 and 21; 19 and 20 waving near.
+    /// </summary>
+    public static string CrowdRule()
+    {
+        string first = "";
+        foreach (float apart in new float[] { 5f, 10f })
+        {
+            int tripped = 0;
+            for (int i = 0; i < 200 && tripped == 0; i++)
+            {
+                int near = 0;
+                for (int j = 0; j < i; j++)
+                    if (ClothPlan.InCrowd((i - j) * apart, 0f)) near++;
+                if (ClothPlan.Crowded(near)) tripped = i + 1;
+            }
+            first += (first.Length > 0 ? "," : "") + tripped;
+        }
+        return first + "," + ClothPlan.InCrowd(30f, 30f) + "," + ClothPlan.InCrowd(100f, 0f) + "," + ClothPlan.InCrowd(150f, 0f) + "," +
+               ClothPlan.InCrowd(-71f, 71f) + "," + ClothPlan.RowCrowded(20) + "," + ClothPlan.RowCrowded(21) + "," +
+               ClothPlan.Crowded(19) + "," + ClothPlan.Crowded(20);
+    }
+
     /// <summary>Followers' delays for props 1..2000: least, most, mean, and the share of props one apart that are under 0.3 s apart.</summary>
     public static string Delays()
     {
@@ -5793,6 +5820,8 @@ $ss = [ClothTests]::SettleStepRule()
 Check "a settle's steps: a thread's share at its cost, within the budget's room, one at least, never past what is left" ($ss -eq "11,2,1,3,0,1") $ss
 $si = [ClothTests]::StandInRule()
 Check "a loop stands in for a waving flag with no room: after a moment frozen, kept while there is none, given back inside the moving ones or after 3 s of room, at once when it may not" ($si -eq "010011000") $si
+$cr = [ClothTests]::CrowdRule()
+Check "crowds placed as Loop: flags 5 m apart, the 21st loops; 10 m apart none; 100 m in, 150 m out; Line Tool rows of 21 loop, 20 not" ($cr -eq "21,0,True,True,False,False,False,True,False,True") $cr
 $ky = [ClothTests]::ShareKeys() -split ","
 Check "the share key: designs, colours and details alike; length, waviness, pole, self-collision not; wind in 25% steps; a pole's angles in 30 deg round 360, none without; a tilted flag's 10 deg; joined within 30% and 25 / any / 7 deg" (($ky -join ",") -eq "True,True,True,True,True,True,True") ($ky -join ",")
 $ls = [ClothTests]::LoadShared() -split "\|"

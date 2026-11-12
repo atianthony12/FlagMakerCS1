@@ -116,6 +116,17 @@ namespace RealFlag
         public static BoolSetting LoopStandIns { get; private set; }
 
         /// <summary>
+        /// Crowds placed as Loop (FlagRenderer.Crowd.cs, ClothPlan.CrowdMost): a new waving flag with
+        /// many waving flags near it, or a big Line Tool row, switches the new flag's Motion to
+        /// Loop, and says so. On by default (the author, 2026-11-12: players "are lazy and won't
+        /// bother changing the motion"); off, new flags keep the Motion chosen.
+        /// </summary>
+        public static BoolSetting CrowdLoops { get; private set; }
+
+        /// <summary>The player has been told once, in a message, why their flags went to Loop. Kept in the file, no row.</summary>
+        public static BoolSetting CrowdLoopsTold { get; private set; }
+
+        /// <summary>
         /// The overall Quality (UI.QualityPreset: Low .. Ultra, or Custom), DERIVED from the cloth
         /// detail, self-collision, shared motion and buildings as drawn -- never in the file;
         /// choosing a level sets those four.
@@ -372,6 +383,8 @@ namespace RealFlag
             public const int ClothThreads = 0;
             public const bool SharedMotion = true;
             public const bool LoopStandIns = true;
+            public const bool CrowdLoops = true;
+            public const bool CrowdLoopsTold = false;
 
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
@@ -409,8 +422,12 @@ namespace RealFlag
             /// <summary>Width and height together.</summary>
             public const bool LinkSize = true;
 
-            /// <summary>It waves in the wind (the mod's purpose).</summary>
-            public const int Motion = FlagMotion.Waves;
+            /// <summary>
+            /// A loop (2026-11-12, the author: Loop the default, Waving opt-in -- a loop costs almost
+            /// nothing, a waving cloth a thread's time). Waving until then. FlagSpec.Default and the
+            /// older formats stay Waves: a saved flag keeps its own.
+            /// </summary>
+            public const int Motion = FlagMotion.Loop;
             public const float Waviness = 1f;
 
             /// <summary>A rectangle, as every flag was; a cut's notch or point a third of the length.</summary>
@@ -524,6 +541,8 @@ namespace RealFlag
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
                 SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
                 LoopStandIns = new BoolSetting("LoopStandIns", Defaults.LoopStandIns);
+                CrowdLoops = new BoolSetting("CrowdLoops", Defaults.CrowdLoops);
+                CrowdLoopsTold = new BoolSetting("CrowdLoopsTold", Defaults.CrowdLoopsTold);
                 Quality = new IntSetting("Quality", UI.QualityPreset.High, true);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);
