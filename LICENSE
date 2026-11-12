@@ -132,7 +132,11 @@ techniques were written from scratch after them, and they are credited here with
       editors' transform handles -- the idea only; none of their code.
   Picking a flag:
     C. Ericson, "Real-Time Collision Detection" (2005) -- the closest points of two
-      segments and the ray against a turned box: the flags' pick volumes.
+      segments and the ray against a turned box: the flags' pick volumes; a moving
+      box against a plane: a flag off the screen kept while its shadow is on it.
+    M. Cyrus and J. Beck, "Generalized Two- and Three-Dimensional Clipping", Computers
+      and Graphics 3 (1978) -- the times inside each plane of the view intersected:
+      the same.
     M. Woo, J. Neider, T. Davis and D. Shreiner, "OpenGL Programming Guide", ch.
       "Selection and Feedback" -- the picking region a few pixels round the cursor
       (gluPickMatrix): the least a flag's pick target is on the screen.

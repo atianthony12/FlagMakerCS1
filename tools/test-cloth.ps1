@@ -3842,6 +3842,109 @@ public static class ClothTests
         return regular + "," + smaller + "," + grows + "," + top + "," + radii;
     }
 
+    private static bool ShadowPlain(UnityEngine.Plane[] planes, UnityEngine.Vector3 c, UnityEngine.Vector3 e)
+    {
+        for (int i = 0; i < planes.Length; i++)
+        {
+            UnityEngine.Vector3 n = planes[i].normal;
+            float inside = n.x * c.x + n.y * c.y + n.z * c.z + planes[i].distance + Math.Abs(n.x) * e.x + Math.Abs(n.y) * e.y + Math.Abs(n.z) * e.z;
+            if (inside < 0f) return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// A flag off the screen whose shadow is on it (ShadowReach, 2026-11-12). A view 20 m wide,
+    /// 6 m high and 40 m deep, a flag's box 12 m up: out of it by its own box, in it with the
+    /// sun overhead; beside the view, in only with the sun on its far side; a long sweep that
+    /// passes beside the view is out though each end is past a different side. The sweep: none
+    /// with the light from below, held to the reach and the game's shadow distance under a low
+    /// sun. Then 4000 random boxes and sweeps against a camera's six planes: in view exactly
+    /// when some moment of the way (of 800) is, by the plain box test. Returns the seven
+    /// answers, the sweep's three lengths, then missed, false alarms, in view, cases.
+    /// </summary>
+    public static string ShadowSweep()
+    {
+        UnityEngine.Vector3 zero = new UnityEngine.Vector3(0f, 0f, 0f);
+        UnityEngine.Plane[] room = new UnityEngine.Plane[]
+        {
+            new UnityEngine.Plane(new UnityEngine.Vector3(1f, 0f, 0f), new UnityEngine.Vector3(-10f, 0f, 0f)),
+            new UnityEngine.Plane(new UnityEngine.Vector3(-1f, 0f, 0f), new UnityEngine.Vector3(10f, 0f, 0f)),
+            new UnityEngine.Plane(new UnityEngine.Vector3(0f, 1f, 0f), new UnityEngine.Vector3(0f, 0f, 0f)),
+            new UnityEngine.Plane(new UnityEngine.Vector3(0f, -1f, 0f), new UnityEngine.Vector3(0f, 6f, 0f)),
+            new UnityEngine.Plane(new UnityEngine.Vector3(0f, 0f, 1f), new UnityEngine.Vector3(0f, 0f, 0f)),
+            new UnityEngine.Plane(new UnityEngine.Vector3(0f, 0f, -1f), new UnityEngine.Vector3(0f, 0f, 40f))
+        };
+
+        UnityEngine.Vector3 size = new UnityEngine.Vector3(1.5f, 1f, 1.5f);
+        UnityEngine.Vector3 over = new UnityEngine.Vector3(0f, 12f, 20f), beside = new UnityEngine.Vector3(16f, 12f, 20f);
+        UnityEngine.Vector3 up = new UnityEngine.Vector3(0f, 1f, 0f);
+        float h = (float)Math.Sqrt(0.5);
+        UnityEngine.Vector3 sunEast = new UnityEngine.Vector3(h, h, 0f), sunWest = new UnityEngine.Vector3(-h, h, 0f);
+
+        bool own = !ShadowReach.InView(room, over, size, zero) && ShadowReach.InView(room, new UnityEngine.Vector3(0f, 3f, 20f), size, zero);
+        bool overhead = ShadowReach.InView(room, over, size, ShadowReach.Sweep(up, 13f, 0f, 1000f));
+        bool besideDown = !ShadowReach.InView(room, beside, size, ShadowReach.Sweep(up, 13f, 0f, 1000f));
+        bool besideIn = ShadowReach.InView(room, beside, size, ShadowReach.Sweep(sunEast, 13f, 0f, 1000f));
+        bool besideAway = !ShadowReach.InView(room, beside, size, ShadowReach.Sweep(sunWest, 13f, 0f, 1000f));
+
+        // From left of the view to beyond its far end: each end is out past one side only.
+        UnityEngine.Vector3 from = new UnityEngine.Vector3(-20f, 3f, 20f);
+        bool passes = !ShadowReach.InView(room, from, size, new UnityEngine.Vector3(25f, 0f, 80f)) &&
+                      ShadowReach.InView(room, from, size, new UnityEngine.Vector3(25f, 0f, 40f));
+
+        UnityEngine.Vector3 low = new UnityEngine.Vector3((float)Math.Sqrt(1.0 - 0.0001), 0.01f, 0f);
+        float drop = 13f * ShadowReach.Slack + ShadowReach.Below;
+        float lowLength = ShadowReach.Sweep(low, 13f, 0f, 1000f).magnitude;
+        float heldLength = ShadowReach.Sweep(low, 13f, 0f, 100f).magnitude;
+        float farLength = ShadowReach.Sweep(low, 60f, 0f, 1000f).magnitude;
+        UnityEngine.Vector3 under = ShadowReach.Sweep(new UnityEngine.Vector3(0.98f, -0.2f, 0f), 13f, 0f, 1000f);
+        bool sweeps = Math.Abs(lowLength - drop / ShadowReach.LowestSun) < 0.01f && Math.Abs(heldLength - 100f) < 0.01f &&
+                      Math.Abs(farLength - ShadowReach.Most) < 0.01f && under.x == 0f && under.y == 0f && under.z == 0f &&
+                      Math.Abs(ShadowReach.Sweep(up, 13f, 0f, 1000f).y + drop) < 1e-4f;
+
+        // A camera 25 m up looking down at the ground ahead: its six planes, normals in.
+        UnityEngine.Vector3 eye = new UnityEngine.Vector3(0f, 25f, -10f);
+        UnityEngine.Vector3 f = UnityEngine.Vector3.Normalize(new UnityEngine.Vector3(0f, -25f, 20f));
+        UnityEngine.Vector3 r = UnityEngine.Vector3.Normalize(UnityEngine.Vector3.Cross(up, f));
+        UnityEngine.Vector3 u = UnityEngine.Vector3.Cross(f, r);
+        float th = (float)Math.Tan(0.5 * 40.0 * Math.PI / 180.0), aspect = 16f / 9f;
+        UnityEngine.Plane[] camera = new UnityEngine.Plane[]
+        {
+            new UnityEngine.Plane(r + f * (aspect * th), eye),
+            new UnityEngine.Plane(f * (aspect * th) - r, eye),
+            new UnityEngine.Plane(u + f * th, eye),
+            new UnityEngine.Plane(f * th - u, eye),
+            new UnityEngine.Plane(f, eye + f * 1f),
+            new UnityEngine.Plane(f * -1f, eye + f * 2000f)
+        };
+
+        Random random = new Random(20261112);
+        int cases = 4000, moments = 800, missed = 0, alarms = 0, inView = 0;
+        for (int k = 0; k < cases; k++)
+        {
+            UnityEngine.Vector3 c = new UnityEngine.Vector3((float)(random.NextDouble() * 160.0 - 80.0), (float)(random.NextDouble() * 60.0), (float)(random.NextDouble() * 160.0 - 60.0));
+            UnityEngine.Vector3 e = new UnityEngine.Vector3((float)(0.5 + random.NextDouble() * 6.0), (float)(0.5 + random.NextDouble() * 4.0), (float)(0.5 + random.NextDouble() * 6.0));
+            double turn = random.NextDouble() * 2.0 * Math.PI, height = 0.02 + random.NextDouble() * 0.98;
+            double level = Math.Sqrt(1.0 - height * height);
+            UnityEngine.Vector3 toSun = new UnityEngine.Vector3((float)(level * Math.Cos(turn)), (float)height, (float)(level * Math.Sin(turn)));
+            UnityEngine.Vector3 sweep = ShadowReach.Sweep(toSun, c.y + e.y, 0f, 1000f);
+
+            bool any = false;
+            for (int m = 0; m <= moments && !any; m++)
+                any = ShadowPlain(camera, c + sweep * ((float)m / moments), e);
+
+            bool swept = ShadowReach.InView(camera, c, e, sweep);
+            if (swept) inView++;
+            if (any && !swept) missed++;
+            if (swept && !any) alarms++;
+        }
+
+        return own + "," + overhead + "," + besideDown + "," + besideIn + "," + besideAway + "," + passes + "," + sweeps + "," +
+               lowLength.ToString("F0", Inv) + "," + heldLength.ToString("F0", Inv) + "," + farLength.ToString("F0", Inv) + "," +
+               missed + "," + alarms + "," + inView + "," + cases;
+    }
+
     /// <summary>
     /// The pick volume stands still while the flag waves: a 3 x 2 m flag in a wind, the volume
     /// made every 0.1 s as the renderer makes it -- the first pick (the cloth's box as it was, in
@@ -5537,6 +5640,8 @@ $oc = [ClothTests]::OutlineCovers() -split ","
 Check "the outline holds the cloth whatever it does: flying, limp, tilted, from its top, on a halyard in a storm" ((N $oc[1]) -ge 0) ("nearest its edge: " + $oc[0] + ", " + $oc[1] + " m inside; the disc " + $oc[2] + " L round the hoist")
 $sd = [ClothTests]::SelectorDisc() -split ","
 Check "the highlight's disc: a 3 m flag's the outline's, a big flag's smaller and growing with it, its heights kept, a top banner alike" (($sd[0..3] | Where-Object { $_ -ne "True" }).Count -eq 0) ($sd -join ", ")
+$ss = [ClothTests]::ShadowSweep() -split ","
+Check "a flag off the screen is in view while its shadow can be: overhead sun, beside the view only from its far side, a sweep passing beside is out; none from below, held under a low sun; never a moment of the way missed" ((($ss[0..6] | Where-Object { $_ -ne "True" }).Count -eq 0) -and [int]$ss[10] -eq 0 -and [int]$ss[11] -le 20) ("a 13 m box's sweep under a 0.6 deg sun " + $ss[7] + " m, " + $ss[8] + " m at a 100 m shadow distance, a 60 m one's " + $ss[9] + " m; of " + $ss[13] + " random boxes " + $ss[12] + " in view, " + $ss[10] + " missed, " + $ss[11] + " not found by 800 moments")
 
 # ---- tilted hoists and the pole ------------------------------------------------------------
 

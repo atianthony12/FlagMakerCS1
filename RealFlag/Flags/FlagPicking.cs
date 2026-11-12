@@ -247,6 +247,91 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// Where a flag's shadow can show: its box carried along the light, down to the ground. The
+    /// camera's test of the cloth's own box (GeometryUtility.TestPlanesAABB) let a flag go the
+    /// moment its cloth left the screen, and its shadow with it, though the shadow lay in full
+    /// view on the ground (the author, 2026-11-12: "the flag cloth's shadow is missing if the
+    /// camera is at a certain angle from the flag"). PURE (Unity's Vector3 and Plane only).
+    /// </summary>
+    /// <remarks>
+    /// A box moving against a plane is tested by its centre and its projected radius (C. Ericson,
+    /// "Real-Time Collision Detection", 5.5.4, "Intersecting Moving AABB Against Plane"); the
+    /// times it is inside each of the view's planes are intersected, as a line is clipped to a
+    /// convex region (M. Cyrus and J. Beck, "Generalized Two- and Three-Dimensional Clipping",
+    /// Computers and Graphics 3, 1978): in view when some moment of the way is left. As
+    /// conservative as the camera's own box test, no more: a long dawn shadow passing beside the
+    /// view is out.
+    /// </remarks>
+    public static class ShadowReach
+    {
+        /// <summary>The sun's height (its direction's y) the reach is worked out for at the least: about 3 degrees. Lower, shadows run to the horizon.</summary>
+        public const float LowestSun = 0.05f;
+
+        /// <summary>No shadow is followed further than this, metres (nor than the game's own shadow distance).</summary>
+        public const float Most = 400f;
+
+        /// <summary>The ground may fall away from where the flag stands: the drop taken this much deeper, and <see cref="Below"/> metres more.</summary>
+        public const float Slack = 1.25f;
+        public const float Below = 2f;
+
+        /// <summary>
+        /// The way a box's shadow goes: from the box along the light until its top is
+        /// <paramref name="ground"/> deep (and the slack), at most <paramref name="most"/> metres.
+        /// <paramref name="toSun"/> is the unit direction to the light. None when the light
+        /// comes from below.
+        /// </summary>
+        public static Vector3 Sweep(Vector3 toSun, float top, float ground, float most)
+        {
+            if (!(toSun.y > 0f) || !(most > 0f))
+                return new Vector3(0f, 0f, 0f);
+
+            float drop = Math.Max(top - ground, 0f) * Slack + Below;
+            float length = Math.Min(drop / Math.Max(toSun.y, LowestSun), Math.Min(most, Most));
+            return new Vector3(-toSun.x * length, -toSun.y * length, -toSun.z * length);
+        }
+
+        /// <summary>
+        /// Whether the box, anywhere on its way along <paramref name="sweep"/>, is inside every
+        /// one of the planes at once (their normals pointing in, as the camera's).
+        /// </summary>
+        public static bool InView(Plane[] planes, Vector3 centre, Vector3 extents, Vector3 sweep)
+        {
+            float from = 0f, to = 1f;
+            for (int i = 0; i < planes.Length; i++)
+            {
+                Vector3 n = planes[i].normal;
+
+                // The box's corner furthest in: how far inside the plane it starts, and how fast it goes in.
+                float inside = n.x * centre.x + n.y * centre.y + n.z * centre.z + planes[i].distance +
+                               Math.Abs(n.x) * extents.x + Math.Abs(n.y) * extents.y + Math.Abs(n.z) * extents.z;
+                float speed = n.x * sweep.x + n.y * sweep.y + n.z * sweep.z;
+
+                if (speed > 0f)
+                {
+                    float t = -inside / speed;
+                    if (t > from)
+                        from = t;
+                }
+                else if (speed < 0f)
+                {
+                    float t = inside / -speed;
+                    if (t < to)
+                        to = t;
+                }
+                else if (inside < 0f)
+                {
+                    return false;
+                }
+
+                if (from > to)
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// A disc round a flag, from its place, hoist and size alone, never its cloth, over whatever
     /// lies between its heights. Two uses: <see cref="For"/> is everything the cloth can reach
     /// (the city gathered round a flag, FlagRenderer.KeepOffCity); <see cref="Selector"/> is the

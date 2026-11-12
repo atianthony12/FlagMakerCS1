@@ -26,6 +26,10 @@ namespace RealFlag.Flags
         public bool HasAnchor;
 
         public bool Visible;
+
+        /// <summary>In view for its shadow alone: the cloth itself is off the screen (FlagRenderer.Cull, ShadowReach).</summary>
+        public bool ShadowOnly;
+
         public float Distance;
         public Bounds World;
 
@@ -1518,8 +1522,10 @@ namespace RealFlag.Flags
             if (!f.Visible || f.Cloth == null || f.Mesh == null)
                 return;
 
+            // In view for its shadow alone: a vertex a particle is all a shadow needs (the finer
+            // surface's upload is the main thread's, Invariant 8).
             float cell = Mathf.Max(f.Cloth.CellU, f.Cloth.CellV);
-            float want = cell / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian / RefinePixels;
+            float want = f.ShadowOnly ? 0f : cell / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian / RefinePixels;
             int current = f.Mesh.Refine;
             int wanted = current;
             if (want > current * RefineBand)
@@ -1630,7 +1636,9 @@ namespace RealFlag.Flags
             // Drawn while its length is DrawPixels on the screen (its tubes keep 0.6 px wide).
             Vector3 eye = _camera.transform.position;
             float pixels = shape.Tip / Mathf.Max(Vector3.Distance(eye, box.ClosestPoint(eye)), 1f) * _pixelsPerRadian;
-            f.PoleVisible = pixels >= DrawPixels && GeometryUtility.TestPlanesAABB(planes, box);
+            // Or, off the screen, while its shadow can be on it (as the cloth's: Cull).
+            f.PoleVisible = pixels >= DrawPixels &&
+                            (GeometryUtility.TestPlanesAABB(planes, box) || (f.Pixels >= ShadowPixels && ShadowSeen(planes, box, f.Ground)));
         }
 
         /// <summary>
@@ -2008,8 +2016,34 @@ namespace RealFlag.Flags
             f.Pixels = Mathf.Max(f.Spec.Length, f.Spec.Height) / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian;
 
             f.World = box;
-            f.Visible = f.Pixels >= DrawPixels && GeometryUtility.TestPlanesAABB(planes, box);
+
+            // In view: its cloth, or -- the cloth off the screen -- the shadow it would cast (one
+            // big enough to cast any, ShadowPixels). It is then a flag in view like any other:
+            // stepped, kept and drawn, or its shadow would stand still or go (2026-11-12, the
+            // author: "the flag cloth's shadow is missing if the camera is at a certain angle").
+            bool seen = GeometryUtility.TestPlanesAABB(planes, box);
+            f.ShadowOnly = !seen && f.Pixels >= ShadowPixels && ShadowSeen(planes, box, f.Ground);
+            f.Visible = f.Pixels >= DrawPixels && (seen || f.ShadowOnly);
         }
+
+        /// <summary>
+        /// Whether the shadow of what is in <paramref name="box"/> can be in the camera's view: the
+        /// box on its way along the light down to the ground (<see cref="ShadowReach"/>). Never
+        /// while the sun casts none (<see cref="SetSun"/>).
+        /// </summary>
+        private static bool ShadowSeen(Plane[] planes, Bounds box, float ground)
+        {
+            if (!_sunShadows)
+                return false;
+
+            Vector3 sweep = ShadowReach.Sweep(_toSun, box.max.y, Mathf.Min(ground, box.min.y), _shadowMost);
+            return (sweep.x != 0f || sweep.y != 0f || sweep.z != 0f) && ShadowReach.InView(planes, box.center, box.extents, sweep);
+        }
+
+        /// <summary>The direction to the sun (or the moon) this frame, whether it casts shadows, and how far from the camera the game draws them (SetSun).</summary>
+        private static Vector3 _toSun = Vector3.up;
+        private static bool _sunShadows;
+        private static float _shadowMost;
 
         /// <summary>
         /// The next batch: the placement ghost first, then the flags in view -- the
@@ -4115,6 +4149,8 @@ namespace RealFlag.Flags
         {
             Vector3 dir = Vector3.up;
             Color light = Color.black;
+            bool shadows = false;
+            float shadowMost = 0f;
 
             try
             {
@@ -4127,6 +4163,10 @@ namespace RealFlag.Flags
                         dir = -sun.transform.forward;
                         bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
                         light = (linear ? sun.color.linear : sun.color) * sun.intensity;
+
+                        // Whether a flag off the screen can shadow what is on it (Cull, ShadowSeen).
+                        shadows = sun.shadows != LightShadows.None && QualitySettings.shadows != ShadowQuality.Disable;
+                        shadowMost = QualitySettings.shadowDistance;
                     }
                 }
             }
@@ -4134,6 +4174,10 @@ namespace RealFlag.Flags
             {
                 // The light through the cloth is a nicety; without the sun it is simply off.
             }
+
+            _toSun = dir;
+            _sunShadows = shadows;
+            _shadowMost = shadowMost;
 
             Shader.SetGlobalVector(FlagLook.IdSunDir, new Vector4(dir.x, dir.y, dir.z, 0f));
             Shader.SetGlobalVector(FlagLook.IdSunColor, new Vector4(light.r, light.g, light.b, 0f));
@@ -4166,13 +4210,15 @@ namespace RealFlag.Flags
                 int frames = Math.Max(1, _costFrames);
                 float seconds = now - _nextReport + 5f;
                 Wind w = _wind;
-                int still = 0, unshown = 0, looping = 0;
+                int still = 0, unshown = 0, looping = 0, shadowOnly = 0;
                 foreach (FlagInstance f in _flags)
                 {
                     if (FlagMotion.KeepsShape(f.Spec.Motion))
                         still++;
                     if (f.Loop != null)
                         looping++;
+                    if (f.Visible && f.ShadowOnly)
+                        shadowOnly++;
 
                     // In view but not drawn yet: no cloth or mesh, or still settling (Draw skips them); a loop not made yet.
                     if (f.Visible && f.Loop == null && (f.Mesh == null || !f.Settled))
@@ -4181,7 +4227,8 @@ namespace RealFlag.Flags
 
                 Log.Detail("flags: " + _flags.Count + " in the city (" + still + " still or flat, " + _stillShapes.Count + " still shape(s) kept; " +
                            looping + " playing a loop, " + LoopsText() + StandInsText() + "), " +
-                           VisibleCount + " in view (" + unshown + " not drawn yet: settling" +
+                           VisibleCount + " in view (" + (shadowOnly > 0 ? shadowOnly + " of them off the screen, for their shadow; " : "") +
+                           unshown + " not drawn yet: settling" +
                            (_released > 0 ? "; " + _released + " cloth(s) let go out of view so far" : "") + "), settled in " + seconds.ToString("F0") + " s: " +
                            _settledSeen + " in view, " + _settledUnseen + " out of view, " + _settleCopies + " from a like flag's shape; " + _moving + " moving, " + _waiting +
                            " waiting for room | " + (frames / Math.Max(seconds, 0.1f)).ToString("F0") + " fps | main thread " +
