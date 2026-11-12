@@ -6,26 +6,27 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a city[/b] (new or saved). The mod does not run in the editors.
 [*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
-[*][b]Click + New flag[/b], choose a country flag, pattern or upload your own image.
+[*][b]Click + New flag[/b], choose a country flag, pattern or add your own image.
 [*][b]To edit a flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
 [/olist]
 
 [hr][/hr]
-[h1]Features[/h1]
+[h1]Overview[/h1]
 [h3]Flags[/h3]
 [list]
 [*]250+ countries flags (including EU, UN)
 [*]Simple pattern creator
-[*]Ability to upload your own flag picture
+[*]Ability to add your own flag picture
 [*]Flags can be up to 30m wide/tall, hoisted from the side or the top
 [*]Wear and tear, and dirt
+[*]Draggable as Props with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b], and can be placed in a line or circle with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2956939040]Line Tool[/url][/b]
 [/list]
 [h3]Flag motion[/h3]
 [list]
-[*][b]Waving[/b]: the default, the flag waves in the wind and collides with other buildings
+[*][b]Loop[/b]: the default, the flag will replay the waving animation over and over, and it's not affected by physics or wind. Best performance
+[*][b]Waving[/b]: physics-based, the most realistic, the flag waves in the wind and collides with other buildings. Recommended only to be used on a few flags at a time
 [*][b]Still[/b]: the flag animation will be paused. Useful for taking screenshots
 [*][b]Flat[/b]: no motion at all, just a 2D flag
-[*][b]Loop[/b]: will replay the flag animation over and over, so the flag no longer is affected by physics or wind. This is useful for taking videos, and saves performance if you have a lot of flags near each other and/or don't need them to react to the wind
 [/list]
 [h3]Flagpoles[/h3]
 [list]
@@ -36,7 +37,8 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [h3]Performance[/h3]
 By default the preset is set to High, you can set it to Low or Medium if your system struggles to animate the flags. You can also separately change the cloth quality itself.
 [b]Technical info[/b]
-The flags run on your CPU. By default it uses a minimal amount of cores but this is changeable in the Settings tab if you want a big amount of flags to animate at the same time. But you may never need to change this setting, because the mod employs a few ways to optimize performance, such as stopping flags animations except those near the camera, or having a shared motion/animation between flags, etc.
+The [i]Loop[/i] motion (the default) renders the flag animation on your CPU once and plays it back on your GPU, so it costs close to nothing to animate, as opposed to [i]Waving[/i] which reacts to physics and wind.
+With the [i]Waving[/i] motion, the flags run on your CPU, it uses a minimal amount of cores and it's changeable in the Settings tab if you want a big amount of flags to animate at the same time. But you may never need to change this setting, because the mod has a few ways to optimize performance, such as stopping flags animations except those near the camera, or having a shared motion/animation between flags, etc.
 [h3]Mod options[/h3]
 [list]
 [*]4 panel themes
@@ -45,13 +47,10 @@ The flags run on your CPU. By default it uses a minimal amount of cores but this
 
 [hr][/hr]
 [h1]Compatibility[/h1]
-Tested with hundreds of mods, none of which conflicted.
+[quote]Incompatible with [b]Extended Managers Library[/b] and any mod that uses it, such as Prop Anarchy.
+[/quote]
+Tested with hundreds of mods, no other mod conflicted.
 [b]Removing the mod[/b] will not corrupt your save, but when you save without it the existing flags will be deleted permanently.
-[h3]Works with[/h3]
-[list]
-[*][b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b]: the flags can be moved, rotated and deleted as Props.
-[*][b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2956939040]Line Tool[/url][/b]: flags can be added as a line, freeform, circle, etc. you will see this option in Flag Maker itself, not in the Line Tool toolbar.
-[/list]
 [h3]Known issues / limitations[/h3]
 [list]
 [*][b]Flags can't turn to Procedural Objects[/b]: this is intentional for now, but if it becomes requested I will look into it.
@@ -67,7 +66,7 @@ This mod was made with substantial help from AI. I set the goals, made the desig
 [h1]Reporting a bug[/h1]
 Please include the following:
 [olist]
-[*][b]The game's log[/b], [i]output_log.txt[/i]. In Steam, right-click Cities: Skylines → [i]Manage → Browse local files[/i], then open the [i]Cities_Data[/i] folder. On a Mac it is [i]~/Library/Logs/Unity/Player.log[/i], on Linux [i]~/.config/unity3d/Colossal Order/Cities_Skylines/Player.log[/i].
+[*][b]The game's log[/b], [i]output_log.txt[/i]. In Steam, right-click Cities: Skylines → [i]Manage → Browse local files[/i], then open the [i]Cities_Data[/i] folder. On a Mac it is [i]~/Library/Logs/Unity/Player.log[/i], on Linux [i]~/.config/unity3d/Colossal Order/Cities: Skylines/Player.log[/i].
 [*][b]The mod's own log[/b], [i]FlagMaker.log[/i]. Tick [i]Detailed logging[/i] (Options → Flag Maker) first, then make the problem happen again. To find it, paste this into File Explorer's address bar:
 [code]%LOCALAPPDATA%\Colossal Order\Cities_Skylines[/code]
 On a Mac it is in [i]~/Library/Application Support/Colossal Order/Cities_Skylines[/i], on Linux in [i]~/.local/share/Colossal Order/Cities_Skylines[/i].
