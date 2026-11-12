@@ -2044,6 +2044,7 @@ namespace RealFlag.Flags
         private static Vector3 _toSun = Vector3.up;
         private static bool _sunShadows;
         private static float _shadowMost;
+        private static int _shadowsSaid;
 
         /// <summary>
         /// The next batch: the placement ghost first, then the flags in view -- the
@@ -4178,6 +4179,18 @@ namespace RealFlag.Flags
             _toSun = dir;
             _sunShadows = shadows;
             _shadowMost = shadowMost;
+
+            // Said once each way: with no shadows from the sun, or none drawn at any distance,
+            // no flag is kept for its shadow, and a run's log must show which it was.
+            int state = shadows && shadowMost > 0f ? 1 : 2;
+            if (state != _shadowsSaid)
+            {
+                _shadowsSaid = state;
+                Log.Msg(state == 1
+                            ? "flags: a flag off the screen is kept while its shadow can be on it -- the sun's shadows are drawn to " +
+                              shadowMost.ToString("F0") + " m from the camera, its light from " + (Mathf.Asin(Mathf.Clamp(dir.y, -1f, 1f)) * Mathf.Rad2Deg).ToString("F0") + " deg up"
+                            : "flags: the sun casts no shadows now (its light's, or the game's, are off) -- no flag off the screen is kept for its shadow");
+            }
 
             Shader.SetGlobalVector(FlagLook.IdSunDir, new Vector4(dir.x, dir.y, dir.z, 0f));
             Shader.SetGlobalVector(FlagLook.IdSunColor, new Vector4(light.r, light.g, light.b, 0f));
