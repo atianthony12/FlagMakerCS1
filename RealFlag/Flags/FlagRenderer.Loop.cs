@@ -42,6 +42,18 @@ namespace RealFlag.Flags
 
         /// <summary>No longer kept (let go, or never made): a flag still naming it looks its loop up again.</summary>
         public bool Gone;
+
+        /// <summary>
+        /// The loops' folder (LoopCache, 2026-11-12): its read of this loop while one is out (asked
+        /// at <see cref="DiskAskedAt"/>, real time), and whether the folder has had its say -- read,
+        /// none there, or given up on -- so a bake may begin. Never asked again once it has.
+        /// </summary>
+        public LoopCache.Request Disk;
+        public float DiskAskedAt;
+        public bool DiskDone;
+
+        /// <summary>The identity its bake was begun with (LoopFile.Identity: its key and the edges' smoothing), kept in the folder under it once made.</summary>
+        public string BakeIdentity;
     }
 
     /// <summary>Where a flag's own loop stands, for the panel (FlagRenderer.LoopStateOf): no loop to speak of, being recorded, made, or not to be made.</summary>
@@ -112,8 +124,24 @@ namespace RealFlag.Flags
         /// <summary>The loops' clock, seconds (a double: it runs for as long as the city is open), stopped with the flags' when paused.</summary>
         private double _loopClock;
 
-        private int _loopsMade, _loopsFailed;
+        private int _loopsMade, _loopsFailed, _loopsRead;
         private bool _loopsFullSaid;
+
+        /// <summary>The loops' folder (null: not kept on disk this session).</summary>
+        private LoopCache _loopCache;
+
+        /// <summary>
+        /// A loop asked of the loops' folder begins no bake for this long, seconds of real time:
+        /// past it the folder's answer is given up on (dropped when it comes) and the loop is made
+        /// as ever. A read is a few milliseconds; this is for a disk that hangs.
+        /// </summary>
+        private const float DiskPatience = 2f;
+
+        /// <summary>Loops read from the folder taken a frame at most: each is a texture made on the main thread (a city's load may answer many at once).</summary>
+        private const int DiskTakesPerFrame = 2;
+
+        /// <summary>Real time of the last PlanLoops: an entry wanted since is one a flag still asks for.</summary>
+        private float _loopsPlannedAt = -1e6f;
 
         /// <summary>The flag is drawn with its loop: the one its design asks for, or an older one while nothing else of it is ready.</summary>
         private static bool ShowsLoop(FlagInstance f)
@@ -664,10 +692,18 @@ namespace RealFlag.Flags
         /// </summary>
         private void PlanLoops(float now, ref double spent)
         {
+            // What the loops' folder's thread had to say, every frame (with no loop wanted too).
+            if (_loopCache != null)
+                _loopCache.Tell();
+
+            // Flags ask for their loops between one call and the next (WantLoop, PlanLoop, ...).
+            float lastPlanned = _loopsPlannedAt;
+            _loopsPlannedAt = now;
+
             if (_loopList.Count == 0)
                 return;
 
-            int baking = 0, standInBaking = 0, kept = 0;
+            int baking = 0, standInBaking = 0, kept = 0, diskTaken = 0;
             for (int i = _loopList.Count - 1; i >= 0; i--)
             {
                 LoopEntry e = _loopList[i];
@@ -685,7 +721,7 @@ namespace RealFlag.Flags
                         _loopsFailed++;
                         Log.Warn("flags: a loop could not be made (" + bake.Problem + "); its flags wave instead -- " + e.Spec.Describe());
                     }
-                    else if (!TryMakeLoop(e, bake))
+                    else if (!TryMakeLoop(e, bake.Result, bake.Raw))
                     {
                         // Its texture could not be made (no float textures, no memory): never again
                         // this session -- left to throw, it was baked afresh every second for good.
@@ -700,6 +736,10 @@ namespace RealFlag.Flags
                             Log.Msg(line + " (" + e.Spec.Describe() + ")" + (_loopsMade == 3 ? " (further ones are in the detailed log)" : ""));
                         else if (Log.Detailed)
                             Log.Detail(line);
+
+                        // Kept for later sessions (written on the folder's own thread).
+                        if (_loopCache != null && e.BakeIdentity != null)
+                            _loopCache.Store(e.BakeIdentity, bake.Result);
                     }
                 }
 
@@ -738,29 +778,64 @@ namespace RealFlag.Flags
 
                     if (e.Bake == null)
                     {
-                        if (baking >= MaxBakes || now - e.Since < Debounce)
+                        if (now - e.Since < Debounce)
                             continue;
 
                         // One only stand-ins ask for (no flag whose Motion is Loop): within its
                         // reserve, one stand-in's at a time (a player's own loop being made holds
-                        // none back, 2026-11-12), and quietly.
+                        // none back, 2026-11-12), and quietly. The reserve holds for a loop read
+                        // from the folder as for one made.
                         bool standIn = now - e.Real > Unwanted;
-                        if (standIn && (standInBaking >= StandInBakes || kept >= StandInLoops))
+                        if (standIn && kept >= StandInLoops)
+                            continue;
+
+                        // Kept in the loops' folder by an earlier session: read, not made -- no
+                        // bake's slot. Until the folder has had its say no bake begins. Asked, and
+                        // a loop read taken, only while a flag still asks for it (since the last
+                        // call): a key a slider passed through reads nothing and keeps no texture.
+                        if (!e.DiskDone)
+                        {
+                            if (e.Wanted < lastPlanned)
+                                continue;
+
+                            LoopData read;
+                            double readMs;
+                            LoopCache.Answer answer = FromDisk(e, now, diskTaken < DiskTakesPerFrame, out read, out readMs);
+                            if (answer == LoopCache.Answer.Pending)
+                                continue;
+
+                            if (answer == LoopCache.Answer.Hit)
+                            {
+                                diskTaken++;
+                                if (kept >= MaxLoops && !MakeRoom(now))
+                                {
+                                    // As a bake with no room: asked of the folder again after the wait.
+                                    e.DiskDone = false;
+                                    NoRoomForLoop(e, now);
+                                    continue;
+                                }
+
+                                TookFromDisk(e, read, readMs);
+                                if (e.Loop != null)
+                                    kept++;
+                                continue;
+                            }
+
+                            // None there: made, below.
+                        }
+
+                        if (baking >= MaxBakes || (standIn && standInBaking >= StandInBakes))
                             continue;
 
                         if (kept >= MaxLoops && !MakeRoom(now))
                         {
-                            e.FailedUntil = now + RetrySeconds;
-                            if (!_loopsFullSaid)
-                            {
-                                _loopsFullSaid = true;
-                                Log.Warn("flags: " + MaxLoops + " loops are kept and all are in use; flags of further shapes wave instead (said once)");
-                            }
-
+                            NoRoomForLoop(e, now);
                             continue;
                         }
 
-                        e.Bake = new LoopBake(e.Spec, e.Detail, e.SelfCollision, FlagMesh.SmoothEdges);
+                        bool smoothEdges = FlagMesh.SmoothEdges;
+                        e.Bake = new LoopBake(e.Spec, e.Detail, e.SelfCollision, smoothEdges);
+                        e.BakeIdentity = LoopFile.Identity(e.Key, smoothEdges);
                         e.Began = now;
                         baking++;
                         kept++;
@@ -790,14 +865,99 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>The finished bake's texture, as the entry's loop; false (said, the flags wave instead) when the graphics card will not hold it.</summary>
-        private static bool TryMakeLoop(LoopEntry e, LoopBake bake)
+        /// <summary>No room for one more loop (MaxLoops, none to let go): its flags wave, tried again after RetrySeconds; said once.</summary>
+        private void NoRoomForLoop(LoopEntry e, float now)
+        {
+            e.FailedUntil = now + RetrySeconds;
+            if (!_loopsFullSaid)
+            {
+                _loopsFullSaid = true;
+                Log.Warn("flags: " + MaxLoops + " loops are kept and all are in use; flags of further shapes wave instead (said once)");
+            }
+        }
+
+        /// <summary>
+        /// The loops' folder's say on an entry's loop: asked the first time (its identity: the key
+        /// and the edges' smoothing a bake would take now); Pending while the read is out -- or read
+        /// but not to be taken this frame (<paramref name="mayTake"/>) -- no longer than
+        /// <see cref="DiskPatience"/>; Hit with the loop; Miss when none is there, the folder is
+        /// off, or it took too long (then its late answer is dropped). Hit and Miss settle it
+        /// (DiskDone): never asked again.
+        /// </summary>
+        private LoopCache.Answer FromDisk(LoopEntry e, float now, bool mayTake, out LoopData read, out double ms)
+        {
+            read = null;
+            ms = 0.0;
+            if (_loopCache == null)
+            {
+                e.DiskDone = true;
+                return LoopCache.Answer.Miss;
+            }
+
+            if (e.Disk == null)
+            {
+                e.Disk = _loopCache.Ask(LoopFile.Identity(e.Key, FlagMesh.SmoothEdges));
+                e.DiskAskedAt = now;
+            }
+
+            LoopCache.Answer answer = _loopCache.Poll(e.Disk);
+            if (answer == LoopCache.Answer.Pending)
+            {
+                if (now - e.DiskAskedAt <= DiskPatience)
+                    return LoopCache.Answer.Pending;
+
+                if (Log.Detailed)
+                    Log.Detail("flags: the loops' folder did not answer within " + DiskPatience.ToString("F0") + " s; the loop is made afresh (" + e.Spec.Describe() + ")");
+                answer = LoopCache.Answer.Miss;
+            }
+            else if (answer == LoopCache.Answer.Hit && !mayTake)
+            {
+                return LoopCache.Answer.Pending;
+            }
+
+            if (answer == LoopCache.Answer.Hit)
+            {
+                read = e.Disk.Data;
+                ms = e.Disk.Ms;
+            }
+
+            // Done with: whatever comes for it later is dropped.
+            _loopCache.Forget(e.Disk);
+            e.Disk = null;
+            e.DiskDone = true;
+            return read != null ? LoopCache.Answer.Hit : LoopCache.Answer.Miss;
+        }
+
+        /// <summary>A loop read from the folder as the entry's loop, by the same way a bake's is taken (TryMakeLoop); said as "read from disk".</summary>
+        private void TookFromDisk(LoopEntry e, LoopData read, double ms)
+        {
+            if (!TryMakeLoop(e, read, null))
+            {
+                e.FailedUntil = float.MaxValue;
+                _loopsFailed++;
+                return;
+            }
+
+            _loopsRead++;
+            string line = "flags: loop read from disk in " + ms.ToString("F0") + " ms -- " + e.Loop.Text;
+            if (_loopsRead <= 3)
+                Log.Msg(line + " (" + e.Spec.Describe() + ")" + (_loopsRead == 3 ? " (further ones are in the detailed log)" : ""));
+            else if (Log.Detailed)
+                Log.Detail(line);
+        }
+
+        /// <summary>
+        /// A made loop's texture -- a finished bake's, or one read from the loops' folder -- as the
+        /// entry's loop; false (said, the flags wave instead) when the graphics card will not hold it.
+        /// <paramref name="raw"/>: its frames' bytes when there are some already (a bake's), else null.
+        /// </summary>
+        private static bool TryMakeLoop(LoopEntry e, LoopData loop, byte[] raw)
         {
             try
             {
                 if (!SystemInfo.SupportsTextureFormat(TextureFormat.RGBAFloat))
                     throw new NotSupportedException("this graphics card has no float textures");
-                e.Loop = new FlagLoop(bake);
+                e.Loop = new FlagLoop(loop, raw);
                 return true;
             }
             catch (Exception x)
@@ -848,8 +1008,17 @@ namespace RealFlag.Flags
             e.Loop = null;
             e.Bake = null;
             e.Gone = true;
+            ForgetDisk(e);
             _loops.Remove(e.Key);
             _loopList.RemoveAt(i);
+        }
+
+        /// <summary>An entry's read of the loops' folder no longer waited for (the entry let go): its answer, when it comes, is dropped.</summary>
+        private void ForgetDisk(LoopEntry e)
+        {
+            if (e.Disk != null && _loopCache != null)
+                _loopCache.Forget(e.Disk);
+            e.Disk = null;
         }
 
         /// <summary>With the city: every loop's texture and grids.</summary>
@@ -862,6 +1031,7 @@ namespace RealFlag.Flags
                 e.Loop = null;
                 e.Bake = null;
                 e.Gone = true;
+                ForgetDisk(e);
             }
 
             _loopList.Clear();
@@ -929,10 +1099,10 @@ namespace RealFlag.Flags
 
         private bool _loggedFirstLoop;
 
-        /// <summary>For the 5 s line: the loops kept, their memory, those being made.</summary>
+        /// <summary>For the 5 s line: the loops kept, their memory, those being made and being read from the loops' folder, those read from it in this city.</summary>
         private string LoopsText()
         {
-            int made = 0, baking = 0;
+            int made = 0, baking = 0, reading = 0;
             long bytes = 0;
             foreach (LoopEntry e in _loopList)
             {
@@ -945,9 +1115,14 @@ namespace RealFlag.Flags
                 {
                     baking++;
                 }
+                else if (e.Disk != null)
+                {
+                    reading++;
+                }
             }
 
             return made + " loop(s) kept (" + (bytes / 1048576f).ToString("F1") + " MB)" + (baking > 0 ? ", " + baking + " being made" : "") +
+                   (reading > 0 ? ", " + reading + " being read from disk" : "") + (_loopsRead > 0 ? ", " + _loopsRead + " read from disk" : "") +
                    (_loopsFailed > 0 ? ", " + _loopsFailed + " failed" : "");
         }
     }

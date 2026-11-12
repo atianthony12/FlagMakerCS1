@@ -54,6 +54,8 @@ The first release.
   like flags always does, so a street or a roundabout full of them stays smooth.
 - **Hundreds of flags**: a flag far out of view lets its cloth go after two minutes, and takes it
   up again from a like flag's shape when it comes back into view.
+- **Loops kept on disk**: a loop is made once and kept in `FlagMaker\Loops` (up to 200 MB), so a
+  city with loop flags shows them sooner the next time it loads. Delete the folder at any time.
 
 ### Placing and editing
 

@@ -3094,7 +3094,7 @@ public static class ClothTests
         FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 0f, false, 1f, FlagCut.Rectangle, 1f, false);
         LoopBake bake = LoopBake.Make(s, FlagCloth.CellsAlong, true);
         if (bake.Failed) return "failed";
-        var frames = new LoopFrames(bake);
+        var frames = new LoopFrames(bake.Result);
         int n = bake.Count, at = 17;
         uint prop = 4711;
         double clock = 123.456;
@@ -3192,6 +3192,222 @@ public static class ClothTests
             between = Math.Max(between, Math.Abs(x[k] - (0.75f * x0[k] + 0.25f * x1[k])) + Math.Abs(y[k] - (0.75f * y0[k] + 0.25f * y1[k])) + Math.Abs(z[k] - (0.75f * z0[k] + 0.25f * z1[k])));
         return split.ToString("G3", Inv) + "," + twice.ToString("G3", Inv) + "," + jobs + "," + between.ToString("G3", Inv) + "," +
                first.ToString("G3", Inv) + "," + back + "," + highest.ToString("G3", Inv) + "," + last.ToString("G3", Inv) + "," + b.Tries;
+    }
+
+    /// <summary>
+    /// The pick slab's axes the old way (FlagLoop's constructor until 2026-11-12, Unity's Vector3):
+    /// out along the fly square to the hoist, and across.
+    /// </summary>
+    static void OldSlabAxes(float hx, float hy, float hz, float fx, float fy, float fz, out UnityEngine.Vector3 u, out UnityEngine.Vector3 n)
+    {
+        var h = new UnityEngine.Vector3(hx, hy, hz);
+        var fly = new UnityEngine.Vector3(fx, fy, fz);
+        u = fly - h * UnityEngine.Vector3.Dot(fly, h);
+        u = u.sqrMagnitude > 0.09f ? u.normalized : fly;
+        n = UnityEngine.Vector3.Cross(h, u).normalized;
+    }
+
+    static bool SameBits(float a, float b)
+    {
+        return BitConverter.ToInt32(BitConverter.GetBytes(a), 0) == BitConverter.ToInt32(BitConverter.GetBytes(b), 0);
+    }
+
+    static bool SameBytes(byte[] a, byte[] b)
+    {
+        if (a == null || b == null || a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+        return true;
+    }
+
+    static readonly Guid LoopStamp = new Guid("5a1d6c2e-8f0b-4c3a-9e71-2b4d6f8a0c13");
+
+    static string LoopIdentity(FlagSpec s, int detail)
+    {
+        return LoopFile.Identity(LoopMotion.Key(s, detail, true), true);
+    }
+
+    /// <summary>
+    /// A made loop through its file of the loops' folder (LoopData, LoopFile, 2026-11-12): a
+    /// swallowtail on a pole tilted 30 deg (its cut and hoist matter to the slab). Returns: every
+    /// number of the loop read back the same, bit for bit; its frames the same bytes; those the bake's
+    /// Raw; LoopFrames from the read loop gives the same Motion as from the bake's; the slab's
+    /// extents and axis out as FlagLoop computed them before (Unity's Vector3, the bake's cloth);
+    /// the axes' maths against Vector3's on 2000 random pairs (some nearly along each other); the
+    /// file's length; FNV-1a's published vectors ("" and "a"); the file's head read as ours, and not
+    /// for another stamp; the file's name stable and another loop's different.
+    /// </summary>
+    public static string LoopFileRoundTrip()
+    {
+        FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 30f, true, 1f, FlagCut.Swallowtail, 1f, false);
+        LoopBake bake = LoopBake.Make(s, FlagCloth.CellsAlong, true);
+        if (bake.Failed) return "failed," + bake.Problem;
+        LoopData d = bake.Result;
+        string id = LoopIdentity(s, FlagCloth.CellsAlong);
+        byte[] file = LoopFile.Write(d, id, LoopStamp);
+        string why;
+        LoopData r = LoopFile.Read(file, id, LoopStamp, out why);
+        if (r == null) return "refused," + why;
+
+        bool fields = d.Columns == r.Columns && d.Rows == r.Rows && d.Frames == r.Frames && d.TilesX == r.TilesX && d.TilesY == r.TilesY &&
+                      d.Width == r.Width && d.Height == r.Height && SameBits(d.FrameTime, r.FrameTime) &&
+                      SameBits(d.MinX, r.MinX) && SameBits(d.MinY, r.MinY) && SameBits(d.MinZ, r.MinZ) &&
+                      SameBits(d.MaxX, r.MaxX) && SameBits(d.MaxY, r.MaxY) && SameBits(d.MaxZ, r.MaxZ) &&
+                      SameBits(d.MinU, r.MinU) && SameBits(d.MaxU, r.MaxU) && SameBits(d.MinV, r.MinV) && SameBits(d.MaxV, r.MaxV) &&
+                      SameBits(d.MinN, r.MinN) && SameBits(d.MaxN, r.MaxN) &&
+                      SameBits(d.OutX, r.OutX) && SameBits(d.OutY, r.OutY) && SameBits(d.OutZ, r.OutZ) && d.Text == r.Text &&
+                      SameBits(d.Seconds, r.Seconds) && d.Bytes == r.Bytes;
+        bool data = SameBytes(d.RawCopy(), r.RawCopy());
+        bool raw = SameBytes(bake.Raw, r.RawCopy());
+
+        // The read loop's motion as the bake's, at a few clocks and props.
+        var a = new LoopFrames(d);
+        var b = new LoopFrames(r);
+        int n = d.Columns * d.Rows;
+        float[] x = new float[n], y = new float[n], z = new float[n], vx = new float[n], vy = new float[n], vz = new float[n];
+        float[] x2 = new float[n], y2 = new float[n], z2 = new float[n], vx2 = new float[n], vy2 = new float[n], vz2 = new float[n];
+        bool motion = true;
+        foreach (double clock in new[] { 0.0, 1.234, 77.7 })
+        {
+            foreach (uint prop in new uint[] { 0, 4711, 60000 })
+            {
+                a.Motion(clock, prop, x, y, z, vx, vy, vz);
+                b.Motion(clock, prop, x2, y2, z2, vx2, vy2, vz2);
+                for (int k = 0; k < n; k++)
+                    motion &= SameBits(x[k], x2[k]) && SameBits(y[k], y2[k]) && SameBits(z[k], z2[k]) &&
+                              SameBits(vx[k], vx2[k]) && SameBits(vy[k], vy2[k]) && SameBits(vz[k], vz2[k]);
+            }
+        }
+
+        // The slab as FlagLoop computed it before: Vector3's maths on the bake's own cloth.
+        FlagCloth c = bake.Cloth;
+        UnityEngine.Vector3 u, nn;
+        OldSlabAxes(c.HoistX, c.HoistY, c.HoistZ, bake.FlyX, bake.FlyY, bake.FlyZ, out u, out nn);
+        float uMin, uMax, vMin, vMax, nMin, nMax;
+        bake.Extents(u.x, u.y, u.z, c.HoistX, c.HoistY, c.HoistZ, nn.x, nn.y, nn.z, out uMin, out uMax, out vMin, out vMax, out nMin, out nMax);
+        bool slab = SameBits(uMin, d.MinU) && SameBits(uMax, d.MaxU) && SameBits(vMin, d.MinV) && SameBits(vMax, d.MaxV) &&
+                    SameBits(nMin, d.MinN) && SameBits(nMax, d.MaxN) && SameBits(u.x, d.OutX) && SameBits(u.y, d.OutY) && SameBits(u.z, d.OutZ);
+
+        // The axes' maths alone, on random pairs: unit hoists, flies some way off them (and some along them).
+        var rnd = new Random(7);
+        int axesOff = 0;
+        for (int i = 0; i < 2000; i++)
+        {
+            UnityEngine.Vector3 h = new UnityEngine.Vector3((float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f).normalized;
+            UnityEngine.Vector3 f = new UnityEngine.Vector3((float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f).normalized;
+            if (i % 4 == 0) f = (h + f * 0.2f).normalized;
+            UnityEngine.Vector3 ou, on;
+            OldSlabAxes(h.x, h.y, h.z, f.x, f.y, f.z, out ou, out on);
+            float ux, uy, uz, nx, ny, nz;
+            LoopData.SlabAxes(h.x, h.y, h.z, f.x, f.y, f.z, out ux, out uy, out uz, out nx, out ny, out nz);
+            if (!(SameBits(ou.x, ux) && SameBits(ou.y, uy) && SameBits(ou.z, uz) && SameBits(on.x, nx) && SameBits(on.y, ny) && SameBits(on.z, nz)))
+                axesOff++;
+        }
+
+        byte[] empty = new byte[0], one = System.Text.Encoding.ASCII.GetBytes("a");
+        bool fnv = LoopFile.Fnv1a(empty, 0, 0, LoopFile.FnvOffset) == 0xcbf29ce484222325UL && LoopFile.Fnv1a(one, 0, 1, LoopFile.FnvOffset) == 0xaf63dc4c8601ec8cUL;
+        bool ours = LoopFile.IsOurs(file, LoopFile.HeadBytes, LoopStamp) && !LoopFile.IsOurs(file, LoopFile.HeadBytes, Guid.NewGuid());
+        FlagSpec other = s; other.Take = 9;
+        bool names = LoopFile.FileName(id) == LoopFile.FileName(LoopIdentity(s, FlagCloth.CellsAlong)) && LoopFile.FileName(id) != LoopFile.FileName(LoopIdentity(other, FlagCloth.CellsAlong)) &&
+                     LoopFile.FileName(id).EndsWith(LoopFile.Extension) && LoopFile.Identity("k", true) != LoopFile.Identity("k", false);
+
+        return fields + "," + data + "," + raw + "," + motion + "," + slab + "," + axesOff + "," + file.Length + "," + fnv + "," + ours + "," + names;
+    }
+
+    static byte[] Copied(byte[] b, int length)
+    {
+        var c = new byte[length];
+        Buffer.BlockCopy(b, 0, c, 0, Math.Min(length, b.Length));
+        return c;
+    }
+
+    static byte[] WithInt(byte[] b, int at, int value)
+    {
+        byte[] c = Copied(b, b.Length);
+        Buffer.BlockCopy(BitConverter.GetBytes(value), 0, c, at, 4);
+        return c;
+    }
+
+    static byte[] Flipped(byte[] b, int at)
+    {
+        byte[] c = Copied(b, b.Length);
+        c[at] ^= 0x10;
+        return c;
+    }
+
+    /// <summary>
+    /// A loop's file refused, each with its reason (LoopFile.Read): "name=reason" for each case,
+    /// "|" between them; ACCEPTED for one taken. Its own file read whole first (the case "good").
+    /// The absurd sizes are each refused before anything is allocated from them (by the code's
+    /// order: every count is checked against the bytes there and a ceiling first).
+    /// </summary>
+    public static string LoopFileRefusals()
+    {
+        FlagSpec s = LoopSpec(3f, 667, FlagHoist.Side, 0f, false, 1f, FlagCut.Rectangle, 1f, false);
+        LoopBake bake = LoopBake.Make(s, FlagCloth.CellsAlong, true);
+        if (bake.Failed) return "failed=" + bake.Problem;
+        LoopData d = bake.Result;
+        string id = LoopIdentity(s, FlagCloth.CellsAlong);
+        byte[] file = LoopFile.Write(d, id, LoopStamp);
+
+        // The layout's offsets (LoopFile's remarks): the numbers after the identity, the text after them.
+        int idBytes = System.Text.Encoding.UTF8.GetByteCount(id), textBytes = System.Text.Encoding.UTF8.GetByteCount(d.Text);
+        int numbersAt = LoopFile.HeadBytes + 4 + idBytes;
+        int textCountAt = numbersAt + 7 * 4 + 16 * 4, textAt = textCountAt + 4;
+        int payloadLengthAt = textAt + textBytes, payloadAt = payloadLengthAt + 16;
+
+        // The same loop with one number of its frames not a number: written with a true checksum.
+        float[] nan = (float[])d.Data.Clone(); nan[nan.Length / 2] = float.NaN;
+        float[] inf = (float[])d.Data.Clone(); inf[5] = float.PositiveInfinity;
+        LoopData dn = new LoopData(d.Columns, d.Rows, d.Frames, d.TilesX, d.TilesY, d.Width, d.Height, d.FrameTime, d.MinX, d.MinY, d.MinZ, d.MaxX, d.MaxY, d.MaxZ,
+                                   d.MinU, d.MaxU, d.MinV, d.MaxV, d.MinN, d.MaxN, d.OutX, d.OutY, d.OutZ, d.Text, nan);
+        LoopData di = new LoopData(d.Columns, d.Rows, d.Frames, d.TilesX, d.TilesY, d.Width, d.Height, d.FrameTime, d.MinX, d.MinY, d.MinZ, d.MaxX, d.MaxY, d.MaxZ,
+                                   d.MinU, d.MaxU, d.MinV, d.MaxV, d.MinN, d.MaxN, d.OutX, d.OutY, d.OutZ, d.Text, inf);
+        LoopData dh = new LoopData(d.Columns, d.Rows, d.Frames, d.TilesX, d.TilesY, d.Width, d.Height, d.FrameTime, float.NaN, d.MinY, d.MinZ, d.MaxX, d.MaxY, d.MaxZ,
+                                   d.MinU, d.MaxU, d.MinV, d.MaxV, d.MinN, d.MaxN, d.OutX, d.OutY, d.OutZ, d.Text, d.Data);
+
+        var cases = new List<KeyValuePair<string, byte[]>>();
+        cases.Add(new KeyValuePair<string, byte[]>("good", file));
+        cases.Add(new KeyValuePair<string, byte[]>("empty", new byte[0]));
+        cases.Add(new KeyValuePair<string, byte[]>("magic", Flipped(file, 1)));
+        cases.Add(new KeyValuePair<string, byte[]>("format", WithInt(file, 4, LoopFile.Format + 1)));
+        cases.Add(new KeyValuePair<string, byte[]>("cut3", Copied(file, 3)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInIdentityCount", Copied(file, LoopFile.HeadBytes + 2)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInIdentity", Copied(file, LoopFile.HeadBytes + 4 + idBytes / 2)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInNumbers", Copied(file, numbersAt + 30)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInText", Copied(file, textAt + 5)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInChecksum", Copied(file, payloadLengthAt + 12)));
+        cases.Add(new KeyValuePair<string, byte[]>("cutInFrames", Copied(file, payloadAt + 1000)));
+        cases.Add(new KeyValuePair<string, byte[]>("oneShort", Copied(file, file.Length - 1)));
+        cases.Add(new KeyValuePair<string, byte[]>("oneOver", Copied(file, file.Length + 1)));
+        cases.Add(new KeyValuePair<string, byte[]>("flippedFrames", Flipped(file, payloadAt + (file.Length - payloadAt) / 2)));
+        cases.Add(new KeyValuePair<string, byte[]>("flippedText", Flipped(file, textAt + 3)));
+        cases.Add(new KeyValuePair<string, byte[]>("flippedBox", Flipped(file, numbersAt + 7 * 4 + 4)));
+        cases.Add(new KeyValuePair<string, byte[]>("nanFrames", LoopFile.Write(dn, id, LoopStamp)));
+        cases.Add(new KeyValuePair<string, byte[]>("infinityFrames", LoopFile.Write(di, id, LoopStamp)));
+        cases.Add(new KeyValuePair<string, byte[]>("nanHeader", LoopFile.Write(dh, id, LoopStamp)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugeIdentity", WithInt(file, LoopFile.HeadBytes, int.MaxValue)));
+        cases.Add(new KeyValuePair<string, byte[]>("negativeIdentity", WithInt(file, LoopFile.HeadBytes, -5)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugeText", WithInt(file, textCountAt, 1 << 30)));
+        cases.Add(new KeyValuePair<string, byte[]>("zeroColumns", WithInt(file, numbersAt, 0)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugeFrames", WithInt(file, numbersAt + 8, 1000000000)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugeWidth", WithInt(file, numbersAt + 20, int.MaxValue)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugeHeight", WithInt(file, numbersAt + 24, 1 << 30)));
+        cases.Add(new KeyValuePair<string, byte[]>("hugePayload", WithInt(WithInt(file, payloadLengthAt, -1), payloadLengthAt + 4, int.MaxValue)));
+        cases.Add(new KeyValuePair<string, byte[]>("tilesShort", WithInt(file, numbersAt + 16, 1)));
+
+        var sb = new System.Text.StringBuilder();
+        foreach (KeyValuePair<string, byte[]> c in cases)
+        {
+            string why;
+            LoopData r = LoopFile.Read(c.Value, id, LoopStamp, out why);
+            sb.Append(sb.Length > 0 ? "|" : "").Append(c.Key).Append("=").Append(r != null ? "ACCEPTED" : why);
+        }
+
+        string w;
+        sb.Append("|otherStamp=").Append(LoopFile.Read(file, id, Guid.NewGuid(), out w) != null ? "ACCEPTED" : w);
+        sb.Append("|otherIdentity=").Append(LoopFile.Read(file, id + "x", LoopStamp, out w) != null ? "ACCEPTED" : w);
+        sb.Append("|nullFile=").Append(LoopFile.Read(null, id, LoopStamp, out w) != null ? "ACCEPTED" : w);
+        return sb.ToString();
     }
 
     /// <summary>
@@ -6105,6 +6321,23 @@ Check "a stand-in's share of its breeze held until the wind is clearly past half
 $lsp = [ClothTests]::LoopSplit() -split ","
 Check "a loop is the same however its steps are split into jobs, and made twice; between two frames is their blend" ($lsp[0] -eq "0" -and $lsp[1] -eq "0" -and (N $lsp[3]) -lt 1e-6) ("split into " + $lsp[2] + " jobs: " + $lsp[0] + " off; twice: " + $lsp[1] + "; between: " + $lsp[3])
 Check "a loop's progress for the panel: 0 before its first job, never back, below 1 until made (at least 0.9 by its last job), 1 once made" ($lsp.Count -ge 9 -and $lsp[4] -eq "0" -and $lsp[5] -eq "False" -and (N $lsp[6]) -lt 1 -and (N $lsp[6]) -ge 0.9 -and $lsp[7] -eq "1") ("first " + $lsp[4] + ", back " + $lsp[5] + ", highest unmade " + $lsp[6] + ", made " + $lsp[7] + ", tries " + $lsp[8])
+$lfr = [ClothTests]::LoopFileRoundTrip() -split ","
+Check "a loop through its file of the loops' folder: every number and every byte of its frames the same (the bake's Raw), the same motion played; its slab and axis out as FlagLoop made them with Vector3, bit for bit" ($lfr.Count -ge 10 -and $lfr[0] -eq "True" -and $lfr[1] -eq "True" -and $lfr[2] -eq "True" -and $lfr[3] -eq "True" -and $lfr[4] -eq "True" -and $lfr[5] -eq "0") ("fields " + $lfr[0] + ", frames " + $lfr[1] + ", as Raw " + $lfr[2] + ", motion " + $lfr[3] + ", slab " + $lfr[4] + "; axes off Vector3's in " + $lfr[5] + " of 2000 random pairs; " + $lfr[6] + " bytes")
+Check "a loop's file: FNV-1a's published vectors; its head read as this build's (not another's); its name stable, another loop's different" ($lfr.Count -ge 10 -and $lfr[7] -eq "True" -and $lfr[8] -eq "True" -and $lfr[9] -eq "True") ("fnv " + $lfr[7] + ", head " + $lfr[8] + ", names " + $lfr[9])
+$lfx = @{}
+foreach ($part in ([ClothTests]::LoopFileRefusals() -split "\|")) { $kv = $part -split "=", 2; $lfx[$kv[0]] = $kv[1] }
+$expect = [ordered]@{
+    empty = "empty"; magic = "not a loop's file"; format = "another format"; cut3 = "cut short in its header"; cutInIdentityCount = "cut short in its header";
+    cutInIdentity = "cut short in its header"; cutInNumbers = "cut short in its header"; cutInText = "cut short in its header"; cutInChecksum = "cut short in its header";
+    cutInFrames = "cut short in its frames"; oneShort = "cut short in its frames"; oneOver = "longer than its frames"; flippedFrames = "checksum";
+    flippedText = "checksum"; flippedBox = "checksum"; nanFrames = "frames is not a number"; infinityFrames = "frames is not a number";
+    nanHeader = "header is not a number"; hugeIdentity = "identity's length is out of range"; negativeIdentity = "identity's length is out of range";
+    hugeText = "text's length is out of range"; zeroColumns = "grid is out of range"; hugeFrames = "frames are out of range";
+    hugeWidth = "texture's size disagrees"; hugeHeight = "texture's size disagrees"; hugePayload = "frames' length"; tilesShort = "tiles do not hold";
+    otherStamp = "another build"; otherIdentity = "another loop"; nullFile = "empty" }
+$okGood = $lfx["good"] -eq "ACCEPTED"
+$wrong = @($expect.Keys | Where-Object { -not $lfx.ContainsKey($_) -or $lfx[$_] -eq "ACCEPTED" -or -not $lfx[$_].Contains($expect[$_]) })
+Check "a loop's file refused, each for its own reason: empty, not ours, another format, another build, another loop, cut short anywhere, a byte over, a byte changed, not a number (with a true checksum), absurd sizes" ($okGood -and $wrong.Count -eq 0) $(if ($wrong.Count -eq 0) { "good " + $lfx["good"] + "; " + $expect.Count + " refused as they should be, e.g. hugeWidth: " + $lfx["hugeWidth"] } else { "wrong: " + (($wrong | ForEach-Object { $_ + " = " + $lfx[$_] }) -join "; ") })
 foreach ($case in @(
         @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 18; C = 0; S = 1; B = $false; Name = "3 m at Low" },
         @{ L = 3; P = 667; H = 0; T = 0; R = $true; W = 1; D = 32; C = 0; S = 1; B = $false; Name = "3 m at High" },

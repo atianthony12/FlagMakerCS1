@@ -272,6 +272,143 @@ namespace RealFlag.Flags
     }
 
     /// <summary>
+    /// A made loop as it is played (2026-11-12): its frames as the texture holds them and every
+    /// number FlagLoop and LoopFrames need of it, nothing of the cloth that made it -- so a loop is
+    /// the same whether a bake has just made it (<see cref="From"/>) or it was read back from the
+    /// loops' folder (LoopFile.Read, LoopCache). PURE.
+    /// </summary>
+    /// <remarks>
+    /// Nothing changes it once it is made. Its <see cref="Data"/> is SHARED, never copied: with the
+    /// bake that made it, the renderer's LoopFrames, and the loops' folder's thread while that writes
+    /// it to disk -- safe only because no one ever writes to that array after this is made.
+    /// </remarks>
+    public sealed class LoopData
+    {
+        /// <summary>The cloth's particles each way; the frames; the tiles a row and the rows of tiles; the texture's size (Width = TilesX x Columns, Height = TilesY x Rows).</summary>
+        public readonly int Columns, Rows, Frames, TilesX, TilesY, Width, Height;
+
+        /// <summary>Seconds between frames.</summary>
+        public readonly float FrameTime;
+
+        /// <summary>The box of every frame, relative to the anchor in the flag's own frame (LoopBake's).</summary>
+        public readonly float MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
+
+        /// <summary>The cloth's extents over the whole loop along the pick slab's three axes (out, down the hoist, across), its cloth particles only.</summary>
+        public readonly float MinU, MaxU, MinV, MaxV, MinN, MaxN;
+
+        /// <summary>The slab's axis out (see <see cref="SlabAxes"/>), unit, in the flag's own frame.</summary>
+        public readonly float OutX, OutY, OutZ;
+
+        /// <summary>For the log: what it is (LoopBake.Describe, as it was when it was made).</summary>
+        public readonly string Text;
+
+        /// <summary>The frames, Width x Height x 4 floats: a texel a particle (x, y, z, 1), as LoopBake.Data. Only read.</summary>
+        public readonly float[] Data;
+
+        public LoopData(int columns, int rows, int frames, int tilesX, int tilesY, int width, int height, float frameTime,
+                        float minX, float minY, float minZ, float maxX, float maxY, float maxZ,
+                        float minU, float maxU, float minV, float maxV, float minN, float maxN,
+                        float outX, float outY, float outZ, string text, float[] data)
+        {
+            Columns = columns;
+            Rows = rows;
+            Frames = frames;
+            TilesX = tilesX;
+            TilesY = tilesY;
+            Width = width;
+            Height = height;
+            FrameTime = frameTime;
+            MinX = minX; MinY = minY; MinZ = minZ;
+            MaxX = maxX; MaxY = maxY; MaxZ = maxZ;
+            MinU = minU; MaxU = maxU;
+            MinV = minV; MaxV = maxV;
+            MinN = minN; MaxN = maxN;
+            OutX = outX; OutY = outY; OutZ = outZ;
+            Text = text;
+            Data = data;
+        }
+
+        /// <summary>The loop's length, seconds.</summary>
+        public float Seconds
+        {
+            get { return Frames * FrameTime; }
+        }
+
+        /// <summary>The frames' size in bytes (the texture's).</summary>
+        public int Bytes
+        {
+            get { return Data.Length * 4; }
+        }
+
+        /// <summary>The frames as bytes, for the texture: a new array (LoopBake.Raw is the same for a bake's).</summary>
+        public byte[] RawCopy()
+        {
+            var raw = new byte[Data.Length * 4];
+            Buffer.BlockCopy(Data, 0, raw, 0, raw.Length);
+            return raw;
+        }
+
+        /// <summary>
+        /// The pick slab's axes at heading 0, as FlagRenderer.PickVolumes takes them for a flag
+        /// whose "wind" is its fly at rest (PlanLoop): out along the fly, square to the hoist
+        /// (the fly itself when it runs nearly along the hoist), and across. Unity's Vector3
+        /// maths written out in floats in the same order (Dot, the 0.09 test on the square,
+        /// Normalize's 1e-5 and division, Cross; read from UnityEngine.dll's IL), so it gives
+        /// what FlagLoop's constructor gave bit for bit (test-cloth LoopFileRoundTrip).
+        /// </summary>
+        public static void SlabAxes(float hx, float hy, float hz, float fx, float fy, float fz,
+                                    out float ux, out float uy, out float uz, out float nx, out float ny, out float nz)
+        {
+            float d = fx * hx + fy * hy + fz * hz;
+            ux = fx - hx * d;
+            uy = fy - hy * d;
+            uz = fz - hz * d;
+            if (ux * ux + uy * uy + uz * uz > 0.09f)
+                Normalize(ref ux, ref uy, ref uz);
+            else
+            {
+                ux = fx;
+                uy = fy;
+                uz = fz;
+            }
+
+            nx = hy * uz - hz * uy;
+            ny = hz * ux - hx * uz;
+            nz = hx * uy - hy * ux;
+            Normalize(ref nx, ref ny, ref nz);
+        }
+
+        /// <summary>Vector3.Normalize: by its length when that is over 1e-5, else zero.</summary>
+        private static void Normalize(ref float x, ref float y, ref float z)
+        {
+            float length = (float)Math.Sqrt(x * x + y * y + z * z);
+            if (length > 1e-5f)
+            {
+                x /= length;
+                y /= length;
+                z /= length;
+            }
+            else
+            {
+                x = y = z = 0f;
+            }
+        }
+
+        /// <summary>A finished bake's loop (it must not have failed): its frames shared, its extents taken over its cloth particles.</summary>
+        public static LoopData From(LoopBake bake)
+        {
+            FlagCloth c = bake.Cloth;
+            float ux, uy, uz, nx, ny, nz;
+            SlabAxes(c.HoistX, c.HoistY, c.HoistZ, bake.FlyX, bake.FlyY, bake.FlyZ, out ux, out uy, out uz, out nx, out ny, out nz);
+            float minU, maxU, minV, maxV, minN, maxN;
+            bake.Extents(ux, uy, uz, c.HoistX, c.HoistY, c.HoistZ, nx, ny, nz, out minU, out maxU, out minV, out maxV, out minN, out maxN);
+            return new LoopData(bake.Columns, bake.Rows, bake.Frames, bake.TilesX, bake.TilesY, bake.Width, bake.Height, bake.FrameTime,
+                                bake.MinX, bake.MinY, bake.MinZ, bake.MaxX, bake.MaxY, bake.MaxZ,
+                                minU, maxU, minV, maxV, minN, maxN, ux, uy, uz, bake.Describe(), bake.Data);
+        }
+    }
+
+    /// <summary>
     /// A made loop's frames on our side (2026-11-11; 1-2 MB a loop): each particle's place in each
     /// frame, as the texture holds them (LoopBake.Data, kept). A loop that stands in for a waving
     /// flag (FlagRenderer.PlanStandIn) begins at the frame nearest its cloth's pose
@@ -283,16 +420,16 @@ namespace RealFlag.Flags
         public readonly int Columns, Rows, Frames, TilesX;
         public readonly float FrameTime;
 
-        /// <param name="bake">Finished, not failed; its Data is kept here (not copied).</param>
-        public LoopFrames(LoopBake bake)
+        /// <param name="loop">A made loop (a bake's, or one read from the loops' folder); its Data is kept here (not copied), and only read.</param>
+        public LoopFrames(LoopData loop)
         {
-            Columns = bake.Columns;
-            Rows = bake.Rows;
-            Frames = bake.Frames;
-            TilesX = bake.TilesX;
-            FrameTime = bake.FrameTime;
-            _data = bake.Data;
-            _width = bake.Width;
+            Columns = loop.Columns;
+            Rows = loop.Rows;
+            Frames = loop.Frames;
+            TilesX = loop.TilesX;
+            FrameTime = loop.FrameTime;
+            _data = loop.Data;
+            _width = loop.Width;
         }
 
         private readonly float[] _data;
@@ -487,6 +624,9 @@ namespace RealFlag.Flags
         public int TilesY { get; private set; }
         public int Width { get; private set; }
         public int Height { get; private set; }
+
+        /// <summary>The made loop, once <see cref="Finished"/> and not <see cref="Failed"/> (else null): what FlagLoop and LoopFrames are made from, and what the loops' folder keeps.</summary>
+        public LoopData Result { get; private set; }
 
         /// <summary>The box of every frame (the drawn sheet's, with the surface's bulge between particles), relative to the anchor.</summary>
         public float MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
@@ -870,6 +1010,10 @@ namespace RealFlag.Flags
 
             Raw = new byte[Data.Length * 4];
             Buffer.BlockCopy(Data, 0, Raw, 0, Raw.Length);
+
+            // The loop as it is played and kept (FlagLoop, LoopFrames, the loops' folder): made
+            // last, once every number Describe reads is there; it shares Data, never changed again.
+            Result = LoopData.From(this);
             Finished = true;
         }
 

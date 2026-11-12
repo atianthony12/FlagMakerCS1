@@ -813,6 +813,9 @@ namespace RealFlag.Flags
 
             FlagSurroundings.Listen();
 
+            // The loops' folder: its place and this build's stamp found here, on the main thread.
+            _loopCache = LoopCache.Open();
+
             Log.Msg("flags: renderer ready -- shader '" + shader.name + "' (" + _material.passCount + " passes), layer " + _layer +
                     " (" + LayerMask.LayerToName(_layer) + "), " + FlagRegistry.Count + " saved designs, prefab " +
                     (FlagPrefab.Info != null ? "index " + FlagPrefab.Info.m_prefabDataIndex : "MISSING") + ", " + stepping +
@@ -978,6 +981,9 @@ namespace RealFlag.Flags
             _settledLike.Clear();
             _groupList.Clear();
             DestroyLoops();
+            if (_loopCache != null)
+                _loopCache.Stop();
+            _loopCache = null;
 
             FlagSurroundings.Stop();
             FlagPicking.Clear();

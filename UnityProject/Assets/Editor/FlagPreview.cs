@@ -426,6 +426,9 @@ public static class FlagPreview
         // RF_LOOPCELLS: a loop's drawn cells along its longer side (0: its finest grid).
         int loopCells = int.Parse(Env("RF_LOOPCELLS", "0"), CultureInfo.InvariantCulture);
 
+        // RF_LOOPFILE 1: each loop written to its file and read back before it is drawn (the loops' folder's round trip).
+        bool throughFile = Env("RF_LOOPFILE", "0") == "1";
+
         foreach (int detail in details)
         foreach (int refine in refines)
         foreach (int motion in motions)
@@ -520,7 +523,23 @@ public static class FlagPreview
                         continue;
                     }
 
-                    loop = new FlagLoop(bake, true);
+                    // RF_LOOPFILE: the loop through its file in the loops' folder (LoopFile, as LoopCache
+                    // writes and reads it), in memory, before it is played: the frames drawn must be
+                    // the same as without. A file refused stops the preview (never the bake's loop instead).
+                    LoopData played = bake.Result;
+                    if (throughFile)
+                    {
+                        string identity = LoopFile.Identity(LoopMotion.Key(flag, LoopMotion.DetailFor(detail), collide), FlagMesh.SmoothEdges);
+                        Guid stamp = Guid.NewGuid();
+                        byte[] file = LoopFile.Write(played, identity, stamp);
+                        string why;
+                        played = LoopFile.Read(file, identity, stamp, out why);
+                        if (played == null)
+                            throw new Exception("the loop's file was refused: " + why);
+                        Debug.Log("RF PREVIEW: the loop went through its file (" + file.Length + " bytes, " + LoopFile.FileName(identity) + ")");
+                    }
+
+                    loop = new FlagLoop(played);
                     Debug.Log("RF PREVIEW: loop made in " + made.Elapsed.TotalMilliseconds.ToString("F0", CultureInfo.InvariantCulture) + " ms here -- " + loop.Text);
                 }
 

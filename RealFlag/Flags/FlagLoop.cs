@@ -49,57 +49,48 @@ namespace RealFlag.Flags
         private readonly float _aspect;
         private readonly Dictionary<int, Mesh> _meshes = new Dictionary<int, Mesh>();
 
-        /// <param name="bake">Finished, not failed. Its frames are let go here (the texture has them).</param>
-        /// <param name="keepData">Keep the bake's frames (the preview and the tests read them back).</param>
-        public FlagLoop(LoopBake bake, bool keepData = false)
+        /// <param name="loop">A made loop: a bake's (LoopBake.Result) or one read from the loops' folder (LoopFile.Read). Only read.</param>
+        /// <param name="raw">Its frames as bytes when the caller has them already (LoopBake.Raw); null: made here from its Data.</param>
+        public FlagLoop(LoopData loop, byte[] raw = null)
         {
-            Columns = bake.Columns;
-            Rows = bake.Rows;
-            Frames = bake.Frames;
-            TilesX = bake.TilesX;
-            FrameTime = bake.FrameTime;
-            Seconds = bake.Seconds;
-            Text = bake.Describe();
-            Bytes = bake.Raw.Length;
+            Columns = loop.Columns;
+            Rows = loop.Rows;
+            Frames = loop.Frames;
+            TilesX = loop.TilesX;
+            FrameTime = loop.FrameTime;
+            Seconds = loop.Seconds;
+            Text = loop.Text;
+            Bytes = loop.Bytes;
 
             var bounds = new Bounds();
-            bounds.SetMinMax(new Vector3(bake.MinX, bake.MinY, bake.MinZ), new Vector3(bake.MaxX, bake.MaxY, bake.MaxZ));
+            bounds.SetMinMax(new Vector3(loop.MinX, loop.MinY, loop.MinZ), new Vector3(loop.MaxX, loop.MaxY, loop.MaxZ));
             Bounds = bounds;
 
-            // The slab's axes at heading 0, as FlagRenderer.PickVolumes takes them for a flag whose
-            // "wind" is its fly at rest (PlanLoop): out along it, square to the hoist; down the hoist.
-            FlagCloth c = bake.Cloth;
-            var h = new Vector3(c.HoistX, c.HoistY, c.HoistZ);
-            var fly = new Vector3(bake.FlyX, bake.FlyY, bake.FlyZ);
-            Vector3 u = fly - h * Vector3.Dot(fly, h);
-            u = u.sqrMagnitude > 0.09f ? u.normalized : fly;
-            Vector3 n = Vector3.Cross(h, u).normalized;
-            bake.Extents(u.x, u.y, u.z, h.x, h.y, h.z, n.x, n.y, n.z, out MinU, out MaxU, out MinV, out MaxV, out MinN, out MaxN);
-            Out = u;
+            // The slab's extents and its axis out, made with the loop (LoopData.SlabAxes): as
+            // FlagRenderer.PickVolumes takes them for a flag whose "wind" is its fly at rest.
+            MinU = loop.MinU; MaxU = loop.MaxU;
+            MinV = loop.MinV; MaxV = loop.MaxV;
+            MinN = loop.MinN; MaxN = loop.MaxN;
+            Out = new Vector3(loop.OutX, loop.OutY, loop.OutZ);
 
             _cells = Math.Max(Columns, Rows) - 1;
             _aspect = (Math.Min(Columns, Rows) - 1) / (float)_cells;
-            _gridSize = new Vector4(Columns, Rows, 1f / bake.Width, 1f / bake.Height);
-            _texture = new Texture2D(bake.Width, bake.Height, TextureFormat.RGBAFloat, false, true)
+            _gridSize = new Vector4(Columns, Rows, 1f / loop.Width, 1f / loop.Height);
+            _texture = new Texture2D(loop.Width, loop.Height, TextureFormat.RGBAFloat, false, true)
             {
                 name = "RealFlag loop",
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 anisoLevel = 0,
             };
-            _texture.LoadRawTextureData(bake.Raw);
+            _texture.LoadRawTextureData(raw != null && raw.Length == loop.Bytes ? raw : loop.RawCopy());
 
             // No copy of it kept on the engine's side (the texture is never read back). Ours of
             // the places is kept (2026-11-11, 1-2 MB a loop): a loop standing in for a waving flag
             // begins at the frame nearest its cloth's pose, and hands its pose back to a new cloth
-            // (Nearest, Motion). The bytes go.
+            // (Nearest, Motion). The bytes go with whoever made them.
             _texture.Apply(false, true);
-            Places = new LoopFrames(bake);
-            if (!keepData)
-            {
-                bake.Data = null;
-                bake.Raw = null;
-            }
+            Places = new LoopFrames(loop);
         }
 
         /// <summary>The frames on our side, for the swaps to and from a cloth (LoopFrames).</summary>

@@ -127,6 +127,8 @@ techniques were written from scratch after them, and they are credited here with
     The vertex animation texture games bake cloth and crowds into (a texel a vertex a frame,
       read in the vertex program) -- the idea: here a texel a particle, read as the drawn
       surface's own texture is.
+    G. Fowler, L. C. Noll and K.-P. Vo, the FNV-1a hash (64 bits; IETF draft
+      draft-eastlake-fnv) -- the checksum and the file names of the loops kept on disk.
   The gizmo:
     the idea of Procedural Objects' 3-axis gizmos (a Cities: Skylines mod) and of 3-D
       editors' transform handles -- the idea only; none of their code.
