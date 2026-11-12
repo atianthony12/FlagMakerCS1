@@ -6,7 +6,7 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a city[/b] (new or saved). The mod does not run in the editors.
 [*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
-[*][b]Click + New flag[/b], choose a country flag, pattern or add your own image.
+[*][b]Click + New flag[/b], choose a country flag, pattern or add your own image. The default motion (animation) is [b]Loop[/b], it plays the flag animation endlessly for better performance. Change it to [b]Waving[/b] if you want the flag to react to physics and wind.
 [*][b]To edit a flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
 [/olist]
 
@@ -37,7 +37,7 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [h3]Performance[/h3]
 By default the preset is set to High, you can set it to Low or Medium if your system struggles to animate the flags. You can also separately change the cloth quality itself.
 [b]Technical info[/b]
-The [i]Loop[/i] motion (the default) renders the flag animation on your CPU once and plays it back on your GPU, so it costs close to nothing to animate, as opposed to [i]Waving[/i] which reacts to physics and wind.
+The [i]Loop[/i] motion renders the flag animation on your CPU once and plays it back on your GPU, so it costs close to nothing to animate, as opposed to [i]Waving[/i] which reacts to physics and wind.
 With the [i]Waving[/i] motion, the flags run on your CPU, it uses a minimal amount of cores and it's changeable in the Settings tab if you want a big amount of flags to animate at the same time. But you may never need to change this setting, because the mod has a few ways to optimize performance, such as stopping flags animations except those near the camera, or having a shared motion/animation between flags, etc.
 [h3]Mod options[/h3]
 [list]
