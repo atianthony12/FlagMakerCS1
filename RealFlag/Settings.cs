@@ -443,11 +443,12 @@ namespace RealFlag
             public const bool LinkSize = true;
 
             /// <summary>
-            /// A loop (2026-11-12, the author: Loop the default, Waving opt-in -- a loop costs almost
-            /// nothing, a waving cloth a thread's time). Waving until then. FlagSpec.Default and the
-            /// older formats stay Waves: a saved flag keeps its own.
+            /// Waving (2026-11-13, the author: "Let's make Waving the default again"). A loop for one
+            /// day before (2026-11-12: a loop costs almost nothing, a waving cloth a thread's time);
+            /// crowds of waving flags are still placed as Loop (Settings.CrowdLoops). FlagSpec.Default
+            /// and the older formats are Waves too: a saved flag keeps its own.
             /// </summary>
-            public const int Motion = FlagMotion.Loop;
+            public const int Motion = FlagMotion.Waves;
             public const float Waviness = 1f;
 
             /// <summary>A rectangle, as every flag was; a cut's notch or point a third of the length.</summary>
