@@ -197,6 +197,7 @@ namespace RealFlag.UI
             _ui = PanelLook.NewBuilder("the panel");
             _tabHeight = _ui.Skin == Skin.Vanilla ? TabHeight : IconTabHeight;
             _rows = new RowSet(this, _ui);
+            _rows.Relaid = Relayout; // a group folded or opened: the panel as tall as its rows
 
             size = new Vector2(PanelWidth, MinPanelHeight);
             canFocus = true;

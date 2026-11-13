@@ -214,6 +214,10 @@
   <String key="SelWindShare.Label">Wind effect</String>
   <String key="NewDarkness.Label">Darkness</String>
   <String key="SelDarkness.Label">Darkness</String>
+  <String key="Group.Design">Design</String>
+  <String key="Group.Size">Size and shape</String>
+  <String key="Group.Place">Pole and placement</String>
+  <String key="Group.Movement">Movement</String>
   <String key="Group.Wear">Wear and tear</String>
   <String key="NewWear.Label">Worn</String>
   <String key="SelWear.Label">Worn</String>
@@ -465,6 +469,7 @@
   <String key="CrowdLoops.Tooltip">Past 20 waving flags nearby, new ones loop.</String>
   <!-- Not shown: a line in the settings file. -->
   <String key="CrowdLoopsTold.Label">Told why crowds of new flags are placed as Loop</String>
+  <String key="PanelFolded.Label">The panel's folded groups</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>
   <String key="DetailedLogging.Label">Detailed logging</String>

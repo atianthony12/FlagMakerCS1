@@ -169,6 +169,7 @@ namespace RealFlag.UI
             frame.Title.textScale = 1f;
 
             _rows = new RowSet(this, ui);
+            _rows.Relaid = Relayout; // a group folded or opened: the window as tall as its rows
             _page = AddUIComponent<UIPanel>();
             _page.size = new Vector2(PanelWidth - 2f * Margin, 10f);
             _page.relativePosition = new Vector3(Margin, TitleBarHeight + 4f);

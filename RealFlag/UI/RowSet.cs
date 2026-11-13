@@ -61,6 +61,55 @@ namespace RealFlag.UI
             public float Height;
             public System.Func<bool> Shown;
             public bool Visible = true;
+
+            /// <summary>The folding group these rows are in (hidden while it is folded), null for none.</summary>
+            public string Fold;
+        }
+
+        /// <summary>A folding heading drawn, kept so its arrow follows the group's state (the same group folds in both windows).</summary>
+        private class FoldHeading
+        {
+            public HeadingRow Row;
+            public string Group;
+        }
+
+        private readonly List<FoldHeading> _headings = new List<FoldHeading>();
+
+        /// <summary>A folding heading's room above and below its strip, between groups (Real Glass's RowList, Volumetric Weather's).</summary>
+        private const float FoldMarginTop = 8f;
+        private const float FoldMarginBottom = 4f;
+
+        /// <summary>
+        /// Called after a heading was clicked (its rows shown or hidden): the owner lays the
+        /// window out again (its height, its bottom on the screen).
+        /// </summary>
+        public System.Action Relaid;
+
+        /// <summary>
+        /// The pages whose group headings fold (the author, 2026-11-11: "let's make this
+        /// collapsible, like the menu in RealGlass"): the New flag window, the Flags tab and the
+        /// Settings tab. The popups' and the Pattern window's headings stay plain.
+        /// </summary>
+        private static bool Folds(PanelPage which)
+        {
+            return which == PanelPage.New || which == PanelPage.Existing || which == PanelPage.Settings;
+        }
+
+        /// <summary>Folded now (Settings.PanelFolded; a group not in Settings.FoldGroups never is).</summary>
+        public static bool IsFolded(string group)
+        {
+            int bit = group != null ? System.Array.IndexOf(Settings.FoldGroups, group) : -1;
+            return bit >= 0 && Settings.PanelFolded != null && (Settings.PanelFolded.value & (1 << bit)) != 0;
+        }
+
+        private static void SetFolded(string group, bool folded)
+        {
+            int bit = System.Array.IndexOf(Settings.FoldGroups, group);
+            if (bit < 0 || Settings.PanelFolded == null || IsFolded(group) == folded)
+                return;
+
+            Settings.PanelFolded.value = folded ? Settings.PanelFolded.value | (1 << bit) : Settings.PanelFolded.value & ~(1 << bit);
+            Log.Msg("ui: group '" + group + "' " + (folded ? "folded" : "opened"));
         }
 
         /// <summary>A page that has blocks: its rows before the first, and the blocks in order.</summary>
@@ -218,39 +267,84 @@ namespace RealFlag.UI
             int coloursInLine = 0;
             float rowHeight = _ui.RowHeight;
 
-            // Rows go straight onto the page until one is ShownWhile something; from there each
-            // run of rows with the same condition goes into a block of its own, at its own y.
+            // Rows go straight onto the page until one is ShownWhile something or a heading folds;
+            // from there each run of rows with the same condition and group goes into a block of
+            // its own, at its own y. A folding heading is a block of its own (shown with its
+            // rows' condition), the rows under it another (hidden too while it is folded).
             UIPanel page = whole;
             PageBlocks blocks = null;
             Block block = null;
+            bool folds = Folds(which);
+            string fold = null;
+
+            System.Action<System.Func<bool>, string> startBlock = (shown, group) =>
+            {
+                if (blocks == null)
+                {
+                    blocks = new PageBlocks { Page = whole, Top = y };
+                    _blocks.Add(blocks);
+                }
+                else
+                {
+                    block.Height = y;
+                }
+
+                block = new Block { Shown = shown, Fold = group };
+                block.Panel = whole.AddUIComponent<UIPanel>();
+                block.Panel.size = new Vector2(whole.width, 10f);
+                blocks.Blocks.Add(block);
+                page = block.Panel;
+                y = 0f;
+                coloursLine = null;
+            };
 
             foreach (Row row in SettingsCatalog.Rows)
             {
                 if (row.Panel != which || (row.Shown != null && !row.Shown()))
                     continue;
 
-                if ((block == null && row.ShownWhile != null) || (block != null && row.ShownWhile != block.Shown))
+                if (row.Group != null && folds)
                 {
-                    if (blocks == null)
+                    // Its strip (Builder.FoldHeight), with room above and below it between groups.
+                    startBlock(row.ShownWhile, null);
+                    string group = row.Group;
+                    HeadingRow heading = _ui.AddFoldingHeading(page, row.GroupTitle, y + FoldMarginTop + Builder.FoldAbove, !IsFolded(group), open =>
                     {
-                        blocks = new PageBlocks { Page = whole, Top = y };
-                        _blocks.Add(blocks);
+                        // The owner's relayout runs Layout (which says whether anything moved).
+                        SetFolded(group, !open);
+                        if (Relaid != null)
+                            Relaid();
+                        else
+                            Layout();
+                    });
+
+                    if (heading != null && heading.Fold != null)
+                    {
+                        _headings.Add(new FoldHeading { Row = heading, Group = group });
+                        y += FoldMarginTop + Builder.FoldHeight + FoldMarginBottom;
+                        fold = group;
                     }
                     else
                     {
-                        block.Height = y;
+                        // Drawn plain (Vanilla has no arrows, or the library's sheet is missing):
+                        // it can't open again, so nothing under it folds; where a plain one stands.
+                        if (heading != null)
+                        {
+                            foreach (UIComponent part in heading.Parts)
+                                part.relativePosition += new Vector3(0f, 4f - FoldMarginTop - Builder.FoldAbove);
+                        }
+                        y += _ui.Theme.HeadingHeight;
+                        fold = null;
                     }
 
-                    block = new Block { Shown = row.ShownWhile };
-                    block.Panel = whole.AddUIComponent<UIPanel>();
-                    block.Panel.size = new Vector2(whole.width, 10f);
-                    blocks.Blocks.Add(block);
-                    page = block.Panel;
-                    y = 0f;
-                    coloursLine = null;
+                    startBlock(row.ShownWhile, fold);
+                }
+                else if ((block == null && row.ShownWhile != null) || (block != null && row.ShownWhile != block.Shown))
+                {
+                    startBlock(row.ShownWhile, fold);
                 }
 
-                if (row.Group != null)
+                if (row.Group != null && !folds)
                 {
                     _ui.AddHeading(page, row.GroupTitle, y + 4f);
                     y += _ui.Theme.HeadingHeight;
@@ -316,11 +410,17 @@ namespace RealFlag.UI
             foreach (Block b in blocks.Blocks)
             {
                 b.Panel.height = Mathf.Max(1f, b.Height);
-                b.Visible = b.Shown == null || b.Shown();
+                b.Visible = Showing(b);
                 b.Panel.isVisible = b.Visible;
             }
 
             return Place(blocks);
+        }
+
+        /// <summary>A block shows while its condition holds and its group is open.</summary>
+        private static bool Showing(Block b)
+        {
+            return (b.Shown == null || b.Shown()) && !IsFolded(b.Fold);
         }
 
         /// <summary>Puts a page's shown blocks one under another; returns the page's height.</summary>
@@ -345,12 +445,21 @@ namespace RealFlag.UI
         public bool Layout()
         {
             bool moved = false;
+
+            // The arrows follow their group (folded in the other window, or by Reset all).
+            foreach (FoldHeading h in _headings)
+            {
+                bool open = !IsFolded(h.Group);
+                if (h.Row.Open != open)
+                    h.Row.SetOpen(open);
+            }
+
             foreach (PageBlocks blocks in _blocks)
             {
                 bool changed = false;
                 foreach (Block b in blocks.Blocks)
                 {
-                    bool visible = b.Shown == null || b.Shown();
+                    bool visible = Showing(b);
                     if (visible == b.Visible)
                         continue;
                     b.Visible = visible;

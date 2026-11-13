@@ -212,6 +212,10 @@
   <String key="SelWindShare.Label">Efecto del viento</String>
   <String key="NewDarkness.Label">Oscuridad</String>
   <String key="SelDarkness.Label">Oscuridad</String>
+  <String key="Group.Design">Apariencia</String>
+  <String key="Group.Size">Tamaño y forma</String>
+  <String key="Group.Place">Asta y colocación</String>
+  <String key="Group.Movement">Animación</String>
   <String key="Group.Wear">Desgaste y deterioro</String>
   <String key="NewWear.Label">Gastada</String>
   <String key="SelWear.Label">Gastada</String>
@@ -461,6 +465,7 @@
   <String key="CrowdLoops.Label">Colocar grupos en bucle</String>
   <String key="CrowdLoops.Tooltip">Con más de 20 banderas ondeando cerca, las nuevas en bucle.</String>
   <String key="CrowdLoopsTold.Label">Avisado de por qué los grupos de banderas nuevas se colocan en bucle</String>
+  <String key="PanelFolded.Label">Grupos plegados del panel</String>
 
   <String key="Group.Diagnostics">Diagnóstico</String>
   <String key="DetailedLogging.Label">Registro detallado</String>

@@ -74,7 +74,10 @@ foreach ($b in $blocks) {
             if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
             continue
         }
-        if ($b -match 'Id = (id|shapeId|widthId|heightId|recaptureId),') { continue }
+        if ($b -match 'Id = (id|shapeId|widthId|heightId|recaptureId),') {
+            if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
+            continue
+        }
         Write-Host "FAIL  a row with neither a setting nor an Id:`n$b"; $failed++; continue
     }
     $shown = ($b -match 'Panel = (PanelPage\.|page\b)') -or ($b -match 'Options = OptionsPage\.')
@@ -88,6 +91,9 @@ foreach ($b in $blocks) {
     if ($b -match 'Confirm = true') { [void]$needed.Add("$name.Confirm") }
     if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
 }
+
+# A group given to a row once it is made (AddDesign's placement rows: Rows[first].Group = "Place").
+foreach ($m in [regex]::Matches($catalog, '\]\.Group = "(\w+)"')) { [void]$needed.Add("Group." + $m.Groups[1].Value) }
 
 # The design rows, from each AddDesign(PanelPage.X, "Shape", "Width", "Height", Settings.A, ...) call: every
 # setting passed is a row -- but the length and proportion, which the width and height work through --

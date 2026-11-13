@@ -918,8 +918,13 @@ namespace RealFlag.UI
                                       IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting windShare,
                                       FloatSetting darkness,
                                       FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes,
-                                      IntSetting cut, FloatSetting cutDepth, IntSetting held, Action changed, Func<bool> enabled)
+                                      IntSetting cut, FloatSetting cutDepth, IntSetting held, Action changed, Func<bool> enabled,
+                                      Action placeRows)
         {
+            // In folding groups, in the author's order (2026-11-11: "reorder the sections, in New
+            // flag too: 1. design 2. size and shape 3. pole and placement etc."): Design (Darkness
+            // with it), Size and shape, Pole and placement (the window's own rows, placeRows),
+            // Movement, Wear and tear.
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
 
@@ -935,6 +940,7 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Country,
                 Panel = page,
+                Group = "Design",
                 Int = country,
                 DefaultInt = Settings.Defaults.Country,
                 AfterChange = () =>
@@ -994,6 +1000,17 @@ namespace RealFlag.UI
 
             Add(new Row
             {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = darkness,
+                DefaultFloat = Settings.Defaults.Darkness,
+                Min = 0f, Max = FlagSpec.MaxDarkness * 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = enabled,
+            });
+
+            Add(new Row
+            {
                 Kind = RowKind.Colour,
                 Panel = patternPage,
                 Int = c1,
@@ -1026,6 +1043,7 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Shape,
                 Panel = page,
+                Group = "Size",
                 Id = shapeId,
                 Presets = FlagProportion.Shapes,
                 PresetActive = shape => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, shape),
@@ -1159,6 +1177,15 @@ namespace RealFlag.UI
                 Enabled = () => (enabled == null || enabled()) && FlagCut.UsesDepth(cut.value),
             });
 
+            // Pole and placement: the window's own (its Flagpole button first, which starts the group).
+            if (placeRows != null)
+            {
+                int first = Rows.Count;
+                placeRows();
+                if (Rows.Count > first)
+                    Rows[first].Group = "Place";
+            }
+
             // Also held at (the author, 2026-11-11: banners "hoisted from the side, but are steady
             // at the top and bottom ... the flag itself is cloth and ripples"; "Yes, toggles"): a
             // toggle a bit (FlagHold), each a little flag with the edge it holds in gold, hoisted
@@ -1167,6 +1194,7 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Segmented,
                 Panel = page,
+                Group = "Movement",
                 Int = held,
                 DefaultInt = Settings.Defaults.Held,
                 ChoiceValues = FlagHold.Values,
@@ -1303,17 +1331,6 @@ namespace RealFlag.UI
                 Min = 0f, Max = 100f, Step = 5f,
                 AfterChange = changed,
                 Enabled = () => (enabled == null || enabled()) && FlagMotion.Moves(motion.value),
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Percent,
-                Panel = page,
-                Float = darkness,
-                DefaultFloat = Settings.Defaults.Darkness,
-                Min = 0f, Max = FlagSpec.MaxDarkness * 100f, Step = 5f,
-                AfterChange = changed,
-                Enabled = enabled,
             });
 
             // Wear and tear (the author, 2026-11-03: "Wear and Tear, Dirt, Holes (like bullet holes
@@ -1674,8 +1691,13 @@ namespace RealFlag.UI
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewWindShare, Settings.NewDarkness,
                       Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
-                      Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null);
+                      Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null, AddNewPlacement);
+            AddNewHidden();
+        }
 
+        /// <summary>The New flag window's Pole and placement group: its Flagpole button first (it starts the group), the status line last.</summary>
+        private static void AddNewPlacement()
+        {
             // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
             // Elevation of its own. Its pole's height is in the Flagpole popup.
             AddPoleButton(PanelPage.New, PanelPage.PoleNew, "NewPoleButton", NewFlagPanel.ComponentName, Settings.NewPole, Settings.NewHeight, Settings.NewRopes,
@@ -1771,7 +1793,11 @@ namespace RealFlag.UI
                 Id = "NewStatus",
                 StatusText = FlagRenderer.Describe,
             });
+        }
 
+        /// <summary>The New flag window's settings with no row of their own: kept in the file, put back by a reset.</summary>
+        private static void AddNewHidden()
+        {
             // What the width and height sliders work through: kept in the file, put back by a
             // reset, but not shown as they are.
             Add(new Row
@@ -1895,6 +1921,35 @@ namespace RealFlag.UI
             // overwhelming. Only when a flag is selected should we show all the options").
             Func<bool> selected = () => FlagEditor.HasSelection;
             int firstSelected = Rows.Count;
+
+            // The selected flag's own buttons just under the list, where no folded group can hide
+            // them (the groups below fold: the author, 2026-11-11).
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Existing,
+                Id = "GoToFlag",
+                OnClick = FlagEditor.GoTo,
+                Enabled = selected,
+                Id2 = "DeleteFlag",
+                OnClick2 = FlagEditor.ConfirmDelete,
+                Enabled2 = selected,
+            });
+
+            // Another like it: its design into the New flag window, which opens to place it.
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Existing,
+                Id = "CopyToNew",
+                OnClick = () =>
+                {
+                    FlagEditor.CopyToNew();
+                    NewFlagPanel.Open();
+                },
+                Enabled = () => selected() && FlagPrefab.Info != null,
+            });
+
             var pictures = new ImageTarget
             {
                 Page = PanelPage.Existing,
@@ -1917,8 +1972,24 @@ namespace RealFlag.UI
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelWindShare, Settings.SelDarkness,
                       Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles,
-                      Settings.SelCut, Settings.SelCutDepth, Settings.SelHeld, FlagEditor.ApplyDesign, selected);
+                      Settings.SelCut, Settings.SelCutDepth, Settings.SelHeld, FlagEditor.ApplyDesign, selected,
+                      () => AddSelPlacement(selected));
 
+            for (int i = firstSelected; i < Rows.Count; i++)
+            {
+                if (Rows[i].Panel != PanelPage.Existing)
+                    continue;
+
+                // A row with a condition of its own (Recapture: while the Motion is Loop) keeps it,
+                // and needs a selection too.
+                Func<bool> own = Rows[i].ShownWhile;
+                Rows[i].ShownWhile = own == null ? selected : () => selected() && own();
+            }
+        }
+
+        /// <summary>The Flags tab's Pole and placement group, the selected flag's: its Flagpole button first (it starts the group).</summary>
+        private static void AddSelPlacement(Func<bool> selected)
+        {
             // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
             // in the Flagpole popup; Page Up, Page Down and the gizmo move the whole flag.
             AddPoleButton(PanelPage.Existing, PanelPage.PoleExisting, "SelPoleButton", FlagsPanel.ComponentName, Settings.SelPole, Settings.SelHeight, Settings.SelRopes,
@@ -1953,43 +2024,6 @@ namespace RealFlag.UI
                 // A top banner's only (the author, 2026-11-11); the selection's own condition is added below.
                 ShownWhile = () => Settings.SelHoistedFrom.value == FlagHoist.Top,
             });
-
-            Add(new Row
-            {
-                Kind = RowKind.Button,
-                Panel = PanelPage.Existing,
-                Id = "GoToFlag",
-                OnClick = FlagEditor.GoTo,
-                Enabled = selected,
-                Id2 = "DeleteFlag",
-                OnClick2 = FlagEditor.ConfirmDelete,
-                Enabled2 = selected,
-            });
-
-            // Another like it: its design into the New flag window, which opens to place it.
-            Add(new Row
-            {
-                Kind = RowKind.Button,
-                Panel = PanelPage.Existing,
-                Id = "CopyToNew",
-                OnClick = () =>
-                {
-                    FlagEditor.CopyToNew();
-                    NewFlagPanel.Open();
-                },
-                Enabled = () => selected() && FlagPrefab.Info != null,
-            });
-
-            for (int i = firstSelected; i < Rows.Count; i++)
-            {
-                if (Rows[i].Panel != PanelPage.Existing)
-                    continue;
-
-                // A row with a condition of its own (Recapture: while the Motion is Loop) keeps it,
-                // and needs a selection too.
-                Func<bool> own = Rows[i].ShownWhile;
-                Rows[i].ShownWhile = own == null ? selected : () => selected() && own();
-            }
         }
 
         /// <summary>
@@ -2344,6 +2378,15 @@ namespace RealFlag.UI
                 Kind = RowKind.Toggle,
                 Bool = Settings.CrowdLoopsTold,
                 DefaultBool = Settings.Defaults.CrowdLoopsTold,
+            });
+
+            // The panels' folded groups (RowSet's folding headings): kept in the file, no row.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Int = Settings.PanelFolded,
+                DefaultInt = Settings.Defaults.PanelFolded,
+                Min = 0f, Max = (1 << Settings.FoldGroups.Length) - 1, Step = 1f,
             });
 
             Add(new Row

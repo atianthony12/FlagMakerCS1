@@ -203,6 +203,10 @@
   <String key="SelWindShare.Label">风力影响</String>
   <String key="NewDarkness.Label">暗度</String>
   <String key="SelDarkness.Label">暗度</String>
+  <String key="Group.Design">外观</String>
+  <String key="Group.Size">尺寸与形状</String>
+  <String key="Group.Place">旗杆与摆放</String>
+  <String key="Group.Movement">动态</String>
   <String key="Group.Wear">磨损与破旧</String>
   <String key="NewWear.Label">磨损</String>
   <String key="SelWear.Label">磨损</String>
@@ -452,6 +456,7 @@
   <String key="CrowdLoops.Label">密集放置时用循环</String>
   <String key="CrowdLoops.Tooltip">附近飘动旗帜超过 20 面时，新旗帜用循环。</String>
   <String key="CrowdLoopsTold.Label">已提示过为何密集放置的新旗帜用循环</String>
+  <String key="PanelFolded.Label">面板中折叠的分组</String>
 
   <String key="Group.Diagnostics">诊断</String>
   <String key="DetailedLogging.Label">详细日志</String>

@@ -127,6 +127,19 @@ namespace RealFlag
         public static BoolSetting CrowdLoopsTold { get; private set; }
 
         /// <summary>
+        /// The panels' groups folded away (the author, 2026-11-11: "let's make this collapsible,
+        /// like the menu in RealGlass"): a bit a group, by <see cref="FoldGroups"/>. Kept in the
+        /// file, no row; Reset all opens them as at first.
+        /// </summary>
+        public static IntSetting PanelFolded { get; private set; }
+
+        /// <summary>The groups that fold, by their bit in <see cref="PanelFolded"/>. Append only: the file keeps the bits.</summary>
+        public static readonly string[] FoldGroups =
+        {
+            "Design", "Size", "Place", "Movement", "Wear", "Wind", "Language", "Panel", "Flags", "Cloth", "Diagnostics", "StartingOver",
+        };
+
+        /// <summary>
         /// The overall Quality (UI.QualityPreset: Low .. Ultra, or Custom), DERIVED from the cloth
         /// detail, self-collision, shared motion and buildings as drawn -- never in the file;
         /// choosing a level sets those four.
@@ -386,6 +399,13 @@ namespace RealFlag
             public const bool CrowdLoops = true;
             public const bool CrowdLoopsTold = false;
 
+            /// <summary>
+            /// Folded at first: Wear and tear (most flags are new) and the Settings tab's Language,
+            /// In-game panel, Diagnostics and Starting over (set once). Bits by FoldGroups:
+            /// Wear 16, Language 64, Panel 128, Diagnostics 1024, StartingOver 2048.
+            /// </summary>
+            public const int PanelFolded = 16 | 64 | 128 | 1024 | 2048;
+
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
             public const bool WindFromGame = true;
@@ -543,6 +563,7 @@ namespace RealFlag
                 LoopStandIns = new BoolSetting("LoopStandIns", Defaults.LoopStandIns);
                 CrowdLoops = new BoolSetting("CrowdLoops", Defaults.CrowdLoops);
                 CrowdLoopsTold = new BoolSetting("CrowdLoopsTold", Defaults.CrowdLoopsTold);
+                PanelFolded = new IntSetting("PanelFolded", Defaults.PanelFolded);
                 Quality = new IntSetting("Quality", UI.QualityPreset.High, true);
 
                 WindFromGame = new BoolSetting("WindFromGame", Defaults.WindFromGame);

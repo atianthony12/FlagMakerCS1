@@ -215,6 +215,10 @@
   <String key="SelWindShare.Label">Effet du vent</String>
   <String key="NewDarkness.Label">Assombrir</String>
   <String key="SelDarkness.Label">Assombrir</String>
+  <String key="Group.Design">Apparence</String>
+  <String key="Group.Size">Taille et forme</String>
+  <String key="Group.Place">Mât et placement</String>
+  <String key="Group.Movement">Animation</String>
   <String key="Group.Wear">Usure</String>
   <String key="NewWear.Label">Usé</String>
   <String key="SelWear.Label">Usé</String>
@@ -464,6 +468,7 @@
   <String key="CrowdLoops.Label">Placer les foules en boucle</String>
   <String key="CrowdLoops.Tooltip">Passé 20 drapeaux flottants proches, les nouveaux en boucle.</String>
   <String key="CrowdLoopsTold.Label">Prévenu de pourquoi les foules de nouveaux drapeaux sont placées en boucle</String>
+  <String key="PanelFolded.Label">Groupes repliés du panneau</String>
 
   <String key="Group.Diagnostics">Diagnostic</String>
   <String key="DetailedLogging.Label">Journal détaillé</String>
