@@ -35,11 +35,30 @@ namespace RealFlag.Flags
         public float EddyAlong, EddyAcross, EddyChange;
 
         /// <summary>
+        /// The eddies of several sizes (2026-11-14, FlagWind.Air's varied air): how many octaves are
+        /// read, 0 for the one octave as it always was (<see cref="EddyAlong"/> .. <see cref="InvScale"/>).
+        /// Octave j is the flag's size / 2^j: where the anchor stands in its field (wrapped to the
+        /// noise's period), one over its size, and its share of the eddies' strength (the inertial
+        /// range's 2^(-j/3), faded out where the cloth's cells are too coarse for it, all of them
+        /// normalised so the eddies' total strength is the one octave's).
+        /// </summary>
+        public int Octaves;
+        public float Along0, Across0, Change0, Inv0, Share0;
+        public float Along1, Across1, Change1, Inv1, Share1;
+        public float Along2, Across2, Change2, Inv2, Share2;
+
+        /// <summary>
         /// The wind at a point of the cloth, given relative to the anchor (world axes, metres),
         /// in m/s. The mean plus the eddies there.
         /// </summary>
         public void At(float x, float y, float z, out float ux, out float uy, out float uz)
         {
+            if (Octaves > 0)
+            {
+                AtVaried(x, y, z, out ux, out uy, out uz);
+                return;
+            }
+
             float a = EddyAlong + (x * DirX + z * DirZ) * InvScale;
             float b = EddyAcross + y * InvScale;
             float c = EddyChange;
@@ -54,6 +73,34 @@ namespace RealFlag.Flags
             // Across the wind, in the horizontal: (-DirZ, DirX).
             ux = MeanX + along1 * DirX - across1 * DirZ;
             uy = MeanY + n3 * SigmaUp;
+            uz = MeanZ + along1 * DirZ + across1 * DirX;
+        }
+
+        /// <summary>
+        /// The same with the eddies of several sizes: each octave's three components from one
+        /// lattice cell (FlagNoise.Value3x3), its own seeds and its own place in the field.
+        /// </summary>
+        private void AtVaried(float x, float y, float z, out float ux, out float uy, out float uz)
+        {
+            float along = x * DirX + z * DirZ;
+            float n1, n2, n3;
+            FlagNoise.Value3x3(Along0 + along * Inv0, Across0 + y * Inv0, Change0, 17, 59, 101, out n1, out n2, out n3);
+            float s1 = n1 * Share0, s2 = n2 * Share0, s3 = n3 * Share0;
+            if (Octaves > 1)
+            {
+                FlagNoise.Value3x3(Along1 + along * Inv1, Across1 + y * Inv1, Change1, 137, 179, 221, out n1, out n2, out n3);
+                s1 += n1 * Share1; s2 += n2 * Share1; s3 += n3 * Share1;
+            }
+            if (Octaves > 2)
+            {
+                FlagNoise.Value3x3(Along2 + along * Inv2, Across2 + y * Inv2, Change2, 7, 49, 91, out n1, out n2, out n3);
+                s1 += n1 * Share2; s2 += n2 * Share2; s3 += n3 * Share2;
+            }
+
+            float along1 = s1 * SigmaAlong;
+            float across1 = s2 * SigmaAcross;
+            ux = MeanX + along1 * DirX - across1 * DirZ;
+            uy = MeanY + s3 * SigmaUp;
             uz = MeanZ + along1 * DirZ + across1 * DirX;
         }
     }
@@ -77,6 +124,9 @@ namespace RealFlag.Flags
     /// log law of category III everywhere, held below 5 m: the author's 16.9 m flag on a 37 m pole
     /// downtown got 1.38 the 10 m wind, a flag on a 3 m pole 0.80 ("flags that are hoisted on tall
     /// flagpoles or ... on top of buildings should almost always react to wind way stronger").
+    /// THE VARIED AIR (2026-11-14): a live waving cloth's gusts and eddies come in several sizes
+    /// each, the same energy (Field.VariedAir, ClothJob.Varied, Settings.VariedWind); everything
+    /// else -- still poses, loops, the tests -- flies in the one size each, bit for bit as before.
     /// </remarks>
     public static class FlagWind
     {
@@ -330,6 +380,25 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The same, <paramref name="varied"/>: the gusts and the eddies of several sizes each
+        /// (Field.VariedAir) for a cloth of <paramref name="cells"/> cells along its fly; not varied,
+        /// exactly the one above. The field's places worked in double, as the drift keeps them.
+        /// </summary>
+        public static FlagAir Air(float speed10, float gusts, float dirX, float dirZ, float height, float waviness,
+                                  float flagLength, float time, float anchorX, float anchorZ, float roughness, bool varied, int cells)
+        {
+            if (!varied)
+                return Air(speed10, gusts, dirX, dirZ, height, waviness, flagLength, time, anchorX, anchorZ, roughness);
+
+            Field f = Field.Of(speed10, gusts, height, waviness, flagLength, roughness);
+            double along = (double)anchorX * dirX + (double)anchorZ * dirZ;
+            double across = -(double)anchorX * dirZ + (double)anchorZ * dirX;
+            double carried = along - (double)f.Speed * time;
+            return f.VariedAir(dirX, dirZ, 1f, carried / f.Scale, across / f.Scale, (double)time * f.GustRate,
+                               carried * f.InvEddy, across * 0.37 * f.InvEddy, (double)time * f.Evolution, cells);
+        }
+
+        /// <summary>
         /// The air round one flag for its next sub-step of <paramref name="step"/> seconds, from
         /// where its field has been carried to (<paramref name="drift"/>, then moved on by this
         /// sub-step's wind). The field moves at the wind of each moment, so a wind that changes
@@ -342,6 +411,19 @@ namespace RealFlag.Flags
         /// </summary>
         public static FlagAir Air(ref AirDrift drift, float step, float speed10, float gusts, float alongGusts, float dirX, float dirZ,
                                   float height, float waviness, float flagLength, float anchorX, float anchorZ, float roughness)
+        {
+            return Air(ref drift, step, speed10, gusts, alongGusts, dirX, dirZ, height, waviness, flagLength, anchorX, anchorZ, roughness, false, 0);
+        }
+
+        /// <summary>
+        /// The same, <paramref name="varied"/>: the gusts and the eddies of several sizes each
+        /// (Field.VariedAir) for a cloth of <paramref name="cells"/> cells along its fly (Columns - 1),
+        /// from the same drift. Not varied, bit for bit the air as it was before 2026-11-14 (the
+        /// still poses, the loops, the tests and the preview step so).
+        /// </summary>
+        public static FlagAir Air(ref AirDrift drift, float step, float speed10, float gusts, float alongGusts, float dirX, float dirZ,
+                                  float height, float waviness, float flagLength, float anchorX, float anchorZ, float roughness,
+                                  bool varied, int cells)
         {
             Field f = Field.Of(speed10, gusts, height, waviness, flagLength, roughness);
             if (!drift.Started)
@@ -358,8 +440,11 @@ namespace RealFlag.Flags
                 drift.EddyChange = 0.0;
             }
 
-            FlagAir air = f.Air(dirX, dirZ, alongGusts, (float)drift.GustAlong, drift.GustAcross, (float)drift.GustChange,
-                                (float)drift.EddyAlong, drift.EddyAcross, (float)drift.EddyChange);
+            FlagAir air = varied
+                ? f.VariedAir(dirX, dirZ, alongGusts, drift.GustAlong, drift.GustAcross, drift.GustChange,
+                              drift.EddyAlong, drift.EddyAcross, drift.EddyChange, cells)
+                : f.Air(dirX, dirZ, alongGusts, (float)drift.GustAlong, drift.GustAcross, (float)drift.GustChange,
+                        (float)drift.EddyAlong, drift.EddyAcross, (float)drift.EddyChange);
 
             drift.GustAlong -= (double)f.Speed / f.Scale * step;
             drift.GustChange += (double)f.GustRate * step;
@@ -423,6 +508,115 @@ namespace RealFlag.Flags
                     EddyChange = ec,
                 };
             }
+
+            /// <summary>
+            /// The varied air (2026-11-14): the same energy shared over more sizes. With the big
+            /// gusts and the flag's own eddies alone (one octave of noise each), between ~0.5 s and
+            /// ~8 s the wind hardly changed -- measured on a 3 m flag at 12 m in 5.6 m/s: gusts of
+            /// 1.4 m/s rms over 8 s, 0.3 at 2-8 s, 0.02 at 0.5-2 s, the eddies near 0.5 s -- so a
+            /// flag held one posture for many seconds with a steady ripple on it. Real turbulence
+            /// has energy all through that range (Kolmogorov 1941's inertial range; Kaimal et al.
+            /// 1972's surface-layer spectra), so octaves are summed (Perlin 1985) as wind
+            /// generators do:
+            /// - THE GUSTS: three more octaves k = 1..3 of the gusts' size / 2^k, read from the same
+            ///   drift scaled by 2^k (carried at the same wind, changing 2^k times as fast), each its
+            ///   own seeds and place; weights 2^(-k/3) (velocity differences over r go as r^(1/3)),
+            ///   faded out (<see cref="Fade"/>) where an octave comes within twice the flag's size
+            ///   (those sizes are the eddies' on the cloth); all normalised, so the gusts' total
+            ///   variance is the one octave's. Along the wind the big gust is kept as alongGusts says
+            ///   (none with Volumetric Weather, whose own gust is in the speed); octaves 1-3 always,
+            ///   being smaller than its 64 m gust cells.
+            /// - THE EDDIES: octaves j = 0..2 of the flag's size / 2^j, weights 2^(-j/3), each faded
+            ///   in by the cloth's cells it spans (<see cref="Fade"/> of cells / 2: none at 2 cells,
+            ///   whole from 4), normalised as the gusts are.
+            /// </summary>
+            public FlagAir VariedAir(float dirX, float dirZ, float alongGusts, double ga, double gb, double gc,
+                                     double ea, double eb, double ec, int cells)
+            {
+                // ---- the gusts: the big one and three smaller, one value each over the whole flag ----
+                float w1 = GustWeights[1] * Fade(Scale * 0.5f * InvEddy);
+                float w2 = GustWeights[2] * Fade(Scale * 0.25f * InvEddy);
+                float w3 = GustWeights[3] * Fade(Scale * 0.125f * InvEddy);
+                float norm = 1f / (float)Math.Sqrt(1f + w1 * w1 + w2 * w2 + w3 * w3);
+
+                float a = FlagNoise.Wrap(ga), b = FlagNoise.Wrap(gb), c = FlagNoise.Wrap(gc);
+                float along = FlagNoise.Value3(a, b, c, 3) * Math.Max(alongGusts, 0f);
+                float acrossG = FlagNoise.Value3(a, b, c + 19.1f, 7);
+                float up = FlagNoise.Value3(a, b, c + 37.9f, 13);
+
+                float n1, n2, n3;
+                if (w1 > 0f)
+                {
+                    FlagNoise.Value3x3(FlagNoise.Wrap(ga * 2.0 + 97.31), FlagNoise.Wrap(gb * 2.0 + 53.77), FlagNoise.Wrap(gc * 2.0 + 131.59),
+                                       29, 97, 163, out n1, out n2, out n3);
+                    along += n1 * w1; acrossG += n2 * w1; up += n3 * w1;
+                }
+                if (w2 > 0f)
+                {
+                    FlagNoise.Value3x3(FlagNoise.Wrap(ga * 4.0 + 181.13), FlagNoise.Wrap(gb * 4.0 + 211.47), FlagNoise.Wrap(gc * 4.0 + 23.89),
+                                       41, 109, 179, out n1, out n2, out n3);
+                    along += n1 * w2; acrossG += n2 * w2; up += n3 * w2;
+                }
+                if (w3 > 0f)
+                {
+                    FlagNoise.Value3x3(FlagNoise.Wrap(ga * 8.0 + 37.61), FlagNoise.Wrap(gb * 8.0 + 149.29), FlagNoise.Wrap(gc * 8.0 + 227.03),
+                                       53, 121, 197, out n1, out n2, out n3);
+                    along += n1 * w3; acrossG += n2 * w3; up += n3 * w3;
+                }
+
+                float gustAlong = along * norm * Sigma;
+                float gustAcross = acrossG * norm * Sigma * AcrossRatio;
+                float gustUp = up * norm * Sigma * UpRatio;
+                float forward = Math.Max(Speed + gustAlong, 0.05f * Speed);
+
+                // ---- the eddies: octaves of the flag's size, a half and a quarter of it ----
+                float e1 = EddyWeights[1] * Fade(cells * 0.25f);
+                float e2 = EddyWeights[2] * Fade(cells * 0.125f);
+                float enorm = 1f / (float)Math.Sqrt(1f + e1 * e1 + e2 * e2);
+
+                return new FlagAir
+                {
+                    MeanX = forward * dirX - gustAcross * dirZ,
+                    MeanY = gustUp,
+                    MeanZ = forward * dirZ + gustAcross * dirX,
+                    DirX = dirX,
+                    DirZ = dirZ,
+                    Carry = Speed,
+                    SigmaAlong = Small,
+                    SigmaAcross = Small * AcrossRatio,
+                    SigmaUp = Small * UpRatio,
+                    InvScale = InvEddy,
+                    EddyAlong = (float)ea,
+                    EddyAcross = (float)eb,
+                    EddyChange = (float)ec,
+                    Octaves = e2 > 0f ? 3 : e1 > 0f ? 2 : 1,
+                    Along0 = FlagNoise.Wrap(ea),
+                    Across0 = FlagNoise.Wrap(eb),
+                    Change0 = FlagNoise.Wrap(ec),
+                    Inv0 = InvEddy,
+                    Share0 = enorm,
+                    Along1 = FlagNoise.Wrap(ea * 2.0 + 71.37),
+                    Across1 = FlagNoise.Wrap(eb * 2.0 + 113.91),
+                    Change1 = FlagNoise.Wrap(ec * 2.0 + 47.23),
+                    Inv1 = InvEddy * 2f,
+                    Share1 = e1 * enorm,
+                    Along2 = FlagNoise.Wrap(ea * 4.0 + 163.71),
+                    Across2 = FlagNoise.Wrap(eb * 4.0 + 29.53),
+                    Change2 = FlagNoise.Wrap(ec * 4.0 + 191.17),
+                    Inv2 = InvEddy * 4f,
+                    Share2 = e2 * enorm,
+                };
+            }
+        }
+
+        /// <summary>The varied air's octave weights, 2^(-k/3) for k = 0..3 (Kolmogorov: velocity differences over r go as r^(1/3)).</summary>
+        private static readonly float[] GustWeights = { 1f, 0.7937005f, 0.6299605f, 0.5f };
+        private static readonly float[] EddyWeights = { 1f, 0.7937005f, 0.6299605f };
+
+        /// <summary>The varied air's fade, 0 at q = 1, whole from q = 2, linear between: an octave comes in smoothly as a flag grows or its cloth gets finer.</summary>
+        private static float Fade(float q)
+        {
+            return Math.Min(Math.Max(q - 1f, 0f), 1f);
         }
     }
 

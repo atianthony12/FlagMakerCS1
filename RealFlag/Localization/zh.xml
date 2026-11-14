@@ -456,6 +456,7 @@
   <String key="CrowdLoops.Label">密集放置时用循环</String>
   <String key="CrowdLoops.Tooltip">附近飘动旗帜超过 20 面时，新旗帜用循环。</String>
   <String key="CrowdLoopsTold.Label">已提示过为何密集放置的新旗帜用循环</String>
+  <String key="VariedWind.Label">多种尺度的阵风与涡流</String>
   <String key="PanelFolded.Label">面板中折叠的分组</String>
 
   <String key="Group.Diagnostics">诊断</String>

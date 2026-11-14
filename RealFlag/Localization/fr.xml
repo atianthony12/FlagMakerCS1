@@ -468,6 +468,7 @@
   <String key="CrowdLoops.Label">Placer les foules en boucle</String>
   <String key="CrowdLoops.Tooltip">Passé 20 drapeaux flottants proches, les nouveaux en boucle.</String>
   <String key="CrowdLoopsTold.Label">Prévenu de pourquoi les foules de nouveaux drapeaux sont placées en boucle</String>
+  <String key="VariedWind.Label">Rafales et tourbillons de plusieurs tailles</String>
   <String key="PanelFolded.Label">Groupes repliés du panneau</String>
 
   <String key="Group.Diagnostics">Diagnostic</String>

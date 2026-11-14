@@ -465,6 +465,7 @@
   <String key="CrowdLoops.Label">Colocar grupos en bucle</String>
   <String key="CrowdLoops.Tooltip">Con más de 20 banderas ondeando cerca, las nuevas en bucle.</String>
   <String key="CrowdLoopsTold.Label">Avisado de por qué los grupos de banderas nuevas se colocan en bucle</String>
+  <String key="VariedWind.Label">Ráfagas y remolinos de varios tamaños</String>
   <String key="PanelFolded.Label">Grupos plegados del panel</String>
 
   <String key="Group.Diagnostics">Diagnóstico</String>

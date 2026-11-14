@@ -33,6 +33,14 @@ namespace RealFlag.Flags
         /// </summary>
         public bool GustInSpeed;
 
+        /// <summary>
+        /// The varied air (2026-11-14, FlagWind.Air's varied): gusts and eddies of several sizes,
+        /// the same energy as the one size each. Set only for a live waving cloth in the game
+        /// (Settings.VariedWind); false -- still poses, loops, the tests, the preview unless asked
+        /// -- every step is bit for bit as before.
+        /// </summary>
+        public bool Varied;
+
         /// <summary>A shared motion's source: each step's places kept in it (MotionRecord.Add), at the step's end on the job's clock.</summary>
         public MotionRecord Record;
 
@@ -1280,6 +1288,7 @@ namespace RealFlag.Flags
                 int sub = cloth.SubStepsFor(FlagWind.ClothSpeed(job.Speed, job.Height, job.Roughness), job.Size);
                 float dt = job.Size / sub;
                 float alongGusts = job.GustInSpeed ? 0f : 1f;
+                int cells = cloth.Columns - 1;
 
                 // The anchor's moves since the last steps: as much as the cloth follows in these, the rest carried.
                 cloth.PlanDrag(job.Steps * job.Size, job.Steps * sub);
@@ -1291,7 +1300,7 @@ namespace RealFlag.Flags
                         // The field carried on by each sub-step's wind (FlagWind.Air, AirDrift): the
                         // clock is only for the record (a still pose's shape is the same either way).
                         FlagAir air = FlagWind.Air(ref cloth.Air, dt, job.Speed, job.Gusts, alongGusts, job.DirX, job.DirZ, job.Height,
-                                                   job.Waviness, job.Length, job.AnchorX, job.AnchorZ, job.Roughness);
+                                                   job.Waviness, job.Length, job.AnchorX, job.AnchorZ, job.Roughness, job.Varied, cells);
                         cloth.Step(dt, ref air);
                     }
 

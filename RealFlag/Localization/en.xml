@@ -469,6 +469,7 @@
   <String key="CrowdLoops.Tooltip">Past 20 waving flags nearby, new ones loop.</String>
   <!-- Not shown: a line in the settings file. -->
   <String key="CrowdLoopsTold.Label">Told why crowds of new flags are placed as Loop</String>
+  <String key="VariedWind.Label">Gusts and eddies of several sizes</String>
   <String key="PanelFolded.Label">The panel's folded groups</String>
 
   <String key="Group.Diagnostics">Diagnostics</String>

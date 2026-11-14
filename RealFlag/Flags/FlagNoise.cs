@@ -137,5 +137,58 @@ namespace RealFlag.Flags
             float y1v = x01 + (x11 - x01) * ty;
             return (y0v + (y1v - y0v) * tz) * Scale3;
         }
+
+        /// <summary>
+        /// Three values of noise in space at one point, one for each seed: each exactly what <see
+        /// cref="Value3"/> gives with that seed (same sums in the same order), the floors and fades
+        /// worked out once (2026-11-14: the wind's eddies of several sizes take three at every sample
+        /// of every octave). A seed shifts the lattice along x by whole cells, so seeds a few dozen
+        /// apart read unrelated lattice values.
+        /// </summary>
+        public static void Value3x3(float x, float y, float z, int seedA, int seedB, int seedC, out float a, out float b, out float c)
+        {
+            int xi = Floor(x), yi = Floor(y), zi = Floor(z);
+            float tx = Fade(x - xi), ty = Fade(y - yi), tz = Fade(z - zi);
+            int y0 = yi & 255, y1 = (yi + 1) & 255;
+            int z0 = zi & 255, z1 = (zi + 1) & 255;
+            a = Cell(xi + seedA, y0, y1, z0, z1, tx, ty, tz);
+            b = Cell(xi + seedB, y0, y1, z0, z1, tx, ty, tz);
+            c = Cell(xi + seedC, y0, y1, z0, z1, tx, ty, tz);
+        }
+
+        /// <summary>One lattice cell of <see cref="Value3"/>, its x already shifted by the seed.</summary>
+        private static float Cell(int xs, int y0, int y1, int z0, int z1, float tx, float ty, float tz)
+        {
+            int x0 = xs & 255, x1 = (xs + 1) & 255;
+
+            int a0 = Perm[x0] + y0, a1 = Perm[x1] + y0;
+            int b0 = Perm[x0] + y1, b1 = Perm[x1] + y1;
+
+            float c000 = Values[Perm[Perm[a0] + z0] & 255];
+            float c100 = Values[Perm[Perm[a1] + z0] & 255];
+            float c010 = Values[Perm[Perm[b0] + z0] & 255];
+            float c110 = Values[Perm[Perm[b1] + z0] & 255];
+            float c001 = Values[Perm[Perm[a0] + z1] & 255];
+            float c101 = Values[Perm[Perm[a1] + z1] & 255];
+            float c011 = Values[Perm[Perm[b0] + z1] & 255];
+            float c111 = Values[Perm[Perm[b1] + z1] & 255];
+
+            float x00 = c000 + (c100 - c000) * tx;
+            float x10 = c010 + (c110 - c010) * tx;
+            float x01 = c001 + (c101 - c001) * tx;
+            float x11 = c011 + (c111 - c011) * tx;
+            float y0v = x00 + (x10 - x00) * ty;
+            float y1v = x01 + (x11 - x01) * ty;
+            return (y0v + (y1v - y0v) * tz) * Scale3;
+        }
+
+        /// <summary>
+        /// A noise coordinate brought into one period (0..256), worked in double: a field carried for
+        /// hours stands thousands of units off, where a float keeps too few of its digits.
+        /// </summary>
+        public static float Wrap(double x)
+        {
+            return (float)(x - 256.0 * Math.Floor(x / 256.0));
+        }
     }
 }

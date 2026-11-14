@@ -127,6 +127,14 @@ namespace RealFlag
         public static BoolSetting CrowdLoopsTold { get; private set; }
 
         /// <summary>
+        /// Gusts and eddies of several sizes in a waving flag's wind (ClothJob.Varied, FlagWind's
+        /// varied air, 2026-11-14): the same energy shared over more sizes, so a flag changes its
+        /// posture every few seconds instead of holding one. On by default; kept in the file, no
+        /// row -- there to be switched in the live-read file while watching the game.
+        /// </summary>
+        public static BoolSetting VariedWind { get; private set; }
+
+        /// <summary>
         /// The panels' groups folded away (the author, 2026-11-11: "let's make this collapsible,
         /// like the menu in RealGlass"): a bit a group, by <see cref="FoldGroups"/>. Kept in the
         /// file, no row; Reset all opens them as at first.
@@ -398,6 +406,7 @@ namespace RealFlag
             public const bool LoopStandIns = true;
             public const bool CrowdLoops = true;
             public const bool CrowdLoopsTold = false;
+            public const bool VariedWind = true;
 
             /// <summary>
             /// Folded at first: Wear and tear (most flags are new) and the Settings tab's Language,
@@ -564,6 +573,7 @@ namespace RealFlag
                 LoopStandIns = new BoolSetting("LoopStandIns", Defaults.LoopStandIns);
                 CrowdLoops = new BoolSetting("CrowdLoops", Defaults.CrowdLoops);
                 CrowdLoopsTold = new BoolSetting("CrowdLoopsTold", Defaults.CrowdLoopsTold);
+                VariedWind = new BoolSetting("VariedWind", Defaults.VariedWind);
                 PanelFolded = new IntSetting("PanelFolded", Defaults.PanelFolded);
                 Quality = new IntSetting("Quality", UI.QualityPreset.High, true);
 

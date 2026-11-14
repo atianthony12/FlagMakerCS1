@@ -840,7 +840,19 @@ namespace RealFlag.Flags
             _sharing = Settings.SharedMotion == null || Settings.SharedMotion.value;
             _load.Sharing = _sharing;
             _standIns = Settings.LoopStandIns == null || Settings.LoopStandIns.value;
+
+            // The varied air (ClothJob.Varied): said when first read and at every change (the
+            // file is read live; it has no row).
+            bool varied = Settings.VariedWind == null || Settings.VariedWind.value;
+            if (!_variedRead || varied != _varied)
+                Log.Msg("wind: gusts and eddies of several sizes -- " + (varied ? "on" : "off") +
+                        (varied ? " (the same energy over more sizes: a waving flag changes its posture every few seconds)" : " (one size each, as before 2026-11-14)"));
+            _varied = varied;
+            _variedRead = true;
         }
+
+        /// <summary>Settings.VariedWind as read: every live waving cloth's job takes it (ClothJob.Varied).</summary>
+        private bool _varied, _variedRead;
 
         /// <summary>The "Cloth threads" option as read, and as the threads running were started with.</summary>
         private int _threadsChosen, _threadsStarted;
@@ -2795,6 +2807,7 @@ namespace RealFlag.Flags
                 Speed = at10,
                 Gusts = wind.Gusts,
                 GustInSpeed = wind.FromWeatherMod,
+                Varied = _varied,
                 DirX = dir.x,
                 DirZ = dir.z,
                 Height = height,
@@ -3557,6 +3570,7 @@ namespace RealFlag.Flags
                     Speed = g.At10,
                     Gusts = wind.Gusts,
                     GustInSpeed = wind.FromWeatherMod,
+                    Varied = _varied,
                     DirX = g.DirX,
                     DirZ = g.DirZ,
                     Height = Mathf.Max(g.Height, 0.5f),

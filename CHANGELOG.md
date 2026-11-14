@@ -19,6 +19,8 @@ The first release.
   the Settings tab. With Volumetric Weather on, its wind: the strength of its weather or of its Now
   tab, and the gusts that bend its trees passing each flag. Either way the **Direction** is yours:
   along each flag's rotation (the default), one fixed direction, or the game's.
+- **Gusts and eddies of many sizes** in that wind, from a street's width down to the flag's own: a
+  flag changes its posture every few seconds instead of holding one, as calm or as wild as before.
 - **Designs**: every country's and territory's flag, fifteen patterns in your colours (previewed,
   and saved under a name for any city), or your own pictures (a folder of PNG and JPEG files, cropped and zoomed in the Image window, never
   stretched); width and height from 0.5 to 30 m, any proportions from 1:5 to 5:1 (a country's flag

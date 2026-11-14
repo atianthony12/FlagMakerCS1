@@ -29,6 +29,8 @@
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 #   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
+#   ... -Varied                    a waving flag in the varied air: gusts and eddies of several sizes (ClothJob.Varied),
+#                                  as the game flies it with VariedWind on (off: as before 2026-11-14)
 #   ... -Held 3                    held besides its hoist (FlagHold bits: 1 top, 2 bottom, 4 far edge, 8 far corners)
 #   ... -Cuts "0,1,3,4:40"         each design once per cut (FlagCut: 0 rectangle, 1 swallowtail, 2 and tongue, 3 pennant,
 #                                  4 burgee, 5 pointed, 6 rounded), a depth in percent after a colon (33 by default)
@@ -94,6 +96,7 @@ param(
     [double]$Lean = 0,
     [ValidateSet("side", "top")][string]$Hoist = "side",
     [switch]$Plate,
+    [switch]$Varied,
     [int]$Held = 0,
     [string]$Images = "",
     [string]$ImageDir = (Join-Path $env:LOCALAPPDATA "Colossal Order\Cities_Skylines\FlagMaker\Images"),
@@ -181,6 +184,7 @@ $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)
 $env:RF_HOIST = $Hoist
 $env:RF_PLATE = if ($Plate) { "1" } else { "0" }
+$env:RF_VARIED = if ($Varied) { "1" } else { "0" }
 $env:RF_HELD = "$Held"
 $env:RF_IMAGES = $Images
 $env:RF_IMAGEDIR = $ImageDir

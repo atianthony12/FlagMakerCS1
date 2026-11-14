@@ -104,6 +104,9 @@ public static class FlagPreview
     /// <summary>RF_BOXES and RF_POSTS: the city round the flag (x, z, w, d, h and x, z, r, h, metres); RF_CITY: kept off.</summary>
     private static readonly List<float[]> Boxes = new List<float[]>(), Posts = new List<float[]>();
     private static bool _city = true;
+
+    /// <summary>RF_VARIED: the waving flags' jobs fly in the varied air (ClothJob.Varied); off, as before 2026-11-14.</summary>
+    private static bool _varied;
     private static readonly List<GameObject> CityObjects = new List<GameObject>();
 
     public static void Render()
@@ -149,6 +152,9 @@ public static class FlagPreview
         FlagMesh.SmoothEdges = Env("RF_SMOOTH", "1") != "0";
         bool collide = Env("RF_COLLIDE", "1") != "0";
         bool plate = Env("RF_PLATE", "0") == "1";
+
+        // RF_VARIED: a waving flag in the varied air (gusts and eddies of several sizes, ClothJob.Varied) as the game flies it.
+        _varied = Env("RF_VARIED", "0") == "1";
 
         // RF_HELD: what holds the cloth besides its hoist (FlagHold bits: 1 top, 2 bottom, 4 far edge, 8 far corners).
         int heldMask = (int)ParseFloat(Env("RF_HELD", "0"));
@@ -778,6 +784,7 @@ public static class FlagPreview
             Length = flag.Length,
             AnchorX = anchor.x,
             AnchorZ = anchor.z,
+            Varied = _varied,
         };
     }
 

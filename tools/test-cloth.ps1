@@ -6,6 +6,8 @@
 #
 # What is covered, and why:
 # - the noise has about unit sigma (FlagNoise.Scale1/Scale3 are measured here), zero mean;
+# - the varied air (gusts and eddies of several sizes, ClothJob.Varied): the same energy, the
+#   2-8 s and 0.5-2 s bands filled, the cloth healthy in it, and off it is the old air bit for bit;
 # - the wind follows EN 1991-1-4: the log law (10 m/s at 10 m, held below 5 m, more above),
 #   town turbulence (I = 1 / ln(z / 0.3)), the gusts' length scale;
 # - the cloth does what flags do: limp in calm air (Beaufort 0), out at a moderate breeze,
@@ -198,6 +200,176 @@ public static class ClothTests
             worst = Math.Max(worst, Math.Abs(a.MeanX - b.MeanX) + Math.Abs(a.MeanY - b.MeanY) + Math.Abs(a.MeanZ - b.MeanZ));
         }
         return worst.ToString("G3", Inv);
+    }
+
+    /// <summary>
+    /// 2026-11-14, FlagNoise.Value3x3: over 200 000 samples each of its three values' mean and
+    /// sigma, their largest pairwise correlation, and how many samples were exactly Value3's with
+    /// the same seed.
+    /// </summary>
+    public static string Noise3x3()
+    {
+        int n = 200000; double[] s1 = new double[3], s2 = new double[3]; double ab = 0, ac = 0, bc = 0; int same = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float x = i * 0.137f, y = i * 0.071f + 3.3f, z = i * 0.029f + 7.1f, a, b, c;
+            FlagNoise.Value3x3(x, y, z, 17, 59, 101, out a, out b, out c);
+            if (a == FlagNoise.Value3(x, y, z, 17) && b == FlagNoise.Value3(x, y, z, 59) && c == FlagNoise.Value3(x, y, z, 101)) same++;
+            s1[0] += a; s1[1] += b; s1[2] += c; s2[0] += a * a; s2[1] += b * b; s2[2] += c * c;
+            ab += a * b; ac += a * c; bc += b * c;
+        }
+        double[] m = new double[3], sd = new double[3];
+        double worstMean = 0, lo = 9, hi = 0;
+        for (int k = 0; k < 3; k++)
+        {
+            m[k] = s1[k] / n; sd[k] = Math.Sqrt(s2[k] / n - m[k] * m[k]);
+            worstMean = Math.Max(worstMean, Math.Abs(m[k])); lo = Math.Min(lo, sd[k]); hi = Math.Max(hi, sd[k]);
+        }
+        double r = Math.Max(Math.Abs((ab / n - m[0] * m[1]) / (sd[0] * sd[1])),
+                   Math.Max(Math.Abs((ac / n - m[0] * m[2]) / (sd[0] * sd[2])), Math.Abs((bc / n - m[1] * m[2]) / (sd[1] * sd[2]))));
+        return worstMean.ToString("F3", Inv) + "," + lo.ToString("F3", Inv) + "," + hi.ToString("F3", Inv) + "," + r.ToString("F3", Inv) + "," + (same == n);
+    }
+
+    /// <summary>
+    /// The varied air (FlagWind.Air's varied overloads, 2026-11-14) from the drift against the
+    /// time-based one in a steady wind: 50 s of 1/120 s sub-steps at 6 m/s, the largest difference of
+    /// the mean wind and of the wind at a point of the cloth (m/s); then the same job twice, through
+    /// ClothWorker.Execute with Varied false and through the 13-argument drift Air by hand: 0 if bit
+    /// for bit.
+    /// </summary>
+    public static string VariedDrift()
+    {
+        AirDrift d = new AirDrift(); float dt = 1f / 120f, worst = 0f;
+        for (int s = 0; s < 6000; s++)
+        {
+            FlagAir a = FlagWind.Air(ref d, dt, 6f, 1f, 1f, 0.6f, 0.8f, 12f, 1f, 3f, 40f, -25f, 0f, true, 32);
+            FlagAir b = FlagWind.Air(6f, 1f, 0.6f, 0.8f, 12f, 1f, 3f, s * dt, 40f, -25f, 0f, true, 32);
+            float ax, ay, az, bx, by, bz;
+            a.At(1.5f, -1f, 0.2f, out ax, out ay, out az);
+            b.At(1.5f, -1f, 0.2f, out bx, out by, out bz);
+            worst = Math.Max(worst, Math.Abs(a.MeanX - b.MeanX) + Math.Abs(a.MeanY - b.MeanY) + Math.Abs(a.MeanZ - b.MeanZ));
+            worst = Math.Max(worst, Math.Abs(ax - bx) + Math.Abs(ay - by) + Math.Abs(az - bz));
+        }
+
+        FlagCloth p = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f), q = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        p.GroundY = q.GroundY = -12f;
+        float frame = 1f / 60f;
+        for (int s = 0; s < 600; s++)
+        {
+            ClothJob j = new ClothJob();
+            j.Cloth = p; j.Steps = 1; j.Size = frame; j.Speed = 12f; j.Gusts = 1f; j.DirX = 0.6f; j.DirZ = 0.8f; j.Height = 12f;
+            j.Waviness = 1f; j.Length = 3f; j.AnchorX = 40f; j.AnchorZ = -25f; j.Varied = false;
+            ClothWorker.Execute(ref j);
+            int sub = q.SubStepsFor(FlagWind.ClothSpeed(12f, 12f, 0f), frame);
+            q.PlanDrag(frame, sub);
+            for (int i = 0; i < sub; i++)
+            {
+                FlagAir air = FlagWind.Air(ref q.Air, frame / sub, 12f, 1f, 1f, 0.6f, 0.8f, 12f, 1f, 3f, 40f, -25f, 0f);
+                q.Step(frame / sub, ref air);
+            }
+            q.EndDrag();
+        }
+        return worst.ToString("G3", Inv) + "," + Apart(p, q).ToString("G3", Inv);
+    }
+
+    /// <summary>
+    /// The varied air's energy against the one size's, 40 000 places and times scattered over the
+    /// field (a 3 m flag at 12 m, 6 m/s, 32 cells): the rms of the gusts along, across and up and of
+    /// the eddies at a point of the cloth, varied over not -- each should be ~1 (the energy only
+    /// shared over more sizes).
+    /// </summary>
+    public static string VariedEnergy()
+    {
+        double[,] sum = new double[2, 6], sum2 = new double[2, 6];
+        float speed = FlagWind.ClothSpeed(6f, 12f, 0.3f);
+        int n = 40000;
+        for (int v = 0; v < 2; v++)
+        {
+            uint rng = 777u;
+            for (int i = 0; i < n; i++)
+            {
+                rng = rng * 1664525u + 1013904223u; float ax = (rng >> 8) / 16777216f * 10000f - 5000f;
+                rng = rng * 1664525u + 1013904223u; float az = (rng >> 8) / 16777216f * 10000f - 5000f;
+                rng = rng * 1664525u + 1013904223u; float t = (rng >> 8) / 16777216f * 20000f;
+                FlagAir a = FlagWind.Air(6f, 1f, 1f, 0f, 12f, 1f, 3f, t, ax, az, 0.3f, v == 1, 32);
+                float ux, uy, uz;
+                a.At(1.5f, -0.9f, 0.1f, out ux, out uy, out uz);
+                double[] x = { a.MeanX - speed, a.MeanZ, a.MeanY, ux - a.MeanX, uz - a.MeanZ, uy - a.MeanY };
+                for (int k = 0; k < 6; k++) { sum[v, k] += x[k]; sum2[v, k] += x[k] * x[k]; }
+            }
+        }
+        var r = new List<string>();
+        for (int k = 0; k < 6; k++)
+        {
+            double m0 = sum[0, k] / n, m1 = sum[1, k] / n;
+            r.Add((Math.Sqrt(sum2[1, k] / n - m1 * m1) / Math.Sqrt(sum2[0, k] / n - m0 * m0)).ToString("F3", Inv));
+        }
+        return string.Join(",", r.ToArray());
+    }
+
+    /// <summary>A series' rms in the band 2-8 s (its 2 s running mean less its 8 s one) and 0.5-2 s, from 1/60 s samples.</summary>
+    static double[] MidBands(float[] x)
+    {
+        int n = x.Length;
+        double[] pre = new double[n + 1];
+        for (int i = 0; i < n; i++) pre[i + 1] = pre[i] + x[i];
+        Func<int, int, double> mean = (i, w) => { int a = Math.Max(0, i - w / 2), b = Math.Min(n, i + w / 2 + 1); return (pre[b] - pre[a]) / (b - a); };
+        double s28 = 0, s052 = 0;
+        for (int i = 0; i < n; i++)
+        {
+            double m8 = mean(i, 480), m2 = mean(i, 120), m05 = mean(i, 30);
+            s28 += (m2 - m8) * (m2 - m8); s052 += (m05 - m2) * (m05 - m2);
+        }
+        return new[] { Math.Sqrt(s28 / n), Math.Sqrt(s052 / n) };
+    }
+
+    /// <summary>
+    /// The hole the varied air fills: 240 s of the wind over a 3 m flag at 12 m in 5.6 m/s (the
+    /// drift at 1/60 s, three places), its across-wind gust's rms over 2-8 s and 0.5-2 s, not
+    /// varied and varied (m/s; measured by the main session 2026-11-14: 0.3 and 0.02 not varied).
+    /// </summary>
+    public static string VariedBands()
+    {
+        var r = new List<string>();
+        float[][] places = { new float[] { 100f, 40f }, new float[] { -2317f, 913f }, new float[] { 5131f, -3779f } };
+        for (int v = 0; v < 2; v++)
+        {
+            double b28 = 0, b052 = 0;
+            foreach (float[] p in places)
+            {
+                AirDrift d = new AirDrift();
+                float[] across = new float[14400];
+                for (int s = 0; s < across.Length; s++)
+                {
+                    FlagAir a = FlagWind.Air(ref d, 1f / 60f, 5.6f, 1f, 1f, 1f, 0f, 12f, 1f, 3f, p[0], p[1], 0f, v == 1, 32);
+                    across[s] = a.MeanZ;
+                }
+                double[] b = MidBands(across);
+                b28 += b[0] / places.Length; b052 += b[1] / places.Length;
+            }
+            r.Add(b28.ToString("F3", Inv)); r.Add(b052.ToString("F3", Inv));
+        }
+        return string.Join(",", r.ToArray());
+    }
+
+    /// <summary>
+    /// A cloth in the varied air through ClothWorker.Execute as the game steps one (Varied): a 3 x
+    /// 2 m flag 12 m up, 30 s at 1/60 s frames after 4 s; its worst link stretch then, knots, finite.
+    /// </summary>
+    public static string VariedCloth(float wind)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f);
+        c.GroundY = -12f;
+        float frame = 1f / 60f, worst = 0f;
+        for (int s = 0; s < 34 * 60; s++)
+        {
+            ClothJob j = new ClothJob();
+            j.Cloth = c; j.Steps = 1; j.Size = frame; j.Time = s * frame; j.Speed = wind; j.Gusts = 1f; j.DirX = 1f; j.Height = 12f;
+            j.Waviness = 1f; j.Length = 3f; j.AnchorX = 100f; j.AnchorZ = 40f; j.Varied = true;
+            ClothWorker.Execute(ref j);
+            if (s >= 240 && s % 3 == 0) worst = Math.Max(worst, c.MaxStretch());
+        }
+        return worst.ToString("F3", Inv) + "," + c.Unknotted + "," + c.IsFinite();
     }
 
     /// <summary>The wind's direction followed at 60 fps (FlagWind.Turn): seconds until within 5 deg of a turn of <paramref name="by"/> deg from 10, and the most it turned in a frame.</summary>
@@ -5869,6 +6041,20 @@ Check "in a steady wind the drift is the old clock's air" ((N $ds) -lt 0.01) ("l
 $g0 = [ClothTests]::Gusting(0) -split ","; $g1 = [ClothTests]::Gusting(1) -split ","; $g2 = [ClothTests]::Gusting(2) -split ","
 Check "VW's gusts at 1200 s, the old air (clock x speed of the moment): the eddies jump each step (the author's 'super fast', 'awkwardly stop or ramp up')" ((N $g1[0]) -gt 5 * (N $g0[0])) ("rms change of the wind at a point a step: steady " + $g0[0] + " m/s, gusting " + $g1[0] + "; fly corner " + $g0[1] + " / " + $g1[1] + " m/s")
 Check "VW's gusts carried by the drift: the air changes as smoothly as in a steady wind, the cloth healthy" ((N $g2[0]) -lt 2 * (N $g0[0]) -and (N $g2[2]) -le 1.125 -and $g2[3] -eq "True") ("rms change " + $g2[0] + " m/s a step, fly corner " + $g2[1] + " m/s, stretch " + $g2[2])
+# 2026-11-14: the varied air -- gusts and eddies of several sizes, the same energy (ClothJob.Varied).
+$v3 = [ClothTests]::Noise3x3() -split ","
+Check "Value3x3: three values from one lattice cell, each Value3's with its seed, unit sigma, unrelated" ((N $v3[0]) -lt 0.02 -and (N $v3[1]) -gt 0.97 -and (N $v3[2]) -lt 1.03 -and (N $v3[3]) -lt 0.02 -and $v3[4] -eq "True") ("means within " + $v3[0] + ", sigmas " + $v3[1] + ".." + $v3[2] + ", largest correlation " + $v3[3] + ", equal to Value3: " + $v3[4])
+$vd = [ClothTests]::VariedDrift() -split ","
+Check "the varied air: from the drift as from the clock in a steady wind; Varied false is the old air bit for bit" ((N $vd[0]) -lt 0.01 -and (N $vd[1]) -eq 0) ("largest difference " + $vd[0] + " m/s over 50 s; Execute with Varied false against the 13-argument Air by hand: " + $vd[1] + " m apart")
+$ve = [ClothTests]::VariedEnergy() -split ","
+$veOk = $true; foreach ($r in $ve) { if ([math]::Abs((N $r) - 1) -gt 0.05) { $veOk = $false } }
+Check "the varied air keeps the energy: the gusts' and the eddies' rms within 5% of the one size's" $veOk ("varied / not, gusts along, across, up: " + $ve[0] + ", " + $ve[1] + ", " + $ve[2] + "; eddies: " + $ve[3] + ", " + $ve[4] + ", " + $ve[5])
+$vb = [ClothTests]::VariedBands() -split ","
+Check "the varied air fills the 0.5-8 s hole: the across gust's 2-8 s band at least 1.5x, its 0.5-2 s band at least 5x" ((N $vb[2]) -ge 1.5 * (N $vb[0]) -and (N $vb[3]) -ge 5 * (N $vb[1])) ("rms 2-8 s " + $vb[0] + " -> " + $vb[2] + " m/s, 0.5-2 s " + $vb[1] + " -> " + $vb[3])
+foreach ($speed in 6, 12) {
+    $vc = [ClothTests]::VariedCloth($speed) -split ","
+    Check "a cloth in the varied air at $speed m/s holds (stretch <= 12.5%, no knot)" ((N $vc[0]) -lt 1.125 -and $vc[1] -eq "0" -and $vc[2] -eq "True") ("worst stretch " + $vc[0] + " over 30 s, knots " + $vc[1] + ", finite " + $vc[2])
+}
 $empty = [ClothTests]::City(0, 0, 0, 0) -split ","; $suburb = [ClothTests]::City(209, 10, 12, 7) -split ","; $downtown = [ClothTests]::City(56, 30, 30, 16) -split ","
 Check "the buildings round a flag: none a town's, houses ~0.6 m (Lettau), downtown held to 1 m" ((N $empty[0]) -eq 0.3 -and (N $suburb[0]) -gt 0.5 -and (N $suburb[0]) -lt 0.65 -and (N $downtown[0]) -eq 1) ("none " + $empty[0] + "; 209 houses 10x12x7 m (" + $suburb[1] + " of the ground) " + $suburb[0] + "; 56 blocks 30x30x16 m (" + $downtown[1] + ") " + $downtown[0])
 

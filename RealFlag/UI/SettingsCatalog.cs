@@ -2380,6 +2380,16 @@ namespace RealFlag.UI
                 DefaultBool = Settings.Defaults.CrowdLoopsTold,
             });
 
+            // Gusts and eddies of several sizes in a waving flag's wind (2026-11-14): kept in the
+            // file, no row; the renderer reads it again when the file changes, and says so.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Bool = Settings.VariedWind,
+                DefaultBool = Settings.Defaults.VariedWind,
+                AfterChange = FlagRenderer.ClothOptionsChanged,
+            });
+
             // The panels' folded groups (RowSet's folding headings): kept in the file, no row.
             Add(new Row
             {

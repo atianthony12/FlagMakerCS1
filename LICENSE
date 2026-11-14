@@ -96,6 +96,10 @@ techniques were written from scratch after them, and they are credited here with
       roughness from its buildings.
     H. A. Panofsky and J. A. Dutton, "Atmospheric Turbulence" (1984).
     G. I. Taylor, "The spectrum of turbulence" (1938); A. N. Kolmogorov (1941).
+    J. C. Kaimal, J. C. Wyngaard, Y. Izumi and O. R. Cote, "Spectral characteristics of
+      surface-layer turbulence", Q. J. R. Meteorol. Soc. 98 (1972) -- the energy across sizes;
+      K. Perlin, "An Image Synthesizer", SIGGRAPH 1985 -- the sum of octaves: gusts and eddies
+      of several sizes.
     WMO-No. 8, "Guide to Instruments and Methods of Observation", ch. 5 (the 3 s gust) -- how
       quickly the flags follow the wind's speed of the moment.
   The fabric:
