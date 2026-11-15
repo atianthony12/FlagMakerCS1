@@ -271,6 +271,18 @@ namespace RealFlag.Flags
         /// <summary>Half a pixel's angle, radians, for the camera: tubes are drawn no thinner than about a pixel (FlagPole.shader). Set globally, every frame.</summary>
         public static readonly int IdPixelRadius = Shader.PropertyToID("_RFPixelRadius");
 
+        /// <summary>A camera's pixels per radian of view, from its height in pixels and its vertical field of view (degrees).</summary>
+        public static float PixelsPerRadian(float pixelHeight, float fieldOfView)
+        {
+            return pixelHeight / (2f * Mathf.Tan(0.5f * Mathf.Clamp(fieldOfView, 1f, 170f) * Mathf.Deg2Rad));
+        }
+
+        /// <summary>What <see cref="IdPixelRadius"/> holds for a picture of this many pixels per radian.</summary>
+        public static float PixelRadius(float pixelsPerRadian)
+        {
+            return 0.6f / Mathf.Max(pixelsPerRadian, 1f);
+        }
+
         /// <summary>The pole's mesh, into <paramref name="reuse"/> if given (its old contents cleared).</summary>
         public static Mesh Build(FlagPoleShape s, Mesh reuse)
         {

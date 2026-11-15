@@ -371,6 +371,9 @@ namespace RealFlag.Flags
 
         protected override void OnToolLateUpdate()
         {
+            // Camera.main on purpose, as the game's own PropTool and DefaultTool take the mouse ray
+            // (IL): under Dynamic Resolution it is the stand-in, with the screen's pixel rect and the
+            // game camera's pose, so the ray is the screen's (the flags' view is GameCamera's instead).
             Camera camera = Camera.main;
             if (camera == null)
             {

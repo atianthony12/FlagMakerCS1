@@ -1079,7 +1079,7 @@ namespace RealFlag.Flags
             else if (want < f.LoopCells && LoopMotion.CellsFor(f.Pixels * RefineBand, PixelsPerCell, loop.FinestCells) < f.LoopCells)
                 f.LoopCells = want;
 
-            Graphics.DrawMesh(loop.MeshFor(f.LoopCells), Matrix4x4.TRS(f.Anchor, LoopTurn(f.Angle), Vector3.one), _material, _layer, _camera, 0,
+            Graphics.DrawMesh(loop.MeshFor(f.LoopCells), Matrix4x4.TRS(f.Anchor, LoopTurn(f.Angle), Vector3.one), _material, _layer, EveryCamera, 0,
                               f.Block, f.Pixels >= ShadowPixels, true);
 
             if (!_loggedFirstLoop)

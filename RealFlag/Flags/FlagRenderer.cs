@@ -800,6 +800,8 @@ namespace RealFlag.Flags
             FlagImages.UserSource = FlagImageFolder.Bytes;
             _layer = PropLayer();
             _ready = true;
+            _preRender = PreRender;
+            Camera.onPreRender += _preRender;
 
             ReadOptions();
 
@@ -975,8 +977,45 @@ namespace RealFlag.Flags
             return true;
         }
 
+        /// <summary>
+        /// Every camera's render: for the game's, the tubes' least radius (FlagPoleMesh.IdPixelRadius)
+        /// from THIS render's own height in pixels -- its target's while Dynamic Resolution or Lumina
+        /// render it into one the screen's size times a factor (below 100% the screen's value made
+        /// the ropes thinner than a pixel there, and broken: the preview's probe, 61-77% of their
+        /// rows at half size, all of them with this), each render of a frame its own when it renders
+        /// twice. LateUpdate's on-screen value stands for anything else. Called for every camera, so
+        /// a reference test first, and nothing allocated.
+        /// </summary>
+        private void PreRender(Camera camera)
+        {
+            if (!ReferenceEquals(camera, _camera))
+                return;
+
+            Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(FlagPoleMesh.PixelsPerRadian(camera.pixelHeight, camera.fieldOfView)));
+        }
+
+        /// <summary>PreRender as one delegate, so it is taken off Camera.onPreRender again.</summary>
+        private Camera.CameraCallback _preRender;
+
+        /// <summary>
+        /// Graphics.DrawMesh's camera for every flag, pole and ghost: none, so each is drawn by every
+        /// camera that draws the props' layer, as the game draws its own props
+        /// (PropInstance.RenderInstance passes null, IL) and Real Glass and Volumetric Weather theirs.
+        /// A mesh queued for ONE camera is used up by that camera's first render of the frame (the
+        /// preview's probe, 2026-11-15): with Dynamic Resolution and Lumina both on the game's
+        /// camera renders twice a frame, and its second render had no flag. One queued for none
+        /// lasts the frame. What is in sight is still the game camera's view (_camera). No camera
+        /// of the game's or the sister mods' renders with a replacement shader (IL and source,
+        /// 2026-11-15), which would show a loop's or a refined flag's rest grid.
+        /// </summary>
+        private const Camera EveryCamera = null;
+
         private void OnDestroy()
         {
+            if (_preRender != null)
+                Camera.onPreRender -= _preRender;
+            _preRender = null;
+
             // First: nothing may still be stepping a cloth whose mesh is about to go.
             if (!_worker.Stop())
                 Log.Warn("flags: the cloth's thread did not stop within 2 s; it ends with the game (a background thread)");
@@ -1082,7 +1121,11 @@ namespace RealFlag.Flags
             if (!_ready)
                 return;
 
-            _camera = Camera.main;
+            // The game's camera, never Camera.main: under Dynamic Resolution or Lumina that is an
+            // empty stand-in (culling mask 0), and every mesh queued for it was drawn nowhere. It
+            // gives the view (what is in sight, how big on the screen); the meshes themselves are
+            // queued for every camera (EveryCamera).
+            _camera = GameCamera.Get();
             if (_camera == null)
                 return;
 
@@ -1140,8 +1183,11 @@ namespace RealFlag.Flags
                 Vector3 eye = _camera.transform.position;
                 Wind wind = TurnWind(Wind.Current(), dt);
                 _wind = wind;
-                _pixelsPerRadian = _camera.pixelHeight / (2f * Mathf.Tan(0.5f * Mathf.Clamp(_camera.fieldOfView, 1f, 170f) * Mathf.Deg2Rad));
-                Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, 0.6f / Mathf.Max(_pixelsPerRadian, 1f));
+                // On-screen pixels (between renders the game's camera has no target and its own
+                // rect, whatever renders it); each render puts the tubes' radius right for its own
+                // size again (PreRender).
+                _pixelsPerRadian = FlagPoleMesh.PixelsPerRadian(_camera.pixelHeight, _camera.fieldOfView);
+                Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(_pixelsPerRadian));
                 _detailChanges = 0;
                 _refineChanges = 0;
                 LogCamera();
@@ -3930,7 +3976,7 @@ namespace RealFlag.Flags
             // The particles' texture: the shape the vertex program lays the drawn grid on. A shadow
             // only while the flag is big enough on the screen for one to be seen (ShadowPixels).
             f.Mesh.Bind(f.Block);
-            Graphics.DrawMesh(f.Mesh.Mesh, Matrix4x4.TRS(f.Anchor, Quaternion.identity, Vector3.one), _material, _layer, _camera, 0,
+            Graphics.DrawMesh(f.Mesh.Mesh, Matrix4x4.TRS(f.Anchor, Quaternion.identity, Vector3.one), _material, _layer, EveryCamera, 0,
                               f.Block, f.Pixels >= ShadowPixels, true);
 
             if (!_loggedFirstDraw)
@@ -4019,7 +4065,7 @@ namespace RealFlag.Flags
             }
 
             f.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, finished ? 1f : 0f);
-            Graphics.DrawMesh(f.PoleMesh, placement, _poleMaterial, _layer, _camera, 0,
+            Graphics.DrawMesh(f.PoleMesh, placement, _poleMaterial, _layer, EveryCamera, 0,
                               f.PoleBlock, f.Pixels >= ShadowPixels, true);
         }
 
@@ -4474,7 +4520,7 @@ namespace RealFlag.Flags
                 // A loop is in the flag's own frame (heading 0): turned whole to each point's heading.
                 Quaternion turn = loop ? Quaternion.AngleAxis(-p.Angle * Mathf.Rad2Deg, Vector3.up)
                                 : turns ? Quaternion.AngleAxis((g.Angle - p.Angle) * Mathf.Rad2Deg, Vector3.up) : Quaternion.identity;
-                Graphics.DrawMesh(loop ? g.Loop.Loop.MeshFor(g.LoopCells) : g.Mesh.Mesh, Matrix4x4.TRS(anchor, turn, Vector3.one), _material, _layer, _camera,
+                Graphics.DrawMesh(loop ? g.Loop.Loop.MeshFor(g.LoopCells) : g.Mesh.Mesh, Matrix4x4.TRS(anchor, turn, Vector3.one), _material, _layer, EveryCamera,
                                   0, g.Block, true, true);
 
                 if (pole)
@@ -4482,7 +4528,7 @@ namespace RealFlag.Flags
                     float hx, hy, hz, fx, fy, fz;
                     FlagOrientation.Frame(p.Angle, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
                     Graphics.DrawMesh(g.PoleMesh, FlagPoleMesh.Placement(anchor, g.PoleShape, new Vector3(hx, hy, hz), new Vector3(fx, fy, fz)),
-                                      _poleMaterial, _layer, _camera, 0, g.PoleBlock, true, true);
+                                      _poleMaterial, _layer, EveryCamera, 0, g.PoleBlock, true, true);
                 }
             }
         }

@@ -55,6 +55,8 @@ using Debug = UnityEngine.Debug;
 ///                       building's LOD triangles are (FlagSurroundings), drawn grey
 ///   RF_POSTS "x,z,r,h|..."    props or trees: upright capsules r round and h tall (CapsuleSet), drawn as cylinders
 ///   RF_CITY "0"         the cloth does not keep off them (drawn all the same: the flag as before)
+///   RF_DYNRES "0.5,1,1.5" / "0.5+1.5"  the game's camera rendered by hand as Dynamic Resolution and Lumina do
+///                       (DynResStandIn); RF_DRAWON game / main / all; RF_PIXELRADIUS render / frame (see _dynGroups)
 ///   RF_BENCH n   time n steps of the cloth instead of drawing
 /// Every frame logs "RF FRAME row=.. col=.. t=.. file=.. | ..." with the flag's droop, how much
 /// of the frame it covers, and its mean colour.
@@ -99,6 +101,9 @@ public static class FlagPreview
     {
         public Mesh Mesh;
         public Matrix4x4 Matrix;
+
+        /// <summary>RF_DYNRES: the same pole in the same place without its ropes, so the ropes' own pixels can be told apart.</summary>
+        public Mesh Bare;
     }
 
     /// <summary>RF_BOXES and RF_POSTS: the city round the flag (x, z, w, d, h and x, z, r, h, metres); RF_CITY: kept off.</summary>
@@ -108,6 +113,26 @@ public static class FlagPreview
     /// <summary>RF_VARIED: the waving flags' jobs fly in the varied air (ClothJob.Varied); off, as before 2026-11-14.</summary>
     private static bool _varied;
     private static readonly List<GameObject> CityObjects = new List<GameObject>();
+
+    /// <summary>
+    /// RF_DYNRES "0.5,1,1.5" or "0.5+1.5": the game's camera rendered by hand as Dynamic Resolution
+    /// and Lumina render it (DynResStandIn). Each group is a frame of its own (the flag drawn
+    /// afresh); a group of several factors ("+") is one frame in which the game's camera renders
+    /// once per factor, as with both mods on. Null: the plain preview. RF_DRAWON: the camera the
+    /// meshes are queued for -- "game" (the scene's camera, what the mod's fix does), "main"
+    /// (Camera.main, what the mod did before), "all" (null). RF_PIXELRADIUS "frame": the tubes'
+    /// _RFPixelRadius only from the screen, as set once a frame; "render" (default): set again
+    /// for each render of the game's camera at Camera.onPreRender from that render's own size.
+    /// </summary>
+    private static List<float[]> _dynGroups;
+    private static string _drawOn = "game";
+    private static bool _perRender = true;
+    private static DynResStandIn[] _standIns;
+    private static RenderTexture[] _standInScreens;
+    private static Camera _gameCamera;
+
+    /// <summary>The game camera's pixel height at each Camera.onPreRender since it was last cleared.</summary>
+    private static readonly List<int> PreRenderHeights = new List<int>();
 
     public static void Render()
     {
@@ -242,6 +267,24 @@ public static class FlagPreview
 
         _city = Env("RF_CITY", "1") != "0";
 
+        string dynRes = Env("RF_DYNRES", "");
+        _dynGroups = null;
+        if (dynRes.Length > 0)
+        {
+            _dynGroups = new List<float[]>();
+            foreach (string group in dynRes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var factors = new List<float>();
+                foreach (string f in group.Split('+'))
+                    factors.Add(ParseFloat(f.Trim()));
+                _dynGroups.Add(factors.ToArray());
+            }
+        }
+
+        _drawOn = Env("RF_DRAWON", "game").Trim().ToLowerInvariant();
+        _perRender = Env("RF_PIXELRADIUS", "render").Trim().ToLowerInvariant() != "frame";
+        _requeue = Env("RF_REQUEUE", "0") == "1";
+
         Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
         if (shader == null)
             throw new Exception("shader not found at " + ShaderPath);
@@ -257,6 +300,39 @@ public static class FlagPreview
                   " | path=" + path + " night=" + night);
 
         Setup s = BuildScene(width, height, path, night, sunYaw, shader);
+        if (_dynGroups != null)
+            BuildDynRes(s);
+        try
+        {
+            RenderRows(s, outDir, width, height, times, seq, yaw, pitch, dist, details, refines, collide, plate, heldMask, spec, patterns, countries,
+                       darknesses, images, crops, through, gusts, elevation, winds);
+        }
+        finally
+        {
+            Camera.onPreRender -= PreRender;
+            Camera.onPreCull -= PreCull;
+            if (_standIns != null)
+            {
+                foreach (DynResStandIn st in _standIns)
+                    UnityEngine.Object.DestroyImmediate(st.gameObject);
+                foreach (RenderTexture rt in _standInScreens)
+                    UnityEngine.Object.DestroyImmediate(rt);
+            }
+
+            _standIns = null;
+            _standInScreens = null;
+        }
+
+        s.Camera.targetTexture = null;
+        UnityEngine.Object.DestroyImmediate(s.Camera.gameObject);
+        UnityEngine.Object.DestroyImmediate(s.Target);
+    }
+
+    private static void RenderRows(Setup s, string outDir, int width, int height, float[] times, float[] seq, float yaw, float pitch, float dist,
+                                   int[] details, int[] refines, bool collide, bool plate, int heldMask, FlagSpec spec, int[] patterns,
+                                   string[] countries, float[] darknesses, string[] images, string[] crops, bool through, float gusts,
+                                   float elevation, float[] winds)
+    {
 
         // The frames: one row per (wind, pattern), one column per moment.
         float[] moments = times;
@@ -490,6 +566,12 @@ public static class FlagPreview
                     if (motion == FlagMotion.Waves)
                         shape.ApplyTo(cloth, fx, fy, fz);
                     pole = new PoleDraw { Mesh = FlagPoleMesh.Build(shape, null), Matrix = FlagPoleMesh.Placement(anchor, shape, hoist, fly) };
+                    if (_dynGroups != null && shape.Ropes > 0)
+                    {
+                        FlagPoleShape bare = shape;
+                        bare.Ropes = 0;
+                        pole.Bare = FlagPoleMesh.Build(bare, null);
+                    }
                     Debug.Log("RF PREVIEW: pole " + FlagPoleStyle.LogName(flag.Pole) + ", " + flag.Ropes + " rope(s): foot " +
                               (200f * shape.RadiusFoot).ToString("F1", CultureInfo.InvariantCulture) + " cm, top " +
                               (200f * shape.RadiusTop).ToString("F1", CultureInfo.InvariantCulture) + " cm across, " +
@@ -557,6 +639,13 @@ public static class FlagPreview
                         int fa, fb;
                         float blend;
                         LoopMotion.FrameAt(moment, 0, loop.Frames, loop.FrameTime, out fa, out fb, out blend);
+                        if (_dynGroups != null)
+                        {
+                            col = RenderDynRes(s, mesh, pole, flag, anchor, yaw, pitch, dist, loop, moment, cells, outDir, row, col, moment, bake.Speed, pattern,
+                                               "looping, frame " + fa + " -> " + fb + ", " + cells + " cells");
+                            continue;
+                        }
+
                         string loopInfo;
                         Color[] drawn = RenderFlag(s, mesh, pole, flag, anchor, yaw, pitch, dist, out loopInfo, loop, moment, cells);
                         string loopFile = Path.Combine(outDir, "rf-" + row + "-" + col + ".png");
@@ -595,6 +684,13 @@ public static class FlagPreview
                     }
 
                     mesh.Upload(1f);
+                    if (_dynGroups != null)
+                    {
+                        col = RenderDynRes(s, mesh, pole, flag, anchor, yaw, pitch, dist, null, 0.0, 0, outDir, row, col, moment, wind, pattern,
+                                           Droop(cloth) + ", " + cloth.Columns + "x" + cloth.Rows + (mesh.Refine > 1 ? " x" + mesh.Refine : ""));
+                        continue;
+                    }
+
                     string info;
                     Color[] pixels = RenderFlag(s, mesh, pole, flag, anchor, yaw, pitch, dist, out info);
                     string file = Path.Combine(outDir, "rf-" + row + "-" + col + ".png");
@@ -633,13 +729,11 @@ public static class FlagPreview
                     loop.Destroy();
                 if (pole != null)
                     UnityEngine.Object.DestroyImmediate(pole.Mesh);
+                if (pole != null && pole.Bare != null)
+                    UnityEngine.Object.DestroyImmediate(pole.Bare);
                 row++;
             }
         }
-
-        s.Camera.targetTexture = null;
-        UnityEngine.Object.DestroyImmediate(s.Camera.gameObject);
-        UnityEngine.Object.DestroyImmediate(s.Target);
     }
 
     /// <summary>
@@ -966,6 +1060,528 @@ public static class FlagPreview
 
         s.Camera.Render();
         return ReadPixels(s);
+    }
+
+    // ---- Dynamic Resolution (RF_DYNRES) ---------------------------------------------------
+
+    /// <summary>One render's pictures: the cloth alone, the pole alone (also at the render's own size), the scene without the flag, the scene.</summary>
+    private sealed class Shots
+    {
+        public string Label;
+        public Color[] Cloth, Pole, Bare, Scene, PoleRt, RopelessRt;
+        public int RtW, RtH;
+        public string Heights = "";
+    }
+
+    private static bool _queueChecked, _byHand;
+    private static readonly Dictionary<long, Texture2D> Readbacks = new Dictionary<long, Texture2D>();
+
+    /// <summary>
+    /// The scene as Dynamic Resolution leaves it: the game's camera (the scene's) disabled and
+    /// tagged MainCamera, its targetTexture null between renders; a stand-in camera per factor of
+    /// the largest group (DynResStandIn), each with a screen-sized target of its own standing in
+    /// for the screen; Camera.onPreRender watched for the game's camera.
+    /// </summary>
+    private static void BuildDynRes(Setup s)
+    {
+        int most = 1;
+        foreach (float[] g in _dynGroups)
+            most = Mathf.Max(most, g.Length);
+
+        _gameCamera = s.Camera;
+        s.Camera.tag = "MainCamera";
+        s.Camera.targetTexture = null;
+        s.Camera.enabled = false;
+        _standIns = new DynResStandIn[most];
+        _standInScreens = new RenderTexture[most];
+        for (int i = 0; i < most; i++)
+        {
+            var go = new GameObject("RFDynResCamera" + i);
+            go.tag = "MainCamera";
+            Camera c = go.AddComponent<Camera>();
+            c.cullingMask = 0;
+            c.depth = -3;
+            c.clearFlags = CameraClearFlags.SolidColor;
+            c.backgroundColor = Color.black;
+            _standInScreens[i] = new RenderTexture(s.Width, s.Height, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            _standInScreens[i].Create();
+            c.targetTexture = _standInScreens[i];
+            DynResStandIn st = go.AddComponent<DynResStandIn>();
+            if (st == null)
+                throw new Exception("DynResStandIn could not be added as a component");
+            st.Game = s.Camera;
+            st.ScreenWidth = s.Width;
+            st.ScreenHeight = s.Height;
+            _standIns[i] = st;
+        }
+
+        Camera.onPreRender += PreRender;
+        Camera.onPreCull += PreCull;
+        var groups = new List<string>();
+        foreach (float[] g in _dynGroups)
+        {
+            var parts = new List<string>();
+            foreach (float f in g)
+                parts.Add(f.ToString("0.###", CultureInfo.InvariantCulture));
+            groups.Add(string.Join("+", parts.ToArray()));
+        }
+
+        Camera main = Camera.main;
+        Debug.Log("RF PREVIEW: Dynamic Resolution as the mods do it -- frames at " + string.Join(", ", groups.ToArray()) + " of the screen (" +
+                  s.Width + "x" + s.Height + "), the flag drawn on " + _drawOn + ", tubes' pixel radius " + (_perRender ? "per render" : "once a frame") +
+                  "; Camera.main is '" + (main != null ? main.name : "none") + "', the game's camera '" + s.Camera.name + "' enabled=" + s.Camera.enabled);
+    }
+
+    /// <summary>What the mod's handler does (FlagRenderer.PreRender): the tubes' least radius from this render's own size.</summary>
+    private static void PreRender(Camera camera)
+    {
+        if (camera != _gameCamera)
+            return;
+
+        PreRenderHeights.Add(camera.pixelHeight);
+        if (_perRender)
+            Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(FlagPoleMesh.PixelsPerRadian(camera.pixelHeight, camera.fieldOfView)));
+    }
+
+    /// <summary>
+    /// A frame: the meshes queued once (<paramref name="draw"/>), then the game's camera rendered --
+    /// plainly into the screen (<paramref name="group"/> -1, the camera enabled as without the mods),
+    /// or by each stand-in of the group in turn. The pictures as they reach each "screen".
+    /// </summary>
+    private static List<Color[]> Shoot(Setup s, int group, Action<Camera> draw)
+    {
+        // What FlagRenderer.LateUpdate sets once a frame: the tubes' least radius from the screen.
+        Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(FlagPoleMesh.PixelsPerRadian(s.Height, s.Camera.fieldOfView)));
+        PreRenderHeights.Clear();
+        var shots = new List<Color[]>();
+        if (group < 0)
+        {
+            s.Camera.enabled = true;
+            draw(s.Camera);
+            s.Camera.targetTexture = s.Target;
+            s.Camera.Render();
+            s.Camera.targetTexture = null;
+            s.Camera.enabled = false;
+            shots.Add(ReadTarget(s.Target));
+            return shots;
+        }
+
+        Camera on = _drawOn == "main" ? Camera.main : _drawOn == "all" ? null : s.Camera;
+        draw(on);
+        float[] factors = _dynGroups[group];
+        _gameRendersThisFrame = 0;
+        _requeueDraw = _requeue ? draw : null;
+        try
+        {
+            for (int i = 0; i < factors.Length; i++)
+                shots.Add(StandInRender(i, factors[i]));
+        }
+        finally
+        {
+            _requeueDraw = null;
+        }
+
+        return shots;
+    }
+
+    /// <summary>
+    /// RF_REQUEUE: a candidate for a frame in which the game's camera renders twice -- each render
+    /// takes the meshes queued for that camera (the queue check), so from the second render on
+    /// they are queued again at its onPreCull.
+    /// </summary>
+    private static bool _requeue;
+    private static Action<Camera> _requeueDraw;
+    private static int _gameRendersThisFrame;
+
+    private static void PreCull(Camera camera)
+    {
+        if (camera != _gameCamera)
+            return;
+
+        if (_requeueDraw != null && _gameRendersThisFrame > 0)
+            _requeueDraw(camera);
+        _gameRendersThisFrame++;
+    }
+
+    /// <summary>A stand-in's render (its OnRenderImage renders the game's camera); done by hand where OnRenderImage did not run.</summary>
+    private static Color[] StandInRender(int i, float factor)
+    {
+        DynResStandIn st = _standIns[i];
+        st.Factor = factor;
+        st.CopyPose();
+        int before = st.Renders;
+        st.GetComponent<Camera>().Render();
+        if (st.Renders == before)
+        {
+            if (!_byHand)
+                Debug.Log("RF PREVIEW: the stand-in's OnRenderImage did not run on its Render() here: its sequence is done by hand");
+            _byHand = true;
+            st.RenderGame(_standInScreens[i]);
+        }
+
+        return ReadTarget(_standInScreens[i]);
+    }
+
+    private static Color[] ReadTarget(RenderTexture rt)
+    {
+        long key = ((long)rt.width << 20) | (long)rt.height;
+        Texture2D tex;
+        if (!Readbacks.TryGetValue(key, out tex) || tex == null)
+        {
+            tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBAFloat, false, true);
+            Readbacks[key] = tex;
+        }
+
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = rt;
+        tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0, false);
+        tex.Apply(false);
+        RenderTexture.active = previous;
+        return tex.GetPixels();
+    }
+
+    /// <summary>The four pictures of each render of a frame group (-1: the plain reference).</summary>
+    private static List<Shots> ShootAll(Setup s, int group, bool greyPole, Action<Camera> cloth, Action<Camera> pole, Action<Camera> both,
+                                        Action<Camera> ropeless)
+    {
+        int n = group < 0 ? 1 : _dynGroups[group].Length;
+        var shots = new List<Shots>();
+        for (int i = 0; i < n; i++)
+        {
+            string label = group < 0
+                ? "plain"
+                : "dynres " + _dynGroups[group][i].ToString("0.###", CultureInfo.InvariantCulture) + " on " + _drawOn +
+                  (n > 1 ? " (render " + (i + 1) + " of " + n + " in one frame" + (_requeue ? ", queued again at onPreCull" : "") + ")" : "") +
+                  (_perRender ? "" : ", radius once a frame");
+            shots.Add(new Shots { Label = label });
+        }
+
+        s.Camera.backgroundColor = Color.black;
+        SetScene(false);
+        List<Color[]> p = Shoot(s, group, cloth);
+        for (int i = 0; i < n; i++)
+            shots[i].Cloth = p[i];
+
+        p = Shoot(s, group, pole);
+        for (int i = 0; i < n; i++)
+        {
+            shots[i].Pole = p[i];
+            if (group < 0)
+            {
+                shots[i].PoleRt = p[i];
+                shots[i].RtW = s.Width;
+                shots[i].RtH = s.Height;
+            }
+            else
+            {
+                // Each stand-in keeps its own target: its last render, at the render's own size.
+                RenderTexture rt = _standIns[i].Target;
+                shots[i].PoleRt = ReadTarget(rt);
+                shots[i].RtW = rt.width;
+                shots[i].RtH = rt.height;
+            }
+        }
+
+        if (ropeless != null)
+        {
+            p = Shoot(s, group, ropeless);
+            for (int i = 0; i < n; i++)
+                shots[i].RopelessRt = group < 0 ? p[i] : ReadTarget(_standIns[i].Target);
+        }
+
+        s.Camera.backgroundColor = s.Sky;
+        SetScene(true, greyPole);
+        p = Shoot(s, group, delegate { });
+        for (int i = 0; i < n; i++)
+            shots[i].Bare = p[i];
+
+        p = Shoot(s, group, both);
+        string heights = string.Join(",", PreRenderHeights.ConvertAll(h => h.ToString(CultureInfo.InvariantCulture)).ToArray());
+        for (int i = 0; i < n; i++)
+        {
+            shots[i].Scene = p[i];
+            shots[i].Heights = heights;
+        }
+
+        return shots;
+    }
+
+    /// <summary>
+    /// The frame under Dynamic Resolution: the plain reference, then each group of RF_DYNRES (a
+    /// frame each), every render compared with the reference in numbers; a column of the sheet each.
+    /// </summary>
+    private static int RenderDynRes(Setup s, FlagMesh mesh, PoleDraw pole, FlagSpec flag, Vector3 anchor, float yawDeg, float pitchDeg, float dist,
+                                    FlagLoop loop, double loopClock, int loopCells, string outDir, int row, int col, float t, float wind, int pattern, string what)
+    {
+        Mesh drawn = loop != null ? loop.MeshFor(loopCells) : mesh.Mesh;
+        Vector3 centre = anchor + _hoist * (0.5f * flag.Height) + _fly * (0.5f * flag.Length) + _look;
+        float range = dist * Mathf.Max(flag.Length, flag.Height);
+        Quaternion look = Quaternion.Euler(pitchDeg, yawDeg, 0f);
+        Vector3 fwd = look * Vector3.forward;
+        s.Camera.transform.position = centre - fwd * range;
+        s.Camera.transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
+
+        FlagLook.Apply(s.Block, flag, Vector4.zero, _wearSeed);
+        if (loop != null)
+            loop.Bind(s.Block, loopClock, 0);
+        else
+            mesh.Bind(s.Block);
+        if (pole != null)
+        {
+            FlagPoleMesh.Look(s.PoleBlock, flag, Vector4.zero, _wearSeed);
+            s.PoleBlock.SetFloat("_RFRopeLook", _ropeLook);
+        }
+
+        Matrix4x4 at = Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one);
+        Action<Camera> cloth = cam => Graphics.DrawMesh(drawn, at, s.Material, 0, cam, 0, s.Block, true, true);
+        Action<Camera> poleOnly = cam =>
+        {
+            if (pole != null)
+                Graphics.DrawMesh(pole.Mesh, pole.Matrix, s.PoleMaterial, 0, cam, 0, s.PoleBlock, true, true);
+        };
+        Action<Camera> both = cam =>
+        {
+            cloth(cam);
+            poleOnly(cam);
+        };
+
+        Action<Camera> ropeless = null;
+        if (pole != null && pole.Bare != null)
+            ropeless = cam => Graphics.DrawMesh(pole.Bare, pole.Matrix, s.PoleMaterial, 0, cam, 0, s.PoleBlock, true, true);
+
+        if (!_queueChecked)
+            QueueCheck(s, cloth);
+
+        var all = ShootAll(s, -1, pole == null, cloth, poleOnly, both, ropeless);
+        Shots plain = all[0];
+        for (int g = 0; g < _dynGroups.Count; g++)
+            all.AddRange(ShootAll(s, g, pole == null, cloth, poleOnly, both, ropeless));
+
+        var inv = CultureInfo.InvariantCulture;
+        int n = plain.Scene.Length;
+        bool[] mask = new bool[n];
+        for (int i = 0; i < n; i++)
+            mask[i] = Lum(plain.Cloth[i]) > 1e-4f || Lum(plain.Pole[i]) > 1e-4f;
+        int plainRows, plainStrands;
+        Strands(plain.PoleRt, plain.RtW, plain.RtH, out plainRows, out plainStrands);
+        int plainShadow = Shadow(plain);
+
+        foreach (Shots shot in all)
+        {
+            double mad = 0.0, madIn = 0.0, meanIn = 0.0;
+            int inMask = 0;
+            for (int i = 0; i < n; i++)
+            {
+                Color a = shot.Scene[i], b = plain.Scene[i];
+                float d = (Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b)) / 3f;
+                mad += d;
+                if (mask[i])
+                {
+                    madIn += d;
+                    meanIn += (b.r + b.g + b.b) / 3f;
+                    inMask++;
+                }
+            }
+
+            mad /= n;
+            if (inMask > 0)
+            {
+                madIn /= inMask;
+                meanIn /= inMask;
+            }
+
+            int rows, strands;
+            Strands(shot.PoleRt, shot.RtW, shot.RtH, out rows, out strands);
+            int poleOwn = 0;
+            foreach (Color c in shot.PoleRt)
+                if (Lum(c) > 1e-4f)
+                    poleOwn++;
+            string ropes = shot.RopelessRt != null ? "; " + Ropes(shot) + " (plain " + Ropes(plain) + ")" : "";
+
+            string file = Path.Combine(outDir, "rf-" + row + "-" + col + ".png");
+            SavePng(shot.Scene, s.Width, s.Height, s.Exposure, file);
+            string poleFile = Path.Combine(outDir, "pole-" + row + "-" + col + ".png");
+            if (pole != null)
+                SavePng(shot.PoleRt, shot.RtW, shot.RtH, s.Exposure, poleFile);
+
+            Debug.Log("RF PREVIEW: DYNRES row=" + row + " col=" + col + " t=" + t.ToString("0.###", inv) + " " + shot.Label + ": rendered at " + shot.RtW + "x" + shot.RtH +
+                      " (the game camera's pixelHeight at onPreRender: " + (shot.Heights.Length > 0 ? shot.Heights : "none") + ")" +
+                      "; cloth covers " + Pct(Covered(shot.Cloth), n) + " (plain " + Pct(Covered(plain.Cloth), n) + ")" +
+                      ", pole " + Pct(Covered(shot.Pole), n) + " (plain " + Pct(Covered(plain.Pole), n) + ")" +
+                      ", shadow " + Shadow(shot) + " px (plain " + plainShadow + ")" +
+                      ", mean abs diff " + mad.ToString("F4", inv) + " over the frame, " + madIn.ToString("F4", inv) + " on the flag (plain's mean there " + meanIn.ToString("F4", inv) + ")" +
+                      "; pole at its own size " + poleOwn + " px, " + strands + " of " + rows + " rows show 2+ strands (plain " + plainStrands + " of " + plainRows + ")" + ropes +
+                      " | " + what + (pole != null ? " | pole picture " + poleFile : ""));
+            Debug.Log("RF FRAME row=" + row + " col=" + col + " t=" + t.ToString("0.###", inv) + " wind=" + wind.ToString("0.#", inv) + " pattern=" + pattern +
+                      " file=" + file + " | " + shot.Label + " | cloth " + Pct(Covered(shot.Cloth), n) + ", pole " + Pct(Covered(shot.Pole), n));
+            col++;
+        }
+
+        if (_standIns != null)
+        {
+            var counts = new List<string>();
+            foreach (DynResStandIn st in _standIns)
+                counts.Add(st.name + " " + st.Renders + " renders, target made " + st.Recreated + " time(s), now " +
+                           (st.Target != null ? st.Target.width + "x" + st.Target.height : "none"));
+            Debug.Log("RF PREVIEW: stand-ins so far -- " + string.Join("; ", counts.ToArray()) + (_byHand ? " (by hand)" : " (OnRenderImage)"));
+        }
+
+        return col;
+    }
+
+    /// <summary>
+    /// How Graphics.DrawMesh's queue behaves here: drawn once and rendered, then rendered again
+    /// with nothing drawn -- plainly, and through a stand-in. In a player frame the queue lasts
+    /// the frame (every render of the camera in it draws the mesh); what it does in this batch
+    /// editor bounds what a frame of two renders proves.
+    /// </summary>
+    private static void QueueCheck(Setup s, Action<Camera> cloth)
+    {
+        _queueChecked = true;
+        s.Camera.backgroundColor = Color.black;
+        SetScene(false);
+        s.Camera.enabled = true;
+        s.Camera.targetTexture = s.Target;
+        cloth(s.Camera);
+        s.Camera.Render();
+        int a = Covered(ReadTarget(s.Target));
+        s.Camera.Render();
+        int b = Covered(ReadTarget(s.Target));
+        s.Camera.targetTexture = null;
+        s.Camera.enabled = false;
+
+        cloth(s.Camera);
+        int c = Covered(StandInRender(0, 1f));
+        int d = Covered(StandInRender(0, 1f));
+        int e = Covered(StandInRender(0, 1f));
+        int n = s.Width * s.Height;
+        Debug.Log("RF PREVIEW: queue check -- plain: drawn then rendered " + Pct(a, n) + ", rendered again with nothing drawn " + Pct(b, n) +
+                  "; through a stand-in on the disabled game camera: drawn then rendered " + Pct(c, n) + ", again " + Pct(d, n) + ", a third time " + Pct(e, n));
+
+        // Queued again at the game camera's onPreCull, for each render: does a draw queued there reach that render?
+        int f, g;
+        Camera.CameraCallback requeue = cam =>
+        {
+            if (cam == _gameCamera)
+                cloth(cam);
+        };
+        Camera.onPreCull += requeue;
+        try
+        {
+            f = Covered(StandInRender(0, 0.5f));
+            g = Covered(StandInRender(0, 1.5f));
+        }
+        finally
+        {
+            Camera.onPreCull -= requeue;
+        }
+
+        int h = Covered(StandInRender(0, 1f));
+        Debug.Log("RF PREVIEW: queue check -- queued at the game camera's onPreCull for each render: render 1 (0.5) " + Pct(f, n) + ", render 2 (1.5) " + Pct(g, n) +
+                  "; after, nothing queued: " + Pct(h, n));
+
+        if (_drawOn == "all")
+        {
+            // Queued for every camera (null): does it last both renders of a frame, and beyond (no frame ends here)?
+            cloth(null);
+            int i = Covered(StandInRender(0, 0.5f));
+            int j = Covered(StandInRender(0, 1.5f));
+            int k = Covered(StandInRender(0, 1f));
+            Debug.Log("RF PREVIEW: queue check -- queued once for all cameras (null): render 1 (0.5) " + Pct(i, n) + ", render 2 (1.5) " + Pct(j, n) +
+                      ", render 3 (1.0) " + Pct(k, n) + " (a queue that is never cleared here would show in every later render)");
+        }
+    }
+
+    private static float Lum(Color c)
+    {
+        return c.r + c.g + c.b;
+    }
+
+    private static int Covered(Color[] pixels)
+    {
+        int covered = 0;
+        foreach (Color p in pixels)
+            if (Lum(p) > 1e-4f)
+                covered++;
+        return covered;
+    }
+
+    private static string Pct(int count, int of)
+    {
+        return (100.0 * count / of).ToString("F2", CultureInfo.InvariantCulture) + "%";
+    }
+
+    /// <summary>Ground darkened by the flag: pixels neither cloth nor pole, at least 15% darker with the flag than without.</summary>
+    private static int Shadow(Shots s)
+    {
+        int count = 0;
+        for (int i = 0; i < s.Scene.Length; i++)
+        {
+            if (Lum(s.Cloth[i]) > 1e-4f || Lum(s.Pole[i]) > 1e-4f)
+                continue;
+            float bare = Lum(s.Bare[i]);
+            if (bare > 1e-4f && Lum(s.Scene[i]) < 0.85f * bare)
+                count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// The ropes' own pixels at the render's size: covered with the ropes, not without. Their span
+    /// is from the first to the last row that has one; a rope drawn whole has one in every row of it.
+    /// </summary>
+    private static string Ropes(Shots s)
+    {
+        int w = s.RtW, h = s.RtH, pixels = 0, first = -1, last = -1, rows = 0;
+        for (int y = 0; y < h; y++)
+        {
+            bool any = false;
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                if (Lum(s.PoleRt[i]) > 1e-4f && Lum(s.RopelessRt[i]) <= 1e-4f)
+                {
+                    pixels++;
+                    any = true;
+                }
+            }
+
+            if (!any)
+                continue;
+            rows++;
+            if (first < 0)
+                first = y;
+            last = y;
+        }
+
+        int span = first < 0 ? 0 : last - first + 1;
+        return "ropes " + pixels + " px in " + rows + " of the " + span + " rows they span (" +
+               (span > 0 ? (100.0 * rows / span).ToString("F0", CultureInfo.InvariantCulture) : "-") + "%)";
+    }
+
+    /// <summary>In the pole's picture: rows with any of it, and rows where it is two or more separate runs (the pole and a rope beside it).</summary>
+    private static void Strands(Color[] pixels, int w, int h, out int rows, out int strands)
+    {
+        rows = 0;
+        strands = 0;
+        for (int y = 0; y < h; y++)
+        {
+            int runs = 0;
+            bool inside = false;
+            for (int x = 0; x < w; x++)
+            {
+                bool on = Lum(pixels[y * w + x]) > 1e-4f;
+                if (on && !inside)
+                    runs++;
+                inside = on;
+            }
+
+            if (runs > 0)
+                rows++;
+            if (runs >= 2)
+                strands++;
+        }
     }
 
     /// <summary>The ground, and the plain grey pole the preview stands a flag by when the mod draws none.</summary>

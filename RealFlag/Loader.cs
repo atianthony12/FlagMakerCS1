@@ -92,6 +92,7 @@ namespace RealFlag
                 Step(FlagRegistry.Clear, "the flags' designs");
                 Step(FlagSaveData.Forget, "the flags' kept data");
                 Step(FlagPrefab.Forget, "the flag prefab");
+                Step(GameCamera.Forget, "the game's camera");
             }
             finally
             {

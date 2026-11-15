@@ -50,6 +50,17 @@
 #                                  (x), depth (z), height; several with "|" -- the flag's SurfaceGrid
 #   ... -Posts "-0.5,0,0.15,13"    props or trees: capsules at x,z, their radius and height (CapsuleSet)
 #   ... -NoCity                    the cloth passes through them (as before the city was kept off)
+#   ... -DynRes "0.5,1,1.5"        Dynamic Resolution / Lumina as they render the game's camera (DynResStandIn): the
+#                                  scene's camera disabled, an empty stand-in tagged MainCamera rendering it by hand
+#                                  into a target the screen x a factor; each listed factor a frame of its own, and
+#                                  "0.5+1.5" one frame in which it renders twice (both mods on). Each moment gives a
+#                                  column for the plain reference, then one per render, compared in "RF PREVIEW: DYNRES"
+#                                  lines (coverage, shadow, difference, the pole's strands at the render's own size).
+#                                  -DrawOn game (default: the meshes queued for the scene's camera) / main (Camera.main,
+#                                  the stand-in) / all (null); -PixelRadius render (default: _RFPixelRadius set again at
+#                                  each render's onPreRender) / frame (only from the screen, once a frame);
+#                                  -Requeue: in a frame of two renders, the meshes queued again at the game camera's
+#                                  onPreCull from its second render on (each render takes the camera's queue)
 # The cloth and the sheet: -Length (m) -Proportion (height/length x 1000) -Waviness -Gusts
 # -Elevation (m) -Colours "#hex,#hex,#hex"; the camera: -Yaw -Pitch -Dist (flag lengths away).
 
@@ -118,6 +129,10 @@ param(
     [string]$Boxes = "",
     [string]$Posts = "",
     [switch]$NoCity,
+    [string]$DynRes = "",
+    [ValidateSet("game", "main", "all")][string]$DrawOn = "game",
+    [ValidateSet("render", "frame")][string]$PixelRadius = "render",
+    [switch]$Requeue,
     [string]$Name = "gpu",
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
@@ -200,6 +215,10 @@ $env:RF_MOTIONS = if ($Motions) { $Motions } else { $Motion }
 $env:RF_LOOPCELLS = "$LoopCells"
 $env:RF_WINDSHARE = $WindShare.ToString($inv)
 $env:RF_LOOPFILE = if ($LoopFile) { "1" } else { "0" }
+$env:RF_DYNRES = $DynRes
+$env:RF_DRAWON = $DrawOn
+$env:RF_PIXELRADIUS = $PixelRadius
+$env:RF_REQUEUE = if ($Requeue) { "1" } else { "0" }
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()
