@@ -4,11 +4,13 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [h1]How to use[/h1]
 [olist]
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
-[*][b]Load a city[/b] (new or saved). The mod does not run in the editors.
+[*][b]Load a city[/b] (new or saved). The mod does not run in the editors (read why below).
 [*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
 [*][b]Click + New flag[/b], choose a country flag, pattern or add your own image. The default motion (animation) is [b]Waving[/b], the flag reacts to physics and wind. Change it to [b]Loop[/b] if you want it to play the flag animation endlessly for better performance.
 [*][b]To edit a flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
 [/olist]
+[h3]Note on the Asset Editor[/h3]
+It makes perfect sense for this mod to be available in the Asset Editor so you can add flags to your buildings. But, adding a flag to your asset will mean that you have to list this mod as a Required Item, which I'm not sure is best practice. I'm looking for a way to let you export flags as animations and share them without requiring this mod, but I'm not sure it's possible. If I give up on this, I'll make the mod work in the Asset Editor as well.
 
 [hr][/hr]
 [h1]Overview[/h1]
@@ -23,10 +25,10 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [/list]
 [h3]Flag motion[/h3]
 [list]
-[*][b]Loop[/b]: the flag will replay the waving animation over and over, and it's not affected by physics or wind. Best performance
 [*][b]Waving[/b]: the default, physics-based, the most realistic, the flag waves in the wind and collides with other buildings. Recommended only to be used on a few flags at a time
+[*][b]Loop[/b]: the flag will replay the waving animation over and over, and it's not affected by physics or wind. Best performance
 [*][b]Still[/b]: the flag animation will be paused. Useful for taking screenshots
-[*][b]Flat[/b]: no motion at all, just a 2D flag
+[*][b]Flat[/b]: no motion at all, just a flat 2D texture
 [/list]
 [h3]Flagpoles[/h3]
 [list]
@@ -36,9 +38,8 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [/list]
 [h3]Performance[/h3]
 By default the preset is set to High, you can set it to Low or Medium if your system struggles to animate the flags. You can also separately change the cloth quality itself.
-[b]Technical info[/b]
-The [i]Loop[/i] motion renders the flag animation on your CPU once and plays it back on your GPU, so it costs close to nothing to animate, as opposed to [i]Waving[/i] which reacts to physics and wind.
-With the [i]Waving[/i] motion, the flags run on your CPU, it uses a minimal amount of cores and it's changeable in the Settings tab if you want a big amount of flags to animate at the same time. But you may never need to change this setting, because the mod has a few ways to optimize performance, such as stopping flags animations except those near the camera, or having a shared motion/animation between flags, etc.
+The [i]Loop[/i] motion renders the flag animation on your CPU once and plays it back on your GPU, it's very cheap to animate, as opposed to [i]Waving[/i] which reacts to physics and wind.
+With the [i]Waving[/i] motion, the flags run on your CPU, it uses a minimal amount of cores and it's changeable in the Settings tab if you want a big amount of flags to animate at the same time.
 [h3]Mod options[/h3]
 [list]
 [*]4 panel themes
