@@ -72,7 +72,7 @@ namespace RealFlag
             Object.DontDestroyOnLoad(_root);
             _root.AddComponent<ModController>();
 
-            Debug.Log("[RealFlag] Controller created.");
+            Debug.Log("[FlagMaker]Controller created.");
         }
 
         public override void OnLevelUnloading()
@@ -143,7 +143,7 @@ namespace RealFlag
             // would drop every design as the flags of a city that has none.
             if (EmlEnabled())
             {
-                Log.Warn("Extended Managers Library is enabled: RealFlag stands down in this city (its props are out of RealFlag's sight)");
+                Log.Warn("Extended Managers Library is enabled: Flag Maker stands down in this city (its props are out of Flag Maker's sight)");
                 FlagSaveData.Keep("Extended Managers Library is enabled");
                 if (_emlShown)
                     return string.Empty; // said once a session: the log says it for every city

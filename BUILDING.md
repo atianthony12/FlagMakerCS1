@@ -23,7 +23,7 @@ The panel's own icons (its tabs, the images folder) are listed in
 dotnet build RealFlag/RealFlag.csproj
 ```
 
-builds and deploys `RealFlag.dll`, `UnifiedUILib.dll`, `CitiesHarmony.API.dll` and
+builds and deploys `FlagMaker.dll`, `UnifiedUILib.dll`, `CitiesHarmony.API.dll` and
 `MoveItIntegration.dll` to `%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods\RealFlag`.
 To build without deploying, add `-p:Deploy=false`; to compile only,
 
@@ -31,7 +31,7 @@ To build without deploying, add `-p:Deploy=false`; to compile only,
 dotnet build RealFlag/RealFlag.csproj -t:Compile
 ```
 
-which leaves the DLL in `RealFlag\obj\Debug` (give the tests `-Dll RealFlag\obj\Debug\RealFlag.dll`).
+which leaves the DLL in `RealFlag\obj\Debug` (give the tests `-Dll RealFlag\obj\Debug\FlagMaker.dll`).
 A bare `-t:Compile` skips MSBuild's PrepareResources, and used to leave the shader bundle, the
 icon and the language files out of the DLL -- and the next full build, finding the DLL up to
 date, deployed it so. The project now prepares the resources before every compile
@@ -65,7 +65,7 @@ rebuild the mod to embed them.
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-cloth.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-settings.ps1 -Dll RealFlag\obj\Debug\RealFlag.dll
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-settings.ps1 -Dll RealFlag\obj\Debug\FlagMaker.dll
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-localization.ps1
 ```
 

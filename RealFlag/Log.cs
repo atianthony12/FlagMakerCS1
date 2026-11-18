@@ -97,7 +97,7 @@ namespace RealFlag
                     }
                     catch (Exception e)
                     {
-                        Debug.LogWarning("[RealFlag] Could not keep the last session's log: " + e.Message);
+                        Debug.LogWarning("[FlagMaker]Could not keep the last session's log: " + e.Message);
                     }
 
                     File.WriteAllText(Path,
@@ -108,14 +108,14 @@ namespace RealFlag
                 catch (Exception e)
                 {
                     _disabled = true;
-                    Debug.LogWarning("[RealFlag] File logging unavailable: " + e.Message);
+                    Debug.LogWarning("[FlagMaker]File logging unavailable: " + e.Message);
                 }
             }
         }
 
         public static void Msg(string message)
         {
-            Debug.Log("[RealFlag] " + message);
+            Debug.Log("[FlagMaker]" + message);
             Write("INFO ", message);
         }
 
@@ -157,13 +157,13 @@ namespace RealFlag
 
         public static void Warn(string message)
         {
-            Debug.LogWarning("[RealFlag] " + message);
+            Debug.LogWarning("[FlagMaker]" + message);
             Write("WARN ", message);
         }
 
         public static void Error(string message, Exception e = null)
         {
-            Debug.LogError("[RealFlag] " + message);
+            Debug.LogError("[FlagMaker]" + message);
             if (e != null)
                 Debug.LogException(e);
 

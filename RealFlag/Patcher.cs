@@ -14,7 +14,7 @@ namespace RealFlag
     /// </summary>
     public static class Patcher
     {
-        private const string HarmonyId = "realflag.flags";
+        private const string HarmonyId = "flagmaker.flags";
 
         private static bool _patched;
 

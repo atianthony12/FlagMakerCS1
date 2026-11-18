@@ -114,7 +114,7 @@ The Workshop uploads `%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods\
 stands.
 
 - [ ] Exactly five files (release.ps1 checks it, the four besides the DLL byte-identical to the
-      repo's): `RealFlag.dll`, `UnifiedUILib.dll`, `CitiesHarmony.API.dll`, `MoveItIntegration.dll`
+      repo's): `FlagMaker.dll`, `UnifiedUILib.dll`, `CitiesHarmony.API.dll`, `MoveItIntegration.dll`
       and `THIRD-PARTY-NOTICES.md` (deployed since 2026-10-22: MIT asks for its notice "in all
       copies", and a GitHub link is not with the distribution). No PDB, no subfolder.
       UnifiedUILib.dll and MoveItIntegration.dll must ship: our code references their types, and the

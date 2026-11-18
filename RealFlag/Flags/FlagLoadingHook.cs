@@ -107,7 +107,7 @@ namespace RealFlag.Flags
 
         public string GetName()
         {
-            return "RealFlag";
+            return "FlagMaker";
         }
 
         public DrawCallData GetDrawCallData()

@@ -14,7 +14,7 @@
 # log says what that did on every start.
 
 param(
-    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\bin\Debug\RealFlag.dll")
+    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\bin\Debug\FlagMaker.dll")
 )
 
 $managed = "C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities_Data\Managed"

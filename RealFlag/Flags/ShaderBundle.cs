@@ -31,6 +31,19 @@ namespace RealFlag.Flags
         public const string Gizmo = "RealFlag/FlagGizmo";
 
         private const string ResourcePrefix = "RealFlag.Resources.realflag-";
+
+        /// <summary>
+        /// A shader's name as the log gives it: without its folder ("FlagCloth"). The shaders keep
+        /// the mod's first name in theirs, in all three bundles; a player's log does not.
+        /// </summary>
+        public static string ShortName(string shader)
+        {
+            if (shader == null)
+                return "none";
+
+            int slash = shader.LastIndexOf('/');
+            return slash >= 0 ? shader.Substring(slash + 1) : shader;
+        }
         private const string ResourceSuffix = ".bundle";
 
         private static Dictionary<string, Shader> _shaders;
@@ -121,6 +134,9 @@ namespace RealFlag.Flags
 
                 string[] names = new string[result.Count];
                 result.Keys.CopyTo(names, 0);
+                for (int i = 0; i < names.Length; i++)
+                    names[i] = ShortName(names[i]);
+
                 Log.Msg("shader bundle loaded: " + name + " (" + data.Length + " bytes) for " + Application.platform +
                         " on " + SystemInfo.graphicsDeviceType + ": " + string.Join(", ", names));
             }

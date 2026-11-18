@@ -691,7 +691,7 @@ namespace RealFlag
             }
             catch (Exception e)
             {
-                Debug.LogError("[RealFlag] Could not initialise settings.");
+                Debug.LogError("[FlagMaker]Could not initialise settings.");
                 Debug.LogException(e);
                 return;
             }

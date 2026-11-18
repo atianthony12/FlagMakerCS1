@@ -818,7 +818,7 @@ namespace RealFlag.Flags
             // The loops' folder: its place and this build's stamp found here, on the main thread.
             _loopCache = LoopCache.Open();
 
-            Log.Msg("flags: renderer ready -- shader '" + shader.name + "' (" + _material.passCount + " passes), layer " + _layer +
+            Log.Msg("flags: renderer ready -- shader '" + ShaderBundle.ShortName(shader.name) + "' (" + _material.passCount + " passes), layer " + _layer +
                     " (" + LayerMask.LayerToName(_layer) + "), " + FlagRegistry.Count + " saved designs, prefab " +
                     (FlagPrefab.Info != null ? "index " + FlagPrefab.Info.m_prefabDataIndex : "MISSING") + ", " + stepping +
                     "; cloth detail up to " + UI.SettingsCatalog.DetailLogName(_finest) + ", self-collision " + (_selfCollision ? "on" : "off") +

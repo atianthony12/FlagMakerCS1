@@ -94,7 +94,7 @@ namespace RealFlag.Flags
                     if (existing != null)
                     {
                         if (!ReferenceEquals(existing, _info))
-                            Log.Msg("flag prefab: '" + Name + "' already in the prop collection (index " + existing.m_prefabDataIndex + ")");
+                            Log.Msg("flag prefab: already in the prop collection (index " + existing.m_prefabDataIndex + ")");
                         _info = existing;
                         HookLocale();
                         return;
@@ -105,7 +105,7 @@ namespace RealFlag.Flags
                 PrefabCollection<PropInfo>.InitializePrefabs("RealFlag", info, null);
                 _info = info;
                 HookLocale();
-                Log.Msg("flag prefab: '" + Name + "' made and added to the prop collection (initialised=" + info.m_prefabInitialized +
+                Log.Msg("flag prefab: made and added to the prop collection (initialised=" + info.m_prefabInitialized +
                         ", renderer=" + info.m_hasRenderer + ")" + (bind ? "; binding the collection again" : ""));
 
                 if (bind)
@@ -119,7 +119,7 @@ namespace RealFlag.Flags
             }
             catch (Exception e)
             {
-                Log.Error("flag prefab: could not make '" + Name + "'; flags cannot be placed or loaded in this city.", e);
+                Log.Error("flag prefab: could not be made; flags cannot be placed or loaded in this city.", e);
             }
         }
 

@@ -186,7 +186,7 @@ namespace RealFlag.Flags
             }
 
             if (stood > 0)
-                Log.Warn("flags: " + stood + " flag(s) came without their height (the city was saved before RealFlag kept the flags' heights; " +
+                Log.Warn("flags: " + stood + " flag(s) came without their height (the city was saved before Flag Maker kept the flags' heights;" +
                          "the game saves none): stood on the ground under them -- a flag that stood on a roof needs raising again (Page Up)");
         }
 

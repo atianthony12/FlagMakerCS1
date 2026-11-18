@@ -27,7 +27,7 @@ namespace RealFlag
                 {
                     if (stream == null)
                     {
-                        Debug.LogWarning("[RealFlag] Embedded icon '" + ResourceName + "' not found.");
+                        Debug.LogWarning("[FlagMaker]Embedded icon '" + ResourceName + "' not found.");
                         return null;
                     }
 

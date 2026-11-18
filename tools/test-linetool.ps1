@@ -10,7 +10,7 @@
 # Not covered, because it needs the game: the tool actually switching, the rows' look, the preview.
 
 param(
-    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\obj\Debug\RealFlag.dll"),
+    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\obj\Debug\FlagMaker.dll"),
     [string]$LineTool = "C:\Program Files (x86)\Steam\steamapps\workshop\content\255710\2956939040\LineTool.dll"
 )
 

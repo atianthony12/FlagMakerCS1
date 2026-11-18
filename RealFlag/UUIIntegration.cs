@@ -41,7 +41,7 @@ namespace RealFlag
                 }
 
                 _button = UUIHelpers.RegisterCustomButton(
-                    name: "RealFlag",
+                    name: "FlagMaker",
                     groupName: null,
                     tooltip: Mod.DisplayName,
                     icon: icon,

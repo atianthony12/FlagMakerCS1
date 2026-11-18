@@ -47,7 +47,7 @@ $workshopId = ""
 $workshop = "C:\Program Files (x86)\Steam\steamapps\workshop\content\255710\$workshopId"
 $deployed = "$env:LOCALAPPDATA\Colossal Order\Cities_Skylines\Addons\Mods\RealFlag"
 $parked = "$env:LOCALAPPDATA\Colossal Order\Cities_Skylines\RealFlag-dev-parked"
-$shipped = @("RealFlag.dll", "UnifiedUILib.dll", "CitiesHarmony.API.dll", "MoveItIntegration.dll", "THIRD-PARTY-NOTICES.md")
+$shipped = @("FlagMaker.dll","UnifiedUILib.dll", "CitiesHarmony.API.dll", "MoveItIntegration.dll", "THIRD-PARTY-NOTICES.md")
 # Where each shipped file other than the DLL comes from: the deployed copy must be this one.
 $sources = @{
     "UnifiedUILib.dll"       = Join-Path $root "libs\UnifiedUILib.dll"
@@ -241,7 +241,7 @@ if ($LASTEXITCODE -ne 0 -or ($build -match "error CS")) {
 }
 
 Step "The deployed DLL carries Mod.Version"
-$deployedDll = Join-Path $deployed "RealFlag.dll"
+$deployedDll = Join-Path $deployed "FlagMaker.dll"
 if (-not (Test-Path $deployedDll)) { Stop-Release "$deployedDll is not there" }
 $deployedVersion = DllVersion $deployedDll
 if ((ReleaseOf $deployedVersion) -ne $version) {
@@ -347,7 +347,7 @@ if (-not $workshopId) {
     if (-not (Test-Path $workshop)) {
         Stop-Release "$workshop does not exist: subscribe to the item (and let Steam download it) first"
     } else {
-        $liveDll = Join-Path $workshop "RealFlag.dll"
+        $liveDll = Join-Path $workshop "FlagMaker.dll"
         if (Test-Path $liveDll) { Ok "holds $(DllVersion $liveDll) now" } else { Ok "exists, no DLL in it yet" }
         $others = @(Get-ChildItem $workshop -File | Where-Object { $shipped -notcontains $_.Name } | Select-Object -ExpandProperty Name)
         if ($others.Count -gt 0) { Write-Host "   note  other files there, left alone: $($others -join ', ')" }
@@ -362,7 +362,7 @@ if (-not $workshopId) {
         }
         $bad = @($shipped | Where-Object { -not (SameFile (Join-Path $deployed $_) (Join-Path $workshop $_)) })
         if ($bad.Count -gt 0) { Stop-Release "$($bad -join ', ') differ(s) after the copy; is Steam re-verifying the folder? Try again." }
-        $liveVersion = DllVersion (Join-Path $workshop "RealFlag.dll")
+        $liveVersion = DllVersion (Join-Path $workshop "FlagMaker.dll")
         if ($liveVersion -ne $deployedVersion) { Stop-Release "the Workshop folder reads $liveVersion, expected $deployedVersion" }
         Ok "the subscribed folder now holds $liveVersion, hashes identical"
     }

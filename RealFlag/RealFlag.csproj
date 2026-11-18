@@ -6,7 +6,9 @@
     <!-- 7.3 is the newest version that needs no polyfill types on net35. -->
     <LangVersion>7.3</LangVersion>
     <RootNamespace>RealFlag</RootNamespace>
-    <AssemblyName>RealFlag</AssemblyName>
+    <!-- The file a player gets is FlagMaker.dll (2026-11-19, before the first release). The
+         namespace, the embedded resources' names and the project's folder keep "RealFlag". -->
+    <AssemblyName>FlagMaker</AssemblyName>
 
     <!-- We write Properties\AssemblyInfo.cs by hand instead of letting the SDK generate it. -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -22,7 +24,9 @@
     <Optimize>true</Optimize>
 
     <GameManaged>$(MSBuildProgramFiles32)\Steam\steamapps\common\Cities_Skylines\Cities_Data\Managed</GameManaged>
-    <ModsDir>$(LOCALAPPDATA)\Colossal Order\Cities_Skylines\Addons\Mods\$(AssemblyName)</ModsDir>
+    <!-- The local folder keeps its first name: the game knows a mod by its folder, and a new
+         one would be a second mod beside it, disabled until switched on. -->
+    <ModsDir>$(LOCALAPPDATA)\Colossal Order\Cities_Skylines\Addons\Mods\RealFlag</ModsDir>
     <LibsDir>$(MSBuildProjectDirectory)\..\libs</LibsDir>
   </PropertyGroup>
 
@@ -130,6 +134,9 @@
   <!-- `-p:Deploy=false`: a full build that leaves the game's Mods folder alone. -->
   <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(Deploy)' != 'false'">
     <MakeDir Directories="$(ModsDir)" />
+    <!-- The DLL under its name before 2026-11-19: left beside the new one, the game would load
+         both and the mod would run twice. -->
+    <Delete Files="$(ModsDir)\RealFlag.dll" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModsDir)" />
     <!-- The PDB is deliberately NOT deployed. Unity 5.6's Mono reads .mdb, not .pdb, so it
          gives the game nothing (no line numbers in any stack trace), while the Workshop

@@ -2,7 +2,7 @@
 # FlagNoise, FlagDesign) -- run against the built mod DLL, no game needed:
 #
 #   dotnet build RealFlag/RealFlag.csproj -t:Compile
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-cloth.ps1 [-Dll RealFlag\obj\Debug\RealFlag.dll]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-cloth.ps1 [-Dll RealFlag\obj\Debug\FlagMaker.dll]
 #
 # What is covered, and why:
 # - the noise has about unit sigma (FlagNoise.Scale1/Scale3 are measured here), zero mean;
@@ -33,7 +33,7 @@
 # preview's -Bench measures it there).
 
 param(
-    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\obj\Debug\RealFlag.dll")
+    [string]$Dll = (Join-Path $PSScriptRoot "..\RealFlag\obj\Debug\FlagMaker.dll")
 )
 
 $ErrorActionPreference = "Stop"

@@ -195,7 +195,7 @@ namespace RealFlag.Flags
         /// <summary>Logged, and the player told once a frame (Move It converts a whole selection in one) -- on the main thread only.</summary>
         private static void Refuse(string what, string way)
         {
-            Log.Msg("flags: " + what + " not turned into a Procedural Object (" + way + "): its cloth is RealFlag's to draw");
+            Log.Msg("flags: " + what + " not turned into a Procedural Object (" + way + "): its cloth is Flag Maker's to draw");
 
             if (!ReferenceEquals(Dispatcher.currentSafe, Dispatcher.mainSafe) || Time.frameCount == _shownFrame)
                 return;

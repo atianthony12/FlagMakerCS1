@@ -10,9 +10,10 @@ namespace RealFlag
         /// <summary>
         /// The mod's name wherever a player reads it: the mods list, the options page, the panel's
         /// title, button tooltips, dialog titles, the log's first line. The player's files are
-        /// FlagMaker too (FlagMaker.log, FlagMaker.xml, FlagMaker\Images). The assembly, the namespace,
-        /// the mod's folder and the IDs keep "RealFlag", its first name, and the save keys and the
-        /// prefab's name always will.
+        /// FlagMaker too (FlagMaker.log, FlagMaker.xml, FlagMaker\Images), and so are the DLL, the
+        /// Harmony id and the Unified UI button's name (2026-11-19). The namespace, the project's
+        /// and the local mod's folder, the shaders and Move It's integration ID keep "RealFlag",
+        /// its first name, and the save keys and the prefab's name always will.
         /// </summary>
         public const string DisplayName = "Flag Maker";
 
@@ -21,7 +22,7 @@ namespace RealFlag
         /// fix, the second for new features). Also the first three parts of the assembly version
         /// (Properties/AssemblyInfo.cs). 0.x: not on the Workshop yet.
         /// </summary>
-        public const string Version = "0.1.0";
+        public const string Version = "1.0.0";
 
         /// <summary>The mods list and the options page show the version after the name, so a report can say which build it was.</summary>
         public string Name => DisplayName + " " + Version;
@@ -62,12 +63,12 @@ namespace RealFlag
                 int copies = 0;
                 foreach (Assembly a in System.AppDomain.CurrentDomain.GetAssemblies())
                 {
-                    if (a.GetName().Name == "RealFlag")
+                    if (a.GetName().Name == "FlagMaker")
                         copies++;
                 }
 
                 if (copies > 1)
-                    Log.Warn(copies + " copies of Flag Maker are loaded (a local Addons\\Mods\\RealFlag beside the Workshop's?): " +
+                    Log.Warn(copies + " copies of Flag Maker are loaded (a local copy in Addons\\Mods beside the Workshop's?): " +
                              "both run; disable one, or a city's flags may be saved by the wrong copy");
             }
             catch (System.Exception e)
