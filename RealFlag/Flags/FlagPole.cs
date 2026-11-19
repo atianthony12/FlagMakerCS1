@@ -333,8 +333,37 @@ namespace RealFlag.Flags
         /// <summary>The ball and the neck it sits on; the spear.</summary>
         public float BallRadius, NeckRadius, NeckHeight, SpearRadius, SpearHeight;
 
+        /// <summary>
+        /// THE BANNER'S ARMS (2026-11-19; the author: "A third option would be those banners" -- a
+        /// photo of tall banners, each on its own pole, hanging from a short arm at its top): a
+        /// tube out from the pole's axis along the flag's fly at rest, wherever its cloth's held
+        /// edge is held (FlagCloth.SetHolds) -- at the anchor's level for a held top edge
+        /// (<see cref="ArmTop"/> long from the hoist line), and at the held bottom edge's level
+        /// (<see cref="ArmBottomDown"/> under the anchor, <see cref="ArmBottom"/> long) for a held
+        /// bottom edge. 0: no arm. Painted as the pole (FlagPoleMesh).
+        /// </summary>
+        public float ArmTop, ArmBottom, ArmBottomDown;
+
+        /// <summary>The arms' radius: <see cref="ArmShare"/> of the shaft's top's.</summary>
+        public float ArmRadius;
+
+        /// <summary>
+        /// An arm's radius against the shaft's top's: a little thinner than the pole, as the
+        /// makers' banner arms are (a 1" arm on a 1.5-2" pole top).
+        /// </summary>
+        public const float ArmShare = 0.6f;
+
+        /// <summary>The shortest arm drawn, metres (a pennant's first row ends at its hoist: no arm).</summary>
+        public const float MinArm = 0.05f;
+
         /// <summary>The shortest pole drawn, metres.</summary>
         public const float MinLength = 0.5f;
+
+        /// <summary>The widest of the pole at its foot, round its axis: its cast base, its collar, or the shaft.</summary>
+        public float FootReach
+        {
+            get { return Base == FlagPoleBase.Cast ? BaseRadius : Base == FlagPoleBase.Collar ? CollarRadius : RadiusFoot; }
+        }
 
         /// <summary>The shaft's top above the foot.</summary>
         public float ShaftTop
@@ -471,7 +500,42 @@ namespace RealFlag.Flags
                 s.Offset = Math.Max(s.TruckRadius, s.RadiusAt(Math.Max(0f, s.Length - spec.Height))) + 1.5f * s.RopeRadius;
             }
 
+            Arms(ref s, spec);
             return s;
+        }
+
+        /// <summary>
+        /// The banner's arms (<see cref="ArmTop"/>), where the cloth's held edges are held: its
+        /// spec's Held (never HeldNow -- a flat flag keeps its arm, its pole is the same pole), a
+        /// pole drawn by its side hoist (HasPole). The arm reaches from the axis to the held edge's
+        /// far end: the flag's length along that row (its cut's: FlagCut.Edge), less the slack
+        /// FlagCloth.FindHeld leaves along the fly when the far edge or corners are held too; the
+        /// bottom one at the bottom row's hoist place (on a halyard, its slack: BottomClip), less
+        /// the slack down when both edges are held -- the level of the held edge past its first
+        /// quarter (FlagCloth.HoldRamp): a straight arm, where the edge itself rises from the hoist.
+        /// </summary>
+        private static void Arms(ref FlagPoleShape s, FlagSpec spec)
+        {
+            s.ArmRadius = ArmShare * s.RadiusTop;
+            int held = spec.Held & FlagHold.All;
+            if (!spec.HasPole || held == FlagHold.None)
+                return;
+
+            bool top = (held & FlagHold.TopEdge) != 0, bottom = (held & FlagHold.BottomEdge) != 0;
+            float slackU = (held & (FlagHold.FlyEdge | FlagHold.FlyCorners)) != 0 ? FlagCloth.HoldSlackAlong : 0f;
+            float slackV = top && bottom ? FlagCloth.HoldSlack : 0f;
+            if (top)
+            {
+                float arm = spec.Length * FlagCut.Edge(spec.Cut, spec.CutDepth, 0f) * (1f - slackU);
+                s.ArmTop = arm >= MinArm ? arm : 0f;
+            }
+
+            if (bottom)
+            {
+                float arm = spec.Length * FlagCut.Edge(spec.Cut, spec.CutDepth, 1f) * (1f - slackU);
+                s.ArmBottom = arm >= MinArm ? arm : 0f;
+                s.ArmBottomDown = s.BottomClip * (1f - slackV);
+            }
         }
 
         /// <summary>
@@ -519,7 +583,9 @@ namespace RealFlag.Flags
         {
             return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f && Math.Abs(Drop - other.Drop) < 0.01f &&
                    Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f &&
-                   Profile == other.Profile && Base == other.Base && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f;
+                   Profile == other.Profile && Base == other.Base && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f &&
+                   Math.Abs(ArmTop - other.ArmTop) < 0.01f && Math.Abs(ArmBottom - other.ArmBottom) < 0.01f &&
+                   Math.Abs(ArmBottomDown - other.ArmBottomDown) < 0.01f;
         }
     }
 }

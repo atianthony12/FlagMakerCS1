@@ -20,6 +20,7 @@ It makes perfect sense for this mod to be available in the Asset Editor so you c
 [*]Simple pattern creator
 [*]Ability to add your own flag picture
 [*]Flags can be up to 30m wide/tall, hoisted from the side or the top
+[*]Presets: Default, Wall flag and Banner
 [*]Wear and tear, and dirt
 [*]Draggable as Props with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b], and can be placed in a line or circle with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2956939040]Line Tool[/url][/b]
 [/list]

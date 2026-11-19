@@ -1705,11 +1705,18 @@ namespace RealFlag.Flags
             }
 
             // The pole's box: its axis from the foot to the tip, and a metre round it.
-            Vector3 foot = PoleAnchor(f, shape) - f.Fly * shape.Offset + f.Hoist * shape.Length;
+            Vector3 poleAnchor = PoleAnchor(f, shape);
+            Vector3 foot = poleAnchor - f.Fly * shape.Offset + f.Hoist * shape.Length;
             Vector3 tip = foot - f.Hoist * shape.Tip;
             var box = new Bounds((foot + tip) * 0.5f, Vector3.zero);
             box.Encapsulate(foot);
             box.Encapsulate(tip);
+
+            // A banner's arms, out along the fly at its held edges (FlagPoleShape.ArmTop).
+            if (shape.ArmTop > 0f)
+                box.Encapsulate(poleAnchor + f.Fly * shape.ArmTop);
+            if (shape.ArmBottom > 0f)
+                box.Encapsulate(poleAnchor + f.Hoist * shape.ArmBottomDown + f.Fly * shape.ArmBottom);
             box.Expand(2f * shape.CollarRadius + 1f);
 
             // Drawn while its length is DrawPixels on the screen (its tubes keep 0.6 px wide).

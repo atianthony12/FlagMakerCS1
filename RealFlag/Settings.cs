@@ -257,6 +257,16 @@ namespace RealFlag
         /// <summary>A new banner hoisted from its top snaps to a roof's edge near the pointer (FlagEdgeSnap).</summary>
         public static BoolSetting NewSnapEdges { get; private set; }
 
+        /// <summary>A new flag on a pole tilted out by its side hoist snaps to the wall the pointer is on, heading out of it (FlagEdgeSnap.FindWall).</summary>
+        public static BoolSetting NewSnapWalls { get; private set; }
+
+        /// <summary>
+        /// The New flag window's placement preset (UI.PlacementPreset: Default, Wall flag, Banner,
+        /// or Custom), DERIVED from the settings it writes -- never in the file; choosing one sets
+        /// them.
+        /// </summary>
+        public static IntSetting NewPreset { get; private set; }
+
         /// <summary>A banner hoisted from its top keeps in front of an unseen plate through its hoist, never swinging back into a wall (FlagSpec.BackPlate).</summary>
         public static BoolSetting NewBackPlate { get; private set; }
 
@@ -487,6 +497,9 @@ namespace RealFlag
             /// <summary>Off (the author, 2026-11-09: "snap to edges should be off by default").</summary>
             public const bool SnapEdges = false;
 
+            /// <summary>On (2026-11-19, the author's brief): a wall flag goes on the wall the pointer is on.</summary>
+            public const bool SnapWalls = true;
+
             /// <summary>On: a banner from its top never swings back behind its hoist (the author, 2026-11-09).</summary>
             public const bool BackPlate = true;
 
@@ -614,6 +627,8 @@ namespace RealFlag
                 NewLineSpacing = new FloatSetting("NewLineSpacing", Defaults.LineSpacing);
                 NewLineAlong = new BoolSetting("NewLineAlong", Defaults.LineAlong);
                 NewSnapEdges = new BoolSetting("NewSnapEdges", Defaults.SnapEdges);
+                NewSnapWalls = new BoolSetting("NewSnapWalls", Defaults.SnapWalls);
+                NewPreset = new IntSetting("NewPreset", UI.PlacementPreset.Default, true);
                 NewBackPlate = new BoolSetting("NewBackPlate", Defaults.BackPlate);
                 NewHeight = new FloatSetting("NewHeight", Defaults.Height);
                 NewPole = new IntSetting("NewPole", Defaults.Pole);

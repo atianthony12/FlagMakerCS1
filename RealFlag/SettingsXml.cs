@@ -186,6 +186,9 @@ namespace RealFlag
             // The Quality preset shows what the cloth options make, however they came to be.
             UI.QualityPreset.Sync();
 
+            // So does the New flag window's placement preset, of the settings it writes.
+            UI.PlacementPreset.Sync();
+
             float now = Time.realtimeSinceStartup;
 
             if (_dirty)

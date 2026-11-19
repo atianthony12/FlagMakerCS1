@@ -16,7 +16,8 @@ namespace RealFlag.Flags
     /// each joint, or fluted -- the truck (the cap whose sheave the halyard runs over), and a ball
     /// on a neck, a flat cap, or a spear. The halyard: the line the flag is clipped to, from the
     /// sheave down to the flag's top grommet and from its bottom grommet down to the cleat, and
-    /// with two ropes the loop's return line beside it.
+    /// with two ropes the loop's return line beside it. A banner's arms (2026-11-19): a tube out
+    /// along the fly from the axis at each held edge, painted as the pole (FlagPoleShape.ArmTop).
     ///
     /// Each vertex's first uv (four floats) holds its part (0 the pole, 1 the top, 2 a rope:
     /// FlagPole.shader colours them), for the tubes -- the shaft and the ropes -- their radius
@@ -38,6 +39,9 @@ namespace RealFlag.Flags
 
         /// <summary>Sides of a rope.</summary>
         public const int RopeSides = 6;
+
+        /// <summary>Sides of a banner's arm: round enough near, a few centimetres thick.</summary>
+        public const int ArmSides = 24;
 
         public const float PartPole = 0f;
         public const float PartTop = 1f;
@@ -132,6 +136,71 @@ namespace RealFlag.Flags
                 }
 
                 return first;
+            }
+
+            /// <summary>
+            /// A ring of a banner's arm (FlagPoleShape.ArmTop) round <paramref name="centre"/>, the
+            /// arm running along the pole frame's x (the fly at rest), <paramref name="along"/>
+            /// metres out from the axis: painted as the pole, on the axis and put out by the shader
+            /// as the shaft is (no thinner than about a pixel far off) -- in the plain copy at its
+            /// radius. Round it the second uv's direction and the tangent, along it the texture.
+            /// </summary>
+            public int ArmRing(Vector3 centre, float along, float radius)
+            {
+                Vector3 side = new Vector3(0f, 0f, 1f), other = new Vector3(0f, -1f, 0f);
+                int first = Vertices.Count;
+                for (int i = 0; i < ArmSides; i++)
+                {
+                    float t = i * 2f * Mathf.PI / ArmSides;
+                    float c = Mathf.Cos(t), s = Mathf.Sin(t);
+                    Vector3 n = side * c + other * s;
+                    Vertices.Add(Plain ? centre + n * radius : centre);
+                    Normals.Add(n);
+                    Uv.Add(new Vector4(PartPole, Plain ? 0f : radius, 0f, 0f));
+                    Uv2.Add(new Vector4(along * PerMetre, c, s, Around));
+
+                    // Round the arm, its binormal (normal x tangent) along it, as a rope's.
+                    Vector3 round = -side * s + other * c;
+                    Tangents.Add(new Vector4(round.x, round.y, round.z, 1f));
+                }
+
+                return first;
+            }
+
+            /// <summary>
+            /// The arm's end: a flat disc at its true radius facing out along it (not put out by
+            /// the shader: far off, where the tube is drawn wider, the end is under a pixel anyway).
+            /// </summary>
+            public void ArmCap(Vector3 centre, float along, float radius)
+            {
+                Vector3 side = new Vector3(0f, 0f, 1f), other = new Vector3(0f, -1f, 0f), outward = new Vector3(1f, 0f, 0f);
+                Vector4 tangent = new Vector4(0f, 0f, 1f, 1f);
+                int c0 = Vertices.Count;
+                Vertices.Add(centre);
+                Normals.Add(outward);
+                Uv.Add(new Vector4(PartPole, 0f, 0f, 0f));
+                Uv2.Add(new Vector4(along * PerMetre, 1f, 0f, Around));
+                Tangents.Add(tangent);
+                for (int i = 0; i < ArmSides; i++)
+                {
+                    float t = i * 2f * Mathf.PI / ArmSides;
+                    float c = Mathf.Cos(t), s = Mathf.Sin(t);
+                    Vertices.Add(centre + (side * c + other * s) * radius);
+                    Normals.Add(outward);
+                    Uv.Add(new Vector4(PartPole, 0f, 0f, 0f));
+                    Uv2.Add(new Vector4(along * PerMetre, c, s, Around));
+                    Tangents.Add(tangent);
+                }
+
+                // Facing out: a triangle (p0, p1, p2) faces the way the cross of its first two edges points (Tube's rule).
+                bool forward = Vector3.Dot(Vector3.Cross(Vertices[c0 + 1] - centre, Vertices[c0 + 2] - centre), outward) >= 0f;
+                for (int i = 0; i < ArmSides; i++)
+                {
+                    int a = c0 + 1 + i, b = c0 + 1 + (i + 1) % ArmSides;
+                    Triangles.Add(c0);
+                    Triangles.Add(forward ? a : b);
+                    Triangles.Add(forward ? b : a);
+                }
             }
 
             /// <summary>
@@ -316,6 +385,7 @@ namespace RealFlag.Flags
                 FlashCollar(b, s);
 
             Shaft(b, s);
+            Arms(b, s);
 
             // The truck: a short drum on the shaft's top, the halyard's sheave in it; its
             // underside a flat ring (inner first: facing down).
@@ -361,7 +431,9 @@ namespace RealFlag.Flags
                 Ropes(b, s);
             }
 
+            // Out to the arms' ends too (Unity culls the draw and its shadow by these bounds).
             float wide = Mathf.Max(Mathf.Max(s.CollarRadius, s.BaseRadius), s.Offset + s.RopeRadius + s.RopeGap) + 1f;
+            wide = Mathf.Max(wide, s.Offset + Mathf.Max(s.ArmTop, s.ArmBottom) + s.ArmRadius + 0.1f);
             var bounds = new Bounds();
             bounds.SetMinMax(new Vector3(-wide, -0.1f, -wide), new Vector3(wide, tip + 0.1f, wide));
             return b.ToMesh(reuse, bounds);
@@ -496,6 +568,30 @@ namespace RealFlag.Flags
             int s0 = b.ShaftRing(0f, sides, s.RadiusFoot, flutes, depth);
             int s1 = b.ShaftRing(s.ShaftTop, sides, s.RadiusTop, flutes, depth);
             b.Tube(s0, s1, sides);
+        }
+
+        /// <summary>
+        /// A banner's arms (FlagPoleShape.ArmTop, ArmBottom): from the pole's axis out along the
+        /// fly at rest (the mesh's x) to the held edge's far end -- the top one at the anchor's
+        /// level (y = Length: the flag's top hoist corner, lowered with the flag on its pole), the
+        /// bottom one ArmBottomDown under it -- so the cloth's held edge runs along the arm, which
+        /// turns with the pole's tilt and lean as the edge does (both are in the pole's frame).
+        /// </summary>
+        private static void Arms(Builder b, FlagPoleShape s)
+        {
+            if (s.ArmTop > 0f)
+                Arm(b, s, s.Length, s.Offset + s.ArmTop);
+            if (s.ArmBottom > 0f)
+                Arm(b, s, s.Length - s.ArmBottomDown, s.Offset + s.ArmBottom);
+        }
+
+        private static void Arm(Builder b, FlagPoleShape s, float y, float end)
+        {
+            float r = Mathf.Max(s.ArmRadius, 1e-4f);
+            int r0 = b.ArmRing(new Vector3(0f, y, 0f), 0f, r);
+            int r1 = b.ArmRing(new Vector3(end, y, 0f), end, r);
+            b.Tube(r0, r1, ArmSides);
+            b.ArmCap(new Vector3(end, y, 0f), end, r);
         }
 
         /// <summary>

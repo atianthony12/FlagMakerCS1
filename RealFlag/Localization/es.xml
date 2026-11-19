@@ -228,6 +228,12 @@
   <String key="NewHoles.Label">Agujeros</String>
   <String key="SelHoles.Label">Agujeros</String>
 
+  <!-- The New flag window's placement presets: each sets how the flag hangs, its pole and its size. -->
+  <String key="NewPreset.Label">Preajuste</String>
+  <String key="Preset.Default">Normal</String>
+  <String key="Preset.Wall">De pared</String>
+  <String key="Preset.Banner">Banderola</String>
+
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Asta</String>
   <String key="SelPoleButton.Label">Asta</String>
@@ -307,6 +313,7 @@
   <String key="Placing.Circle">Círculo</String>
   <String key="NewLineSpacing.Label">Separación</String>
   <String key="NewLineAlong.Label">Apuntar según la línea</String>
+  <String key="NewSnapWalls.Label">Ajustar a paredes</String>
   <String key="NewSnapEdges.Label">Ajustar a bordes</String>
   <String key="NewBackPlate.Label">Placa trasera</String>
 
@@ -338,6 +345,7 @@
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Clic para poner. Clic derecho para girar. {0} para subir o bajar (Mayús para más rápido, Alt para más fino).</String>
   <String key="Tool.OnEdge">En el borde del tejado.</String>
+  <String key="Tool.OnWall">En la pared.</String>
   <String key="Tool.Raised">Subida {0} m</String>
   <String key="Tool.Lowered">Bajada {0} m</String>
   <String key="Tool.NoPrefab">No se pueden poner banderas aquí. Mira el registro.</String>

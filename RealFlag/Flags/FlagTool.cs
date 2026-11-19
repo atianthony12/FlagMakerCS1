@@ -36,7 +36,8 @@ namespace RealFlag.Flags
     /// banner's cloth) there. The surface is the top of what is under the pointer, looked for
     /// straight down from just above where the pointer's ray met the city: a roof, a road, the
     /// ground -- and for a ray that met a wall's face, the ground in front of it, not a point part
-    /// way up the wall. The game's raise and lower keys (Page Up, Page Down) move a flag up and down
+    /// way up the wall; but a pole tilted out from a wall with Snap to walls on (2026-11-19) goes
+    /// on the wall itself, its foot on the face where the pointer is (GhostPlace). The game's raise and lower keys (Page Up, Page Down) move a flag up and down
     /// WHOLE, its pole with it, as Move It moves its selection (ElevationKeys: 0.125 m a step,
     /// Shift x8, Alt /8, repeating after a third of a second held): placing, off that surface
     /// (let go with the window); picking, the selected flag as the gizmo's arrows move it
@@ -65,18 +66,22 @@ namespace RealFlag.Flags
         private float _mouseRayLength;
         private volatile bool _mouseRayValid;
 
-        // Written by SimulationStep (the simulation thread), read on the main thread.
+        // Written by SimulationStep (the simulation thread), read on the main thread: the surface
+        // the new flag stands on (placing), where the pointer's ray met the city before that
+        // (a wall's face, say), and the ray's way then.
         private volatile bool _hitValid;
-        private Vector3 _hit;
+        private Vector3 _hit, _rawHit, _hitRay;
         private readonly object _hitLock = new object();
 
         /// <summary>
-        /// A roof's edge near where the pointer is (FlagEdgeSnap.Find), found on the MAIN thread
-        /// for the hit it belongs to: the edge's point (y the roof's), the way out from it.
+        /// A roof's edge near where the pointer is (FlagEdgeSnap.Find), or the wall it is on
+        /// (FlagEdgeSnap.FindWall, <see cref="Wall"/>), found on the MAIN thread for the hit it
+        /// belongs to: the edge's point (y the roof's) or the face's (y the pointer's), the way out.
         /// </summary>
         private struct EdgeSnap
         {
             public bool Valid;
+            public bool Wall;
             public Vector3 Edge;
             public float Nx, Nz;
         }
@@ -87,17 +92,26 @@ namespace RealFlag.Flags
         private bool _snapFromSet;
         private EdgeSnap _snapLast;
 
+        // The same for a wall's face, kept apart (a flag switched from its top to its side looks
+        // again), keyed on where the pointer's ray met the wall.
+        private Vector3 _wallFrom;
+        private bool _wallFromSet;
+        private EdgeSnap _wallLast;
+
         /// <summary>The pointer moved at least this far, metres, before the edge is looked for again.</summary>
         private const float SnapMove = 0.02f;
 
         /// <summary>The edge is looked for on a surface this far either side of the pointer, metres (FlagEdgeSnap's reach, a step and its points beside).</summary>
         private const float SnapHalf = FlagEdgeSnap.Reach + FlagEdgeSnap.Step + 0.6f;
 
-        /// <summary>The edge found so far is forgotten (the buildings' shapes option changed).</summary>
+        /// <summary>The edge (and the wall) found so far is forgotten (the buildings' shapes option changed).</summary>
         public static void ForgetSnap()
         {
             if (Instance != null)
+            {
                 Instance._snapFromSet = false;
+                Instance._wallFromSet = false;
+            }
         }
 
         private readonly FlagGizmo _gizmo = new FlagGizmo();
@@ -395,14 +409,20 @@ namespace RealFlag.Flags
             }
 
             RaycastOutput output;
+            Vector3 direction = _mouseRay.direction;
             if (Cast(_mouseRay, _mouseRayLength, out output))
             {
-                Vector3 hit = output.m_hitPos;
+                Vector3 raw = output.m_hitPos;
+                Vector3 hit = raw;
                 if (CurrentMode == Mode.Place)
-                    hit = SurfaceUnder(hit, _mouseRay.direction);
+                    hit = SurfaceUnder(hit, direction);
 
                 lock (_hitLock)
+                {
                     _hit = hit;
+                    _rawHit = raw;
+                    _hitRay = direction;
+                }
 
                 _hitValid = true;
             }
@@ -507,6 +527,88 @@ namespace RealFlag.Flags
 
         private bool _loggedSnapFailure;
 
+        /// <summary>
+        /// The new flag snaps to a wall: on a short pole tilted out from it, by its side hoist
+        /// (FlagEdgeSnap.WallFlag), the option on (Settings.NewSnapWalls, 2026-11-19). Read on
+        /// either thread (settings' values).
+        /// </summary>
+        private static bool SnapsToWalls
+        {
+            get
+            {
+                return Settings.NewSnapWalls != null && Settings.NewSnapWalls.value && Settings.NewPole != null &&
+                       FlagEdgeSnap.WallFlag(Settings.NewPole.value, Settings.NewHoistedFrom.value, Settings.NewTilt.value, Settings.NewLean.value);
+            }
+        }
+
+        /// <summary>
+        /// On the MAIN thread: the wall the pointer is on (FlagEdgeSnap.FindWall), on the surface
+        /// the cloth keeps off, as <see cref="EdgeNear"/> finds a roof's edge: only where the
+        /// pointer's ray met the city well over what is under it (SurfaceUnder went down from a
+        /// wall's face to the ground in front), and the grid has the wall there. Looked for again
+        /// only once the pointer moves.
+        /// </summary>
+        private EdgeSnap WallNear(Vector3 raw, Vector3 under, Vector3 direction)
+        {
+            // On a roof, a road or the ground: what is under the pointer is what it met.
+            if (raw.y - under.y < FlagEdgeSnap.WallBelow)
+                return default(EdgeSnap);
+
+            if (_wallFromSet && (raw - _wallFrom).sqrMagnitude < SnapMove * SnapMove)
+                return _wallLast;
+
+            var snap = new EdgeSnap();
+            _wallFrom = raw;
+            _wallFromSet = true;
+            _wallLast = snap;
+
+            SurfaceGrid grid;
+            try
+            {
+                var found = new FlagSurroundings.Gathered();
+                grid = FlagSurroundings.Surface(Vector3.zero, raw.x, raw.z, SnapHalf, ref found);
+
+                // Drawn shapes not read yet: looked for again next frame, not kept.
+                if (found.Pending > 0)
+                    _wallFromSet = false;
+            }
+            catch (Exception e)
+            {
+                if (!_loggedWallFailure)
+                {
+                    _loggedWallFailure = true;
+                    Log.Error("flags: could not read the city round the pointer for a wall (no snapping to walls)", e);
+                }
+
+                return snap;
+            }
+
+            if (grid == null)
+                return snap;
+
+            // Off the surface read: not known (no wall found through it).
+            Func<float, float, float> top = (x, z) =>
+            {
+                float h, sx, sz;
+                return grid.Sample(x, z, out h, out sx, out sz) ? h : float.NaN;
+            };
+
+            float fx, fz, nx, nz;
+            if (FlagEdgeSnap.FindWall(top, raw.x, raw.y, raw.z, direction.x, direction.z, out fx, out fz, out nx, out nz))
+            {
+                snap.Valid = true;
+                snap.Wall = true;
+                snap.Edge = new Vector3(fx, raw.y, fz);
+                snap.Nx = nx;
+                snap.Nz = nz;
+            }
+
+            _wallLast = snap;
+            return snap;
+        }
+
+        private bool _loggedWallFailure;
+
         /// <summary>The ground, the roofs and the roads (the game's ToolBase.RayCast, on the simulation thread).</summary>
         private static bool Cast(Ray ray, float length, out RaycastOutput output)
         {
@@ -541,26 +643,54 @@ namespace RealFlag.Flags
             return TryHit(out hit, out snap);
         }
 
-        /// <summary>The MAIN thread's: the hit, and the roof's edge near it (looked for here, once per move: EdgeNear).</summary>
+        /// <summary>The MAIN thread's: the hit, and the roof's edge near it or the wall it is on (looked for here, once per move: EdgeNear, WallNear).</summary>
         private bool TryHit(out Vector3 hit, out EdgeSnap snap)
         {
+            Vector3 raw, ray;
             lock (_hitLock)
+            {
                 hit = _hit;
+                raw = _rawHit;
+                ray = _hitRay;
+            }
 
             bool valid = _hitValid && _mouseRayValid;
-            snap = valid && CurrentMode == Mode.Place && SnapsToEdges ? EdgeNear(hit) : default(EdgeSnap);
+            snap = default(EdgeSnap);
+            if (valid && CurrentMode == Mode.Place)
+            {
+                // One or the other: an edge for a banner from its top, a wall for a flag by its side.
+                if (SnapsToEdges)
+                    snap = EdgeNear(hit);
+                else if (SnapsToWalls)
+                    snap = WallNear(raw, hit, ray);
+            }
+
             return valid;
         }
 
         /// <summary>
         /// Where the new flag goes and which way it heads: on a roof's edge the pointer is near
         /// (FlagEdgeSnap.Place: along it or out from it, as its rotation is nearer, raised by the
-        /// keys), else standing on the surface under the pointer (<see cref="AnchorOver"/>). True: on
-        /// the edge.
+        /// keys), on the wall it is on (FlagEdgeSnap.OnWall: the pole's foot on the face at the
+        /// pointer's height, raised by the keys, the flag heading straight out of it -- its
+        /// rotation the wall's, the Rotation row kept for the next flag off a wall, as an edge's
+        /// is), else standing on the surface under the pointer (<see cref="AnchorOver"/>). True:
+        /// on the edge or the wall (snap.Wall says which).
         /// </summary>
         private bool GhostPlace(Vector3 hit, EdgeSnap snap, FlagSpec spec, out Vector3 anchor, out float angle)
         {
-            if (snap.Valid && spec.HoistedFrom == FlagHoist.Top && SnapsToEdges)
+            if (snap.Valid && snap.Wall && SnapsToWalls && FlagEdgeSnap.WallFlag(spec))
+            {
+                FlagPoleShape shape = FlagPoleShape.For(spec, spec.PoleLength);
+                float footX, footY, footZ, ax, ay, az;
+                FlagEdgeSnap.OnWall(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, shape.FootReach,
+                                    out footX, out footY, out footZ, out angle);
+                FlagStand.Anchor(spec, angle, spec.PoleLength, footX, footY, footZ, out ax, out ay, out az);
+                anchor = new Vector3(ax, ay, az);
+                return true;
+            }
+
+            if (snap.Valid && !snap.Wall && spec.HoistedFrom == FlagHoist.Top && SnapsToEdges)
             {
                 float ax, ay, az;
                 FlagEdgeSnap.Place(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, NewAngle(), spec.Height,
@@ -880,7 +1010,7 @@ namespace RealFlag.Flags
                             : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys())
                             : Localization.Get("Tool.PlaceHint", RaiseKeys());
                 if (onEdge && FlagPrefab.Info != null)
-                    text = Localization.Get("Tool.OnEdge") + "\n" + text;
+                    text = Localization.Get(snap.Wall ? "Tool.OnWall" : "Tool.OnEdge") + "\n" + text;
                 ShowToolInfo(valid, valid ? text : null, hit);
                 return;
             }
@@ -1069,6 +1199,7 @@ namespace RealFlag.Flags
             Vector3 anchor;
             float angle;
             bool onEdge = GhostPlace(hit, snap, spec, out anchor, out angle);
+            string where = !onEdge ? "" : snap.Wall ? ", on a wall" : ", on a roof's edge";
             float lift = _lift;
 
             // Placed through FlagUndo: Ctrl+Z takes it away again, Ctrl+Y puts it back as placed.
@@ -1080,7 +1211,7 @@ namespace RealFlag.Flags
                     Log.Msg("flags: flag #" + prop + " placed at (" + anchor.x.ToString("F0") + ", " + anchor.z.ToString("F0") + "), top of the hoist " +
                             anchor.y.ToString("F1") + " m (" + (anchor.y - hit.y).ToString("F1") + " m over the surface under it" +
                             (Mathf.Abs(lift) > 1e-4f ? ", " + (lift > 0f ? "raised " : "lowered ") + Mathf.Abs(lift).ToString("0.###") + " m off it" : "") +
-                            (onEdge ? ", on a roof's edge" : "") + "), " + (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
+                            where + "), " + (angle * Mathf.Rad2Deg).ToString("F0") + " deg: " + spec.Describe());
             });
         }
 
@@ -1102,8 +1233,10 @@ namespace RealFlag.Flags
                 if (!TryGhostHit(out hit, out snap))
                     return;
 
-                // On a roof's edge: the ring on the edge it hangs from.
-                if (snap.Valid && SnapsToEdges)
+                // On a roof's edge: the ring on the edge it hangs from. On a wall it stays on the
+                // ground in front, under the flag (a ring is laid on what is under it: a wall's
+                // face would show none).
+                if (snap.Valid && !snap.Wall && SnapsToEdges)
                     hit = snap.Edge;
 
                 // Where the flag stands (its pole's foot, or its hoist), on the ground or roof.

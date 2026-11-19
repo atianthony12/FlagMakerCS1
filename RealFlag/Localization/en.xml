@@ -230,6 +230,12 @@
   <String key="NewHoles.Label">Holes</String>
   <String key="SelHoles.Label">Holes</String>
 
+  <!-- The New flag window's placement presets: each sets how the flag hangs, its pole and its size. -->
+  <String key="NewPreset.Label">Preset</String>
+  <String key="Preset.Default">Default</String>
+  <String key="Preset.Wall">Wall flag</String>
+  <String key="Preset.Banner">Banner</String>
+
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Flagpole</String>
   <String key="SelPoleButton.Label">Flagpole</String>
@@ -309,6 +315,7 @@
   <String key="Placing.Circle">Circle</String>
   <String key="NewLineSpacing.Label">Spacing</String>
   <String key="NewLineAlong.Label">Point along the line</String>
+  <String key="NewSnapWalls.Label">Snap to walls</String>
   <String key="NewSnapEdges.Label">Snap to edges</String>
   <String key="NewBackPlate.Label">Back plate</String>
 
@@ -340,6 +347,7 @@
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Click to place. Right-click to rotate. {0} to raise or lower (Shift for faster, Alt for finer).</String>
   <String key="Tool.OnEdge">On the roof's edge.</String>
+  <String key="Tool.OnWall">On the wall.</String>
   <String key="Tool.Raised">Raised {0} m</String>
   <String key="Tool.Lowered">Lowered {0} m</String>
   <String key="Tool.NoPrefab">Can't place flags here. See the log.</String>

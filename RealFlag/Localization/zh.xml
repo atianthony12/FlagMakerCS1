@@ -219,6 +219,12 @@
   <String key="NewHoles.Label">破洞</String>
   <String key="SelHoles.Label">破洞</String>
 
+  <!-- The New flag window's placement presets: each sets how the flag hangs, its pole and its size. -->
+  <String key="NewPreset.Label">预设</String>
+  <String key="Preset.Default">默认</String>
+  <String key="Preset.Wall">墙旗</String>
+  <String key="Preset.Banner">道旗</String>
+
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">旗杆</String>
   <String key="SelPoleButton.Label">旗杆</String>
@@ -298,6 +304,7 @@
   <String key="Placing.Circle">圆形</String>
   <String key="NewLineSpacing.Label">间距</String>
   <String key="NewLineAlong.Label">沿线指向</String>
+  <String key="NewSnapWalls.Label">吸附墙面</String>
   <String key="NewSnapEdges.Label">吸附边缘</String>
   <String key="NewBackPlate.Label">背板</String>
 
@@ -329,6 +336,7 @@
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细）。</String>
   <String key="Tool.OnEdge">在屋顶边缘。</String>
+  <String key="Tool.OnWall">在墙上。</String>
   <String key="Tool.Raised">已升高 {0} 米</String>
   <String key="Tool.Lowered">已降低 {0} 米</String>
   <String key="Tool.NoPrefab">这里无法放置旗帜。请查看日志。</String>

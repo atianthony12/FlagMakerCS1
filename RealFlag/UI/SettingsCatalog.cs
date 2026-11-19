@@ -196,6 +196,14 @@ namespace RealFlag.UI
         public Func<int, string> ChoiceTooltips;
 
         /// <summary>
+        /// A Segmented row across the whole row: no name column, no reset icon (its first button is
+        /// its way back) -- the New flag window's presets atop it (the author, 2026-11-19: "the
+        /// buttons' texts are overflowing", "the presets can go on the top"): three buttons in the
+        /// 230 px right of the name column were ~77 px each, "WALL FLAG" ~95 px of capitals.
+        /// </summary>
+        public bool FullWidth;
+
+        /// <summary>
         /// A slider whose name column is only as wide as the page's wide rows' names need, not the
         /// page's 196: the track gets the rest (the flag's Width and Height, 0.5-30 m -- the author,
         /// 2026-11-10: "too aggressive ... enlarge the slider itself").
@@ -1687,12 +1695,37 @@ namespace RealFlag.UI
                 Colour1 = Settings.NewColour1,
             };
 
+            AddNewPreset();
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", "NewRecapture", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewWindShare, Settings.NewDarkness,
                       Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
                       Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null, AddNewPlacement);
             AddNewHidden();
+        }
+
+        /// <summary>
+        /// The placement presets atop the New flag window, before any group (2026-11-19; the
+        /// author: "Presets for flag orientation, like flags on buildings ... Default ... Wall
+        /// Flag ... A third option would be those banners", then "the presets can go on the top,
+        /// not under the flagpole"): a button each across the whole row (FullWidth: their names
+        /// overflowed beside the name column), the one the settings make lit, none when they make
+        /// none (Custom). A choice writes the hoist, the pole, the holds and the size
+        /// (PlacementPreset); Default is its way back (no reset icon).
+        /// </summary>
+        private static void AddNewPreset()
+        {
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = PanelPage.New,
+                Int = Settings.NewPreset,
+                DefaultInt = PlacementPreset.Default,
+                ChoiceValues = PlacementPreset.Values,
+                ChoiceKeys = PlacementPreset.NameKeys,
+                FullWidth = true,
+                AfterChange = () => PlacementPreset.Apply(Settings.NewPreset.value),
+            });
         }
 
         /// <summary>The New flag window's Pole and placement group: its Flagpole button first (it starts the group), the status line last.</summary>
@@ -1753,6 +1786,20 @@ namespace RealFlag.UI
                 DefaultFloat = Settings.Defaults.Rotation,
                 Min = 0f, Max = 359f, Step = 1f,
                 Format = Degrees,
+            });
+
+            // A wall flag goes on the wall the pointer is on (2026-11-19, with the presets): shown
+            // only for a pole tilted out by its side hoist (FlagEdgeSnap.WallFlag), one flag at a
+            // time as Snap to edges is, not Line Tool's rows.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.New,
+                Bool = Settings.NewSnapWalls,
+                DefaultBool = Settings.Defaults.SnapWalls,
+                AfterChange = State("snap to walls", OnOff(Settings.NewSnapWalls)),
+                Enabled = () => Settings.NewPlacing.value == LineFlags.Single,
+                ShownWhile = () => FlagEdgeSnap.WallFlag(Settings.NewPole.value, Settings.NewHoistedFrom.value, Settings.NewTilt.value, Settings.NewLean.value),
             });
 
             // Snap to edges and Back plate are a top banner's only: shown only while the new flag

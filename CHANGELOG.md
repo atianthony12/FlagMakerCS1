@@ -44,6 +44,8 @@ The first release.
   ropes, your colours, thickness, tilt and lean, a Pole height (1 to 50 m), and a **Position on
   pole** to fly the flag lower, at half-mast say. The cloth keeps off its pole. A banner hoisted
   from its top has no pole.
+- **Banner arms**: a flag on the mod's pole held by its top (or bottom) edge hangs from an arm out
+  from the pole along that edge, as street banners do.
 - **Four pole shapes on three bases, and Shine**: tapered, straight, sectional or fluted, on a
   flash collar, a decorative cast base or none; Shine from matte to a glossy coat that reflects the
   sky (Real Glass's live sky when it's on). **Worn**, **Rust**
@@ -79,6 +81,9 @@ The first release.
   turns it, Page Up and Page Down raise it. It starts from the last flag's settings. With **Snap to
   edges**, a banner hoisted from its top snaps to the roof's edge under the pointer, along it or out
   from it.
+- **Presets** in the New flag window: **Default**, **Wall flag** (a short pole tilted out, 1.5 x
+  1 m) or **Banner** (a 6 m pole, 1.2 x 3 m, on its arm). With **Snap to walls** (on by default),
+  a wall flag goes on the wall under the pointer, pointing straight out of it.
 - **The Flags tab** lists the city's flags (a double click takes the camera to one); a selected
   flag carries handles to move, turn, tilt and lean it, and every design setting applies to it live.
   **Go to**, **Copy** (its design into the New flag window) and **Delete** (or the Del key; it asks

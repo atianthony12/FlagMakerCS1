@@ -620,7 +620,7 @@ namespace RealFlag.UI
         /// </summary>
         private void AddReset(UIPanel page, Row row, float y, Control control)
         {
-            if (!row.CanReset || row.Kind == RowKind.Button || row.Kind == RowKind.Status || row.Kind == RowKind.FlagList)
+            if (!row.CanReset || row.FullWidth || row.Kind == RowKind.Button || row.Kind == RowKind.Status || row.Kind == RowKind.FlagList)
                 return;
 
             control.Reset = _ui.AddReset(page, y, row.ResetHint);
@@ -940,7 +940,11 @@ namespace RealFlag.UI
                 case RowKind.Segmented:
                 {
                     // "Hoisted from   [|▭ Side] [▔▭ Top]": a button a choice, the chosen one lit.
-                    AddRowLabel(page, row, y, control);
+                    // FullWidth: no name, the buttons from the page's left edge (Row.FullWidth).
+                    if (row.FullWidth)
+                        column = 0f;
+                    else
+                        AddRowLabel(page, row, y, control);
                     int count = row.ChoiceValues != null ? row.ChoiceValues.Length : 0;
                     const float gap = 6f, height = 28f;
                     float width = count > 0 ? Mathf.Floor((Right(page) - column - gap * (count - 1)) / count) : 0f;

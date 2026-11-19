@@ -5040,6 +5040,305 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The New flag window's placement presets (RealFlag.UI.PlacementPreset, 2026-11-19): each
+    /// preset's own values make it (Of), Default is Settings.Defaults' (a file from before reads
+    /// as Default), Wall flag's and Banner's are the author's brief, any one value changed is
+    /// Custom; the wall flag is one that snaps to walls (FlagEdgeSnap.WallFlag), the others not;
+    /// the sizes as seen (FlagSize.Shown). And WallFlag's band: tilted out 10 degrees up to where
+    /// FlagStand stops calling the pole upright.
+    /// </summary>
+    public static string PlacementPresets()
+    {
+        var P = RealFlag.UI.PlacementPreset.Presets;
+        bool round = RealFlag.UI.PlacementPreset.Of(P[0]) == RealFlag.UI.PlacementPreset.Default &&
+                     RealFlag.UI.PlacementPreset.Of(P[1]) == RealFlag.UI.PlacementPreset.Wall &&
+                     RealFlag.UI.PlacementPreset.Of(P[2]) == RealFlag.UI.PlacementPreset.Banner;
+        var d = P[0];
+        bool defaults = d.HoistedFrom == FlagHoist.Side && d.Tilt == 0f && d.Lean == 0f && d.Pole == FlagPoleStyle.None && d.Height == 10f &&
+                        d.Ropes == FlagSpec.DefaultRopes && d.PoleBase == FlagPoleBase.Collar && d.PolePosition == 1f && d.Held == 0 &&
+                        d.Length == 3f && d.Proportion == FlagProportion.Default;
+        var w = P[1];
+        bool wall = w.HoistedFrom == FlagHoist.Side && w.Tilt == 45f && w.Lean == 0f && w.Pole == FlagPoleStyle.Ball && w.Height == 2.5f &&
+                    w.Ropes == 0 && w.PoleBase == FlagPoleBase.None && w.PolePosition == 1f && w.Held == FlagHold.None &&
+                    w.Length == 1.5f && w.Proportion == 667;
+        var b = P[2];
+        bool banner = b.HoistedFrom == FlagHoist.Side && b.Tilt == 0f && b.Lean == 0f && b.Pole == FlagPoleStyle.Flat && b.Height == 6f &&
+                      b.Ropes == 0 && b.PoleBase == FlagPoleBase.Collar && b.PolePosition == 1f && b.Held == FlagHold.TopEdge &&
+                      b.Length == 1.2f && b.Proportion == 2500;
+
+        // Any one of the eleven changed: Custom; a hair off (under a slider's step): still the preset.
+        bool custom = true, near = true;
+        for (int i = 0; i < P.Length; i++)
+        {
+            for (int f = 0; f < 11; f++)
+            {
+                var v = P[i];
+                switch (f)
+                {
+                    case 0: v.HoistedFrom = FlagHoist.Top; break;
+                    case 1: v.Tilt += 1f; break;
+                    case 2: v.Lean += 1f; break;
+                    case 3: v.Pole = v.Pole == FlagPoleStyle.Spear ? FlagPoleStyle.Ball : FlagPoleStyle.Spear; break;
+                    case 4: v.Height += 0.5f; break;
+                    case 5: v.Ropes = v.Ropes == 1 ? 2 : 1; break;
+                    case 6: v.PoleBase = FlagPoleBase.Cast; break;
+                    case 7: v.PolePosition = 0.5f; break;
+                    case 8: v.Held ^= FlagHold.BottomEdge; break;
+                    case 9: v.Length += 0.1f; break;
+                    case 10: v.Proportion += 1; break;
+                }
+                custom &= RealFlag.UI.PlacementPreset.Of(v) == RealFlag.UI.PlacementPreset.Custom;
+            }
+
+            var h = P[i];
+            h.Tilt += 0.01f; h.Height += 0.001f; h.Length += 0.001f;
+            near &= RealFlag.UI.PlacementPreset.Of(h) == i;
+        }
+
+        float ww, wh, bw, bh;
+        FlagSize.Shown(w.Length, w.Proportion, w.HoistedFrom, out ww, out wh);
+        FlagSize.Shown(b.Length, b.Proportion, b.HoistedFrom, out bw, out bh);
+        bool sizes = Math.Abs(ww - 1.5f) < 0.01f && Math.Abs(wh - 1f) < 0.01f && Math.Abs(bw - 1.2f) < 0.01f && Math.Abs(bh - 3f) < 0.01f;
+
+        bool snaps = FlagEdgeSnap.WallFlag(w.Pole, w.HoistedFrom, w.Tilt, w.Lean) && !FlagEdgeSnap.WallFlag(d.Pole, d.HoistedFrom, d.Tilt, d.Lean) &&
+                     !FlagEdgeSnap.WallFlag(b.Pole, b.HoistedFrom, b.Tilt, b.Lean);
+        int ball = FlagPoleStyle.Ball;
+        bool band = !FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 9f, 0f) && FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 10f, 0f) &&
+                    FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 59f, 0f) && !FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 61f, 0f) &&
+                    FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 45f, 30f) && !FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, 45f, 50f) &&
+                    !FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, -45f, 0f) && !FlagEdgeSnap.WallFlag(ball, FlagHoist.Top, 45f, 0f) &&
+                    !FlagEdgeSnap.WallFlag(FlagPoleStyle.None, FlagHoist.Side, 45f, 0f) && !FlagEdgeSnap.WallFlag(ball, FlagHoist.Side, float.NaN, 0f);
+        return round + "," + defaults + "," + wall + "," + banner + "," + custom + "," + near + "," + sizes + "," + snaps + "," + band;
+    }
+
+    /// <summary>A box's twelve triangles, turned by <paramref name="degrees"/> (from +x towards +z) about (ox, oz).</summary>
+    static void RaiseTurnedBox(SurfaceGrid g, float x0, float z0, float x1, float z1, float y0, float y1, float degrees, float ox, float oz)
+    {
+        float[] v = {
+            x0, y1, z0, x1, y1, z0, x1, y1, z1,  x0, y1, z0, x1, y1, z1, x0, y1, z1,
+            x0, y0, z0, x1, y0, z1, x1, y0, z0,  x0, y0, z0, x0, y0, z1, x1, y0, z1,
+            x0, y0, z0, x0, y1, z0, x0, y1, z1,  x0, y0, z0, x0, y1, z1, x0, y0, z1,
+            x1, y0, z0, x1, y1, z1, x1, y1, z0,  x1, y0, z0, x1, y0, z1, x1, y1, z1,
+            x0, y0, z0, x1, y1, z0, x0, y1, z0,  x0, y0, z0, x1, y0, z0, x1, y1, z0,
+            x0, y0, z1, x0, y1, z1, x1, y1, z1,  x0, y0, z1, x1, y1, z1, x1, y0, z1 };
+        double a = degrees * Math.PI / 180.0;
+        float c = (float)Math.Cos(a), s = (float)Math.Sin(a);
+        for (int i = 0; i < v.Length; i += 3)
+        {
+            float x = v[i] - ox, z = v[i + 2] - oz;
+            v[i] = ox + c * x - s * z;
+            v[i + 2] = oz + s * x + c * z;
+        }
+        for (int i = 0; i < v.Length; i += 9)
+            g.Raise(v[i], v[i + 1], v[i + 2], v[i + 3], v[i + 4], v[i + 5], v[i + 6], v[i + 7], v[i + 8]);
+    }
+
+    /// <summary>
+    /// Snap to walls (FlagEdgeSnap.FindWall, OnWall; 2026-11-19), on the surface the tool gathers
+    /// round the pointer (a grid half FlagTool.SnapHalf 3 m wide, a box 17 m tall raised into it,
+    /// its face at x = 5), the pointer's ray meeting the face 20 degrees off square. Found at 2,
+    /// 8 and 16 m up: the face's offset outside the true one (m: the least and the most of the
+    /// three), its way out off +x (deg). None: on the roof, on the ground in front, in the wall's
+    /// top 0.1 m, on a 0.2 m kerb's face. The same box turned 30 degrees: its way out off 30, its
+    /// offset along it. The wall preset's flag placed on it (8 m up): its pole's foot out of the
+    /// true face by (m), its lowest point's deepest towards the wall (m out of the face), its
+    /// anchor out and up from the foot, heading out of the wall (deg off), its fly corner at rest
+    /// out of the wall.
+    /// </summary>
+    public static string WallSnap()
+    {
+        const float half = FlagEdgeSnap.Reach + FlagEdgeSnap.Step + 0.6f;
+        SurfaceGrid g = Grid(5f, 0f, half, 0f);
+        RaiseBox(g, -20f, -20f, 5f, 20f, 0f, 17f);
+        g.Finish();
+        Func<float, float, float> top = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return g.Sample(x, z, out h, out sx, out sz) ? h : float.NaN;
+        };
+
+        double look = 20.0 * Math.PI / 180.0;
+        float dx = -(float)Math.Cos(look), dz = (float)Math.Sin(look);
+        bool found = true;
+        float least = float.MaxValue, most = float.MinValue, turn = 0f;
+        float fx = 0f, fz = 0f, nx = 0f, nz = 0f;
+        foreach (float y in new[] { 2f, 8f, 16f })
+        {
+            float ax, az, ux, uz;
+            bool one = FlagEdgeSnap.FindWall(top, 5f, y, 0.3f, dx, dz, out ax, out az, out ux, out uz);
+            found &= one;
+            if (!one) continue;
+            least = Math.Min(least, ax - 5f);
+            most = Math.Max(most, ax - 5f);
+            turn = Math.Max(turn, (float)(Math.Acos(Math.Max(-1.0, Math.Min(1.0, ux))) * 180.0 / Math.PI));
+            if (y == 8f) { fx = ax; fz = az; nx = ux; nz = uz; }
+        }
+
+        float ex, ez, enx, enz;
+        bool roof = FlagEdgeSnap.FindWall(top, 3f, 17f, 0f, dx, dz, out ex, out ez, out enx, out enz);
+        bool ground = FlagEdgeSnap.FindWall(top, 8f, 0f, 0f, dx, dz, out ex, out ez, out enx, out enz);
+        bool lip = FlagEdgeSnap.FindWall(top, 5f, 16.9f, 0f, dx, dz, out ex, out ez, out enx, out enz);
+
+        SurfaceGrid k = Grid(5f, 0f, half, 0f);
+        RaiseBox(k, -20f, -20f, 5f, 20f, 0f, 0.2f);
+        k.Finish();
+        Func<float, float, float> kerbTop = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return k.Sample(x, z, out h, out sx, out sz) ? h : float.NaN;
+        };
+        bool kerb = FlagEdgeSnap.FindWall(kerbTop, 5f, 0.1f, 0f, dx, dz, out ex, out ez, out enx, out enz);
+
+        // An overhang: the same box with a slab 0.5 m out over its top metre (a cornice, a balcony).
+        // The height field takes it to the ground, so the face found 8 m up is the slab's line: let go
+        // (WallAgree). Met at the slab's line itself (a simple shape standing out to it), the face
+        // found there: how far in front of the wall it stands.
+        SurfaceGrid o = Grid(5f, 0f, half, 0f);
+        RaiseBox(o, -20f, -20f, 5f, 20f, 0f, 17f);
+        RaiseBox(o, 5f, -20f, 5.5f, 20f, 16f, 17f);
+        o.Finish();
+        Func<float, float, float> overTop = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return o.Sample(x, z, out h, out sx, out sz) ? h : float.NaN;
+        };
+        bool under = FlagEdgeSnap.FindWall(overTop, 5f, 8f, 0.3f, dx, dz, out ex, out ez, out enx, out enz);
+        float ox, oz, onx, onz;
+        bool atLine = FlagEdgeSnap.FindWall(overTop, 5.5f, 8f, 0.3f, dx, dz, out ox, out oz, out onx, out onz);
+
+        // Turned 30 degrees about (5, 0): the face through (5, 0), its way out (cos 30, sin 30).
+        SurfaceGrid t = Grid(5f, 0f, half, 0f);
+        RaiseTurnedBox(t, -20f, -20f, 5f, 20f, 0f, 17f, 30f, 5f, 0f);
+        t.Finish();
+        Func<float, float, float> turnedTop = delegate(float x, float z)
+        {
+            float h, sx, sz;
+            return t.Sample(x, z, out h, out sx, out sz) ? h : float.NaN;
+        };
+        double a30 = 30.0 * Math.PI / 180.0, in30 = a30 + Math.PI - 10.0 * Math.PI / 180.0;
+        float tx, tz, tnx, tnz;
+        bool turned = FlagEdgeSnap.FindWall(turnedTop, 5f, 8f, 0f, (float)Math.Cos(in30), (float)Math.Sin(in30), out tx, out tz, out tnx, out tnz);
+        float turnedOff = (float)(Math.Acos(Math.Max(-1.0, Math.Min(1.0, tnx * Math.Cos(a30) + tnz * Math.Sin(a30)))) * 180.0 / Math.PI);
+        float turnedOut = (float)((tx - 5f) * Math.Cos(a30) + tz * Math.Sin(a30));
+
+        // The wall preset's flag on the face found 8 m up.
+        FlagSpec s = FlagSpec.Default;
+        s.HoistedFrom = FlagHoist.Side; s.Tilt = 45f; s.Lean = 0f; s.Pole = FlagPoleStyle.Ball; s.Ropes = 0;
+        s.PoleBase = FlagPoleBase.None; s.PolePosition = 1f; s.Held = 0; s.Length = 1.5f; s.Proportion = 667; s.PoleLength = 2.5f;
+        FlagPoleShape shape = FlagPoleShape.For(s, s.PoleLength);
+        float footX, footY, footZ, heading, ancX, ancY, ancZ;
+        FlagEdgeSnap.OnWall(fx, 8f, fz, nx, nz, shape.FootReach, out footX, out footY, out footZ, out heading);
+        FlagStand.Anchor(s, heading, s.PoleLength, footX, footY, footZ, out ancX, out ancY, out ancZ);
+        float bx, by, bz;
+        FlagStand.Base(s, heading, s.PoleLength, ancX, ancY, ancZ, out bx, out by, out bz);
+        float hx, hy, hz, flx, fly, flz;
+        FlagOrientation.Frame(heading, s.Tilt, s.Lean, s.HoistedFrom, out hx, out hy, out hz, out flx, out fly, out flz);
+        // The foot's end disc, square to the axis: its point deepest towards the wall is r cos(tilt) behind the foot.
+        float deepest = bx - 5f - shape.RadiusFoot * (float)Math.Cos(s.Tilt * Math.PI / 180.0);
+        float cornerX = ancX + flx * s.Length - hx * s.Height;
+        bool stands = Math.Abs(bx - footX) < 1e-4f && Math.Abs(by - 8f) < 1e-4f && ancX > bx + 0.5f && ancY > by + 0.5f && cornerX > 5f;
+        float headingOff = Math.Abs(heading) * 180f / (float)Math.PI;
+        return found + "," + least.ToString("F3", Inv) + "," + most.ToString("F3", Inv) + "," + turn.ToString("F2", Inv) + "," +
+               roof + "," + ground + "," + lip + "," + kerb + "," +
+               turned + "," + turnedOff.ToString("F2", Inv) + "," + turnedOut.ToString("F3", Inv) + "," +
+               (bx - 5f).ToString("F3", Inv) + "," + deepest.ToString("F3", Inv) + "," + stands + "," + headingOff.ToString("F2", Inv) + "," +
+               g.Spacing.ToString("F3", Inv) + "," + shape.FootReach.ToString("F3", Inv) + "," + under + "," + atLine + "," +
+               (ox - 5f).ToString("F3", Inv);
+    }
+
+    /// <summary>
+    /// The banner's arms (FlagPoleShape.ArmTop / ArmBottom, FlagPoleMesh's arms; 2026-11-19)
+    /// against where the cloth's held edges are held (FlagCloth.SetHolds): a 1.2 x 3 m banner on a
+    /// 6 m flat-topped pole, tilted <paramref name="tilt"/> degrees, at <paramref name="position"/>
+    /// of its pole, held at <paramref name="held"/>, with <paramref name="ropes"/>, after 2 s in a
+    /// 6 m/s wind across. The arm as the mesh is placed (FlagPoleMesh.Placement of its pole-frame
+    /// line: from the axis to Offset + ArmTop along x at y = Length). Out: the top arm's length;
+    /// the held top particles' farthest from it (m); the last held one past the arm's end (m,
+    /// along it; 0 = at it); the arm's start inside the shaft; the bottom arm's held particles past
+    /// the edge's first quarter, farthest from it (m; -1 none); the bottom one's end against its
+    /// last held particle (m); the arm cleared by an unheld spec, by a top hoist, by a pennant's
+    /// top row, and Same() noticing a change of the holds.
+    /// </summary>
+    public static string ArmPlacement(float tilt, float position, int held, int ropes)
+    {
+        FlagSpec s = FlagSpec.Default;
+        s.HoistedFrom = FlagHoist.Side; s.Tilt = tilt; s.Lean = 0f; s.Pole = FlagPoleStyle.Flat; s.Ropes = ropes;
+        s.PoleBase = FlagPoleBase.Collar; s.PolePosition = position; s.Held = held; s.Length = 1.2f; s.Proportion = 2500; s.PoleLength = 6f;
+        float hx, hy, hz, fx, fy, fz;
+        FlagOrientation.Frame(0.4f, s.Tilt, s.Lean, s.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+        FlagPoleShape shape = FlagPoleShape.For(s, s.PoleLength);
+
+        FlagCloth c = new FlagCloth(s.Length, s.Height, FlagFabric.Standard(1f), 1f, 0f, 32, hx, hy, hz, s.Cut, s.CutDepth);
+        c.GroundY = -40f;
+        shape.ApplyTo(c, fx, fy, fz);
+        c.SetHolds(s.HeldNow, fx, fy, fz);
+        c.LayOutNew(1f, 0f);
+        float wx = (float)Math.Cos(0.4 + Math.PI / 2), wz = (float)Math.Sin(0.4 + Math.PI / 2);
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(6f, 10f), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        for (int n = 0; n < (int)(2f / dt); n++)
+        {
+            FlagAir air = FlagWind.Air(6f, 1f, wx, wz, 10f, 1f, 3f, n * dt, 0f, 0f);
+            c.Step(dt, ref air);
+        }
+
+        // The pole's mesh placed with its anchor at the cloth's (the cloth's frame: the anchor at 0).
+        UnityEngine.Matrix4x4 m = FlagPoleMesh.Placement(UnityEngine.Vector3.zero, shape, new UnityEngine.Vector3(hx, hy, hz), new UnityEngine.Vector3(fx, fy, fz));
+        UnityEngine.Vector3 a0 = m.MultiplyPoint3x4(new UnityEngine.Vector3(0f, shape.Length, 0f));
+        UnityEngine.Vector3 a1 = m.MultiplyPoint3x4(new UnityEngine.Vector3(shape.Offset + shape.ArmTop, shape.Length, 0f));
+        UnityEngine.Vector3 b0 = m.MultiplyPoint3x4(new UnityEngine.Vector3(0f, shape.Length - shape.ArmBottomDown, 0f));
+        UnityEngine.Vector3 b1 = m.MultiplyPoint3x4(new UnityEngine.Vector3(shape.Offset + shape.ArmBottom, shape.Length - shape.ArmBottomDown, 0f));
+
+        int cols = c.Columns, last = c.Rows - 1;
+        float topFar = 0f, topEnd = float.NaN, bottomFar = -1f, bottomEnd = float.NaN;
+        for (int j = 0; j <= last; j += last)
+        {
+            bool isTop = j == 0;
+            if ((isTop && (held & FlagHold.TopEdge) == 0) || (!isTop && (held & FlagHold.BottomEdge) == 0))
+                continue;
+            UnityEngine.Vector3 p0 = isTop ? a0 : b0, p1 = isTop ? a1 : b1;
+            UnityEngine.Vector3 dir = (p1 - p0).normalized;
+            float length = (p1 - p0).magnitude;
+            for (int i = 1; i < cols; i++)
+            {
+                int q = j * cols + i;
+                if (!c.IsCloth(q))
+                    continue;
+                var p = new UnityEngine.Vector3(c.X[q], c.Y[q], c.Z[q]);
+                float along = UnityEngine.Vector3.Dot(p - p0, dir);
+                float off = (p - (p0 + dir * along)).magnitude;
+                float u = i * c.CellU;
+                if (isTop) { topFar = Math.Max(topFar, off); topEnd = along - length; }
+                else
+                {
+                    if (u >= FlagCloth.HoldRamp * c.Length) bottomFar = Math.Max(bottomFar, off);
+                    bottomEnd = along - length;
+                }
+            }
+        }
+
+        bool inShaft = shape.Length >= 0f && shape.Length <= shape.ShaftTop;
+        FlagSpec none = s; none.Held = 0;
+        FlagSpec topHoist = s; topHoist.HoistedFrom = FlagHoist.Top;
+        FlagSpec pennant = s; pennant.Cut = FlagCut.Pennant;
+        bool cleared = FlagPoleShape.For(none, 6f).ArmTop == 0f && FlagPoleShape.For(topHoist, 6f).ArmTop == 0f &&
+                       FlagPoleShape.For(pennant, 6f).ArmTop == 0f && !FlagPoleShape.For(none, 6f).Same(shape);
+        FlagSpec flat = s; flat.Motion = FlagMotion.Flat;
+        bool flatKeeps = FlagPoleShape.For(flat, 6f).ArmTop == shape.ArmTop;
+
+        // A rounded fly (its top corner cut away): the cloth's first row reaches past the cut's
+        // corner by up to its band's reach (FlagCut.Cells), the arm to the corner. How far past (m).
+        FlagSpec rounded = s; rounded.Cut = FlagCut.Rounded; rounded.CutDepth = FlagCut.DefaultDepth;
+        FlagCloth rc = new FlagCloth(rounded.Length, rounded.Height, FlagFabric.Standard(1f), 1f, 0f, 32, hx, hy, hz, rounded.Cut, rounded.CutDepth);
+        int rend = 0;
+        for (int i = rc.Columns - 1; i > 0; i--) { if (rc.IsCloth(i)) { rend = i; break; } }
+        float roundedPast = rend * rc.CellU - FlagPoleShape.For(rounded, 6f).ArmTop;
+        return shape.ArmTop.ToString("F3", Inv) + "," + topFar.ToString("F4", Inv) + "," + topEnd.ToString("F4", Inv) + "," + inShaft + "," +
+               bottomFar.ToString("F4", Inv) + "," + bottomEnd.ToString("F4", Inv) + "," + cleared + "," + flatKeeps + "," +
+               shape.ArmRadius.ToString("F4", Inv) + "," + shape.Drop.ToString("F3", Inv) + "," + roundedPast.ToString("F3", Inv);
+    }
+
+    /// <summary>
     /// "Wind on it" (FlagSpec.WindShare): all of it by default; through the save and Move It's
     /// clipboard; a save of format 10 reads all of it; out of range pulled in (NaN and the
     /// infinities all of it); the log's description says it.
@@ -6669,6 +6968,23 @@ $ix = [ClothTests]::IndexNear() -split ","
 Check "the drawn shapes' triangle index finds exactly the triangles each one's own test finds, once each, over random meshes and squares" ($ix[0] -eq "0" -and $ix[1] -eq "0") ($ix[2] + " squares, " + $ix[0] + " differing, " + $ix[1] + " duplicates; a 6 m square of a 20000-triangle mesh " + $ix[3] + " us indexed, " + $ix[4] + " us every triangle (.NET)")
 $eg = [ClothTests]::EdgeSnapOnGrid() -split ","
 Check "snap on the surface the cloth keeps off (the drawn shapes): the edge found within the grid's wall band, square to it; none at the border of a roof wider than the grid" ($eg[0] -eq "True" -and (N $eg[1]) -ge -0.01 -and (N $eg[1]) -le 1.6 * (N $eg[4]) -and (N $eg[2]) -lt 1 -and $eg[3] -eq "17.0" -and $eg[5] -eq "True") ("the edge " + $eg[1] + " m outside the face (grid every " + $eg[4] + " m), its way out " + $eg[2] + " deg off, the roof at " + $eg[3] + " m; none on the wide roof: " + $eg[5])
+# The New flag window's placement presets (2026-11-19; the author: "Presets for flag orientation,
+# like flags on buildings ... Default ... Wall Flag ... A third option would be those banners").
+$pp = [ClothTests]::PlacementPresets() -split ","
+Check "the placement presets: each one's values make it, Default the New flag window's defaults, Wall flag's and Banner's the brief's, any one value changed Custom, a hair off still the preset; their sizes as seen; the wall flag snaps to walls, Default and Banner not; tilted out 10 deg up to where its pole stops standing" (($pp | Where-Object { $_ -ne "True" }).Count -eq 0) ("of / defaults / wall / banner / custom / near / sizes / snaps / band: " + ($pp -join ","))
+# Snap to walls: the face found on the grid round the pointer, a few cm out of the drawn one (the
+# grid grows a wall up to half a node out into a one-node slope), never in it, at any height; no wall
+# on a roof, on the ground, in the wall's top, on a kerb; a turned wall's way out; the wall flag's pole
+# placed on it standing out of the face, its foot's disc never in it, the flag out of the wall.
+$ws = [ClothTests]::WallSnap() -split ","
+Check "snap to walls (FlagEdgeSnap.FindWall, OnWall): the face found 2, 8 and 16 m up within a grid node outside the drawn one, square to it; none on the roof, the ground, the wall's top 0.1 m, a kerb, under an overhang; a wall turned 30 deg found turned; the wall flag's pole on it, its foot out of the face, the flag heading out" ($ws[0] -eq "True" -and (N $ws[1]) -ge -0.001 -and (N $ws[2]) -le (N $ws[15]) + 0.005 -and (N $ws[3]) -lt 1 -and $ws[4] -eq "False" -and $ws[5] -eq "False" -and $ws[6] -eq "False" -and $ws[7] -eq "False" -and $ws[8] -eq "True" -and (N $ws[9]) -lt 2 -and (N $ws[10]) -ge -0.001 -and (N $ws[10]) -le 1.5 * (N $ws[15]) -and (N $ws[11]) -ge (N $ws[16]) -and (N $ws[12]) -ge 0 -and $ws[13] -eq "True" -and (N $ws[14]) -lt 1 -and $ws[17] -eq "False" -and $ws[18] -eq "True") ("under a 0.5 m overhang: " + $ws[17] + " (met at its line: " + $ws[18] + ", the face found " + $ws[19] + " m in front of the wall); the face " + $ws[1] + ".." + $ws[2] + " m outside the drawn one (grid every " + $ws[15] + " m), its way out " + $ws[3] + " deg off; on the roof / ground / wall's top / kerb: " + $ws[4] + "/" + $ws[5] + "/" + $ws[6] + "/" + $ws[7] + "; turned 30 deg: " + $ws[8] + ", its way out " + $ws[9] + " deg off, " + $ws[10] + " m outside; the wall flag's foot " + $ws[11] + " m out of the face (its widest " + $ws[16] + " m), its disc's deepest " + $ws[12] + " m out, standing out of the wall " + $ws[13] + ", heading " + $ws[14] + " deg off square")
+# The banner's arm along its cloth's held edge (FlagPoleShape.ArmTop, FlagPoleMesh): upright, tilted
+# 45 deg, at half its pole, and held top and bottom on a halyard.
+foreach ($case in @(@(0, 1, 1, 0, "upright"), @(45, 1, 1, 0, "tilted 45 deg"), @(0, 0.5, 1, 0, "at half its pole"), @(0, 1, 3, 2, "held top and bottom, on its halyard"))) {
+    $ap = [ClothTests]::ArmPlacement($case[0], $case[1], $case[2], $case[3]) -split ","
+    $okBottom = if ($case[2] -band 2) { (N $ap[4]) -ge 0 -and (N $ap[4]) -le 0.01 -and [Math]::Abs((N $ap[5])) -le 0.01 } else { $ap[4] -eq "-1.0000" }
+    Check ("the banner's arm, " + $case[4] + ": along the held top edge after 2 s in the wind (within a cm), ending at its last held particle, from inside the shaft" + $(if ($case[2] -band 2) { "; the bottom arm along the held bottom edge past its first quarter" } else { "" }) + "; none unheld, from the top, on a pennant's top; Same() sees it; a flat flag keeps it") ((N $ap[1]) -le 0.01 -and [Math]::Abs((N $ap[2])) -le 0.01 -and $ap[3] -eq "True" -and $okBottom -and $ap[6] -eq "True" -and $ap[7] -eq "True") ("the arm " + $ap[0] + " m out from the hoist line, " + $ap[8] + " m thick (radius); the held top edge " + $ap[1] + " m off it at most, its end " + $ap[2] + " m past the arm's; bottom " + $ap[4] + " m off, its end " + $ap[5] + " m past; cleared " + $ap[6] + ", flat keeps it " + $ap[7] + "; the flag " + $ap[9] + " m down its pole; a rounded fly's first row " + $ap[10] + " m past its arm")
+}
 $es = [ClothTests]::EdgeSnap() -split ","
 Check "snap to a roof's edge (FlagEdgeSnap): the edge's point and its way out found from 0.6 m in, none from 2.5 m; along it, out from it, or back to it as the flag is turned" ($es[0] -eq "True" -and (N $es[1]) -lt 0.02 -and (N $es[2]) -lt 1 -and $es[3] -eq "17.0" -and $es[5] -eq "False" -and $es[6] -eq "True" -and $es[7] -eq "True" -and $es[8] -eq "True") ("the edge " + $es[1] + " m off, its way out " + $es[2] + " deg off, the roof at " + $es[3] + " m, " + $es[4] + " raycasts; from 2.5 m in: " + $es[5] + "; placed along / out / back: " + $es[6] + "/" + $es[7] + "/" + $es[8])
 # Dragged along a building (Move It, 7.5 m/s): the wall sweeps into the cloth, which is carried with
