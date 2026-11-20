@@ -254,6 +254,7 @@
   <String key="Pole.Ball">Punta de bola</String>
   <String key="Pole.Flat">Punta plana</String>
   <String key="Pole.Spear">Punta de lanza</String>
+  <String key="Pole.Cap">Punta con tapa</String>
 
   <String key="NewPoleProfile.Label">Forma</String>
   <String key="SelPoleProfile.Label">Forma</String>
@@ -266,7 +267,27 @@
   <String key="SelPoleBase.Label">Base</String>
   <String key="Base.Collar">Collarín</String>
   <String key="Base.Cast">Base fundida</String>
+  <String key="Base.Block">Bloque</String>
   <String key="Base.None">Ninguna</String>
+
+  <String key="NewBlockShape.Label">Forma del bloque</String>
+  <String key="SelBlockShape.Label">Forma del bloque</String>
+  <String key="Block.Square">Cuadrado</String>
+  <String key="Block.Rounded">Redondeado</String>
+  <String key="Block.Round">Redondo</String>
+  <String key="NewBlockWidth.Label">Ancho del bloque</String>
+  <String key="SelBlockWidth.Label">Ancho del bloque</String>
+  <String key="NewBlockHeight.Label">Alto del bloque</String>
+  <String key="SelBlockHeight.Label">Alto del bloque</String>
+  <String key="NewBlockColour.Label">Color del bloque</String>
+  <String key="SelBlockColour.Label">Color del bloque</String>
+  <String key="NewBlockWear.Label">Desgaste del bloque</String>
+  <String key="SelBlockWear.Label">Desgaste del bloque</String>
+
+  <String key="NewPoleFinish.Label">Acabado</String>
+  <String key="SelPoleFinish.Label">Acabado</String>
+  <String key="Finish.Painted">Pintado</String>
+  <String key="Finish.Galvanized">Galvanizado</String>
 
   <String key="NewPoleShine.Label">Brillo</String>
   <String key="SelPoleShine.Label">Brillo</String>

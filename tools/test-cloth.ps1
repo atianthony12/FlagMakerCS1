@@ -2986,7 +2986,7 @@ public static class ClothTests
         a.Motion = FlagMotion.Still; a.Take = 7; a.Held = FlagHold.TopEdge | FlagHold.FlyCorners;
         a = a.Sanitised();
         FlagSpec back;
-        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out back) && back.Take == 7 && back.Held == 9 && FlagCodec.Version == 19;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out back) && back.Take == 7 && back.Held == 9 && FlagCodec.Version >= 19;
         bool old;
         using (var ms = new System.IO.MemoryStream())
         {
@@ -2994,7 +2994,8 @@ public static class ClothTests
             FlagCodec.Write(w, a);
             w.Flush();
             byte[] all = ms.ToArray();
-            byte[] body = new byte[all.Length - 2];
+            // 18's body: this format's less format 20's tail (Format20Tail) and 19's two bytes.
+            byte[] body = new byte[all.Length - Format20Tail - 2];
             Array.Copy(all, body, body.Length);
             FlagSpec o = FlagCodec.Read(new System.IO.BinaryReader(new System.IO.MemoryStream(body)), 18);
             old = o.Take == 0 && o.Held == FlagHold.None && o.Motion == FlagMotion.Still;
@@ -4911,6 +4912,64 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The right button's turn on a snap (2026-11-19, FlagEdgeSnap.Place / OnWall with a turn): a
+    /// turn of 0 is the plain answer bit for bit; on an edge a quarter turn either way from along
+    /// lands on the out-from-the-face and back-to-it placements; at every turn the hoist's ends
+    /// stay off the face (never into the roof), its middle where the edge's point is along it;
+    /// on a wall the foot stays and the heading is the turned one. Returns: same, quarter turns,
+    /// the worst end into the face (m, &lt;= 0 off it), the middle's slide along (m), the wall's.
+    /// </summary>
+    public static string SnapTurn()
+    {
+        double b = 30.0 * Math.PI / 180.0 + Math.PI / 2;
+        float nx = (float)Math.Cos(b), nz = (float)Math.Sin(b), tx = -nz, tz = nx;
+        float ex = 5f * nx, ez = 5f * nz, hoist = 4f;
+        bool same = true;
+        float[] angles = { (float)Math.Atan2(tz, tx) + 0.3f, (float)Math.Atan2(nz, nx) - 0.3f, (float)Math.Atan2(-nz, -nx), 2.9f };
+        foreach (float a in angles)
+            foreach (bool front in new[] { false, true })
+            {
+                float ax, ay, az, h, bx, by, bz, g;
+                FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, a, hoist, front, out ax, out ay, out az, out h);
+                FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, a, hoist, front, 0f, out bx, out by, out bz, out g);
+                same &= ax == bx && ay == by && az == bz && h == g;
+            }
+
+        // From along the edge, a quarter turn each way: the two squared placements across it.
+        float along0 = (float)Math.Atan2(tz, tx);
+        float qx, qy, qz, qh, px, py, pz, ph;
+        FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, (float)Math.Atan2(nz, nx), hoist, false, out px, out py, out pz, out ph);
+        FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, along0, hoist, false, -(float)Math.PI / 2, out qx, out qy, out qz, out qh);
+        bool outQuarter = Math.Abs(qx - px) < 1e-4f && Math.Abs(qz - pz) < 1e-4f && Math.Abs(Math.Cos(qh - ph) - 1.0) < 1e-5;
+        FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, (float)Math.Atan2(-nz, -nx), hoist, false, out px, out py, out pz, out ph);
+        FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, along0, hoist, false, (float)Math.PI / 2, out qx, out qy, out qz, out qh);
+        bool backQuarter = Math.Abs(qx - px) < 1e-4f && Math.Abs(qz - pz) < 1e-4f && Math.Abs(Math.Cos(qh - ph) - 1.0) < 1e-5;
+
+        // Every turn: the hoist's two ends out of the face (signed distance from the edge's line), its middle at the edge's point along it.
+        float worstIn = float.NegativeInfinity, slide = 0f;
+        for (int k = -36; k <= 36; k++)
+        {
+            float t = k * 5f * (float)Math.PI / 180f, ax, ay, az, h;
+            FlagEdgeSnap.Place(ex, 17f, ez, nx, nz, along0, hoist, false, t, out ax, out ay, out az, out h);
+            float cx = (float)Math.Cos(h), cz = (float)Math.Sin(h);
+            float d0 = (ax - ex) * nx + (az - ez) * nz, d1 = (ax + hoist * cx - ex) * nx + (az + hoist * cz - ez) * nz;
+            worstIn = Math.Max(worstIn, FlagEdgeSnap.Gap - Math.Min(d0, d1));
+            float mid = (ax + 0.5f * hoist * cx - ex) * tx + (az + 0.5f * hoist * cz - ez) * tz;
+            slide = Math.Max(slide, Math.Abs(mid));
+        }
+
+        // The wall: the foot where the plain answer had it, the heading turned.
+        float fx, fy, fz, fh, wx, wy, wz, wh;
+        FlagEdgeSnap.OnWall(ex, 8f, ez, nx, nz, 0.06f, out fx, out fy, out fz, out fh);
+        FlagEdgeSnap.OnWall(ex, 8f, ez, nx, nz, 0.06f, 0.7f, out wx, out wy, out wz, out wh);
+        float wz0x, wz0y, wz0z, wz0h;
+        FlagEdgeSnap.OnWall(ex, 8f, ez, nx, nz, 0.06f, 0f, out wz0x, out wz0y, out wz0z, out wz0h);
+        bool wall = wx == fx && wy == fy && wz == fz && Math.Abs(wh - fh - 0.7f) < 1e-6f &&
+                    wz0x == fx && wz0y == fy && wz0z == fz && wz0h == fh;
+        return same + "," + outQuarter + "," + backQuarter + "," + worstIn.ToString("F4", Inv) + "," + slide.ToString("F4", Inv) + "," + wall;
+    }
+
+    /// <summary>
     /// The Quality preset (RealFlag.UI.QualityPreset.Of): the defaults are High (a file from
     /// before reads as High); each level's own four make that level; one of them changed makes
     /// Custom; Extreme's 64 cells are Custom at any setting. Returns: High from the defaults, the
@@ -5410,9 +5469,10 @@ public static class ClothTests
             var w = new System.IO.BinaryWriter(ms);
             FlagCodec.Write(w, a);
             w.Flush();
-            // 17's body: 19's less its last two bytes (the take, the holds) and the float before them (the position on the pole).
+            // 17's body: 19's less its last two bytes (the take, the holds) and the float before them
+            // (the position on the pole) -- and 20's tail after them (Format20Tail).
             byte[] all = ms.ToArray();
-            body = new byte[all.Length - 6];
+            body = new byte[all.Length - Format20Tail - 6];
             Array.Copy(all, body, body.Length);
             ms.Position = 0;
             FlagSpec as15 = FlagCodec.Read(new System.IO.BinaryReader(ms), 15);
@@ -5497,6 +5557,129 @@ public static class ClothTests
 
         return def + "," + round + "," + old + "," + pulled + "," + split + "," + said + "," + same + "," + even + "," + steps + "," + covers + "," +
                ropeScale + "," + based + "," + sectional.Sections + "," + FlagCodec.Version;
+    }
+
+    /// <summary>The bytes format 20 adds after 19's (the finish, the block's shape, width, height, colour and wear): 1 + 1 + 4 + 4 + 4 + 4.</summary>
+    public const int Format20Tail = 18;
+
+    /// <summary>
+    /// Format 20 (2026-11-19): the Cap top, the galvanized finish and the concrete block. Defaults
+    /// (painted, a square 0.8 x 0.5 m block of the default grey, as new); every new field through the
+    /// save and Move It's clipboard; a format 19 body (20's less its tail) reads the defaults and
+    /// ends where the tail began; a cut-short body is refused; out of range pulled in; the block's
+    /// size a new mesh, its colour and wear and the finish only the block; in the log. The shapes:
+    /// a block only under a pole that stands (none on a crossbar), its reach round the axis by its
+    /// shape, the cleat above it, a block change another mesh; the foot where it was (Anchor and
+    /// Base inverse); the Cap's tip on its cap, the cap a little wider than the shaft's top and a
+    /// bit over twice its radius high; a ball top's tip as before.
+    /// </summary>
+    public static string PoleBlock()
+    {
+        FlagSpec d = FlagSpec.Default;
+        bool def = d.PoleFinish == FlagPoleFinish.Painted && d.BlockShape == FlagBlockShape.Square && d.BlockWidth == FlagSpec.DefaultBlockWidth &&
+                   d.BlockHeight == FlagSpec.DefaultBlockHeight && d.BlockColour == FlagSpec.DefaultBlockColour && d.BlockWear == 0f &&
+                   FlagPoleStyle.IsKnown(FlagPoleStyle.Cap) && FlagPoleBase.IsKnown(FlagPoleBase.Block) && FlagCodec.Version == 20;
+
+        FlagSpec a = d; a.Pole = FlagPoleStyle.Cap; a.PoleBase = FlagPoleBase.Block; a.PoleFinish = FlagPoleFinish.Galvanized; a.BlockShape = FlagBlockShape.Round;
+        a.BlockWidth = 1.35f; a.BlockHeight = 0.65f; a.BlockColour = 0x8A7F70; a.BlockWear = 0.55f; a.PoleLength = 10f;
+        FlagSpec r;
+        bool round = FlagCodec.TryDecodeOne(FlagCodec.EncodeOne(a), out r) && r.Pole == FlagPoleStyle.Cap && r.PoleBase == FlagPoleBase.Block &&
+                     r.PoleFinish == FlagPoleFinish.Galvanized && r.BlockShape == FlagBlockShape.Round && Math.Abs(r.BlockWidth - 1.35f) < 1e-6f &&
+                     Math.Abs(r.BlockHeight - 0.65f) < 1e-6f && r.BlockColour == 0x8A7F70 && Math.Abs(r.BlockWear - 0.55f) < 1e-6f;
+
+        bool old;
+        byte[] enc = FlagCodec.EncodeOne(a);
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var w = new System.IO.BinaryWriter(ms);
+            FlagCodec.Write(w, a);
+            w.Flush();
+            byte[] all = ms.ToArray();
+            byte[] body = new byte[all.Length - Format20Tail];
+            Array.Copy(all, body, body.Length);
+            var bs = new System.IO.MemoryStream(body);
+            FlagSpec as19 = FlagCodec.Read(new System.IO.BinaryReader(bs), 19);
+            old = bs.Position == body.Length && as19.PoleFinish == FlagPoleFinish.Painted && as19.BlockShape == FlagBlockShape.Square &&
+                  as19.BlockWidth == FlagSpec.DefaultBlockWidth && as19.BlockHeight == FlagSpec.DefaultBlockHeight &&
+                  as19.BlockColour == FlagSpec.DefaultBlockColour && as19.BlockWear == 0f && as19.Pole == FlagPoleStyle.Cap && as19.PoleBase == FlagPoleBase.Block;
+        }
+
+        byte[] cut = new byte[enc.Length - 3];
+        Array.Copy(enc, cut, cut.Length);
+        FlagSpec ignored;
+        bool refused = !FlagCodec.TryDecodeOne(cut, out ignored);
+
+        FlagSpec bad = a; bad.PoleFinish = 7; bad.BlockShape = 9; bad.BlockWidth = float.NaN; bad.BlockHeight = 99f; bad.BlockColour = 0xFF123456; bad.BlockWear = -1f;
+        FlagSpec s = bad.Sanitised();
+        FlagSpec thin = a; thin.BlockWidth = 0.01f; thin.BlockHeight = float.PositiveInfinity; thin.BlockWear = 3f;
+        FlagSpec t2 = thin.Sanitised();
+        bool pulled = s.PoleFinish == FlagPoleFinish.Painted && s.BlockShape == FlagBlockShape.Square && s.BlockWidth == FlagSpec.DefaultBlockWidth &&
+                      s.BlockHeight == FlagSpec.MaxBlockHeight && s.BlockColour == 0x123456 && s.BlockWear == 0f &&
+                      t2.BlockWidth == FlagSpec.MinBlockWidth && t2.BlockHeight == FlagSpec.DefaultBlockHeight && t2.BlockWear == 1f;
+
+        FlagSpec wider = a; wider.BlockWidth = 1.5f;
+        FlagSpec taller = a; taller.BlockHeight = 0.9f;
+        FlagSpec square = a; square.BlockShape = FlagBlockShape.Square;
+        FlagSpec tinted = a; tinted.BlockColour = 0x555555;
+        FlagSpec worn = a; worn.BlockWear = 0.1f;
+        FlagSpec painted = a; painted.PoleFinish = FlagPoleFinish.Painted;
+        bool split = !wider.SamePole(a) && !taller.SamePole(a) && !square.SamePole(a) && wider.SamePoleColours(a) &&
+                     tinted.SamePole(a) && worn.SamePole(a) && painted.SamePole(a) &&
+                     !tinted.SamePoleColours(a) && !worn.SamePoleColours(a) && !painted.SamePoleColours(a);
+        string text = a.Describe();
+        bool said = text.Contains("pole with a cap top") && text.Contains("on a 1.35 x 0.65 m round concrete block #8A7F70 worn 55%") &&
+                    text.Contains(", galvanized") && !d.Describe().Contains("galvanized");
+
+        // The shapes, a 3 x 2 m flag on a 10 m pole.
+        FlagSpec b = d; b.Pole = FlagPoleStyle.Ball; b.PoleBase = FlagPoleBase.Block; b.PoleLength = 10f;
+        FlagPoleShape sq = FlagPoleShape.For(b, 10f);
+        FlagSpec bRounded = b; bRounded.BlockShape = FlagBlockShape.Rounded;
+        FlagSpec bRound = b; bRound.BlockShape = FlagBlockShape.Round;
+        FlagPoleShape ro = FlagPoleShape.For(bRounded, 10f), rd = FlagPoleShape.For(bRound, 10f);
+        float h = 0.5f * FlagSpec.DefaultBlockWidth;
+        bool reach = sq.Base == FlagPoleBase.Block && Math.Abs(rd.FootReach - h) < 1e-6f && sq.FootReach > ro.FootReach && ro.FootReach > rd.FootReach &&
+                     sq.FootReach < h * (float)Math.Sqrt(2.0) && sq.BlockChamfer > 0f && ro.BlockCorner > 0f && rd.BlockEdge > 0f &&
+                     sq.Cleat >= sq.BlockHeight + 0.2f - 1e-6f && sq.BlockWidth == FlagSpec.DefaultBlockWidth;
+        FlagSpec bar = b; bar.Tilt = 90f;
+        FlagSpec top = b; top.HoistedFrom = FlagHoist.Top;
+        FlagPoleShape crossbar = FlagPoleShape.For(bar, 4f);
+        bool onlyStanding = crossbar.Base == FlagPoleBase.None && crossbar.BlockWidth == 0f && crossbar.FootReach == crossbar.RadiusFoot &&
+                            FlagPoleShape.For(top, 10f).Base == FlagPoleBase.None;
+        FlagSpec bWider = b; bWider.BlockWidth = 1.2f;
+        FlagSpec bTint = b; bTint.BlockColour = 0x333333;
+        FlagSpec tall = b; tall.BlockHeight = 1.8f;
+        // A 2 m block under a 1 m pole (a small flag): the cleat held under the pole's top, so no rope runs up past the sheave.
+        FlagSpec tiny = tall; tiny.Length = 0.75f; tiny.PoleLength = 1f;
+        FlagPoleShape small = FlagPoleShape.For(tiny, 1f);
+        bool remade = !FlagPoleShape.For(bWider, 10f).Same(sq) && FlagPoleShape.For(bTint, 10f).Same(sq) && !ro.Same(sq) &&
+                      FlagPoleShape.For(tall, 10f).Cleat >= 2f - 1e-6f && small.Cleat <= 0.9f * small.Length + 1e-6f &&
+                      small.Cleat < small.ShaftTop;
+
+        // The foot where it was: the anchor up from a foot, and back down to it.
+        float ax, ay, az, fx, fy, fz;
+        FlagStand.Anchor(b, 0.7f, 10f, 5f, 0f, 7f, out ax, out ay, out az);
+        FlagStand.Base(b, 0.7f, 10f, ax, ay, az, out fx, out fy, out fz);
+        FlagSpec bCollar = b; bCollar.PoleBase = FlagPoleBase.Collar;
+        float cx, cy, cz;
+        FlagStand.Anchor(bCollar, 0.7f, 10f, 5f, 0f, 7f, out cx, out cy, out cz);
+        bool foot = Math.Abs(fx - 5f) < 1e-4f && Math.Abs(fy) < 1e-4f && Math.Abs(fz - 7f) < 1e-4f &&
+                    Math.Abs(ax - cx) < 1e-5f && Math.Abs(ay - cy) < 1e-5f && Math.Abs(az - cz) < 1e-5f;
+
+        // The Cap top.
+        FlagSpec capped = d; capped.Pole = FlagPoleStyle.Cap;
+        FlagPoleShape cap = FlagPoleShape.For(capped, 10f);
+        FlagSpec balled = d; balled.Pole = FlagPoleStyle.Ball;
+        FlagPoleShape ball = FlagPoleShape.For(balled, 10f);
+        bool capTop = Math.Abs(cap.Tip - (cap.ShaftTop + cap.TruckHeight + cap.CapHeight)) < 1e-6f &&
+                      cap.CapRadius >= 1.25f * cap.RadiusTop - 1e-6f && cap.CapRadius <= 1.35f * cap.RadiusTop + 1e-6f &&
+                      cap.CapHeight >= 2f * cap.RadiusTop && cap.CapHeight <= 2.5f * cap.RadiusTop && cap.CapEdge < 0.5f * cap.CapHeight &&
+                      Math.Abs(ball.Tip - (ball.ShaftTop + ball.TruckHeight + ball.NeckHeight + 1.9f * ball.BallRadius)) < 1e-6f &&
+                      !FlagPoleStyle.HasGilt(FlagPoleStyle.Cap) && FlagPoleStyle.HasGilt(FlagPoleStyle.Ball);
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return def + "," + round + "," + old + "," + refused + "," + pulled + "," + split + "," + said + "," + reach + "," + onlyStanding + "," +
+               remade + "," + foot + "," + capTop + "," + sq.FootReach.ToString("F3", inv) + "," + ro.FootReach.ToString("F3", inv) + "," +
+               rd.FootReach.ToString("F3", inv) + "," + (100f * cap.CapHeight).ToString("F1", inv);
     }
 
     public static string CodecBackPlate()
@@ -6733,6 +6916,12 @@ $po = [ClothTests]::CodecPoleLooks() -split ","
 Check "Pole looks: a tapered satin pole on a collar as new by default; through the save and the clipboard; format 15 reads the defaults, 16 its material as a shine and 'ornate' as a cast base; out of range pulled in; shape vs look; in the log" ($po[0] -eq "True" -and $po[1] -eq "True" -and $po[2] -eq "True" -and $po[3] -eq "True" -and $po[4] -eq "True" -and $po[5] -eq "True") ("format " + $po[13])
 Check "pole shapes: tapered as before; straight even; sectional in narrowing steps, its collider never inside a step over the hoist; ropes thicker by the slider; a cast base under a sectional shaft, under the cleat; no base" ($po[6] -eq "True" -and $po[7] -eq "True" -and $po[8] -eq "True" -and $po[9] -eq "True" -and $po[10] -eq "True" -and $po[11] -eq "True") ($po[12] + " sections on a 12 m pole")
 
+# ---- the Cap top, the galvanized finish, the concrete block (format 20) ------------------------
+
+$pb = [ClothTests]::PoleBlock() -split ","
+Check "Format 20: painted and a 0.8 x 0.5 m square block by default; finish and block through the save and the clipboard; a format 19 body reads the defaults and ends where the tail began; cut short refused; out of range pulled in; size vs look; in the log" (($pb[0..6] | Where-Object { $_ -ne "True" }).Count -eq 0) ("defaults " + $pb[0] + ", round trip " + $pb[1] + ", 19 " + $pb[2] + ", refused " + $pb[3] + ", pulled " + $pb[4] + ", split " + $pb[5] + ", said " + $pb[6])
+Check "the block: its reach by its shape, the cleat above it; only under a pole that stands; another size another mesh, a tint not; the foot where it was; the Cap's tip on its cap, a ball's as before" (($pb[7..11] | Where-Object { $_ -ne "True" }).Count -eq 0) ("reach " + $pb[7] + " (0.8 m: square " + $pb[12] + " m, rounded " + $pb[13] + ", round " + $pb[14] + "), standing only " + $pb[8] + ", remade " + $pb[9] + ", foot " + $pb[10] + ", cap " + $pb[11] + " (" + $pb[15] + " cm high on a 10 m pole)")
+
 # ---- cuts (FlagCut: swallowtail, pennant...) -------------------------------------------------
 
 # (Variables named cut*: PowerShell's are case-insensitive, and the rest of this file has short ones.)
@@ -6987,6 +7176,10 @@ foreach ($case in @(@(0, 1, 1, 0, "upright"), @(45, 1, 1, 0, "tilted 45 deg"), @
 }
 $es = [ClothTests]::EdgeSnap() -split ","
 Check "snap to a roof's edge (FlagEdgeSnap): the edge's point and its way out found from 0.6 m in, none from 2.5 m; along it, out from it, or back to it as the flag is turned" ($es[0] -eq "True" -and (N $es[1]) -lt 0.02 -and (N $es[2]) -lt 1 -and $es[3] -eq "17.0" -and $es[5] -eq "False" -and $es[6] -eq "True" -and $es[7] -eq "True" -and $es[8] -eq "True") ("the edge " + $es[1] + " m off, its way out " + $es[2] + " deg off, the roof at " + $es[3] + " m, " + $es[4] + " raycasts; from 2.5 m in: " + $es[5] + "; placed along / out / back: " + $es[6] + "/" + $es[7] + "/" + $es[8])
+# The right button's turn on a wall or a roof's edge (2026-11-19, the author: "allow the user to right
+# click to rotate even then").
+$st = [ClothTests]::SnapTurn() -split ","
+Check "the right button's turn on a snap: no turn = the plain placement bit for bit; a quarter turn from along an edge = out from it / back to it; at every turn the hoist off the face, its middle on the edge's point; on a wall the foot kept, the heading turned" ($st[0] -eq "True" -and $st[1] -eq "True" -and $st[2] -eq "True" -and (N $st[3]) -le 1e-4 -and (N $st[4]) -lt 1e-3 -and $st[5] -eq "True") ("same " + $st[0] + ", quarters " + $st[1] + "/" + $st[2] + ", the deepest end " + $st[3] + " m into the face's gap, the middle slid " + $st[4] + " m, the wall " + $st[5])
 # Dragged along a building (Move It, 7.5 m/s): the wall sweeps into the cloth, which is carried with
 # its anchor. Put out at once, 900-1300 particles jumped more than a cell in a sub-step and a link
 # tore 170% long -- in the game "the flag animation resets many times ... fighting for space" (the

@@ -846,6 +846,44 @@ namespace RealFlag.Flags
         }
 
         /// <summary>
+        /// The drawn pole's finish, a <see cref="FlagPoleFinish"/> value (the author, 2026-11-19, from
+        /// a Battlefield 4 flagpole: a plain steel pole): painted (every pole before), or galvanized --
+        /// bare hot-dip zinc, its own grey, a faint spangle of crystal grains (FlagPole.shader). Its
+        /// look only. Format 20.
+        /// </summary>
+        public int PoleFinish;
+
+        /// <summary>
+        /// The concrete block a pole stands in when its base is <see cref="FlagPoleBase.Block"/> (the
+        /// author, 2026-11-19: "an optional cement block to the foot of the flagpole ... size, color,
+        /// rounded or not, wear and tear"): its shape (a <see cref="FlagBlockShape"/> value), its width
+        /// and height above the ground, metres, its colour (sRGB 0xRRGGBB, tinting the concrete) and
+        /// its wear 0..1 (stains, grime, streaks, chipped edges). Kept whatever the base, used only
+        /// with a block on a pole that stands (FlagPoleShape). Format 20.
+        /// </summary>
+        public int BlockShape;
+
+        public float BlockWidth, BlockHeight;
+        public uint BlockColour;
+        public float BlockWear;
+
+        /// <summary>
+        /// A block's least and largest width and height, metres, and the defaults: low and wide, as
+        /// the precast ballast blocks under temporary and small flagpoles are -- about five times the
+        /// shaft's foot across under a 10 m pole, a little over half as high as wide (the author's
+        /// picture's block).
+        /// </summary>
+        public const float MinBlockWidth = 0.3f;
+        public const float MaxBlockWidth = 2.5f;
+        public const float DefaultBlockWidth = 0.8f;
+        public const float MinBlockHeight = 0.1f;
+        public const float MaxBlockHeight = 2f;
+        public const float DefaultBlockHeight = 0.5f;
+
+        /// <summary>A light precast concrete grey (sRGB; about 0.39 linear), chosen by eye in the preview's pictures.</summary>
+        public const uint DefaultBlockColour = 0xA9A69F;
+
+        /// <summary>
         /// The drawn pole's wear and tear, 0..1 each: worn (paint chipped to primer), rust (in the
         /// chips and running down from them) and dirt (grime up from the foot, streaks down). Its
         /// look only (FlagPole.shader).
@@ -953,6 +991,12 @@ namespace RealFlag.Flags
                     PoleDirt = 0f,
                     RopeThickness = 1f,
                     PolePosition = 1f,
+                    PoleFinish = FlagPoleFinish.Painted,
+                    BlockShape = FlagBlockShape.Square,
+                    BlockWidth = DefaultBlockWidth,
+                    BlockHeight = DefaultBlockHeight,
+                    BlockColour = DefaultBlockColour,
+                    BlockWear = 0f,
                 };
             }
         }
@@ -1071,7 +1115,23 @@ namespace RealFlag.Flags
             s.PolePosition = float.IsNaN(s.PolePosition) || float.IsInfinity(s.PolePosition) ? 1f : Share(s.PolePosition);
             s.Take = Math.Max(0, Math.Min(s.Take, MaxTake));
             s.Held &= FlagHold.All;
+            if (!FlagPoleFinish.IsKnown(s.PoleFinish))
+                s.PoleFinish = FlagPoleFinish.Painted;
+            if (!FlagBlockShape.IsKnown(s.BlockShape))
+                s.BlockShape = FlagBlockShape.Square;
+            s.BlockWidth = Within(s.BlockWidth, MinBlockWidth, MaxBlockWidth, DefaultBlockWidth);
+            s.BlockHeight = Within(s.BlockHeight, MinBlockHeight, MaxBlockHeight, DefaultBlockHeight);
+            s.BlockColour &= 0xFFFFFF;
+            s.BlockWear = Share(s.BlockWear);
             return s;
+        }
+
+        /// <summary>A size held to its range (NaN and the infinities its default).</summary>
+        private static float Within(float value, float min, float max, float fallback)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return fallback;
+            return Math.Max(min, Math.Min(value, max));
         }
 
         /// <summary>A share 0..1 (NaN and the infinities none).</summary>
@@ -1156,15 +1216,17 @@ namespace RealFlag.Flags
         {
             return Pole == other.Pole && Ropes == other.Ropes && Math.Abs(PoleThickness - other.PoleThickness) < 1e-4f &&
                    Math.Abs(PoleLength - other.PoleLength) < 1e-3f && PoleProfile == other.PoleProfile && PoleBase == other.PoleBase &&
-                   Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f && Math.Abs(PolePosition - other.PolePosition) < 1e-4f;
+                   Math.Abs(RopeThickness - other.RopeThickness) < 1e-4f && Math.Abs(PolePosition - other.PolePosition) < 1e-4f &&
+                   BlockShape == other.BlockShape && Math.Abs(BlockWidth - other.BlockWidth) < 1e-4f && Math.Abs(BlockHeight - other.BlockHeight) < 1e-4f;
         }
 
-        /// <summary>The same pole colours, shine and wear (only the property block changes).</summary>
+        /// <summary>The same pole colours, finish, shine and wear, and the same block colour and wear (only the property block changes).</summary>
         public bool SamePoleColours(FlagSpec other)
         {
             return PoleColour == other.PoleColour && TopColour == other.TopColour && RopeColour == other.RopeColour &&
                    Math.Abs(PoleShine - other.PoleShine) < 1e-5f && Math.Abs(PoleWear - other.PoleWear) < 1e-5f &&
-                   Math.Abs(PoleRust - other.PoleRust) < 1e-5f && Math.Abs(PoleDirt - other.PoleDirt) < 1e-5f;
+                   Math.Abs(PoleRust - other.PoleRust) < 1e-5f && Math.Abs(PoleDirt - other.PoleDirt) < 1e-5f &&
+                   PoleFinish == other.PoleFinish && BlockColour == other.BlockColour && Math.Abs(BlockWear - other.BlockWear) < 1e-5f;
         }
 
         /// <summary>The same picture, laid the same way (only the property block changes when it does not).</summary>
@@ -1212,7 +1274,12 @@ namespace RealFlag.Flags
                 text += ", pole with a " + FlagPoleStyle.LogName(Pole) + " top and " + Ropes + " rope(s)" +
                         (Math.Abs(PoleThickness - 1f) > 1e-3f ? ", " + (PoleThickness * 100f).ToString("F0", inv) + "% thick" : "") +
                         (PoleLength > 0f ? ", " + PoleLength.ToString("0.#", inv) + " m long" : "") +
-                        ", " + FlagPoleProfile.LogName(PoleProfile) + " on " + FlagPoleBase.LogName(PoleBase) +
+                        ", " + FlagPoleProfile.LogName(PoleProfile) + " on " +
+                        (PoleBase == FlagPoleBase.Block
+                            ? "a " + BlockWidth.ToString("0.##", inv) + " x " + BlockHeight.ToString("0.##", inv) + " m " + FlagBlockShape.LogName(BlockShape) +
+                              " concrete block " + FlagColours.Hex(BlockColour) + (BlockWear > 0f ? " worn " + (BlockWear * 100f).ToString("F0", inv) + "%" : "")
+                            : FlagPoleBase.LogName(PoleBase)) +
+                        (PoleFinish == FlagPoleFinish.Galvanized ? ", galvanized" : "") +
                         ", shine " + (PoleShine * 100f).ToString("F0", inv) + "%" +
                         (PoleWear > 0f || PoleRust > 0f || PoleDirt > 0f
                             ? " (worn " + (PoleWear * 100f).ToString("F0", inv) + "% rust " + (PoleRust * 100f).ToString("F0", inv) + "% dirt " +
@@ -1228,7 +1295,9 @@ namespace RealFlag.Flags
 
     /// <summary>
     /// The pole the mod can draw under a flag, by its top (the finial): stored by VALUE in the
-    /// save, APPEND ONLY. None: no pole (the default; a flag for the city's own poles).
+    /// save, APPEND ONLY. None: no pole (the default; a flag for the city's own poles). Cap
+    /// (2026-11-19, the author's Battlefield 4 pole): a short cylinder cap on the truck, painted
+    /// as the pole, no gilt part.
     /// </summary>
     public static class FlagPoleStyle
     {
@@ -1236,18 +1305,70 @@ namespace RealFlag.Flags
         public const int Ball = 1;
         public const int Flat = 2;
         public const int Spear = 3;
+        public const int Cap = 4;
 
-        public static readonly int[] Values = { None, Ball, Flat, Spear };
-        public static readonly string[] NameKeys = { "Pole.None", "Pole.Ball", "Pole.Flat", "Pole.Spear" };
+        public static readonly int[] Values = { None, Ball, Flat, Spear, Cap };
+        public static readonly string[] NameKeys = { "Pole.None", "Pole.Ball", "Pole.Flat", "Pole.Spear", "Pole.Cap" };
 
         public static bool IsKnown(int style)
         {
-            return style >= None && style <= Spear;
+            return style >= None && style <= Cap;
+        }
+
+        /// <summary>The top has a gilt part of its own colour (the Top color row): a ball or a spear.</summary>
+        public static bool HasGilt(int style)
+        {
+            return style == Ball || style == Spear;
         }
 
         public static string LogName(int style)
         {
-            return style == Ball ? "ball" : style == Flat ? "flat" : style == Spear ? "spear" : "no";
+            return style == Ball ? "ball" : style == Flat ? "flat" : style == Spear ? "spear" : style == Cap ? "cap" : "no";
+        }
+    }
+
+    /// <summary>
+    /// The drawn pole's finish (FlagSpec.PoleFinish): stored by VALUE in the save, APPEND ONLY.
+    /// Painted: its colour under a coat as glossy as its Shine (every pole before 2026-11-19).
+    /// Galvanized: bare hot-dip zinc -- a metal of zinc's own grey, its crystal grains' faint spangle,
+    /// worn to a pale matte patina rather than chipped (FlagPole.shader).
+    /// </summary>
+    public static class FlagPoleFinish
+    {
+        public const int Painted = 0;
+        public const int Galvanized = 1;
+
+        public static readonly int[] Values = { Painted, Galvanized };
+        public static readonly string[] NameKeys = { "Finish.Painted", "Finish.Galvanized" };
+
+        public static bool IsKnown(int value)
+        {
+            return value == Painted || value == Galvanized;
+        }
+    }
+
+    /// <summary>
+    /// A concrete block's shape (FlagSpec.BlockShape): stored by VALUE in the save, APPEND ONLY.
+    /// Square: a square block, its edges chamfered as precast blocks are cast. Rounded: its upright
+    /// corners and its top edge rounded. Round: a cylinder, its top edge rounded.
+    /// </summary>
+    public static class FlagBlockShape
+    {
+        public const int Square = 0;
+        public const int Rounded = 1;
+        public const int Round = 2;
+
+        public static readonly int[] Values = { Square, Rounded, Round };
+        public static readonly string[] NameKeys = { "Block.Square", "Block.Rounded", "Block.Round" };
+
+        public static bool IsKnown(int value)
+        {
+            return value >= Square && value <= Round;
+        }
+
+        public static string LogName(int value)
+        {
+            return value == Rounded ? "rounded" : value == Round ? "round" : "square";
         }
     }
 
@@ -1284,25 +1405,29 @@ namespace RealFlag.Flags
     /// <summary>
     /// What the drawn pole stands on (FlagSpec.PoleBase): stored by VALUE in the save, APPEND ONLY.
     /// Collar: a flash collar round its foot (every pole before 2026-11-09). Cast: a turned cast base
-    /// (a plinth, a torus, a bell, a ring). None: the shaft straight into the ground.
+    /// (a plinth, a torus, a bell, a ring). None: the shaft straight into the ground. Block
+    /// (2026-11-19): a concrete block the shaft rises out of (FlagSpec.BlockShape and the rest), only
+    /// under a pole that stands -- elsewhere drawn as None (FlagPoleShape). The panel lists Block
+    /// before None; its value is the last.
     /// </summary>
     public static class FlagPoleBase
     {
         public const int Collar = 0;
         public const int Cast = 1;
         public const int None = 2;
+        public const int Block = 3;
 
-        public static readonly int[] Values = { Collar, Cast, None };
-        public static readonly string[] NameKeys = { "Base.Collar", "Base.Cast", "Base.None" };
+        public static readonly int[] Values = { Collar, Cast, Block, None };
+        public static readonly string[] NameKeys = { "Base.Collar", "Base.Cast", "Base.Block", "Base.None" };
 
         public static bool IsKnown(int value)
         {
-            return value >= Collar && value <= None;
+            return value >= Collar && value <= Block;
         }
 
         public static string LogName(int value)
         {
-            return value == Cast ? "a cast base" : value == None ? "no base" : "a flash collar";
+            return value == Cast ? "a cast base" : value == None ? "no base" : value == Block ? "a concrete block" : "a flash collar";
         }
 
         /// <summary>
@@ -1392,9 +1517,13 @@ namespace RealFlag.Flags
         /// (2026-11-10): the same, then where the flag flies on its pole (a float, 0..1; older ones
         /// at the top). 19 (2026-11-11): the same, then the take of a still or looping flag's
         /// motion (a byte, FlagSpec.Take; older ones the first, 0) and what holds it besides its
-        /// hoist (a byte, FlagHold bits; older ones none). Every older one is still read.
+        /// hoist (a byte, FlagHold bits; older ones none). 20 (2026-11-19): the same, then the pole's
+        /// finish (a byte, FlagPoleFinish), the concrete block's shape (a byte, FlagBlockShape), its
+        /// width and height (two floats, metres), its colour (a uint, sRGB as the pole's) and its
+        /// wear (a float, 0..1); older ones painted, a block as FlagSpec.Default's (their base is
+        /// never a block). Every older one is still read.
         /// </summary>
-        public const byte Version = 19;
+        public const byte Version = 20;
 
         /// <summary>The oldest format still read.</summary>
         public const byte OldestVersion = 1;
@@ -1447,6 +1576,12 @@ namespace RealFlag.Flags
             w.Write(s.PolePosition);
             w.Write((byte)Math.Max(0, Math.Min(s.Take, FlagSpec.MaxTake)));
             w.Write((byte)(s.Held & FlagHold.All));
+            w.Write((byte)s.PoleFinish);
+            w.Write((byte)s.BlockShape);
+            w.Write(s.BlockWidth);
+            w.Write(s.BlockHeight);
+            w.Write(s.BlockColour);
+            w.Write(s.BlockWear);
         }
 
         private static void WriteText(BinaryWriter w, string text)
@@ -1626,6 +1761,27 @@ namespace RealFlag.Flags
 
             // Before the holds: the hoist alone.
             s.Held = version >= 19 ? r.ReadByte() : FlagHold.None;
+
+            // Before the finish and the block: painted, and a block as a new flag's (set here, not
+            // left to Sanitised: a width of 0 or a black colour would be read as given).
+            if (version >= 20)
+            {
+                s.PoleFinish = r.ReadByte();
+                s.BlockShape = r.ReadByte();
+                s.BlockWidth = r.ReadSingle();
+                s.BlockHeight = r.ReadSingle();
+                s.BlockColour = r.ReadUInt32();
+                s.BlockWear = r.ReadSingle();
+            }
+            else
+            {
+                s.PoleFinish = d.PoleFinish;
+                s.BlockShape = d.BlockShape;
+                s.BlockWidth = d.BlockWidth;
+                s.BlockHeight = d.BlockHeight;
+                s.BlockColour = d.BlockColour;
+                s.BlockWear = d.BlockWear;
+            }
 
             return s.Sanitised();
         }

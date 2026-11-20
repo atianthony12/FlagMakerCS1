@@ -716,6 +716,12 @@ namespace RealFlag.UI
             return Localization.Get("Unit.Metres", value.ToString("0.#", CultureInfo.InvariantCulture));
         }
 
+        /// <summary>"0.85 m": a block's size, in its 5 cm steps.</summary>
+        private static string MetresFine(float value)
+        {
+            return Localization.Get("Unit.Metres", value.ToString("0.0#", CultureInfo.InvariantCulture));
+        }
+
         private static string Degrees(float value)
         {
             return Localization.Get("Unit.Degrees", value.ToString("F0"));
@@ -1413,12 +1419,15 @@ namespace RealFlag.UI
         private static void AddPole(PanelPage page, IntSetting pole, FloatSetting height, IntSetting ropes, IntSetting poleColour, IntSetting topColour,
                                     IntSetting ropeColour, FloatSetting thickness, FloatSetting tilt, FloatSetting lean, IntSetting hoistedFrom,
                                     IntSetting profile, IntSetting poleBase, FloatSetting shine, FloatSetting ropeThickness,
-                                    FloatSetting position, Action changed, Action heightChanged, Func<bool> enabled)
+                                    FloatSetting position, IntSetting finish, IntSetting blockShape, FloatSetting blockWidth,
+                                    FloatSetting blockHeight, IntSetting blockColour, FloatSetting blockWear,
+                                    Action changed, Action heightChanged, Func<bool> enabled)
         {
             // Hoisted from its top, a flag has no pole (FlagSpec.HasPole): the pole's rows grey out,
             // the choice kept for its side again; the tilt and lean still turn the banner.
             Func<bool> side = () => (enabled == null || enabled()) && hoistedFrom.value != FlagHoist.Top;
             Func<bool> drawn = () => side() && pole.value != FlagPoleStyle.None;
+            Func<bool> standing = () => drawn() && Stands(tilt, lean, hoistedFrom);
 
             Add(new Row
             {
@@ -1458,12 +1467,79 @@ namespace RealFlag.UI
                 Enabled = drawn,
             });
 
+            // The concrete block's own rows, under Base and only with a Block base (the author,
+            // 2026-11-19: "basic options like size, color, rounded or not, wear and tear"), as the
+            // rope's rows only with a rope: one condition, shared (RowSet makes a block of the run
+            // of rows with the same one). Grey where it is not drawn: a pole that does not stand.
+            Func<bool> hasBlock = () => poleBase.value == FlagPoleBase.Block;
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = page,
+                Int = blockShape,
+                DefaultInt = Settings.Defaults.BlockShape,
+                ChoiceValues = FlagBlockShape.Values,
+                ChoiceKeys = FlagBlockShape.NameKeys,
+                AfterChange = changed,
+                Enabled = standing,
+                ShownWhile = hasBlock,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = page,
+                Float = blockWidth,
+                DefaultFloat = Settings.Defaults.BlockWidth,
+                Min = FlagSpec.MinBlockWidth, Max = FlagSpec.MaxBlockWidth, Step = 0.05f,
+                Format = MetresFine,
+                AfterChange = changed,
+                Enabled = standing,
+                ShownWhile = hasBlock,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = page,
+                Float = blockHeight,
+                DefaultFloat = Settings.Defaults.BlockHeight,
+                Min = FlagSpec.MinBlockHeight, Max = FlagSpec.MaxBlockHeight, Step = 0.05f,
+                Format = MetresFine,
+                AfterChange = changed,
+                Enabled = standing,
+                ShownWhile = hasBlock,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Colour,
+                Panel = page,
+                Int = blockColour,
+                ColourAlone = true,
+                DefaultInt = Settings.Defaults.BlockColour,
+                AfterChange = changed,
+                Enabled = standing,
+                ShownWhile = hasBlock,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = page,
+                Float = blockWear,
+                DefaultFloat = Settings.Defaults.BlockWear,
+                Min = 0f, Max = 100f, Step = 5f,
+                AfterChange = changed,
+                Enabled = standing,
+                ShownWhile = hasBlock,
+            });
+
             // How tall a pole that stands is (its foot to the flag's top); a crossbar reaching out
             // level finds its own length, along to its wall. The slider goes to LockedHeight (the
             // author: "The range is too far"); its "Allow taller poles" switch is gone (2026-11-11:
             // "let's just remove this. no need for it"). A pole taller than the slider reaches (an
             // older one, a copy, the file's value) keeps its height, and its readout says it.
-            Func<bool> standing = () => drawn() && Stands(tilt, lean, hoistedFrom);
             Func<float> top = () => Settings.Defaults.LockedHeight;
             Add(new Row
             {
@@ -1522,6 +1598,20 @@ namespace RealFlag.UI
                 ShownWhile = hasRopes,
             });
 
+            // Painted, or bare galvanized zinc (the author, 2026-11-19): zinc has its own grey, so its
+            // pole colour row goes while it is galvanized; the Shine stays (new bright zinc, dull aged).
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = page,
+                Int = finish,
+                DefaultInt = Settings.Defaults.PoleFinish,
+                ChoiceValues = FlagPoleFinish.Values,
+                ChoiceKeys = FlagPoleFinish.NameKeys,
+                AfterChange = changed,
+                Enabled = drawn,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Colour,
@@ -1531,6 +1621,7 @@ namespace RealFlag.UI
                 DefaultInt = Settings.Defaults.PoleColour,
                 AfterChange = changed,
                 Enabled = drawn,
+                ShownWhile = () => finish.value != FlagPoleFinish.Galvanized,
             });
 
             // How glossy its paint is, in place of materials (the author, 2026-11-09: "We have the
@@ -1554,7 +1645,7 @@ namespace RealFlag.UI
                 ColourAlone = true,
                 DefaultInt = Settings.Defaults.TopColour,
                 AfterChange = changed,
-                Enabled = () => drawn() && (pole.value == FlagPoleStyle.Ball || pole.value == FlagPoleStyle.Spear),
+                Enabled = () => drawn() && FlagPoleStyle.HasGilt(pole.value),
             });
 
             Add(new Row
@@ -1737,7 +1828,9 @@ namespace RealFlag.UI
                           Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom, null);
             AddPole(PanelPage.PoleNew, Settings.NewPole, Settings.NewHeight, Settings.NewRopes, Settings.NewPoleColour, Settings.NewTopColour, Settings.NewRopeColour,
                     Settings.NewPoleThickness, Settings.NewTilt, Settings.NewLean, Settings.NewHoistedFrom,
-                    Settings.NewPoleProfile, Settings.NewPoleBase, Settings.NewPoleShine, Settings.NewRopeThickness, Settings.NewPolePosition, null, null, null);
+                    Settings.NewPoleProfile, Settings.NewPoleBase, Settings.NewPoleShine, Settings.NewRopeThickness, Settings.NewPolePosition,
+                    Settings.NewPoleFinish, Settings.NewBlockShape, Settings.NewBlockWidth, Settings.NewBlockHeight, Settings.NewBlockColour,
+                    Settings.NewBlockWear, null, null, null);
             AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleWear, Settings.NewPoleRust,
                         Settings.NewPoleDirt, null, null);
 
@@ -2043,7 +2136,9 @@ namespace RealFlag.UI
                           Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom, selected);
             AddPole(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHeight, Settings.SelRopes, Settings.SelPoleColour, Settings.SelTopColour, Settings.SelRopeColour,
                     Settings.SelPoleThickness, Settings.SelTilt, Settings.SelLean, Settings.SelHoistedFrom,
-                    Settings.SelPoleProfile, Settings.SelPoleBase, Settings.SelPoleShine, Settings.SelRopeThickness, Settings.SelPolePosition, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
+                    Settings.SelPoleProfile, Settings.SelPoleBase, Settings.SelPoleShine, Settings.SelRopeThickness, Settings.SelPolePosition,
+                    Settings.SelPoleFinish, Settings.SelBlockShape, Settings.SelBlockWidth, Settings.SelBlockHeight, Settings.SelBlockColour,
+                    Settings.SelBlockWear, FlagEditor.ApplyDesign, FlagEditor.ApplyPoleHeight, selected);
 
             AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleWear, Settings.SelPoleRust,
                         Settings.SelPoleDirt, FlagEditor.ApplyDesign, selected);

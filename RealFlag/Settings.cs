@@ -304,6 +304,22 @@ namespace RealFlag
         public static FloatSetting NewPolePosition { get; private set; }
         public static FloatSetting SelPolePosition { get; private set; }
 
+        /// <summary>The pole's FlagPoleFinish (painted, galvanized).</summary>
+        public static IntSetting NewPoleFinish { get; private set; }
+        public static IntSetting SelPoleFinish { get; private set; }
+
+        /// <summary>The concrete block under a pole with a Block base: its FlagBlockShape, width and height (m), colour (sRGB) and wear 0..1.</summary>
+        public static IntSetting NewBlockShape { get; private set; }
+        public static FloatSetting NewBlockWidth { get; private set; }
+        public static FloatSetting NewBlockHeight { get; private set; }
+        public static IntSetting NewBlockColour { get; private set; }
+        public static FloatSetting NewBlockWear { get; private set; }
+        public static IntSetting SelBlockShape { get; private set; }
+        public static FloatSetting SelBlockWidth { get; private set; }
+        public static FloatSetting SelBlockHeight { get; private set; }
+        public static IntSetting SelBlockColour { get; private set; }
+        public static FloatSetting SelBlockWear { get; private set; }
+
         /// <summary>
         /// Which take of its motion a still or looping flag shows (FlagSpec.Take): a new one each
         /// time the flag is made still or a loop, or Recapture is pressed. No row of its own.
@@ -532,6 +548,14 @@ namespace RealFlag
             /// <summary>At the top of its pole (full mast).</summary>
             public const float PolePosition = 1f;
 
+            /// <summary>Painted, as every pole was; a block as FlagSpec's (used only with a Block base).</summary>
+            public const int PoleFinish = FlagPoleFinish.Painted;
+            public const int BlockShape = FlagBlockShape.Square;
+            public const float BlockWidth = FlagSpec.DefaultBlockWidth;
+            public const float BlockHeight = FlagSpec.DefaultBlockHeight;
+            public const int BlockColour = (int)FlagSpec.DefaultBlockColour;
+            public const float BlockWear = 0f;
+
             /// <summary>The first take: every flag's still shape and loop before 2026-11-11.</summary>
             public const int Take = 0;
 
@@ -645,6 +669,12 @@ namespace RealFlag
                 NewPoleDirt = new FloatSetting("NewPoleDirt", Defaults.PoleDirt);
                 NewRopeThickness = new FloatSetting("NewRopeThickness", Defaults.RopeThickness);
                 NewPolePosition = new FloatSetting("NewPolePosition", Defaults.PolePosition);
+                NewPoleFinish = new IntSetting("NewPoleFinish", Defaults.PoleFinish);
+                NewBlockShape = new IntSetting("NewBlockShape", Defaults.BlockShape);
+                NewBlockWidth = new FloatSetting("NewBlockWidth", Defaults.BlockWidth);
+                NewBlockHeight = new FloatSetting("NewBlockHeight", Defaults.BlockHeight);
+                NewBlockColour = new IntSetting("NewBlockColour", Defaults.BlockColour);
+                NewBlockWear = new FloatSetting("NewBlockWear", Defaults.BlockWear);
                 NewTake = new IntSetting("NewTake", Defaults.Take);
                 NewHeld = new IntSetting("NewHeld", Defaults.Held);
                 NewTilt = new FloatSetting("NewTilt", Defaults.Tilt);
@@ -692,6 +722,12 @@ namespace RealFlag
                 SelPoleDirt = new FloatSetting("SelPoleDirt", Defaults.PoleDirt, true);
                 SelRopeThickness = new FloatSetting("SelRopeThickness", Defaults.RopeThickness, true);
                 SelPolePosition = new FloatSetting("SelPolePosition", Defaults.PolePosition, true);
+                SelPoleFinish = new IntSetting("SelPoleFinish", Defaults.PoleFinish, true);
+                SelBlockShape = new IntSetting("SelBlockShape", Defaults.BlockShape, true);
+                SelBlockWidth = new FloatSetting("SelBlockWidth", Defaults.BlockWidth, true);
+                SelBlockHeight = new FloatSetting("SelBlockHeight", Defaults.BlockHeight, true);
+                SelBlockColour = new IntSetting("SelBlockColour", Defaults.BlockColour, true);
+                SelBlockWear = new FloatSetting("SelBlockWear", Defaults.BlockWear, true);
                 SelTake = new IntSetting("SelTake", Defaults.Take, true);
                 SelHeld = new IntSetting("SelHeld", Defaults.Held, true);
                 SelTilt = new FloatSetting("SelTilt", Defaults.Tilt, true);
@@ -772,6 +808,12 @@ namespace RealFlag
             spec.PoleDirt = NewPoleDirt.value;
             spec.RopeThickness = NewRopeThickness.value;
             spec.PolePosition = NewPolePosition.value;
+            spec.PoleFinish = NewPoleFinish.value;
+            spec.BlockShape = NewBlockShape.value;
+            spec.BlockWidth = NewBlockWidth.value;
+            spec.BlockHeight = NewBlockHeight.value;
+            spec.BlockColour = (uint)NewBlockColour.value;
+            spec.BlockWear = NewBlockWear.value;
             spec.Take = NewTake.value;
             spec.Held = NewHeld.value;
             spec.Tilt = NewTilt.value;

@@ -174,6 +174,12 @@ namespace RealFlag.Flags
                     Settings.SelPoleDirt.value = spec.PoleDirt;
                     Settings.SelRopeThickness.value = spec.RopeThickness;
                     Settings.SelPolePosition.value = spec.PolePosition;
+                    Settings.SelPoleFinish.value = spec.PoleFinish;
+                    Settings.SelBlockShape.value = spec.BlockShape;
+                    Settings.SelBlockWidth.value = spec.BlockWidth;
+                    Settings.SelBlockHeight.value = spec.BlockHeight;
+                    Settings.SelBlockColour.value = (int)spec.BlockColour;
+                    Settings.SelBlockWear.value = spec.BlockWear;
                     Settings.SelTake.value = spec.Take;
                     Settings.SelHeld.value = spec.Held;
 
@@ -256,6 +262,12 @@ namespace RealFlag.Flags
             spec.PoleDirt = Settings.SelPoleDirt.value;
             spec.RopeThickness = Settings.SelRopeThickness.value;
             spec.PolePosition = Settings.SelPolePosition.value;
+            spec.PoleFinish = Settings.SelPoleFinish.value;
+            spec.BlockShape = Settings.SelBlockShape.value;
+            spec.BlockWidth = Settings.SelBlockWidth.value;
+            spec.BlockHeight = Settings.SelBlockHeight.value;
+            spec.BlockColour = (uint)Settings.SelBlockColour.value;
+            spec.BlockWear = Settings.SelBlockWear.value;
             spec.Take = Settings.SelTake.value;
             spec.Held = Settings.SelHeld.value;
             spec.Tilt = Settings.SelTilt.value;
@@ -271,11 +283,13 @@ namespace RealFlag.Flags
                 stood = Restand(e, old, ref spec, e.Angle, out anchor);
             else if (spec.HasPole && !old.HasPole)
                 spec.PoleLength = 0f;
-            else if (Mathf.Abs(spec.PolePosition - old.PolePosition) > 1e-4f && FlagStand.PoleStands(old) && old.PoleLength > 0f &&
-                     HoldBase(e, old))
+            else if ((Mathf.Abs(spec.PolePosition - old.PolePosition) > 1e-4f || DropChanges(old, spec)) && FlagStand.PoleStands(old) &&
+                     old.PoleLength > 0f && HoldBase(e, old))
             {
                 // Raised or lowered on its pole (half-mast): the foot and the pole stay, the flag
-                // goes up or down it.
+                // goes up or down it. So too when a lowered flag's lowest place moves with its
+                // pole's cleat (a taller block or a cast base: FlagPoleShape.Cleat) -- its anchor
+                // the prop, the foot would otherwise move by the difference.
                 anchor = StandAt(spec, e.Angle);
                 stood = true;
             }
@@ -559,6 +573,14 @@ namespace RealFlag.Flags
             return true;
         }
 
+        /// <summary>How far a lowered flag is down its standing pole (FlagPoleShape.Drop) differs between the two, its height the same.</summary>
+        private static bool DropChanges(FlagSpec old, FlagSpec spec)
+        {
+            if (old.PoleLength <= 0f || !FlagStand.PoleStands(old) || !FlagStand.PoleStands(spec))
+                return false;
+            return Mathf.Abs(FlagPoleShape.For(old, old.PoleLength).Drop - FlagPoleShape.For(spec, old.PoleLength).Drop) > 1e-4f;
+        }
+
         /// <summary>The Pole height row's value: how tall the selected flag's pole stands, or would if its hoist turned down.</summary>
         private static float PoleHeight()
         {
@@ -673,6 +695,12 @@ namespace RealFlag.Flags
             Settings.NewPoleDirt.value = s.PoleDirt;
             Settings.NewRopeThickness.value = s.RopeThickness;
             Settings.NewPolePosition.value = s.PolePosition;
+            Settings.NewPoleFinish.value = s.PoleFinish;
+            Settings.NewBlockShape.value = s.BlockShape;
+            Settings.NewBlockWidth.value = s.BlockWidth;
+            Settings.NewBlockHeight.value = s.BlockHeight;
+            Settings.NewBlockColour.value = (int)s.BlockColour;
+            Settings.NewBlockWear.value = s.BlockWear;
             Settings.NewTake.value = s.Take;
             Settings.NewHeld.value = s.Held;
             Settings.NewTilt.value = s.Tilt;

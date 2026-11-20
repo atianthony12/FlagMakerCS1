@@ -183,7 +183,7 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
 
 - By default a flag has no pole, so you can use a pole asset of your own. Or click **Flagpole** and
   let the mod draw one: tapered and sized like a real pole for that flag and height, with a collar
-  at the bottom and a gold ball, a flat cap or a spear at the top.
+  at the bottom and a gold ball, a flat cap, a spear or a plain cylinder cap at the top.
 - **Pole height** goes from 1 to 50 m, or up to 200 m with **Allow taller poles**.
 - **Position on pole** lowers the flag down its pole: 100% at the top, 50% at half-mast. The pole
   stays as tall, on the same spot.
@@ -191,10 +191,16 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
   bows out a little in the wind, like on a real pole. Without ropes, the whole edge is held.
 - **Shape**: tapered (the default), straight, sectional (narrower steps up it, like telescoping
   poles) or fluted (grooved, like a ceremonial pole).
-- **Base**: a flash collar (the default), a decorative cast base, or none. Any shape goes on any
-  base.
+- **Base**: a flash collar (the default), a decorative cast base, a concrete block, or none. Any
+  shape goes on any base.
+- **Block**: the pole stands in a concrete block, square with chamfered edges, rounded or round.
+  Set its width, height and color, and **Block wear** for stains, grime from the ground, streaks
+  and chipped edges. The block always stands upright, even under a tilted pole. Only a pole that
+  stands on its foot gets one.
+- **Finish**: painted in the pole's color, or galvanized: bare zinc with its own grey and a faint
+  pattern of zinc crystals. Worn galvanizing gets pale dull patches instead of chips.
 - **Shine**: from matte to a glossy coat that reflects the sky, Real Glass's live sky and clouds
-  when you have it.[^poles]
+  when you have it. On a galvanized pole, from dull old zinc to bright new.[^poles]
 - **Worn**, **Rust** and **Dirt**, under Wear and tear: paint chipped down to the primer (more at
   the foot and where the rope rubs); rust in the chips and running down from them; grime rising
   from the foot. Every pole wears in its own way.
@@ -575,7 +581,7 @@ other mods, all credited in the notes below (no code from them is included). Cou
 [Flagpedia.net](https://flagpedia.net) (flagcdn.com), based on Wikimedia Commons' files, public
 domain. Country names in Spanish, French and Chinese are from the [Unicode CLDR](https://cldr.unicode.org)
 (Unicode License V3). The panel's icons are based on [Lucide](https://lucide.dev)'s (ISC). The
-flagpoles' rust and rope textures are from [Poly Haven](https://polyhaven.com) and
+flagpoles' rust, rope and concrete textures are from [Poly Haven](https://polyhaven.com) and
 [ambientCG](https://ambientcg.com) (CC0). Includes
 UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks
 to all three. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
@@ -598,7 +604,7 @@ MIT, see [LICENSE](LICENSE).
 [^wind]: **The wind.** EN 1991-1-4, Eurocode 1: wind actions; A. G. Davenport, *Rationale for determining design wind velocities* (1960) and ASCE 7-95's exposures: how the wind grows with height over each terrain; H. Lettau (1969) and C. S. B. Grimmond and T. R. Oke, *Aerodynamic properties of urban areas derived from analysis of surface form* (1999): how rough the city is, from its buildings; H. A. Panofsky and J. A. Dutton, *Atmospheric Turbulence* (1984); G. I. Taylor (1938) and A. N. Kolmogorov (1941); J. C. Kaimal, J. C. Wyngaard, Y. Izumi and O. R. Cote, *Spectral characteristics of surface-layer turbulence* (1972), and K. Perlin, *An Image Synthesizer* (1985): gusts and eddies of several sizes; WMO-No. 8, *Guide to Instruments and Methods of Observation*, ch. 5 (the 3 s gust): how quickly flags follow the wind's speed; K. Perlin, *Improving Noise* (2002), and C. Wellons' lowbias32 hash: the noise.
 [^shader]: **The fabric.** A. C. Estevez and C. Kulla, *Production Friendly Microfacet Sheen BRDF* (2017); D. Neubelt and M. Pettineo, *Crafting a Next-Gen Material Pipeline for The Order: 1886* (2013); S. Green, *Real-Time Approximations to Subsurface Scattering* (GPU Gems, 2004). **Wet in the rain:** S. Lagarde, *Water drop 3b, Physically based wet surfaces* (2013); D. Lazarov, *Physically-based lighting in Call of Duty: Black Ops* (SIGGRAPH 2011).
 [^wear]: **Wear and tear.** D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT): the shader's hashes; S. Worley, *A Cellular Texture Basis Function* (SIGGRAPH 1996): scattering the holes; F. K. Musgrave et al., *Texturing and Modeling: A Procedural Approach* (1994): fractal noise for the frayed end and the grime; I. Quilez's 2D signed distance functions: the shapes of the holes and tears; forensic science's "bullet wipe": the dark ring around a bullet hole in cloth.
-[^poles]: **The poles.** M. Tarini, *Cylindrical and Toroidal Parameterizations Without Vertex Seams* (Journal of Graphics Tools, 2012): wrapping a texture around the pole with no seam; [Poly Haven](https://polyhaven.com)'s *Rust Coarse 01* and [ambientCG](https://ambientcg.com)'s *Rope 001* (both CC0): the rust and the rope's braid; C. Schlick, *An Inexpensive BRDF Model for Physically-based Rendering* (1994) and N. Hoffman, *Physics and Math of Shading* (SIGGRAPH 2013): the shine's gloss coat, 4% head-on, as Real Glass's; D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) and F. K. Musgrave et al. (1994), as for the cloth's wear: the chips, the rust patches and the grime.
+[^poles]: **The poles.** M. Tarini, *Cylindrical and Toroidal Parameterizations Without Vertex Seams* (Journal of Graphics Tools, 2012): wrapping a texture around the pole with no seam; [Poly Haven](https://polyhaven.com)'s *Rust Coarse 01* and [ambientCG](https://ambientcg.com)'s *Rope 001* and *Concrete 016* (all CC0): the rust, the rope's braid and the concrete block; S. Worley, *A Cellular Texture Basis Function* (SIGGRAPH 1996): the zinc crystals of a galvanized pole; C. Schlick, *An Inexpensive BRDF Model for Physically-based Rendering* (1994) and N. Hoffman, *Physics and Math of Shading* (SIGGRAPH 2013): the shine's gloss coat, 4% head-on, as Real Glass's; D. Hoskins, *Hash without Sine* (Shadertoy, 2014, MIT) and F. K. Musgrave et al. (1994), as for the cloth's wear: the chips, the rust patches and the grime.
 [^surface]: **The drawn surface.** E. Catmull and R. Rom, *A class of local interpolating splines* (Computer Aided Geometric Design, 1974); G. Taubin, *A Signal Processing Approach to Fair Surface Design* (SIGGRAPH 1995).
 [^still]: **Still flags.** The Met Office's Beaufort wind force scale (force 3, "light flags extended"): the breeze a still flag is caught in; W. Froude's similarity (the Froude number, U²/gL): a stronger breeze for a bigger flag; W. Welch and A. Witkin, *Variational Surface Modeling* (SIGGRAPH 1992), the thin-plate energy: picking the smoothest moment.
 [^pictures]: **Your pictures.** The images folders of *Procedural Objects* and *Image Overlay* (Cities: Skylines mods): a folder button and a list of the files, the idea only, no code; S. J. Gortler, R. Grzeszczuk, R. Szeliski and M. F. Cohen, *The Lumigraph* (SIGGRAPH 1996): the "pull-push" fill under transparent pixels; the PNG specification (W3C / ISO/IEC 15948) and JPEG (ITU-T T.81): reading a picture's size from its header.

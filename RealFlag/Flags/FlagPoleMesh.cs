@@ -47,6 +47,17 @@ namespace RealFlag.Flags
         public const float PartTop = 1f;
         public const float PartRope = 2f;
 
+        /// <summary>The concrete block's part (its own mesh, <see cref="BuildBlock"/>): out of the paint, the coat and the tubes.</summary>
+        public const float PartBlock = 3f;
+
+        /// <summary>How many metres of concrete a tile of its texture covers (the block's uv are metres over this).</summary>
+        public const float ConcreteTile = 1f;
+
+        /// <summary>A Rounded block's quarter corners in this many segments; a Round one's sides; its top edge's rounding in so many steps.</summary>
+        public const int BlockCornerSteps = 4;
+        public const int BlockRoundSides = 24;
+        public const int BlockEdgeSteps = 3;
+
         /// <summary>About how wide a texture tile is round a pole, metres: a thick pole has more than one round it.</summary>
         public const float TileAround = 0.6f;
 
@@ -321,10 +332,29 @@ namespace RealFlag.Flags
             block.SetVector(FlagLook.IdHighlight, highlight);
             block.SetVector(IdPoleWear, new Vector4(spec.PoleWear, spec.PoleRust, spec.PoleDirt, spec.PoleShine));
             block.SetFloat(IdPoleSeed, seed);
+            block.SetFloat(IdGalvanized, spec.PoleFinish == FlagPoleFinish.Galvanized ? 1f : 0f);
+
+            // The block's (drawn with this same block: BuildBlock's mesh, part 3): its half width,
+            // height, shape and wear for its weathering, its colour (LINEAR) tinting the concrete.
+            block.SetVector(IdBlock, new Vector4(0.5f * spec.BlockWidth, spec.BlockHeight, spec.BlockShape, spec.BlockWear));
+            block.SetVector(IdBlockColour, FlagLook.Linear(spec.BlockColour));
             PoleTextures.Bind(block);
         }
 
+        /// <summary>
+        /// Galvanized zinc's colour, sRGB: a light bluish grey, chosen by eye (FlagPole.shader's
+        /// zinc, in linear), for Real Glass's finish over a galvanized pole.
+        /// </summary>
+        public static readonly Color ZincColour = new Color(0.86f, 0.88f, 0.90f);
+
         public static readonly int IdPoleColour = Shader.PropertyToID("_RFPoleColor");
+
+        /// <summary>1 for a galvanized pole (FlagPoleFinish), 0 painted.</summary>
+        public static readonly int IdGalvanized = Shader.PropertyToID("_RFGalvanized");
+
+        /// <summary>The block: x its half width, y its height (m), z its FlagBlockShape, w its wear 0..1.</summary>
+        public static readonly int IdBlock = Shader.PropertyToID("_RFBlock");
+        public static readonly int IdBlockColour = Shader.PropertyToID("_RFBlockColor");
         public static readonly int IdTopColour = Shader.PropertyToID("_RFTopColor");
         public static readonly int IdRopeColour = Shader.PropertyToID("_RFRopeColor");
 
@@ -405,6 +435,8 @@ namespace RealFlag.Flags
                 tip = Ball(b, s, y1);
             else if (s.Style == FlagPoleStyle.Spear)
                 tip = Spear(b, s, y1);
+            else if (s.Style == FlagPoleStyle.Cap)
+                tip = Cap(b, s, y1);
             else
                 tip = Dome(b, s, y1);
 
@@ -636,6 +668,45 @@ namespace RealFlag.Flags
             return y1 + rise;
         }
 
+        /// <summary>
+        /// The Cap top (FlagPoleStyle.Cap; the author's Battlefield 4 pole, 2026-11-19): a short drum
+        /// on the truck, a little wider than the shaft's top, its upper edge rounded, painted as the
+        /// pole (part 0: galvanized with it, and in Real Glass's plain copy). Its underside a ring
+        /// facing down from the truck's flat top out to its side. Returns the top.
+        /// </summary>
+        private static float Cap(Builder b, FlagPoleShape s, float y1)
+        {
+            float inner = s.TruckRadius - 0.12f * s.TruckRadius;
+            float R = Mathf.Max(s.CapRadius, 1e-4f), H = Mathf.Max(s.CapHeight, 1e-4f);
+            float e = Mathf.Clamp(s.CapEdge, 0f, Mathf.Min(0.5f * H, 0.9f * R));
+
+            // The underside, where it stands out of the truck (inner first: facing down).
+            if (R > inner + 1e-5f)
+            {
+                int u0 = b.Ring(y1, inner, 0f, -1f, PartPole);
+                int u1 = b.Ring(y1, R, 0f, -1f, PartPole);
+                b.Band(u0, u1, Sides);
+            }
+
+            int c0 = b.Ring(y1, R, 1f, 0f, PartPole);
+            int previous = b.Ring(y1 + H - e, R, 1f, 0f, PartPole);
+            b.Band(c0, previous, Sides);
+
+            // The rounded edge: a quarter round of radius e, up and in.
+            const int steps = 4;
+            for (int i = 1; i <= steps; i++)
+            {
+                float a = i / (float)steps * 0.5f * Mathf.PI;
+                float c = Mathf.Cos(a), sn = Mathf.Sin(a);
+                int ring = b.Ring(y1 + H - e + e * sn, Mathf.Max(R - e + e * c, 1e-4f), c, sn, PartPole);
+                b.Band(previous, ring, Sides);
+                previous = ring;
+            }
+
+            b.Cap(previous, y1 + H, true, PartPole);
+            return y1 + H;
+        }
+
         /// <summary>A gilt ball on a short neck. Returns the top.</summary>
         private static float Ball(Builder b, FlagPoleShape s, float y1)
         {
@@ -693,6 +764,259 @@ namespace RealFlag.Flags
 
             b.Profile(leaf, PartTop);
             return y1 + s.SpearHeight;
+        }
+
+        // ---- the concrete block (FlagPoleBase.Block, 2026-11-19) -----------------------------------
+
+        /// <summary>
+        /// Where a pole's block goes: its middle on the pole's foot (<paramref name="foot"/>: the
+        /// pole's placement's own, column 3 of <see cref="Placement"/>), UPRIGHT whatever the pole's
+        /// tilt and lean, turned by the flag's heading alone (<paramref name="heading"/>, the prop's
+        /// angle: its x along FlagProps.Direction).
+        /// </summary>
+        public static Matrix4x4 BlockPlacement(Vector3 foot, float heading)
+        {
+            var x = new Vector3(Mathf.Cos(heading), 0f, Mathf.Sin(heading));
+            Vector3 z = Vector3.Cross(x, Vector3.up);
+            var m = new Matrix4x4();
+            m.SetColumn(0, new Vector4(x.x, x.y, x.z, 0f));
+            m.SetColumn(1, new Vector4(0f, 1f, 0f, 0f));
+            m.SetColumn(2, new Vector4(z.x, z.y, z.z, 0f));
+            m.SetColumn(3, new Vector4(foot.x, foot.y, foot.z, 1f));
+            return m;
+        }
+
+        /// <summary>
+        /// The concrete block's mesh (FlagPoleShape's block: none -- null -- without one), into
+        /// <paramref name="reuse"/> if given. In its own frame: y up from the pole's foot, its
+        /// middle on the axis, from <see cref="FlagPoleShape.BlockSink"/> under the foot to its
+        /// height over it (no bottom: it is in the ground). Its OWN mesh and draw, not the pole's:
+        /// Real Glass's Reflective finish is drawn over the whole of the pole's plain copy
+        /// (RealGlassFinish), and concrete is no mirror.
+        /// </summary>
+        /// <remarks>
+        /// Low poly, flat where it is flat: Square -- four sides, four upright chamfers, eight top
+        /// chamfers and an octagon on top (38 triangles); Rounded -- a rounded square ring of
+        /// <see cref="BlockCornerSteps"/> segments a quarter corner, its sides and the top edge's
+        /// <see cref="BlockEdgeSteps"/> rounding bands, and a fan on top (180); Round -- a ring of
+        /// <see cref="BlockRoundSides"/> the same way (216). Each vertex's first uv: x the part
+        /// (<see cref="PartBlock"/>), y 0 (no tube: the shader leaves it where it is); its second:
+        /// where the concrete's texture lies, metres over <see cref="ConcreteTile"/> -- along each
+        /// face (round a rounded one) and up it, the top across -- its tangents along u, so the
+        /// concrete's normal map is in tangent space.
+        /// </remarks>
+        public static Mesh BuildBlock(FlagPoleShape s, Mesh reuse)
+        {
+            if (s.Base != FlagPoleBase.Block || s.BlockWidth <= 0f || s.BlockHeight <= 0f)
+                return null;
+
+            var b = new Builder();
+            float h = 0.5f * s.BlockWidth, top = s.BlockHeight, sink = FlagPoleShape.BlockSink;
+            if (s.BlockShape == FlagBlockShape.Square)
+            {
+                SquareBlock(b, h, top, sink, Mathf.Clamp(s.BlockChamfer, 0f, 0.45f * Mathf.Min(h, top)));
+            }
+            else
+            {
+                bool round = s.BlockShape == FlagBlockShape.Round;
+                float corner = round ? h : Mathf.Clamp(s.BlockCorner, 1e-3f, h);
+                float edge = Mathf.Clamp(s.BlockEdge, 0f, Mathf.Min(0.5f * top, 0.9f * corner));
+                RoundBlock(b, h, top, sink, corner, edge, round);
+            }
+
+            float reach = s.BlockReach + 0.01f;
+            var bounds = new Bounds();
+            bounds.SetMinMax(new Vector3(-reach, -sink - 0.01f, -reach), new Vector3(reach, top + 0.01f, reach));
+            Mesh mesh = b.ToMesh(reuse, bounds);
+            mesh.name = "RealFlag pole block";
+            return mesh;
+        }
+
+        /// <summary>One vertex of the block: its place, normal, the texture's u direction (the tangent) and which way its v runs (the tangent's sign), the texture's place in metres.</summary>
+        private static int BlockVertex(Builder b, Vector3 p, Vector3 n, Vector3 along, Vector3 up, float u, float v)
+        {
+            float sign = Vector3.Dot(Vector3.Cross(n, along), up) >= 0f ? 1f : -1f;
+            b.Vertices.Add(p);
+            b.Normals.Add(n);
+            b.Tangents.Add(new Vector4(along.x, along.y, along.z, sign));
+            b.Uv.Add(new Vector4(PartBlock, 0f, 0f, 0f));
+            b.Uv2.Add(new Vector4(u / ConcreteTile, v / ConcreteTile, 0f, 0f));
+            return b.Vertices.Count - 1;
+        }
+
+        /// <summary>A triangle of the block facing <paramref name="n"/> (Tube's rule: the cross of its first two edges is its front).</summary>
+        private static void BlockTriangle(Builder b, int i0, int i1, int i2, Vector3 n)
+        {
+            Vector3 p0 = b.Vertices[i0];
+            bool forward = Vector3.Dot(Vector3.Cross(b.Vertices[i1] - p0, b.Vertices[i2] - p0), n) >= 0f;
+            b.Triangles.Add(i0);
+            b.Triangles.Add(forward ? i1 : i2);
+            b.Triangles.Add(forward ? i2 : i1);
+        }
+
+        /// <summary>A flat quad of the block: corners in order round it, one normal, u along <paramref name="along"/> from the origin, v up <paramref name="up"/> (heights given).</summary>
+        private static void BlockQuad(Builder b, Vector3 a0, Vector3 a1, Vector3 a2, Vector3 a3, Vector3 n, Vector3 along, Vector3 up,
+                                      float v0, float v1, float v2, float v3)
+        {
+            int i0 = BlockVertex(b, a0, n, along, up, Vector3.Dot(a0, along), v0);
+            int i1 = BlockVertex(b, a1, n, along, up, Vector3.Dot(a1, along), v1);
+            int i2 = BlockVertex(b, a2, n, along, up, Vector3.Dot(a2, along), v2);
+            int i3 = BlockVertex(b, a3, n, along, up, Vector3.Dot(a3, along), v3);
+            BlockTriangle(b, i0, i1, i2, n);
+            BlockTriangle(b, i0, i2, i3, n);
+        }
+
+        /// <summary>
+        /// A square block, half <paramref name="h"/> wide, <paramref name="top"/> high, its edges
+        /// chamfered <paramref name="c"/>: the four sides, the four upright chamfers, the octagon round
+        /// its top at <paramref name="top"/> - c, the eight chamfers up and in to the top's octagon
+        /// (each of its corners moved in by c both ways), and the top.
+        /// </summary>
+        private static void SquareBlock(Builder b, float h, float top, float sink, float c)
+        {
+            Vector3 up = Vector3.up;
+            Vector3[] n = { Vector3.right, Vector3.forward, Vector3.left, Vector3.back };
+            float y0 = -sink, y1 = top - c;
+
+            // The ring round the top's chamfers at y1, in order: each side's start and end.
+            var ring = new List<Vector3>(8);
+            for (int k = 0; k < 4; k++)
+            {
+                Vector3 nk = n[k], tk = n[(k + 1) % 4];
+                Vector3 start = nk * h - tk * (h - c), end = nk * h + tk * (h - c);
+                ring.Add(start);
+                ring.Add(end);
+
+                // The side, from the ground up (v its height).
+                BlockQuad(b, start + up * y0, end + up * y0, end + up * y1, start + up * y1, nk, tk, up, y0, y0, y1, y1);
+
+                // The upright chamfer to the next side.
+                Vector3 next = n[(k + 1) % 4] * h - n[(k + 2) % 4] * (h - c);
+                Vector3 cn = (nk + tk).normalized, ct = (next - end).normalized;
+                BlockQuad(b, end + up * y0, next + up * y0, next + up * y1, end + up * y1, cn, ct, up, y0, y0, y1, y1);
+            }
+
+            // The top's octagon: the ring's corners moved in by c on both axes.
+            var inner = new List<Vector3>(8);
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 p = ring[i];
+                inner.Add(new Vector3(p.x - c * Mathf.Sign(p.x), top, p.z - c * Mathf.Sign(p.z)));
+            }
+
+            // The chamfers round the top, each up and in from the ring to the octagon.
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 a0 = ring[i] + up * y1, a1 = ring[(i + 1) % 8] + up * y1, a2 = inner[(i + 1) % 8], a3 = inner[i];
+                Vector3 along = (a1 - a0).normalized;
+                Vector3 outward = new Vector3(0.5f * (a0.x + a1.x), 0f, 0.5f * (a0.z + a1.z)).normalized;
+                Vector3 normal = Vector3.Cross(along, a3 - a0).normalized;
+                if (Vector3.Dot(normal, outward + up) < 0f)
+                    normal = -normal;
+                Vector3 slope = (a3 - a0 - along * Vector3.Dot(a3 - a0, along)).normalized;
+                float rise = y1 + (a3 - a0 - along * Vector3.Dot(a3 - a0, along)).magnitude;
+                BlockQuad(b, a0, a1, a2, a3, normal, along, slope, y1, y1, rise, rise);
+            }
+
+            // The top: a fan over the octagon, the texture laid across it (u along x, v along z).
+            int first = b.Vertices.Count;
+            for (int i = 0; i < 8; i++)
+                BlockVertex(b, inner[i], up, Vector3.right, Vector3.forward, inner[i].x, inner[i].z);
+            for (int i = 1; i < 7; i++)
+                BlockTriangle(b, first, first + i, first + i + 1, up);
+        }
+
+        /// <summary>
+        /// A rounded or round block: a ring round the axis (a square of half <paramref name="h"/>
+        /// whose corners are quarter rounds of <paramref name="corner"/>, or a circle), straight up
+        /// from the ground to <paramref name="edge"/> under its top, the top edge a quarter round of
+        /// <paramref name="edge"/> in <see cref="BlockEdgeSteps"/> bands, and a fan on top. Smooth
+        /// round its corners; the texture's u the way round, a seam's vertices doubled.
+        /// </summary>
+        private static void RoundBlock(Builder b, float h, float top, float sink, float corner, float edge, bool round)
+        {
+            Vector3 up = Vector3.up;
+
+            // The ring: each point's centre (its corner's) and its way out.
+            var centres = new List<Vector3>();
+            var outs = new List<Vector3>();
+            if (round)
+            {
+                for (int i = 0; i < BlockRoundSides; i++)
+                {
+                    float a = i * 2f * Mathf.PI / BlockRoundSides;
+                    centres.Add(Vector3.zero);
+                    outs.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+                }
+            }
+            else
+            {
+                float k = h - corner;
+                Vector3[] at = { new Vector3(k, 0f, k), new Vector3(-k, 0f, k), new Vector3(-k, 0f, -k), new Vector3(k, 0f, -k) };
+                for (int q = 0; q < 4; q++)
+                {
+                    for (int i = 0; i <= BlockCornerSteps; i++)
+                    {
+                        float a = (q + i / (float)BlockCornerSteps) * 0.5f * Mathf.PI;
+                        centres.Add(at[q]);
+                        outs.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+                    }
+                }
+            }
+
+            // The way round, along the outside: u at each point, and the seam's again at the end.
+            int count = centres.Count;
+            var u = new float[count + 1];
+            for (int i = 1; i <= count; i++)
+            {
+                Vector3 p0 = centres[i - 1] + outs[i - 1] * corner, p1 = centres[i % count] + outs[i % count] * corner;
+                u[i] = u[i - 1] + (p1 - p0).magnitude;
+            }
+
+            // The rings, from the ground up: the sides' two, then round the top edge to its top.
+            int rings = 2 + BlockEdgeSteps;
+            var firsts = new int[rings];
+            for (int r = 0; r < rings; r++)
+            {
+                float angle = r < 2 ? 0f : (r - 1) / (float)BlockEdgeSteps * 0.5f * Mathf.PI;
+                float y = r == 0 ? -sink : top - edge + edge * Mathf.Sin(angle);
+                float inset = edge * (1f - Mathf.Cos(angle));
+                float v = r == 0 ? -sink : top - edge + edge * angle;
+                firsts[r] = b.Vertices.Count;
+                for (int i = 0; i <= count; i++)
+                {
+                    Vector3 o = outs[i % count];
+                    Vector3 p = centres[i % count] + o * (corner - inset) + up * y;
+                    Vector3 normal = (o * Mathf.Cos(angle) + up * Mathf.Sin(angle)).normalized;
+                    Vector3 along = new Vector3(-o.z, 0f, o.x);
+                    Vector3 rising = (up * Mathf.Cos(angle) - o * Mathf.Sin(angle)).normalized;
+                    BlockVertex(b, p, normal, along, rising, u[i], v);
+                }
+            }
+
+            for (int r = 0; r + 1 < rings; r++)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int a0 = firsts[r] + i, a1 = a0 + 1, c0 = firsts[r + 1] + i, c1 = c0 + 1;
+                    Vector3 n = (b.Normals[a0] + b.Normals[a1] + b.Normals[c0] + b.Normals[c1]).normalized;
+                    BlockTriangle(b, a0, a1, c1, n);
+                    BlockTriangle(b, a0, c1, c0, n);
+                }
+            }
+
+            // The top: a fan from its middle over the last ring (the texture across it).
+            int centre = BlockVertex(b, up * top, up, Vector3.right, Vector3.forward, 0f, 0f);
+            int rim = b.Vertices.Count;
+            int last = firsts[rings - 1];
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 p = b.Vertices[last + i];
+                BlockVertex(b, p, up, Vector3.right, Vector3.forward, p.x, p.z);
+            }
+
+            for (int i = 0; i < count; i++)
+                BlockTriangle(b, centre, rim + i, rim + (i + 1) % count, up);
         }
 
         /// <summary>The halyard: the flag's line in two runs (above its top clip, below its bottom one), and the return line.</summary>

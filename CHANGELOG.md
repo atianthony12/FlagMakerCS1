@@ -40,7 +40,7 @@ The first release.
 - **Wear and tear**: any flag worn (faded, its fly frayed), torn (its fly ripped to tatters like a
   pirate's flag, pieces missing; **Torn edges** rips its top and bottom too), dirty (grime, rain
   streaks) or holed (bullet holes, burns, tears; through its shadow too), each flag its own.
-- **A flagpole of the mod's own** if you want one: ball, flat or spear top, one or two halyard
+- **A flagpole of the mod's own** if you want one: ball, flat, spear or cap top, one or two halyard
   ropes, your colours, thickness, tilt and lean, a Pole height (1 to 50 m), and a **Position on
   pole** to fly the flag lower, at half-mast say. The cloth keeps off its pole. A banner hoisted
   from its top has no pole.
@@ -51,6 +51,12 @@ The first release.
   sky (Real Glass's live sky when it's on). **Worn**, **Rust**
   and **Dirt** on the pole (chipped paint, rust running down, grime up from the foot), every pole
   its own; the ropes braided, with a **Rope thickness**.
+- **Concrete block**: a fourth base, the pole standing in a square, rounded or round block of
+  concrete, with its own width, height, colour and **Block wear** (stains, grime, streaks, chipped
+  edges).
+- **Cap top**: a plain cylinder cap on the pole, in the pole's own colour.
+- **Galvanized finish**: bare zinc instead of paint, its own grey with a faint crystal pattern,
+  worn to pale dull patches; Shine from dull old zinc to bright new.
 - **Keeps off the city**: roofs, walls, props and trees (Settings tab, on by default), with
   **Detailed building shapes** reading buildings as they are drawn -- cornices, frames, columns --
   not only their simple shapes. A banner hoisted from its top near a roof's edge hangs down the

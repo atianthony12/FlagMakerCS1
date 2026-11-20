@@ -245,6 +245,7 @@
   <String key="Pole.Ball">球形杆顶</String>
   <String key="Pole.Flat">平顶</String>
   <String key="Pole.Spear">矛形杆顶</String>
+  <String key="Pole.Cap">帽形杆顶</String>
 
   <String key="NewPoleProfile.Label">形状</String>
   <String key="SelPoleProfile.Label">形状</String>
@@ -257,7 +258,27 @@
   <String key="SelPoleBase.Label">底座</String>
   <String key="Base.Collar">护圈</String>
   <String key="Base.Cast">铸造底座</String>
+  <String key="Base.Block">混凝土块</String>
   <String key="Base.None">无</String>
+
+  <String key="NewBlockShape.Label">底块形状</String>
+  <String key="SelBlockShape.Label">底块形状</String>
+  <String key="Block.Square">方形</String>
+  <String key="Block.Rounded">圆角</String>
+  <String key="Block.Round">圆形</String>
+  <String key="NewBlockWidth.Label">底块宽度</String>
+  <String key="SelBlockWidth.Label">底块宽度</String>
+  <String key="NewBlockHeight.Label">底块高度</String>
+  <String key="SelBlockHeight.Label">底块高度</String>
+  <String key="NewBlockColour.Label">底块颜色</String>
+  <String key="SelBlockColour.Label">底块颜色</String>
+  <String key="NewBlockWear.Label">底块磨损</String>
+  <String key="SelBlockWear.Label">底块磨损</String>
+
+  <String key="NewPoleFinish.Label">表面处理</String>
+  <String key="SelPoleFinish.Label">表面处理</String>
+  <String key="Finish.Painted">涂漆</String>
+  <String key="Finish.Galvanized">镀锌</String>
 
   <String key="NewPoleShine.Label">光泽</String>
   <String key="SelPoleShine.Label">光泽</String>

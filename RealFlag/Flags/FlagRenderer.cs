@@ -125,6 +125,13 @@ namespace RealFlag.Flags
 
         /// <summary>The pole's plain copy for Real Glass's Reflective finish (made only while it is used; FlagPoleMesh.BuildPlain).</summary>
         public Mesh PoleFinishMesh;
+
+        /// <summary>
+        /// The concrete block the pole stands in (FlagPoleBase.Block; FlagPoleMesh.BuildBlock), its
+        /// own mesh -- out of Real Glass's finish -- made with the pole's, drawn with the pole's
+        /// material and property block. Null without one.
+        /// </summary>
+        public Mesh BlockMesh;
         public readonly MaterialPropertyBlock PoleBlock = new MaterialPropertyBlock();
         public bool PoleBlockReady;
         public bool PoleVisible;
@@ -1081,6 +1088,9 @@ namespace RealFlag.Flags
             if (f.PoleFinishMesh != null)
                 Destroy(f.PoleFinishMesh);
             f.PoleFinishMesh = null;
+            if (f.BlockMesh != null)
+                Destroy(f.BlockMesh);
+            f.BlockMesh = null;
             f.PoleApplied = false;
             if (f.Cloth != null)
             {
@@ -1693,6 +1703,18 @@ namespace RealFlag.Flags
                 f.PoleMesh = FlagPoleMesh.Build(shape, f.PoleMesh);
                 if (f.PoleFinishMesh != null)
                     f.PoleFinishMesh = FlagPoleMesh.BuildPlain(shape, f.PoleFinishMesh);
+
+                // Its block, made with it (each flag its own, as its pole; let go with it).
+                if (shape.Base == FlagPoleBase.Block)
+                {
+                    f.BlockMesh = FlagPoleMesh.BuildBlock(shape, f.BlockMesh);
+                }
+                else if (f.BlockMesh != null)
+                {
+                    Destroy(f.BlockMesh);
+                    f.BlockMesh = null;
+                }
+
                 f.PoleShape = shape;
                 f.PoleApplied = false;
             }
@@ -1717,6 +1739,14 @@ namespace RealFlag.Flags
                 box.Encapsulate(poleAnchor + f.Fly * shape.ArmTop);
             if (shape.ArmBottom > 0f)
                 box.Encapsulate(poleAnchor + f.Hoist * shape.ArmBottomDown + f.Fly * shape.ArmBottom);
+
+            // Its block, upright round the foot, down into the ground (FlagPoleShape.BlockSink).
+            if (shape.Base == FlagPoleBase.Block)
+            {
+                float reach = shape.BlockReach;
+                box.Encapsulate(new Bounds(foot + Vector3.up * (0.5f * (shape.BlockHeight - FlagPoleShape.BlockSink)),
+                                           new Vector3(2f * reach, shape.BlockHeight + FlagPoleShape.BlockSink, 2f * reach)));
+            }
             box.Expand(2f * shape.CollarRadius + 1f);
 
             // Drawn while its length is DrawPixels on the screen (its tubes keep 0.6 px wide).
@@ -4067,14 +4097,41 @@ namespace RealFlag.Flags
                 if (f.PoleFinishMesh == null)
                     f.PoleFinishMesh = FlagPoleMesh.BuildPlain(f.PoleShape, null);
                 float shine = f.Spec.PoleShine;
-                finished = RealGlassFinish.Draw(f.PoleFinishMesh, placement, _layer, Color.white,
-                                                FinishReflectivity * (1f - 0.5f * f.Spec.PoleWear) * (1f - 0.6f * f.Spec.PoleDirt), shine, shine);
+                if (f.Spec.PoleFinish == FlagPoleFinish.Galvanized)
+                {
+                    // Bare zinc: a metal, zinc's own grey, its reflectance as FlagPole.shader's sky's
+                    // (ZincReflectivity x the shine, dulled by its patina and dirt), never a mirror's
+                    // polish -- a hot-dip coat is crystalline, not polished.
+                    finished = RealGlassFinish.Draw(f.PoleFinishMesh, placement, _layer, FlagPoleMesh.ZincColour,
+                                                    ZincReflectivity * (0.35f + 0.65f * shine) * (1f - 0.6f * f.Spec.PoleWear) * (1f - 0.6f * f.Spec.PoleDirt),
+                                                    0.7f * shine, shine);
+                }
+                else
+                {
+                    finished = RealGlassFinish.Draw(f.PoleFinishMesh, placement, _layer, Color.white,
+                                                    FinishReflectivity * (1f - 0.5f * f.Spec.PoleWear) * (1f - 0.6f * f.Spec.PoleDirt), shine, shine);
+                }
             }
 
             f.PoleBlock.SetFloat(FlagPoleMesh.IdPoleFinish, finished ? 1f : 0f);
             Graphics.DrawMesh(f.PoleMesh, placement, _poleMaterial, _layer, EveryCamera, 0,
                               f.PoleBlock, f.Pixels >= ShadowPixels, true);
+
+            // Its concrete block: upright on the pole's foot, turned by the flag's heading, the
+            // same material and block (its own part of the shader), its shadow as the pole's.
+            if (f.BlockMesh != null && f.PoleShape.Base == FlagPoleBase.Block)
+            {
+                Graphics.DrawMesh(f.BlockMesh, FlagPoleMesh.BlockPlacement(placement.GetColumn(3), f.Angle), _poleMaterial, _layer, EveryCamera, 0,
+                                  f.PoleBlock, f.Pixels >= ShadowPixels, true);
+            }
         }
+
+        /// <summary>
+        /// Bare zinc's reflectance head-on, the brightest channel's, for Real Glass's finish over a
+        /// galvanized pole (its shine 100%): judged by eye for a hot-dip coat (crystalline, not
+        /// polished; not a measured value) -- FlagPole.shader's galvanized sky reflection uses the same.
+        /// </summary>
+        private const float ZincReflectivity = 0.5f;
 
         /// <summary>A pole gets Real Glass's finish from this many pixels on the screen (as its shadow): below, its own sky reflection.</summary>
         private const float FinishPixels = ShadowPixels;
@@ -4534,8 +4591,11 @@ namespace RealFlag.Flags
                 {
                     float hx, hy, hz, fx, fy, fz;
                     FlagOrientation.Frame(p.Angle, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
-                    Graphics.DrawMesh(g.PoleMesh, FlagPoleMesh.Placement(anchor, g.PoleShape, new Vector3(hx, hy, hz), new Vector3(fx, fy, fz)),
-                                      _poleMaterial, _layer, EveryCamera, 0, g.PoleBlock, true, true);
+                    Matrix4x4 placement = FlagPoleMesh.Placement(anchor, g.PoleShape, new Vector3(hx, hy, hz), new Vector3(fx, fy, fz));
+                    Graphics.DrawMesh(g.PoleMesh, placement, _poleMaterial, _layer, EveryCamera, 0, g.PoleBlock, true, true);
+                    if (g.BlockMesh != null && g.PoleShape.Base == FlagPoleBase.Block)
+                        Graphics.DrawMesh(g.BlockMesh, FlagPoleMesh.BlockPlacement(placement.GetColumn(3), p.Angle), _poleMaterial, _layer, EveryCamera, 0,
+                                          g.PoleBlock, true, true);
                 }
             }
         }

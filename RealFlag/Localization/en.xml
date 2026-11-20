@@ -256,6 +256,7 @@
   <String key="Pole.Ball">Ball top</String>
   <String key="Pole.Flat">Flat top</String>
   <String key="Pole.Spear">Spear top</String>
+  <String key="Pole.Cap">Cap top</String>
 
   <String key="NewPoleProfile.Label">Shape</String>
   <String key="SelPoleProfile.Label">Shape</String>
@@ -268,7 +269,28 @@
   <String key="SelPoleBase.Label">Base</String>
   <String key="Base.Collar">Collar</String>
   <String key="Base.Cast">Cast base</String>
+  <String key="Base.Block">Block</String>
   <String key="Base.None">None</String>
+
+  <!-- The concrete block's rows: shown only with a Block base. -->
+  <String key="NewBlockShape.Label">Block shape</String>
+  <String key="SelBlockShape.Label">Block shape</String>
+  <String key="Block.Square">Square</String>
+  <String key="Block.Rounded">Rounded</String>
+  <String key="Block.Round">Round</String>
+  <String key="NewBlockWidth.Label">Block width</String>
+  <String key="SelBlockWidth.Label">Block width</String>
+  <String key="NewBlockHeight.Label">Block height</String>
+  <String key="SelBlockHeight.Label">Block height</String>
+  <String key="NewBlockColour.Label">Block color</String>
+  <String key="SelBlockColour.Label">Block color</String>
+  <String key="NewBlockWear.Label">Block wear</String>
+  <String key="SelBlockWear.Label">Block wear</String>
+
+  <String key="NewPoleFinish.Label">Finish</String>
+  <String key="SelPoleFinish.Label">Finish</String>
+  <String key="Finish.Painted">Painted</String>
+  <String key="Finish.Galvanized">Galvanized</String>
 
   <String key="NewPoleShine.Label">Shine</String>
   <String key="SelPoleShine.Label">Shine</String>

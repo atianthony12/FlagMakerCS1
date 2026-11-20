@@ -7,6 +7,9 @@
 [*][b]Four motions[/b]: Waving (real cloth in the wind), Loop (a recorded wave played back at almost no cost, for hundreds of flags), Still or Flat.
 [*][b]Wear and tear[/b]: worn, torn to tatters, dirty or holed flags (bullet holes, burns, tears), each its own.
 [*][b]Flagpoles[/b]: optional, in four shapes with a ball, flat or spear top, a collar or cast base, halyard ropes, shine, rust and dirt, tilt and lean. The flag can fly lower on its pole (half-mast).
+[*][b]Concrete block[/b]: a pole can stand in a square, rounded or round concrete block, any size and color, new or weathered.
+[*][b]Cap top[/b]: a plain cylinder cap, in the pole's color.
+[*][b]Galvanized poles[/b]: bare zinc instead of paint, with a faint crystal pattern.
 [*][b]Presets[/b]: Default, Wall flag (snaps to the wall under the pointer) or Banner (hangs from an arm on its pole).
 [*][b]Keeps off the city[/b]: flags drape over roofs, walls, props and trees instead of passing through.
 [*][b]Undo and redo[/b]: Ctrl+Z and Ctrl+Y for everything you do to a flag.

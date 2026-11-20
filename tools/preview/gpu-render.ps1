@@ -22,10 +22,13 @@
 #   ... -Worn "0,0,0|60,40,30,50"  each design once per wear,dirt,holes[,torn[,torn edges]] (percent, the panel's); -WearSeed 0..255
 #   ... -Sun 2.7                   the sun's intensity by day (1.3; Render It!'s "Sunny Default" has 2.7)
 #   ... -Wet 1                     the game's ground wetness (_WeatherParams.w, 0..1): the cloth wet in rain
-#   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear)
+#   ... -Pole 1 -Ropes 2 -Thick 1 -PoleColours "#hex,#hex,#hex"   the mod's pole (1 ball, 2 flat, 3 spear, 4 cap)
 #   ... -Poles "0,0,35,0,0,0|2,1,90,60,50,30,150"  each design once per pole look: profile (0 tapered, 1 straight,
-#                                  2 sectional, 3 fluted), base (0 collar, 1 cast, 2 none), shine, worn, rust, dirt
+#                                  2 sectional, 3 fluted), base (0 collar, 1 cast, 2 none, 3 block), shine, worn, rust, dirt
 #                                  [, rope thickness] (percent); -RopeLook 0 a twist, 1 the texture
+#   ... -Blocks "0,0.8,0.5|2,1.2,0.6,#8a8478,50"  each design once per concrete block (its base made a block):
+#                                  shape (0 square, 1 rounded, 2 round), width, height (m)[, #colour[, wear %]]
+#   ... -Finish "painted,galvanized"  each design once per pole finish
 #   ... -Tilt 45 -Lean 0           the hoist's lean, degrees (a wall-mounted pole: 30-45)
 #   ... -Hoist top                 hoisted from its top: a banner hanging from a crossbar
 #   ... -Plate                     with -Hoist top: kept in front of its back plate (FlagCloth.SetPlate), its front -z
@@ -102,6 +105,8 @@ param(
     [double]$Thick = 1.0,
     [string]$PoleColours = "",
     [string]$Poles = "",
+    [string]$Blocks = "",
+    [string]$Finish = "",
     [int]$RopeLook = 1,
     [double]$Tilt = 0,
     [double]$Lean = 0,
@@ -194,6 +199,8 @@ $env:RF_ROPES = "$Ropes"
 $env:RF_THICK = $Thick.ToString($inv)
 $env:RF_POLECOLOURS = $PoleColours
 $env:RF_POLES = $Poles
+$env:RF_BLOCKS = $Blocks
+$env:RF_FINISH = $Finish
 $env:RF_ROPELOOK = "$RopeLook"
 $env:RF_TILT = $Tilt.ToString($inv)
 $env:RF_LEAN = $Lean.ToString($inv)

@@ -303,6 +303,34 @@ namespace RealFlag.Flags
         /// <summary>A cast base's widest radius and its height (the shaft rises out of its top).</summary>
         public float BaseRadius, BaseHeight;
 
+        /// <summary>
+        /// THE CONCRETE BLOCK (Base <see cref="FlagPoleBase.Block"/>, 2026-11-19; the author: "an
+        /// optional cement block to the foot of the flagpole"): its FlagBlockShape, its width (a side,
+        /// or the round one's diameter) and its height above the foot, metres. Its own mesh and draw
+        /// (FlagPoleMesh.BuildBlock): it stands UPRIGHT, turned by the flag's heading alone, its middle
+        /// on the foot, the shaft rising out of its top -- the foot itself (FlagStand) unchanged.
+        /// 0 wide when there is none (another base, or a pole that does not stand).
+        /// </summary>
+        public int BlockShape;
+
+        public float BlockWidth, BlockHeight;
+
+        /// <summary>
+        /// How far a block goes on below the foot, metres (not part of its height): on a slope the
+        /// ground under one side is lower than the foot, and a block standing on the foot's level
+        /// would show a gap there -- as a real one is set into the ground.
+        /// </summary>
+        public const float BlockSink = 0.3f;
+
+        /// <summary>
+        /// A Rounded block's upright corners' radius, and the rounded top edge's (of every shape but
+        /// Square, whose edges are chamfered by <see cref="BlockChamfer"/>), metres.
+        /// </summary>
+        public float BlockCorner, BlockEdge, BlockChamfer;
+
+        /// <summary>The Cap top (FlagPoleStyle.Cap): the cap's radius and height over the truck, and its rounded upper edge's radius.</summary>
+        public float CapRadius, CapHeight, CapEdge;
+
         /// <summary>From the foot to the anchor's level, metres (the pole's height less <see cref="Drop"/>).</summary>
         public float Length;
 
@@ -359,10 +387,37 @@ namespace RealFlag.Flags
         /// <summary>The shortest pole drawn, metres.</summary>
         public const float MinLength = 0.5f;
 
-        /// <summary>The widest of the pole at its foot, round its axis: its cast base, its collar, or the shaft.</summary>
+        /// <summary>
+        /// The widest of the pole at its foot, round its axis: its cast base, its collar, its block
+        /// (<see cref="BlockReach"/>: a square one's corners, every way it may turn), or the shaft.
+        /// </summary>
         public float FootReach
         {
-            get { return Base == FlagPoleBase.Cast ? BaseRadius : Base == FlagPoleBase.Collar ? CollarRadius : RadiusFoot; }
+            get
+            {
+                return Base == FlagPoleBase.Cast ? BaseRadius : Base == FlagPoleBase.Collar ? CollarRadius :
+                       Base == FlagPoleBase.Block ? Math.Max(BlockReach, RadiusFoot) : RadiusFoot;
+            }
+        }
+
+        /// <summary>
+        /// The block's farthest from the axis, metres: a round one's radius; a rounded one's corner
+        /// arcs, (h - r) sqrt 2 + r; a square one's corners cut by their chamfer, from (h, h - c).
+        /// 0 with no block.
+        /// </summary>
+        public float BlockReach
+        {
+            get
+            {
+                if (Base != FlagPoleBase.Block || BlockWidth <= 0f)
+                    return 0f;
+                float h = 0.5f * BlockWidth;
+                if (BlockShape == FlagBlockShape.Round)
+                    return h;
+                if (BlockShape == FlagBlockShape.Rounded)
+                    return (h - BlockCorner) * (float)Math.Sqrt(2.0) + BlockCorner;
+                return (float)Math.Sqrt(h * h + (h - BlockChamfer) * (h - BlockChamfer));
+            }
         }
 
         /// <summary>The shaft's top above the foot.</summary>
@@ -381,6 +436,8 @@ namespace RealFlag.Flags
                     return truck + NeckHeight + 1.9f * BallRadius;
                 if (Style == FlagPoleStyle.Spear)
                     return truck + SpearHeight;
+                if (Style == FlagPoleStyle.Cap)
+                    return truck + CapHeight;
                 return truck + 0.25f * TruckRadius;
             }
         }
@@ -477,6 +534,13 @@ namespace RealFlag.Flags
             s.NeckHeight = 0.5f * s.BallRadius;
             s.SpearRadius = 0.75f * s.TruckRadius;
             s.SpearHeight = 4f * s.TruckRadius;
+
+            // The Cap top: a short drum a little wider than the shaft's top, a bit over twice its
+            // radius high, its upper edge rounded -- the plain steel pole's cap of the author's
+            // picture (2026-11-19), painted as the pole.
+            s.CapRadius = 1.3f * s.RadiusTop;
+            s.CapHeight = 2.25f * s.RadiusTop;
+            s.CapEdge = 0.3f * s.CapRadius;
             s.Base = FlagPoleBase.IsKnown(spec.PoleBase) ? spec.PoleBase : FlagPoleBase.Collar;
             if (s.Base == FlagPoleBase.Cast)
             {
@@ -487,6 +551,37 @@ namespace RealFlag.Flags
                 s.BaseRadius = 2.7f * s.RadiusFoot;
                 s.BaseHeight = Math.Min(0.14f * s.Length, Math.Max(0.25f, 4.6f * s.BaseRadius));
                 s.Cleat = Math.Max(s.Cleat, s.BaseHeight + 0.2f);
+            }
+            else if (s.Base == FlagPoleBase.Block)
+            {
+                // Only under a pole that stands on its foot: a crossbar's foot is on a wall, and a
+                // banner from its top has no pole. There it is no base at all.
+                if (!FlagStand.PoleStands(spec))
+                {
+                    s.Base = FlagPoleBase.None;
+                }
+                else
+                {
+                    s.BlockShape = FlagBlockShape.IsKnown(spec.BlockShape) ? spec.BlockShape : FlagBlockShape.Square;
+                    s.BlockWidth = Clamp(spec.BlockWidth, FlagSpec.MinBlockWidth, FlagSpec.MaxBlockWidth, FlagSpec.DefaultBlockWidth);
+                    s.BlockHeight = Clamp(spec.BlockHeight, FlagSpec.MinBlockHeight, FlagSpec.MaxBlockHeight, FlagSpec.DefaultBlockHeight);
+
+                    // Precast edges: a 20-25 mm chamfer (a 3/4" chamfer strip in the form) on a square
+                    // block; a rounded one's corners about a sixth of its width round; the top edge
+                    // rounded a few centimetres -- each held within the block's size.
+                    float least = Math.Min(s.BlockWidth, s.BlockHeight);
+                    s.BlockChamfer = Math.Min(0.025f, 0.1f * least);
+                    s.BlockCorner = Math.Min(0.25f * s.BlockWidth, Math.Max(0.06f, 0.15f * s.BlockWidth));
+                    s.BlockEdge = Math.Min(Math.Min(0.05f, 0.3f * s.BlockHeight), 0.1f * s.BlockWidth);
+                    if (s.BlockShape == FlagBlockShape.Rounded)
+                        s.BlockEdge = Math.Min(s.BlockEdge, 0.6f * s.BlockCorner);
+
+                    // A flag lowered down its pole stays above the block, as above a cast base -- but
+                    // the cleat never above nine tenths of the pole (a 2 m block under a 2.5 m pole:
+                    // the return line would run up past the sheave). There the block may reach the
+                    // flag, which does not keep off it (the cloth meets no block).
+                    s.Cleat = Math.Min(Math.Max(s.Cleat, s.BlockHeight + 0.2f), Math.Max(s.Cleat, 0.9f * s.Length));
+                }
             }
 
             // Lowered down a standing pole: the anchor comes down by a share of the way the flag
@@ -578,14 +673,30 @@ namespace RealFlag.Flags
             get { return Ropes > 0 ? FlagHeight * (1f - FlagCloth.HalyardSlack) : FlagHeight; }
         }
 
-        /// <summary>The same pole to within a centimetre: its mesh need not be made again.</summary>
+        /// <summary>The same pole to within a centimetre: its mesh (and its block's) need not be made again.</summary>
         public bool Same(FlagPoleShape other)
         {
             return Style == other.Style && Ropes == other.Ropes && Math.Abs(Length - other.Length) < 0.01f && Math.Abs(Drop - other.Drop) < 0.01f &&
                    Math.Abs(FlagHeight - other.FlagHeight) < 0.001f && Math.Abs(RadiusFoot - other.RadiusFoot) < 0.0005f &&
                    Profile == other.Profile && Base == other.Base && Math.Abs(RopeRadius - other.RopeRadius) < 0.0002f &&
                    Math.Abs(ArmTop - other.ArmTop) < 0.01f && Math.Abs(ArmBottom - other.ArmBottom) < 0.01f &&
-                   Math.Abs(ArmBottomDown - other.ArmBottomDown) < 0.01f;
+                   Math.Abs(ArmBottomDown - other.ArmBottomDown) < 0.01f && SameBlock(other);
+        }
+
+        /// <summary>The same block, to within half a centimetre (none and none the same).</summary>
+        public bool SameBlock(FlagPoleShape other)
+        {
+            bool block = Base == FlagPoleBase.Block, otherBlock = other.Base == FlagPoleBase.Block;
+            if (!block || !otherBlock)
+                return block == otherBlock;
+            return BlockShape == other.BlockShape && Math.Abs(BlockWidth - other.BlockWidth) < 0.005f && Math.Abs(BlockHeight - other.BlockHeight) < 0.005f;
+        }
+
+        private static float Clamp(float value, float min, float max, float fallback)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return fallback;
+            return Math.Max(min, Math.Min(value, max));
         }
     }
 }

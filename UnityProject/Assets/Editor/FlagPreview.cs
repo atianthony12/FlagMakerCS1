@@ -42,7 +42,8 @@ using Debug = UnityEngine.Debug;
 ///   RF_WORN "0,0,0|60,40,30,50" each design once per wear,dirt,holes[,torn[,torn edges]] (percent: FlagSpec.Wear, Dirt, Holes, Tear, TearEdges); RF_WEARSEED 0..255
 ///   RF_SUN 1.3            the sun's intensity by day (Render It!'s "Sunny Default" has 2.7 in the game)
 ///   RF_WET 0..1              the game's ground wetness (_WeatherParams.w): the cloth wet in the rain
-///   RF_POLE 1..3 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
+///   RF_POLE 1..4 (the pole's top: FlagPoleStyle), RF_ROPES 0..2, RF_THICK, RF_POLECOLOURS "#pole,#top,#rope"
+///   RF_BLOCKS "shape,width,height[,#colour[,wear %]]|..." each design once per concrete block; RF_FINISH "painted,galvanized"
 ///   RF_TILT, RF_LEAN    the hoist's tilt and lean, degrees (FlagOrientation)
 ///   RF_HOIST "top"      hoisted from its top (a banner on a crossbar: FlagHoist), not its side
 ///   RF_IMAGES "a.png,b.jpg"  pictures of the player's (from RF_IMAGEDIR) instead of RF_PATTERNS / RF_COUNTRIES,
@@ -104,6 +105,10 @@ public static class FlagPreview
 
         /// <summary>RF_DYNRES: the same pole in the same place without its ropes, so the ropes' own pixels can be told apart.</summary>
         public Mesh Bare;
+
+        /// <summary>Its concrete block (FlagPoleMesh.BuildBlock), null without one, and where it goes (FlagPoleMesh.BlockPlacement).</summary>
+        public Mesh Block;
+        public Matrix4x4 BlockMatrix;
     }
 
     /// <summary>RF_BOXES and RF_POSTS: the city round the flag (x, z, w, d, h and x, z, r, h, metres); RF_CITY: kept off.</summary>
@@ -487,6 +492,51 @@ public static class FlagPreview
             designs = poled;
         }
 
+        // RF_BLOCKS "shape,width,height[,#colour[,wear %]]|...": each design once per concrete block
+        // (FlagBlockShape 0 square, 1 rounded, 2 round; metres), its base made a Block.
+        string[] blockLooks = Env("RF_BLOCKS", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+        if (blockLooks.Length > 0)
+        {
+            var blocked = new List<FlagSpec>();
+            foreach (FlagSpec d in designs)
+            {
+                foreach (string look in blockLooks)
+                {
+                    string[] parts = look.Split(',');
+                    FlagSpec flag = d;
+                    flag.PoleBase = FlagPoleBase.Block;
+                    flag.BlockShape = parts.Length > 0 ? int.Parse(parts[0].Trim(), CultureInfo.InvariantCulture) : FlagBlockShape.Square;
+                    flag.BlockWidth = parts.Length > 1 ? ParseFloat(parts[1].Trim()) : FlagSpec.DefaultBlockWidth;
+                    flag.BlockHeight = parts.Length > 2 ? ParseFloat(parts[2].Trim()) : FlagSpec.DefaultBlockHeight;
+                    uint colour;
+                    if (parts.Length > 3 && FlagColours.TryParseHex(parts[3].Trim(), out colour))
+                        flag.BlockColour = colour;
+                    flag.BlockWear = parts.Length > 4 ? ParseFloat(parts[4].Trim()) / 100f : 0f;
+                    blocked.Add(flag.Sanitised());
+                }
+            }
+
+            designs = blocked;
+        }
+
+        // RF_FINISH "painted,galvanized": each design once per pole finish (FlagPoleFinish).
+        string[] finishes = Env("RF_FINISH", "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (finishes.Length > 0)
+        {
+            var finished = new List<FlagSpec>();
+            foreach (FlagSpec d in designs)
+            {
+                foreach (string finish in finishes)
+                {
+                    FlagSpec flag = d;
+                    flag.PoleFinish = finish.Trim().StartsWith("g", StringComparison.OrdinalIgnoreCase) ? FlagPoleFinish.Galvanized : FlagPoleFinish.Painted;
+                    finished.Add(flag);
+                }
+            }
+
+            designs = finished;
+        }
+
         _ropeLook = float.Parse(Env("RF_ROPELOOK", "1"), CultureInfo.InvariantCulture);
         _wearSeed = float.Parse(Env("RF_WEARSEED", "0"), CultureInfo.InvariantCulture);
 
@@ -572,12 +622,23 @@ public static class FlagPreview
                         bare.Ropes = 0;
                         pole.Bare = FlagPoleMesh.Build(bare, null);
                     }
+
+                    // Its concrete block, as the game draws it (FlagRenderer.DrawPole): upright on the foot, the heading's (0 here).
+                    pole.Block = FlagPoleMesh.BuildBlock(shape, null);
+                    if (pole.Block != null)
+                    {
+                        pole.BlockMatrix = FlagPoleMesh.BlockPlacement(pole.Matrix.GetColumn(3), 0f);
+                        Debug.Log("RF PREVIEW: block " + FlagBlockShape.LogName(shape.BlockShape) + " " +
+                                  shape.BlockWidth.ToString("F2", CultureInfo.InvariantCulture) + " x " + shape.BlockHeight.ToString("F2", CultureInfo.InvariantCulture) +
+                                  " m: " + pole.Block.vertexCount + " vertices, " + (pole.Block.triangles.Length / 3) + " triangles, reach " +
+                                  shape.BlockReach.ToString("F3", CultureInfo.InvariantCulture) + " m, cleat " + shape.Cleat.ToString("F2", CultureInfo.InvariantCulture) + " m");
+                    }
                     Debug.Log("RF PREVIEW: pole " + FlagPoleStyle.LogName(flag.Pole) + ", " + flag.Ropes + " rope(s): foot " +
                               (200f * shape.RadiusFoot).ToString("F1", CultureInfo.InvariantCulture) + " cm, top " +
                               (200f * shape.RadiusTop).ToString("F1", CultureInfo.InvariantCulture) + " cm across, " +
                               length.ToString("F1", CultureInfo.InvariantCulture) + " m to the anchor, hoist " +
                               (100f * shape.Offset).ToString("F1", CultureInfo.InvariantCulture) + " cm off the axis, " +
-                              pole.Mesh.vertexCount + " vertices");
+                              pole.Mesh.vertexCount + " vertices, " + (pole.Mesh.triangles.Length / 3) + " triangles");
                 }
 
                 // The city round it (RF_BOXES, RF_POSTS), as the game gathers it; a new cloth laid out clear of it.
@@ -1056,6 +1117,8 @@ public static class FlagPreview
             FlagPoleMesh.Look(s.PoleBlock, flag, Vector4.zero, _wearSeed);
             s.PoleBlock.SetFloat("_RFRopeLook", _ropeLook);
             Graphics.DrawMesh(pole.Mesh, pole.Matrix, s.PoleMaterial, 0, s.Camera, 0, s.PoleBlock, true, true);
+            if (pole.Block != null)
+                Graphics.DrawMesh(pole.Block, pole.BlockMatrix, s.PoleMaterial, 0, s.Camera, 0, s.PoleBlock, true, true);
         }
 
         s.Camera.Render();
@@ -1338,6 +1401,8 @@ public static class FlagPreview
         {
             if (pole != null)
                 Graphics.DrawMesh(pole.Mesh, pole.Matrix, s.PoleMaterial, 0, cam, 0, s.PoleBlock, true, true);
+            if (pole != null && pole.Block != null)
+                Graphics.DrawMesh(pole.Block, pole.BlockMatrix, s.PoleMaterial, 0, cam, 0, s.PoleBlock, true, true);
         };
         Action<Camera> both = cam =>
         {
