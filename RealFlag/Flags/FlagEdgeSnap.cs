@@ -222,6 +222,31 @@ namespace RealFlag.Flags
             heading = (float)Math.Atan2(dz, dx);
         }
 
+        /// <summary>
+        /// The same, turned by the player's right button while snapped (the author, 2026-11-19:
+        /// "allow the user to right click to rotate even then"): <paramref name="turn"/> radians
+        /// on top of the squared heading <see cref="Place(float, float, float, float, float, float, float, bool, out float, out float, out float, out float)"/>
+        /// gives. The hoist keeps its middle where the edge's point is along the edge and is put
+        /// out until its end nearer the wall is <see cref="Gap"/> off the face: never into the
+        /// roof. A turn of 0 is Place's own answer, bit for bit; a quarter turn lands on Place's
+        /// other squared ways (out from the face, along it).
+        /// </summary>
+        public static void Place(float ex, float roofY, float ez, float nx, float nz, float angle, float hoist, bool frontOut, float turn,
+                                 out float ax, out float ay, out float az, out float heading)
+        {
+            Place(ex, roofY, ez, nx, nz, angle, hoist, frontOut, out ax, out ay, out az, out heading);
+            if (turn == 0f)
+                return;
+
+            heading += turn;
+            float hx = (float)Math.Cos(heading), hz = (float)Math.Sin(heading);
+            float push = 0.5f * hoist * Math.Abs(hx * nx + hz * nz);
+            float fx = ex + Gap * nx, fz = ez + Gap * nz;
+            ax = fx - 0.5f * hoist * hx + push * nx;
+            az = fz - 0.5f * hoist * hz + push * nz;
+            ay = roofY;
+        }
+
         // ---- walls (2026-11-19) ---------------------------------------------------------------
         //
         // The author: "Presets for flag orientation, like flags on buildings ... Wall Flag ...
@@ -384,6 +409,19 @@ namespace RealFlag.Flags
             footY = y;
             footZ = fz + off * nz;
             heading = (float)Math.Atan2(nz, nx);
+        }
+
+        /// <summary>
+        /// The same, the flag turned <paramref name="turn"/> radians from straight out by the
+        /// player's right button (2026-11-19): the foot stays (it is round: FootReach is its
+        /// widest every way), the pole leans and the flag flies the turned way. Not held short
+        /// of the wall: turned past a quarter, the pole leans into it, as the player chose.
+        /// </summary>
+        public static void OnWall(float fx, float y, float fz, float nx, float nz, float footReach, float turn,
+                                  out float footX, out float footY, out float footZ, out float heading)
+        {
+            OnWall(fx, y, fz, nx, nz, footReach, out footX, out footY, out footZ, out heading);
+            heading += turn;
         }
 
         /// <summary>

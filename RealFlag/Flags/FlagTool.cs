@@ -125,6 +125,15 @@ namespace RealFlag.Flags
         private Vector3 _turnHit;
         private EdgeSnap _turnSnap;
 
+        // On a wall or a roof's edge the right button turns the new flag from the snap's own way
+        // (straight out of the wall, squared to the edge) by _snapTurn degrees, not the Rotation
+        // row (2026-11-19, the author: "allow the user to right click to rotate even then"). Kept
+        // between clicks and from one wall or edge to the next, as the lift is; a right click
+        // steps it by 45 degrees, back to 0 = the snap's own way. _turnSnapped: the press began
+        // on one, so this gesture turns _snapTurn.
+        private float _snapTurn;
+        private bool _turnSnapped;
+
         /// <summary>Degrees a drag turns the flag per unit of the "Mouse X" axis: PropTool.OnToolUpdate's DeltaAngle(axis x 10).</summary>
         private const float TurnPerMouseX = 10f;
 
@@ -203,6 +212,7 @@ namespace RealFlag.Flags
                     tool._rightDown = false;
                     tool.EndRaise();
                     tool._lift = 0f;
+                    tool._snapTurn = 0f;
                 }
                 tool.CurrentMode = mode;
                 controller.CurrentTool = tool;
@@ -269,8 +279,9 @@ namespace RealFlag.Flags
             {
                 // The button is still down: nothing more turns until it is pressed again.
                 tool._rightDown = false;
-                SetNewDegrees(tool._turnFrom);
-                Log.Msg("flags: the turn was given up; the new flag points " + NewDegrees().ToString("F0") + " deg again");
+                tool.SetTurn(tool._turnFrom);
+                Log.Msg("flags: the turn was given up; the new flag points " + tool.TurnDegrees().ToString("F0") + " deg" +
+                        (tool._turnSnapped ? " from the snap's own way" : "") + " again");
                 return "the turn given up";
             }
 
@@ -327,6 +338,7 @@ namespace RealFlag.Flags
             // Over to Line Tool, the row keeps the lift.
             if (!LineFlags.Handing)
                 _lift = 0f;
+            _snapTurn = 0f;
 
             // Put away by any means: a drag stays where it got to, the selection goes.
             EndDrag();
@@ -672,29 +684,31 @@ namespace RealFlag.Flags
         /// Where the new flag goes and which way it heads: on a roof's edge the pointer is near
         /// (FlagEdgeSnap.Place: along it or out from it, as its rotation is nearer, raised by the
         /// keys), on the wall it is on (FlagEdgeSnap.OnWall: the pole's foot on the face at the
-        /// pointer's height, raised by the keys, the flag heading straight out of it -- its
-        /// rotation the wall's, the Rotation row kept for the next flag off a wall, as an edge's
-        /// is), else standing on the surface under the pointer (<see cref="AnchorOver"/>). True:
-        /// on the edge or the wall (snap.Wall says which).
+        /// pointer's height, raised by the keys, the flag heading straight out of it), else
+        /// standing on the surface under the pointer (<see cref="AnchorOver"/>). On an edge or a
+        /// wall the right button turns the flag from the snap's own way (_snapTurn, 2026-11-19),
+        /// the Rotation row kept for the next flag off them. True: on the edge or the wall
+        /// (snap.Wall says which).
         /// </summary>
         private bool GhostPlace(Vector3 hit, EdgeSnap snap, FlagSpec spec, out Vector3 anchor, out float angle)
         {
-            if (snap.Valid && snap.Wall && SnapsToWalls && FlagEdgeSnap.WallFlag(spec))
+            float turn = _snapTurn * Mathf.Deg2Rad;
+            if (OnWallSnap(snap, spec))
             {
                 FlagPoleShape shape = FlagPoleShape.For(spec, spec.PoleLength);
                 float footX, footY, footZ, ax, ay, az;
-                FlagEdgeSnap.OnWall(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, shape.FootReach,
+                FlagEdgeSnap.OnWall(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, shape.FootReach, turn,
                                     out footX, out footY, out footZ, out angle);
                 FlagStand.Anchor(spec, angle, spec.PoleLength, footX, footY, footZ, out ax, out ay, out az);
                 anchor = new Vector3(ax, ay, az);
                 return true;
             }
 
-            if (snap.Valid && !snap.Wall && spec.HoistedFrom == FlagHoist.Top && SnapsToEdges)
+            if (OnEdgeSnap(snap, spec))
             {
                 float ax, ay, az;
                 FlagEdgeSnap.Place(snap.Edge.x, snap.Edge.y + _lift, snap.Edge.z, snap.Nx, snap.Nz, NewAngle(), spec.Height,
-                                   spec.HasBackPlate && FlagMotion.Moves(spec.Motion), out ax, out ay, out az, out angle);
+                                   spec.HasBackPlate && FlagMotion.Moves(spec.Motion), turn, out ax, out ay, out az, out angle);
                 anchor = new Vector3(ax, ay, az);
                 return true;
             }
@@ -702,6 +716,18 @@ namespace RealFlag.Flags
             anchor = AnchorOver(hit, spec);
             angle = NewAngle();
             return false;
+        }
+
+        /// <summary>The new flag of <paramref name="spec"/> goes on the wall <paramref name="snap"/> found (GhostPlace's first way).</summary>
+        private static bool OnWallSnap(EdgeSnap snap, FlagSpec spec)
+        {
+            return snap.Valid && snap.Wall && SnapsToWalls && FlagEdgeSnap.WallFlag(spec);
+        }
+
+        /// <summary>The new flag of <paramref name="spec"/> goes on the roof's edge <paramref name="snap"/> found (GhostPlace's second way).</summary>
+        private static bool OnEdgeSnap(EdgeSnap snap, FlagSpec spec)
+        {
+            return snap.Valid && !snap.Wall && spec.HoistedFrom == FlagHoist.Top && SnapsToEdges;
         }
 
         /// <summary>
@@ -757,8 +783,24 @@ namespace RealFlag.Flags
         {
             _rightDown = true;
             _turned = false;
-            _turnFrom = _turnTo = NewDegrees();
             _turnHitValid = TryHit(out _turnHit, out _turnSnap);
+            FlagSpec spec = Settings.NewSpec();
+            _turnSnapped = _turnHitValid && (OnWallSnap(_turnSnap, spec) || OnEdgeSnap(_turnSnap, spec));
+            _turnFrom = _turnTo = _turnSnapped ? _snapTurn : NewDegrees();
+        }
+
+        /// <summary>This gesture's turn: the snap's own (<see cref="_snapTurn"/>) or the Rotation row's.</summary>
+        private void SetTurn(float degrees)
+        {
+            if (_turnSnapped)
+                _snapTurn = degrees;
+            else
+                SetNewDegrees(degrees);
+        }
+
+        private float TurnDegrees()
+        {
+            return _turnSnapped ? _snapTurn : NewDegrees();
         }
 
         /// <summary>
@@ -778,8 +820,10 @@ namespace RealFlag.Flags
             {
                 _rightDown = false;
                 if (!_turned)
-                    SetNewDegrees(FlagOrientation.StepTurn(NewDegrees()));
-                Log.Msg("flags: the new flag turned to " + NewDegrees().ToString("F0") + " deg (" + (_turned ? "a right drag" : "a right click") + ")");
+                    SetTurn(FlagOrientation.StepTurn(TurnDegrees()));
+                Log.Msg(_turnSnapped
+                    ? "flags: the new flag turned " + TurnDegrees().ToString("F0") + " deg from the " + (_turnSnap.Wall ? "wall's" : "roof edge's") + " own way (" + (_turned ? "a right drag" : "a right click") + ")"
+                    : "flags: the new flag turned to " + NewDegrees().ToString("F0") + " deg (" + (_turned ? "a right drag" : "a right click") + ")");
                 return false;
             }
 
@@ -788,7 +832,8 @@ namespace RealFlag.Flags
             {
                 _turned = true;
                 _turnTo = Mathf.Repeat(_turnTo + travel * TurnPerMouseX, 360f);
-                SetNewDegrees(_turnTo);
+                // The Rotation row keeps whole degrees (SetNewDegrees); the snap's turn is ours, unrounded.
+                SetTurn(_turnTo);
             }
 
             return _turned;
@@ -994,6 +1039,7 @@ namespace RealFlag.Flags
                 EdgeSnap snap;
                 valid = TryGhostHit(out hit, out snap);
                 bool onEdge = false;
+                float shownDegrees = NewDegrees();
                 if (valid && FlagRenderer.Instance != null)
                 {
                     FlagSpec spec = Settings.NewSpec();
@@ -1001,11 +1047,14 @@ namespace RealFlag.Flags
                     float angle;
                     onEdge = GhostPlace(hit, snap, spec, out anchor, out angle);
                     FlagRenderer.Instance.SetGhost(anchor, angle, spec);
+                    // On a wall or an edge the way it points is the snap's, turned: said as placed.
+                    if (onEdge)
+                        shownDegrees = FlagOrientation.WholeDegrees(angle * Mathf.Rad2Deg);
                 }
 
                 // Raised or lowered off the surface: said while the keys work, and over the hint after.
                 string text = FlagPrefab.Info == null ? Localization.Get("Tool.NoPrefab")
-                            : turning ? Localization.Get("Gizmo.Heading", NewDegrees().ToString("0", System.Globalization.CultureInfo.InvariantCulture))
+                            : turning ? Localization.Get("Gizmo.Heading", shownDegrees.ToString("0", System.Globalization.CultureInfo.InvariantCulture))
                             : ShowingRaise && _raisedFlag == 0 ? RaiseText(_lift)
                             : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys())
                             : Localization.Get("Tool.PlaceHint", RaiseKeys());
