@@ -6,7 +6,7 @@ below; the mods list shows it after the mod's name, and the first line of `FlagM
 it with the exact build. The version is `Mod.Version` in `RealFlag/Mod.cs` (0.x while in
 development).
 
-## 1.0.0 — unreleased
+## 1.0.0 — 2026-11-20
 
 The first release.
 
