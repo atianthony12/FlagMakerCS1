@@ -181,9 +181,9 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
 
 ### Flagpoles
 
-- By default a flag has no pole, so you can use a pole asset of your own. Or click **Flagpole** and
-  let the mod draw one: tapered and sized like a real pole for that flag and height, with a collar
-  at the bottom and a gold ball, a flat cap, a spear or a plain cylinder cap at the top.
+- By default a flag comes with its own pole: tapered and sized like a real pole for that flag and
+  height, with a collar at the bottom and a gold ball, a flat cap, a spear or a plain cylinder cap
+  at the top. Set **Flagpole** to none to use a pole asset of your own.
 - **Pole height** goes from 1 to 50 m, or up to 200 m with **Allow taller poles**.
 - **Position on pole** lowers the flag down its pole: 100% at the top, 50% at half-mast. The pole
   stays as tall, on the same spot.

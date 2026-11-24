@@ -106,7 +106,7 @@ public static class FlagPreview
         /// <summary>RF_DYNRES: the same pole in the same place without its ropes, so the ropes' own pixels can be told apart.</summary>
         public Mesh Bare;
 
-        /// <summary>Its concrete block (FlagPoleMesh.BuildBlock), null without one, and where it goes (FlagPoleMesh.BlockPlacement).</summary>
+        /// <summary>Its concrete block (FlagPoleMesh.BuildBlock), null without one, and where it goes (the pole's own placement, as FlagRenderer.DrawPole).</summary>
         public Mesh Block;
         public Matrix4x4 BlockMatrix;
     }
@@ -623,11 +623,11 @@ public static class FlagPreview
                         pole.Bare = FlagPoleMesh.Build(bare, null);
                     }
 
-                    // Its concrete block, as the game draws it (FlagRenderer.DrawPole): upright on the foot, the heading's (0 here).
+                    // Its concrete block, as the game draws it (FlagRenderer.DrawPole): placed as the pole.
                     pole.Block = FlagPoleMesh.BuildBlock(shape, null);
                     if (pole.Block != null)
                     {
-                        pole.BlockMatrix = FlagPoleMesh.BlockPlacement(pole.Matrix.GetColumn(3), 0f);
+                        pole.BlockMatrix = pole.Matrix;
                         Debug.Log("RF PREVIEW: block " + FlagBlockShape.LogName(shape.BlockShape) + " " +
                                   shape.BlockWidth.ToString("F2", CultureInfo.InvariantCulture) + " x " + shape.BlockHeight.ToString("F2", CultureInfo.InvariantCulture) +
                                   " m: " + pole.Block.vertexCount + " vertices, " + (pole.Block.triangles.Length / 3) + " triangles, reach " +

@@ -203,6 +203,7 @@
   <String key="SelWindShare.Label">风力影响</String>
   <String key="NewDarkness.Label">暗度</String>
   <String key="SelDarkness.Label">暗度</String>
+  <String key="Group.Preset">预设</String>
   <String key="Group.Design">外观</String>
   <String key="Group.Size">尺寸与形状</String>
   <String key="Group.Place">旗杆与摆放</String>
@@ -221,8 +222,8 @@
 
   <!-- The New flag window's placement presets: each sets how the flag hangs, its pole and its size. -->
   <String key="NewPreset.Label">预设</String>
-  <String key="Preset.Default">默认</String>
-  <String key="Preset.Wall">墙旗</String>
+  <String key="Preset.Default">带旗杆</String>
+  <String key="Preset.Wall">挂在墙上</String>
   <String key="Preset.Banner">道旗</String>
 
   <!-- The Flagpole button of each window, and its popup. -->

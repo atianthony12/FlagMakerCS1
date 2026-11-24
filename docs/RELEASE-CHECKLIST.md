@@ -91,7 +91,7 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
 - [ ] `tools\test-cloth.ps1`, `test-settings.ps1`, `test-localization.ps1`, `test-linetool.ps1` pass
       (release.ps1 runs them on the deployed DLL). test-linetool holds what LineFlags reflects to
       the Workshop's Line Tool: an update there would hide the rows without a word.
-- [ ] Defaults reviewed: no pole, the game's wind, Cloth detail High (32), self-collision and
+- [ ] Defaults reviewed: a ball-top pole (the "With pole" preset), the game's wind, Cloth detail High (32), self-collision and
       "keeps off buildings" on, freeze when paused on, detailed logging OFF, Panel look Frosted,
       the mod icon in Unified UI.
 - [ ] Languages: en, es, fr, zh complete (`test-localization.ps1` lists any text still in English),

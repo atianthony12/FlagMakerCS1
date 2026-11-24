@@ -1802,7 +1802,10 @@ namespace RealFlag.UI
         /// not under the flagpole"): a button each across the whole row (FullWidth: their names
         /// overflowed beside the name column), the one the settings make lit, none when they make
         /// none (Custom). A choice writes the hoist, the pole, the holds and the size
-        /// (PlacementPreset); Default is its way back (no reset icon).
+        /// (PlacementPreset); Default is its way back (no reset icon). 2026-11-24 (the author: "its
+        /// own accordion/category would be better. The presets could be icon buttons instead, with
+        /// tooltips: 'With pole', 'Hanging on wall', 'Banner'"): a folding group of its own,
+        /// Presets, each button an icon (PlacementPreset.Icons), its name the tooltip.
         /// </summary>
         private static void AddNewPreset()
         {
@@ -1810,10 +1813,12 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Segmented,
                 Panel = PanelPage.New,
+                Group = "Preset",
                 Int = Settings.NewPreset,
                 DefaultInt = PlacementPreset.Default,
                 ChoiceValues = PlacementPreset.Values,
                 ChoiceKeys = PlacementPreset.NameKeys,
+                ChoiceIcons = PlacementPreset.Icons,
                 FullWidth = true,
                 AfterChange = () => PlacementPreset.Apply(Settings.NewPreset.value),
             });

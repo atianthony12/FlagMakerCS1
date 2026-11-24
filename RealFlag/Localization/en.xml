@@ -214,6 +214,7 @@
   <String key="SelWindShare.Label">Wind effect</String>
   <String key="NewDarkness.Label">Darkness</String>
   <String key="SelDarkness.Label">Darkness</String>
+  <String key="Group.Preset">Presets</String>
   <String key="Group.Design">Design</String>
   <String key="Group.Size">Size and shape</String>
   <String key="Group.Place">Pole and placement</String>
@@ -232,8 +233,8 @@
 
   <!-- The New flag window's placement presets: each sets how the flag hangs, its pole and its size. -->
   <String key="NewPreset.Label">Preset</String>
-  <String key="Preset.Default">Default</String>
-  <String key="Preset.Wall">Wall flag</String>
+  <String key="Preset.Default">With pole</String>
+  <String key="Preset.Wall">Hanging on wall</String>
   <String key="Preset.Banner">Banner</String>
 
   <!-- The Flagpole button of each window, and its popup. -->

@@ -307,9 +307,12 @@ namespace RealFlag.Flags
         /// THE CONCRETE BLOCK (Base <see cref="FlagPoleBase.Block"/>, 2026-11-19; the author: "an
         /// optional cement block to the foot of the flagpole"): its FlagBlockShape, its width (a side,
         /// or the round one's diameter) and its height above the foot, metres. Its own mesh and draw
-        /// (FlagPoleMesh.BuildBlock): it stands UPRIGHT, turned by the flag's heading alone, its middle
-        /// on the foot, the shaft rising out of its top -- the foot itself (FlagStand) unchanged.
-        /// 0 wide when there is none (another base, or a pole that does not stand).
+        /// (FlagPoleMesh.BuildBlock), placed as the pole is (FlagPoleMesh.Placement: along its axis,
+        /// turned and tilted with it, as the collar and the cast base; 2026-11-24, the author: "Block
+        /// base not rotating/aligning with flagpole like the other bases" -- until then it stood
+        /// upright, turned by the heading alone), its middle on the foot, the shaft rising out of
+        /// its top -- the foot itself (FlagStand) unchanged. 0 wide when there is none (another
+        /// base, or a pole that does not stand).
         /// </summary>
         public int BlockShape;
 
@@ -321,6 +324,14 @@ namespace RealFlag.Flags
         /// would show a gap there -- as a real one is set into the ground.
         /// </summary>
         public const float BlockSink = 0.3f;
+
+        /// <summary>
+        /// How far this block goes on down its axis below the foot, metres: <see cref="BlockSink"/>,
+        /// and with a slanting pole (tilt, lean) its reach x tan of the slant more -- the bottom
+        /// edge on the high side rises reach x sin(slant) and the axis goes down depth x cos(slant),
+        /// so it stays under flat ground (it has no bottom face). 0 with no block.
+        /// </summary>
+        public float BlockDepth;
 
         /// <summary>
         /// A Rounded block's upright corners' radius, and the rounded top edge's (of every shape but
@@ -576,6 +587,13 @@ namespace RealFlag.Flags
                     if (s.BlockShape == FlagBlockShape.Rounded)
                         s.BlockEdge = Math.Min(s.BlockEdge, 0.6f * s.BlockCorner);
 
+                    // Down the axis, deeper with the pole's slant (BlockDepth). A standing pole is
+                    // within 60 degrees of upright (FlagStand.Upright): tan at most sqrt 3.
+                    float hx, hy, hz, fx, fy, fz;
+                    FlagOrientation.Frame(0f, spec.Tilt, spec.Lean, spec.HoistedFrom, out hx, out hy, out hz, out fx, out fy, out fz);
+                    double up = Math.Max(Math.Min(-hy, 1.0), FlagStand.UprightShare);
+                    s.BlockDepth = BlockSink + s.BlockReach * (float)(Math.Sqrt(1.0 - up * up) / up);
+
                     // A flag lowered down its pole stays above the block, as above a cast base -- but
                     // the cleat never above nine tenths of the pole (a 2 m block under a 2.5 m pole:
                     // the return line would run up past the sheave). There the block may reach the
@@ -689,7 +707,8 @@ namespace RealFlag.Flags
             bool block = Base == FlagPoleBase.Block, otherBlock = other.Base == FlagPoleBase.Block;
             if (!block || !otherBlock)
                 return block == otherBlock;
-            return BlockShape == other.BlockShape && Math.Abs(BlockWidth - other.BlockWidth) < 0.005f && Math.Abs(BlockHeight - other.BlockHeight) < 0.005f;
+            return BlockShape == other.BlockShape && Math.Abs(BlockWidth - other.BlockWidth) < 0.005f && Math.Abs(BlockHeight - other.BlockHeight) < 0.005f &&
+                   Math.Abs(BlockDepth - other.BlockDepth) < 0.01f;
         }
 
         private static float Clamp(float value, float min, float max, float fallback)

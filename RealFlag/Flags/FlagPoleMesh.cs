@@ -769,28 +769,13 @@ namespace RealFlag.Flags
         // ---- the concrete block (FlagPoleBase.Block, 2026-11-19) -----------------------------------
 
         /// <summary>
-        /// Where a pole's block goes: its middle on the pole's foot (<paramref name="foot"/>: the
-        /// pole's placement's own, column 3 of <see cref="Placement"/>), UPRIGHT whatever the pole's
-        /// tilt and lean, turned by the flag's heading alone (<paramref name="heading"/>, the prop's
-        /// angle: its x along FlagProps.Direction).
-        /// </summary>
-        public static Matrix4x4 BlockPlacement(Vector3 foot, float heading)
-        {
-            var x = new Vector3(Mathf.Cos(heading), 0f, Mathf.Sin(heading));
-            Vector3 z = Vector3.Cross(x, Vector3.up);
-            var m = new Matrix4x4();
-            m.SetColumn(0, new Vector4(x.x, x.y, x.z, 0f));
-            m.SetColumn(1, new Vector4(0f, 1f, 0f, 0f));
-            m.SetColumn(2, new Vector4(z.x, z.y, z.z, 0f));
-            m.SetColumn(3, new Vector4(foot.x, foot.y, foot.z, 1f));
-            return m;
-        }
-
-        /// <summary>
         /// The concrete block's mesh (FlagPoleShape's block: none -- null -- without one), into
-        /// <paramref name="reuse"/> if given. In its own frame: y up from the pole's foot, its
-        /// middle on the axis, from <see cref="FlagPoleShape.BlockSink"/> under the foot to its
-        /// height over it (no bottom: it is in the ground). Its OWN mesh and draw, not the pole's:
+        /// <paramref name="reuse"/> if given. In the POLE's frame and drawn with the pole's
+        /// <see cref="Placement"/> (2026-11-24: along its axis, tilted and turned with it, as the
+        /// collar and cast base; until then upright, turned by the heading alone): y up the axis
+        /// from the pole's foot, x towards the flag, its middle on the axis, from
+        /// <see cref="FlagPoleShape.BlockDepth"/> under the foot to its height over it (no bottom: it
+        /// is in the ground). Its OWN mesh and draw, not the pole's:
         /// Real Glass's Reflective finish is drawn over the whole of the pole's plain copy
         /// (RealGlassFinish), and concrete is no mirror.
         /// </summary>
@@ -811,7 +796,7 @@ namespace RealFlag.Flags
                 return null;
 
             var b = new Builder();
-            float h = 0.5f * s.BlockWidth, top = s.BlockHeight, sink = FlagPoleShape.BlockSink;
+            float h = 0.5f * s.BlockWidth, top = s.BlockHeight, sink = Mathf.Max(s.BlockDepth, FlagPoleShape.BlockSink);
             if (s.BlockShape == FlagBlockShape.Square)
             {
                 SquareBlock(b, h, top, sink, Mathf.Clamp(s.BlockChamfer, 0f, 0.45f * Mathf.Min(h, top)));

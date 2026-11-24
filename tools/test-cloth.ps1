@@ -5113,7 +5113,7 @@ public static class ClothTests
                      RealFlag.UI.PlacementPreset.Of(P[1]) == RealFlag.UI.PlacementPreset.Wall &&
                      RealFlag.UI.PlacementPreset.Of(P[2]) == RealFlag.UI.PlacementPreset.Banner;
         var d = P[0];
-        bool defaults = d.HoistedFrom == FlagHoist.Side && d.Tilt == 0f && d.Lean == 0f && d.Pole == FlagPoleStyle.None && d.Height == 10f &&
+        bool defaults = d.HoistedFrom == FlagHoist.Side && d.Tilt == 0f && d.Lean == 0f && d.Pole == FlagPoleStyle.Ball && d.Height == 10f &&
                         d.Ropes == FlagSpec.DefaultRopes && d.PoleBase == FlagPoleBase.Collar && d.PolePosition == 1f && d.Held == 0 &&
                         d.Length == 3f && d.Proportion == FlagProportion.Default;
         var w = P[1];

@@ -145,6 +145,7 @@ namespace RealFlag
         public static readonly string[] FoldGroups =
         {
             "Design", "Size", "Place", "Movement", "Wear", "Wind", "Language", "Panel", "Flags", "Cloth", "Diagnostics", "StartingOver",
+            "Preset",
         };
 
         /// <summary>
@@ -528,8 +529,12 @@ namespace RealFlag
             /// <summary>m: the pole height's slider reaches this high -- a tall city flagpole; 1..200 m was too coarse to set (2026-10-22, the author). Its "Allow taller poles" switch went 2026-11-11.</summary>
             public const float LockedHeight = 50f;
 
-            /// <summary>No pole drawn: the flag is for the city's own poles, the mod's purpose.</summary>
-            public const int Pole = FlagPoleStyle.None;
+            /// <summary>
+            /// A ball-top pole (2026-11-24; the author: "Default preset should be with pole": the
+            /// placement presets' first, "With pole", is these defaults). Until then None, the flag
+            /// for the city's own poles. A FlagMaker.xml that exists keeps its NewPole.
+            /// </summary>
+            public const int Pole = FlagPoleStyle.Ball;
             public const int Ropes = FlagSpec.DefaultRopes;
             public const int PoleColour = (int)FlagSpec.DefaultPoleColour;
             public const int TopColour = (int)FlagSpec.DefaultTopColour;

@@ -1740,12 +1740,13 @@ namespace RealFlag.Flags
             if (shape.ArmBottom > 0f)
                 box.Encapsulate(poleAnchor + f.Hoist * shape.ArmBottomDown + f.Fly * shape.ArmBottom);
 
-            // Its block, upright round the foot, down into the ground (FlagPoleShape.BlockSink).
+            // Its block round the foot, along the pole's axis, down into the ground
+            // (FlagPoleShape.BlockDepth): a ball round it, whatever the slant.
             if (shape.Base == FlagPoleBase.Block)
             {
-                float reach = shape.BlockReach;
-                box.Encapsulate(new Bounds(foot + Vector3.up * (0.5f * (shape.BlockHeight - FlagPoleShape.BlockSink)),
-                                           new Vector3(2f * reach, shape.BlockHeight + FlagPoleShape.BlockSink, 2f * reach)));
+                float reach = shape.BlockReach, along = Mathf.Max(shape.BlockHeight, shape.BlockDepth);
+                float ball = Mathf.Sqrt(reach * reach + along * along);
+                box.Encapsulate(new Bounds(foot, Vector3.one * (2f * ball)));
             }
             box.Expand(2f * shape.CollarRadius + 1f);
 
@@ -4117,11 +4118,12 @@ namespace RealFlag.Flags
             Graphics.DrawMesh(f.PoleMesh, placement, _poleMaterial, _layer, EveryCamera, 0,
                               f.PoleBlock, f.Pixels >= ShadowPixels, true);
 
-            // Its concrete block: upright on the pole's foot, turned by the flag's heading, the
-            // same material and block (its own part of the shader), its shadow as the pole's.
+            // Its concrete block: placed as the pole (along its axis, tilted and turned with it, as
+            // its collar), the same material and block (its own part of the shader), its shadow as
+            // the pole's.
             if (f.BlockMesh != null && f.PoleShape.Base == FlagPoleBase.Block)
             {
-                Graphics.DrawMesh(f.BlockMesh, FlagPoleMesh.BlockPlacement(placement.GetColumn(3), f.Angle), _poleMaterial, _layer, EveryCamera, 0,
+                Graphics.DrawMesh(f.BlockMesh, placement, _poleMaterial, _layer, EveryCamera, 0,
                                   f.PoleBlock, f.Pixels >= ShadowPixels, true);
             }
         }
@@ -4594,8 +4596,7 @@ namespace RealFlag.Flags
                     Matrix4x4 placement = FlagPoleMesh.Placement(anchor, g.PoleShape, new Vector3(hx, hy, hz), new Vector3(fx, fy, fz));
                     Graphics.DrawMesh(g.PoleMesh, placement, _poleMaterial, _layer, EveryCamera, 0, g.PoleBlock, true, true);
                     if (g.BlockMesh != null && g.PoleShape.Base == FlagPoleBase.Block)
-                        Graphics.DrawMesh(g.BlockMesh, FlagPoleMesh.BlockPlacement(placement.GetColumn(3), p.Angle), _poleMaterial, _layer, EveryCamera, 0,
-                                          g.PoleBlock, true, true);
+                        Graphics.DrawMesh(g.BlockMesh, placement, _poleMaterial, _layer, EveryCamera, 0, g.PoleBlock, true, true);
                 }
             }
         }

@@ -45,10 +45,20 @@ namespace RealFlag.UI
         /// <summary>The row's buttons: Custom has none (none lit).</summary>
         public static readonly int[] Values = { Default, Wall, Banner };
 
+        /// <summary>Their names, which are the buttons' tooltips ("With pole", "Hanging on wall", "Banner").</summary>
         public static readonly string[] NameKeys = { "Preset.Default", "Preset.Wall", "Preset.Banner" };
 
         /// <summary>
-        /// Each preset's values. Default: the New flag window's defaults (Settings.Defaults). Wall
+        /// Their buttons' icons (2026-11-24; the author: "The presets could be icon buttons instead,
+        /// with tooltips"): Lucide's flag, brick-wall and bookmark (a banner with its notched tail)
+        /// in the panel's own sheet (Resources\PanelIcons.lucide.txt).
+        /// </summary>
+        public static readonly string[] Icons = { "icon-flag", "icon-brick-wall", "icon-bookmark" };
+
+        /// <summary>
+        /// Each preset's values. Default ("With pole"): the New flag window's defaults
+        /// (Settings.Defaults: a 10 m ball-top pole since 2026-11-24, "Default preset should be with
+        /// pole"). Wall
         /// flag: a short ball-top pole tilted 45 degrees out from the wall (the heading out of it:
         /// FlagEdgeSnap.OnWall), no ropes, no base on the wall, a 1.5 x 1 m flag. Banner: a 6 m
         /// flat-topped pole on its collar, no ropes, the cloth held along its top edge (its arm,
@@ -159,8 +169,8 @@ namespace RealFlag.UI
         {
             switch (preset)
             {
-                case Default: return "Default";
-                case Wall: return "Wall flag";
+                case Default: return "With pole";
+                case Wall: return "Hanging on wall";
                 case Banner: return "Banner";
                 default: return "Custom";
             }
