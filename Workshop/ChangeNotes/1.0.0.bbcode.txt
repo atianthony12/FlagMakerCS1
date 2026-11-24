@@ -10,7 +10,7 @@
 [*][b]Concrete block[/b]: a pole can stand in a square, rounded or round concrete block, any size and color, new or weathered.
 [*][b]Cap top[/b]: a plain cylinder cap, in the pole's color.
 [*][b]Galvanized poles[/b]: bare zinc instead of paint, with a faint crystal pattern.
-[*][b]Presets[/b]: Default, Wall flag (snaps to the wall under the pointer) or Banner (hangs from an arm on its pole).
+[*][b]Presets[/b]: With pole, Hanging on wall (snaps to the wall under the pointer) or Banner (hangs from an arm on its pole).
 [*][b]Keeps off the city[/b]: flags drape over roofs, walls, props and trees instead of passing through.
 [*][b]Undo and redo[/b]: Ctrl+Z and Ctrl+Y for everything you do to a flag.
 [*][b]Quality[/b]: Low to Ultra in one setting. Crowds of flags share motion or loop, so the game stays smooth.

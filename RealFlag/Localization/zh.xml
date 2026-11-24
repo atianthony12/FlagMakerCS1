@@ -51,6 +51,15 @@
     仍然缺失？请附上日志报告：\n{1}
   </String>
 
+  <String key="GameUpdate.Title">{0} 已自行关闭</String>
+  <String key="GameUpdate.Text">
+    游戏已更新（{0}），Flag Maker 已不再兼容。为保护你的游戏，它将保持关闭，直到模组更新。\n\n
+    你的旗帜只是被隐藏，并未丢失。请保持 Flag Maker 启用：旗帜会保留在你的城市和存档中。
+    若禁用它，存档时旗帜将丢失。\n\n
+    请在创意工坊查找模组更新。日志：\n{1}
+  </String>
+  <String key="GameUpdate.Options">游戏更新后已关闭（{0}）：旗帜已隐藏，仍保存在存档中。请保持启用。</String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">旗帜不能变成 Procedural Objects，它们保持原样。</String>
   <String key="Mod.CrowdLoop">

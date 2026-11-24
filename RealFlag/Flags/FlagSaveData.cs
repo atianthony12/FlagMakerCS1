@@ -91,6 +91,16 @@ namespace RealFlag.Flags
 
                 byte[] data = serializableDataManager.LoadData(Key);
                 _loaded = data != null && data.Length > 0 ? data : null;
+
+                // The mod switched itself off after a game update (GameUpdate): nothing read,
+                // nothing put back on a prop -- both keys kept as they came, for the fixed version.
+                if (GameUpdate.Off)
+                {
+                    FlagRegistry.Clear();
+                    Keep("Flag Maker is off after a game update");
+                    return;
+                }
+
                 string problem;
                 List<KeyValuePair<uint, FlagSpec>> flags = FlagCodec.DecodeAll(data, out problem);
 
@@ -208,6 +218,13 @@ namespace RealFlag.Flags
                     Log.Msg("flags: the city's flag designs saved back exactly as they were loaded (" + KeptBecause + ")");
                     return;
                 }
+
+                // Off after a game update with nothing kept (no designs, or loading them threw):
+                // our keys are left as the save has them, never erased -- the game carries a key
+                // no extension writes (a city saved while the mod was off keeps its designs:
+                // Loader.CannotKeep's orphans).
+                if (GameUpdate.Off)
+                    return;
 
                 var all = new List<KeyValuePair<uint, FlagSpec>>();
                 FlagRegistry.CopyTo(all);

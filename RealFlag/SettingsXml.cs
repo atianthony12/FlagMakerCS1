@@ -340,13 +340,19 @@ namespace RealFlag
 
         // ---- saving ---------------------------------------------------------------------------
 
+        /// <summary>
+        /// Never written (GameUpdate.Off: the mod switched itself off after a game update): the
+        /// player's values are read, and wait in the file for the fixed version.
+        /// </summary>
+        public static bool ReadOnly;
+
         /// <summary>Writes the file now, if what it would hold differs from what is there.</summary>
         public static void SaveNow()
         {
             _dirty = false;
             _seenStamp = _changeStamp;
 
-            if (!Settings.IsInitialised)
+            if (!Settings.IsInitialised || ReadOnly)
                 return;
 
             if (_broken)

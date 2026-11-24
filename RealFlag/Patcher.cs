@@ -54,29 +54,35 @@ namespace RealFlag
 
         private static void Patch()
         {
-            if (_patched)
+            // Switched off by the game check (GameUpdate): nothing of ours is patched.
+            if (_patched || GameUpdate.Off)
                 return;
 
             try
             {
                 var harmony = new Harmony(HarmonyId);
 
-                // Each class on its own: Harmony 2.0.4's PatchAll throws out at the first target it
-                // cannot find, which would leave every patch off, Move It's with them. The attribute
-                // patches are in Flags/FlagPatches.cs; Move It's are made by hand (FlagMoveItPick).
+                // Each class on its own, through the game check (GameUpdate): Harmony 2.0.4's
+                // PatchAll throws out at the first target it cannot find. One that will not apply
+                // is the game changed under the mod: every patch of ours is undone and the mod
+                // switches itself off -- never left half-patched. The attribute patches are in
+                // Flags/FlagPatches.cs; Move It's are made by hand (FlagMoveItPick), not counted
+                // (another mod's members: each has its own fallback).
                 Type[] patchClasses = { typeof(Flags.FlagRayCastPatch), typeof(Flags.FlagOverlayPatch) };
+                ModsLibCS1.GameCheck check = GameUpdate.Current;
                 int applied = 0;
                 foreach (Type patch in patchClasses)
                 {
-                    try
-                    {
-                        harmony.CreateClassProcessor(patch).Patch();
+                    Type captured = patch;
+                    if (check != null ? check.Patch(patch.Name, () => harmony.CreateClassProcessor(captured).Patch()) : TryPatch(harmony, captured))
                         applied++;
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error("Harmony: " + patch.Name + " could not be applied; the rest go on without it.", e);
-                    }
+                }
+
+                if (check != null && check.UndoIfFailed(() => harmony.UnpatchAll(HarmonyId)))
+                {
+                    Log.Msg("Harmony patches removed (" + HarmonyId + "): the game check failed");
+                    GameUpdate.PatchFailed();
+                    return;
                 }
 
                 _patched = true;
@@ -92,6 +98,21 @@ namespace RealFlag
             }
         }
 
+        /// <summary>One class without a game check (never: GameUpdate.Check runs first in OnEnabled).</summary>
+        private static bool TryPatch(Harmony harmony, Type patch)
+        {
+            try
+            {
+                harmony.CreateClassProcessor(patch).Patch();
+                return true;
+            }
+            catch (Exception e)
+            {
+                Log.Error("Harmony: " + patch.Name + " could not be applied; the rest go on without it.", e);
+                return false;
+            }
+        }
+
         /// <summary>
         /// Move It's pointer search and Move It's and Procedural Objects' Convert to PO, once a city
         /// is loaded, if they could not be patched when the mod was enabled (their assemblies not
@@ -99,7 +120,7 @@ namespace RealFlag
         /// </summary>
         public static void EnsureOtherMods()
         {
-            if (!_patched)
+            if (!_patched || GameUpdate.Off)
                 return;
 
             if (!Flags.FlagMoveItPick.IsPatched)

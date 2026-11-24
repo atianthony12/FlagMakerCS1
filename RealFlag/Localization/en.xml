@@ -56,6 +56,18 @@
     Still missing? Report it with the log:\n{1}
   </String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed (GameUpdate).
+       Shown once per launch; {0} the mod's name. Text: {0} the game's version, {1} the log's path. -->
+  <String key="GameUpdate.Title">{0} has switched itself off</String>
+  <String key="GameUpdate.Text">
+    The game was updated ({0}) and Flag Maker no longer fits it. It is off until it is updated, to
+    keep your game safe.\n\n
+    Your flags are hidden, not lost. Keep Flag Maker enabled: they stay in your cities and saves.
+    Disabled, a save loses them.\n\n
+    Look for an update on the Workshop. The log:\n{1}
+  </String>
+  <String key="GameUpdate.Options">Off after a game update ({0}): flags hidden, kept in your saves. Keep it enabled.</String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Flags can't become Procedural Objects. They stay as they are.</String>
 

@@ -33,6 +33,18 @@ namespace RealFlag
             // Made during loading by FlagLoadingHook; made (and bound) here only if the mod was
             // switched on after the city had loaded.
             FlagPrefab.EnsureCreated(true);
+
+            // Switched off after a game update (GameUpdate): the prefab keeps the city's flags and
+            // FlagSaveData their designs and heights; nothing else runs -- no controller, panel,
+            // button or tool. The pop-up said it at the main menu.
+            if (GameUpdate.Off)
+            {
+                Log.Warn("flags: Flag Maker is off after a game update: this city's flags stay in it, hidden, and in its saves " +
+                         "(designs and heights written back as they were loaded)" +
+                         (FlagSaveData.Keeping ? "" : " -- it has none"));
+                return;
+            }
+
             Patcher.EnsureOtherMods();
 
             // Before anything is drawn or placed: the city's flags must be ones this copy of the

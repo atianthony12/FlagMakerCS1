@@ -58,6 +58,16 @@
     ¿Siguen sin aparecer? Repórtalo con el registro:\n{1}
   </String>
 
+  <String key="GameUpdate.Title">{0} se ha desactivado</String>
+  <String key="GameUpdate.Text">
+    El juego se actualizó ({0}) y Flag Maker ya no encaja. Queda desactivado hasta que se actualice,
+    para proteger tu partida.\n\n
+    Tus banderas están ocultas, no perdidas. Deja Flag Maker activado: siguen en tus ciudades y
+    partidas. Si lo desactivas, al guardar se pierden.\n\n
+    Busca una actualización en el Workshop. El registro:\n{1}
+  </String>
+  <String key="GameUpdate.Options">Desactivado tras una actualización del juego ({0}): banderas ocultas, guardadas en tus partidas. Déjalo activado.</String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Las banderas no pueden convertirse en Procedural Objects. Siguen igual.</String>
   <String key="Mod.CrowdLoop">

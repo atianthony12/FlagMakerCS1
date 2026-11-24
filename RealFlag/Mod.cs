@@ -35,20 +35,45 @@ namespace RealFlag
             Log.Msg("Mod enabled. Log file: " + Log.Path);
             WarnOfSecondCopy();
 
+            // Before anything of the mod starts: has the game everything it patches and reads by
+            // name? If not it switches itself off -- all but what keeps the cities' flags (GameUpdate).
+            // Each step below caught HERE: a compiled reference the game took away throws as the
+            // callee is compiled, before its own try is entered.
+            Step(GameUpdate.Check, "the game check");
+
             // Reads FlagMaker.xml and starts the saver that writes changes back and picks up edits
-            // made to the file by hand.
-            Settings.Init();
-            SettingsXml.StartSaver(); // again after a disable/enable, when Init has nothing left to do
+            // made to the file by hand (read-only while off: GameUpdate).
+            Step(Settings.Init, "the settings");
+            if (!GameUpdate.Off)
+                Step(SettingsXml.StartSaver, "the settings' saver"); // again after a disable/enable, when Init has nothing left to do
+            else
+                Step(GameUpdate.Announce, "the switched-off pop-up"); // in the player's language, read with the settings
 
             // The flags' prop prefab has to be in the game's prop collection before a city's
             // props are bound to their prefabs, which is during loading: the hook is how (see
-            // FlagLoadingHook). Registered now, before any city loads.
-            FlagLoadingHook.Register();
+            // FlagLoadingHook). Registered now, before any city loads -- off or not: it is what
+            // keeps the city's flags in it.
+            Step(FlagLoadingHook.Register, "the loading hook");
 
             // Clicking the cloth (Move It, the bulldozer) and Move It's highlight are Harmony
-            // patches; the rest of the mod does without them.
-            Patcher.EnsureHarmony();
-            Patcher.PatchOnReady();
+            // patches; the rest of the mod does without them. None while off.
+            if (!GameUpdate.Off)
+            {
+                Step(Patcher.EnsureHarmony, "Harmony's check");
+                Step(Patcher.PatchOnReady, "the patches");
+            }
+        }
+
+        private static void Step(System.Action step, string what)
+        {
+            try
+            {
+                step();
+            }
+            catch (System.Exception e)
+            {
+                Log.Error("Mod enabled: " + what + " threw; the rest goes on", e);
+            }
         }
 
         /// <summary>

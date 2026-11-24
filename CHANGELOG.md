@@ -87,8 +87,8 @@ The first release.
   turns it, Page Up and Page Down raise it. It starts from the last flag's settings. With **Snap to
   edges**, a banner hoisted from its top snaps to the roof's edge under the pointer, along it or out
   from it.
-- **Presets** in the New flag window: **Default**, **Wall flag** (a short pole tilted out, 1.5 x
-  1 m) or **Banner** (a 6 m pole, 1.2 x 3 m, on its arm). With **Snap to walls** (on by default),
+- **Presets** in the New flag window: **With pole** (the default), **Hanging on wall** (a short
+  pole tilted out, 1.5 x 1 m) or **Banner** (a 6 m pole, 1.2 x 3 m, on its arm). With **Snap to walls** (on by default),
   a wall flag goes on the wall under the pointer, pointing straight out of it.
 - **The Flags tab** lists the city's flags (a double click takes the camera to one); a selected
   flag carries handles to move, turn, tilt and lean it, and every design setting applies to it live.

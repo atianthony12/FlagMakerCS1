@@ -59,7 +59,7 @@ $sources = @{
 # Metal program with Apple's compiler (needs the Metal Developer Tools for Windows: see
 # test-metal.ps1); "amd" every shipped shader with AMD's (Radeon GPU Analyzer: see test-amd.ps1);
 # "linetool" what LineFlags reflects, against the Workshop's Line Tool.
-$tests = @("settings", "localization", "linetool", "cloth", "metal", "amd")
+$tests = @("settings", "localization", "linetool", "gamecheck", "cloth", "metal", "amd")
 # The bundles and the platform ids every shader in each must carry (build-bundle.ps1's table).
 $bundles = @(
     @{ Name = "win";   Platforms = "4,15" },

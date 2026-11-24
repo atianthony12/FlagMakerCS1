@@ -61,6 +61,16 @@
     Toujours manquants ? Signalez-le avec le journal :\n{1}
   </String>
 
+  <String key="GameUpdate.Title">{0} s'est désactivé</String>
+  <String key="GameUpdate.Text">
+    Le jeu a été mis à jour ({0}) et Flag Maker n'y correspond plus. Il reste désactivé jusqu'à sa
+    mise à jour, pour protéger votre partie.\n\n
+    Vos drapeaux sont cachés, pas perdus. Laissez Flag Maker activé : ils restent dans vos villes et
+    vos sauvegardes. Désactivé, une sauvegarde les perd.\n\n
+    Cherchez une mise à jour sur le Workshop. Le journal :\n{1}
+  </String>
+  <String key="GameUpdate.Options">Désactivé après une mise à jour du jeu ({0}) : drapeaux cachés, gardés dans vos sauvegardes. Laissez-le activé.</String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Les drapeaux ne peuvent pas devenir des Procedural Objects. Ils restent tels quels.</String>
   <String key="Mod.CrowdLoop">
