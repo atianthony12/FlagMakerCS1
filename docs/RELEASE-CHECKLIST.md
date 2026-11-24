@@ -80,6 +80,14 @@ subscribed Workshop folder and parks the local copy (see "Updating later").
       do when it fails). Needs Radeon GPU Analyzer (`Documents\Projects\RGA`; `-Rga` / `RF_RGA`).
       (2026-10-22: 275 programs on RX 7000, RX 9000, RX 6000, RX 5000 and Vega, no spills; the
       cloth's largest 692-1,250 instructions, at most 84 VGPRs.)
+- [ ] **Dynamic Resolution and Lumina** (every release, the author's call 2026-11-20; release.ps1 runs
+      it): `gpu-render -DynRes "0.5,1.5,0.5+1.5,1"` in the Unity 5.6 editor on D3D11 and OpenGL Core
+      (`-GLCore`), a pole with ropes, a concrete block and the Galvanized finish, each render compared
+      with the plain run -- `-DrawOn all` (the mod's own way: every render shows the flag and pole, the
+      frame within 0.03 of the plain one, 1.0 identical) and `-DrawOn game` (ropes, shadow and the
+      cloth's coverage pictured alone). Report its numbers before staging. (2026-11-20: frame
+      differences 0.0107 at 50%, 0.0029 at 150%, the same in a two-render frame, 0.0000 at 100%, both
+      APIs; the 11-15 bug, `-DrawOn main`, stops it: cloth and pole 0%.)
 - [ ] `tools\test-cloth.ps1`, `test-settings.ps1`, `test-localization.ps1`, `test-linetool.ps1` pass
       (release.ps1 runs them on the deployed DLL). test-linetool holds what LineFlags reflects to
       the Workshop's Line Tool: an update there would hide the rows without a word.

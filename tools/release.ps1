@@ -337,6 +337,72 @@ foreach ($t in $tests) {
     } else { Ok "test-$t : $last" }
 }
 
+# Dynamic Resolution (812713438) and Lumina render the game's camera by hand into a target of
+# screen x a factor, Camera.main an empty stand-in; with both on it renders twice a frame. Flag Maker
+# 0.1 drew nothing under them (2026-11-15). A release gate since 2026-11-20 (the author: "Make sure to
+# also test Dynamic Resolution always before release, in Unity"), whether or not the round touched
+# rendering: gpu-render -DynRes in the Unity 5.6 editor, on D3D11 and OpenGL Core, a pole with its
+# ropes, a concrete block and the Galvanized finish. Frames at 0.5, 1.5, two renders in one frame
+# (0.5 + 1.5) and 1 again: the size changes between frames. Each compared with the plain run.
+#   -DrawOn all  the mod's own way (meshes queued for every camera): every render, the second of a
+#                frame too, shows the flag and the pole, the frame within $dynFrameDiff of the plain
+#                run's, the 1.0 render the plain one exactly.
+#   -DrawOn game the same, queued for the game's camera, so the cloth, the pole and the ropes can be
+#                pictured alone (a mesh queued for every camera outlives the shot in batch mode):
+#                the ropes in nearly every row they span, the shadow there, the cloth's coverage
+#                near the plain run's. Its second render of a frame is empty by design (a queue is
+#                used up by a camera's first render: why the mod queues for every camera): not judged.
+Step "Dynamic Resolution and Lumina, in the Unity 5.6 editor (D3D11 and OpenGL Core)"
+$render = Join-Path $root "tools\preview\gpu-render.ps1"
+$dynFrameDiff = 0.03
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
+function DynResRun([string]$api, [string]$drawOn) {
+    $a = @("-DynRes", "0.5,1.5,0.5+1.5,1", "-DrawOn", $drawOn, "-Pole", "1", "-Blocks", "0,0.8,0.5", "-Finish", "galvanized",
+           "-Name", "release-dynres-$api-$drawOn")
+    if ($api -eq "GLCore") { $a += "-GLCore" }
+    $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $render @a 2>&1 | ForEach-Object { "$_" })
+    if ($LASTEXITCODE -ne 0 -or @($out | Where-Object { $_ -eq "RF PREVIEW OK" }).Count -eq 0) { return $null }
+    # -force-glcore ignored would pass as D3D11 twice: the editor says which device it drew on.
+    $device = if ($api -eq "GLCore") { "OpenGLCore" } else { "Direct3D11" }
+    if (@($out | Where-Object { $_ -match "\| device $device " }).Count -eq 0) { return $null }
+    $cols = @()
+    foreach ($l in ($out | Where-Object { $_ -match "^RF PREVIEW: DYNRES " })) {
+        $c = @{ Label = ""; Cloth = -1.0; PlainCloth = -1.0; Pole = -1.0; Shadow = -1; PlainShadow = -1; Diff = 9.0; RopeRows = 0; RopeSpan = 0 }
+        if ($l -match " t=\S+ ([^:]+):") { $c.Label = $Matches[1] }
+        if ($l -match "cloth covers ([\d.]+)% \(plain ([\d.]+)%\)") { $c.Cloth = [double]::Parse($Matches[1], $inv); $c.PlainCloth = [double]::Parse($Matches[2], $inv) }
+        if ($l -match ", pole ([\d.]+)% ") { $c.Pole = [double]::Parse($Matches[1], $inv) }
+        if ($l -match "shadow (\d+) px \(plain (\d+)\)") { $c.Shadow = [int]$Matches[1]; $c.PlainShadow = [int]$Matches[2] }
+        if ($l -match "mean abs diff ([\d.]+) over the frame") { $c.Diff = [double]::Parse($Matches[1], $inv) }
+        if ($l -match "; ropes \d+ px in (\d+) of the (\d+) rows") { $c.RopeRows = [int]$Matches[1]; $c.RopeSpan = [int]$Matches[2] }
+        $cols += $c
+    }
+    return ,$cols
+}
+foreach ($api in @("D3D11", "GLCore")) {
+    foreach ($drawOn in @("all", "game")) {
+        $cols = DynResRun $api $drawOn
+        if ($null -eq $cols -or $cols.Count -lt 6) { Stop-Release "gpu-render -DynRes ($api, -DrawOn $drawOn) did not finish: tools\preview\gpu-render.log"; continue }
+        $bad = @()
+        $said = @()
+        foreach ($c in ($cols | Where-Object { $_.Label -ne "plain" })) {
+            $factor = ($c.Label -split " ")[1]
+            $second = $c.Label -match "render 2 of 2"
+            if ($drawOn -eq "game" -and $second) { continue }
+            if ($c.Diff -gt $dynFrameDiff) { $bad += "$($c.Label): the frame $($c.Diff) off the plain run's" }
+            if ($factor -eq "1" -and $c.Diff -gt 0.0005) { $bad += "$($c.Label): not the plain picture ($($c.Diff))" }
+            if ($drawOn -eq "all" -and ($c.Cloth -le 0 -or $c.Pole -le 0)) { $bad += "$($c.Label): the flag or the pole missing (cloth $($c.Cloth)%, pole $($c.Pole)%)" }
+            if ($drawOn -eq "game") {
+                if ($c.PlainCloth -gt 0 -and [Math]::Abs($c.Cloth / $c.PlainCloth - 1) -gt 0.25) { $bad += "$($c.Label): the cloth covers $($c.Cloth)% (plain $($c.PlainCloth)%)" }
+                if ($c.RopeSpan -le 0 -or $c.RopeRows -lt 0.9 * $c.RopeSpan) { $bad += "$($c.Label): the ropes in $($c.RopeRows) of $($c.RopeSpan) rows" }
+                if ($c.PlainShadow -gt 0 -and $c.Shadow -le 0) { $bad += "$($c.Label): no shadow (plain $($c.PlainShadow) px)" }
+            }
+            $said += ("{0} {1:0.0000}" -f ($c.Label -replace " on (all|game)", "" -replace "\(render (\d) of 2 in one frame\)", "#`$1"), $c.Diff)
+        }
+        if ($bad.Count -gt 0) { Stop-Release ("Dynamic Resolution, $api, -DrawOn ${drawOn}: " + ($bad -join "; ")) }
+        else { Ok ("$api, -DrawOn ${drawOn}: frame differences " + ($said -join ", ")) }
+    }
+}
+
 # ---- 4. The first upload: Share from Addons\Mods. Every later one: into the subscribed folder. --
 
 if (-not $workshopId) {

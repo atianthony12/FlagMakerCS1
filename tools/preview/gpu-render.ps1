@@ -138,6 +138,7 @@ param(
     [ValidateSet("game", "main", "all")][string]$DrawOn = "game",
     [ValidateSet("render", "frame")][string]$PixelRadius = "render",
     [switch]$Requeue,
+    [switch]$GLCore,
     [string]$Name = "gpu",
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
@@ -229,11 +230,14 @@ $env:RF_REQUEUE = if ($Requeue) { "1" } else { "0" }
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$p = Start-Process -FilePath $Unity -WindowStyle Hidden -Wait -PassThru -ArgumentList @(
+$unityArgs = @(
     "-batchmode", "-quit",
     "-projectPath", "`"$project`"",
     "-executeMethod", "FlagPreview.Render",
     "-logFile", "`"$log`"")
+# -GLCore: the editor on OpenGL Core, the code a Windows game started with -force-glcore (and Linux) runs.
+if ($GLCore) { $unityArgs += "-force-glcore" }
+$p = Start-Process -FilePath $Unity -WindowStyle Hidden -Wait -PassThru -ArgumentList $unityArgs
 "Unity ran for $([int]$sw.Elapsed.TotalSeconds) s, exit code $($p.ExitCode)"
 
 $lines = Get-Content $log
