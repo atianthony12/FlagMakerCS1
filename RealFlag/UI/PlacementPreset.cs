@@ -42,18 +42,15 @@ namespace RealFlag.UI
         public const int Banner = 2;
         public const int Custom = 3;
 
-        /// <summary>The row's buttons: Custom has none (none lit).</summary>
-        public static readonly int[] Values = { Default, Wall, Banner };
-
-        /// <summary>Their names, which are the buttons' tooltips ("With pole", "Hanging on wall", "Banner").</summary>
-        public static readonly string[] NameKeys = { "Preset.Default", "Preset.Wall", "Preset.Banner" };
-
         /// <summary>
-        /// Their buttons' icons (2026-11-24; the author: "The presets could be icon buttons instead,
-        /// with tooltips"): Lucide's flag, brick-wall and bookmark (a banner with its notched tail)
-        /// in the panel's own sheet (Resources\PanelIcons.lucide.txt).
+        /// The dropdown's entries (2026-11-25; the author: "it's best if we do a dropdown instead" of
+        /// the icon buttons of 11-24): the three, and Custom, which it shows when the settings make
+        /// none (choosing it changes nothing: <see cref="Apply"/>).
         /// </summary>
-        public static readonly string[] Icons = { "icon-flag", "icon-brick-wall", "icon-bookmark" };
+        public static readonly int[] Values = { Default, Wall, Banner, Custom };
+
+        /// <summary>Their names: "With pole", "Hanging on wall", "Banner", "Custom".</summary>
+        public static readonly string[] NameKeys = { "Preset.Default", "Preset.Wall", "Preset.Banner", "Preset.Custom" };
 
         /// <summary>
         /// Each preset's values. Default ("With pole"): the New flag window's defaults

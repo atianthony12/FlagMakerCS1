@@ -244,6 +244,7 @@
   <String key="Preset.Default">Con asta</String>
   <String key="Preset.Wall">Colgada en la pared</String>
   <String key="Preset.Banner">Banderola</String>
+  <String key="Preset.Custom">Personalizado</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Asta</String>

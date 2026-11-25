@@ -234,6 +234,7 @@
   <String key="Preset.Default">带旗杆</String>
   <String key="Preset.Wall">挂在墙上</String>
   <String key="Preset.Banner">道旗</String>
+  <String key="Preset.Custom">自定义</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">旗杆</String>

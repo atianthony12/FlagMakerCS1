@@ -1,6 +1,6 @@
 # A mod's own icons, made by ModsLibCS1's tools/make-icons.ps1 from PanelIcons.lucide.txt. Do not edit by hand.
 # name x y width height left right top bottom  (pixels; y from the TOP of the sheet)
-sheet 128 128
+sheet 128 64
 icon-flag 1 1 24 24 0 0 0 0
 icon-settings 28 1 24 24 0 0 0 0
 icon-folder-open 55 1 24 24 0 0 0 0
@@ -8,5 +8,3 @@ icon-slash 82 1 24 24 0 0 0 0
 icon-spline 1 28 24 24 0 0 0 0
 icon-route 28 28 24 24 0 0 0 0
 icon-circle 55 28 24 24 0 0 0 0
-icon-brick-wall 82 28 24 24 0 0 0 0
-icon-bookmark 1 55 24 24 0 0 0 0

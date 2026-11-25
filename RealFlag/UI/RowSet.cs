@@ -1046,7 +1046,7 @@ namespace RealFlag.UI
 
                         captured.Int.value = captured.ChoiceValues[index];
                         Changed(captured);
-                    });
+                    }, row.Dropdown);
                     Tip(choice, row.Tooltip);
 
                     // A segment with a tooltip of its own (ChoiceKeys[i] + ".Tooltip" in en.xml, as

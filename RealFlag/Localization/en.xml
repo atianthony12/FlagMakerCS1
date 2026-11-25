@@ -248,6 +248,7 @@
   <String key="Preset.Default">With pole</String>
   <String key="Preset.Wall">Hanging on wall</String>
   <String key="Preset.Banner">Banner</String>
+  <String key="Preset.Custom">Custom</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Flagpole</String>

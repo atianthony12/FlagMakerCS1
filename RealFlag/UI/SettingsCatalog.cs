@@ -203,6 +203,9 @@ namespace RealFlag.UI
         /// </summary>
         public bool FullWidth;
 
+        /// <summary>A Choice row drawn as a dropdown whether or not its buttons would fit (Vanilla keeps its slider): the presets (2026-11-25).</summary>
+        public bool Dropdown;
+
         /// <summary>
         /// A slider whose name column is only as wide as the page's wide rows' names need, not the
         /// page's 196: the track gets the rest (the flag's Width and Height, 0.5-30 m -- the author,
@@ -1796,30 +1799,29 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// The placement presets atop the New flag window, before any group (2026-11-19; the
-        /// author: "Presets for flag orientation, like flags on buildings ... Default ... Wall
-        /// Flag ... A third option would be those banners", then "the presets can go on the top,
-        /// not under the flagpole"): a button each across the whole row (FullWidth: their names
-        /// overflowed beside the name column), the one the settings make lit, none when they make
-        /// none (Custom). A choice writes the hoist, the pole, the holds and the size
-        /// (PlacementPreset); Default is its way back (no reset icon). 2026-11-24 (the author: "its
-        /// own accordion/category would be better. The presets could be icon buttons instead, with
-        /// tooltips: 'With pole', 'Hanging on wall', 'Banner'"): a folding group of its own,
-        /// Presets, each button an icon (PlacementPreset.Icons), its name the tooltip.
+        /// The placement presets atop the New flag window (2026-11-19; the author: "Presets for
+        /// flag orientation, like flags on buildings ... Default ... Wall Flag ... A third option
+        /// would be those banners", then "the presets can go on the top, not under the
+        /// flagpole"). A choice writes the hoist, the pole, the holds and the size
+        /// (PlacementPreset); Default is its way back. 2026-11-24 (the author: "its own
+        /// accordion/category would be better"): a folding group of its own, Presets. 2026-11-25
+        /// (the author, of the icon buttons tried the day before: "I don't like the icons tbh. I
+        /// think it's best if we do a dropdown instead"): a dropdown -- With pole, Hanging on wall,
+        /// Banner, and Custom, which it shows when the settings make none (choosing it changes
+        /// nothing).
         /// </summary>
         private static void AddNewPreset()
         {
             Add(new Row
             {
-                Kind = RowKind.Segmented,
+                Kind = RowKind.Choice,
                 Panel = PanelPage.New,
                 Group = "Preset",
                 Int = Settings.NewPreset,
                 DefaultInt = PlacementPreset.Default,
                 ChoiceValues = PlacementPreset.Values,
                 ChoiceKeys = PlacementPreset.NameKeys,
-                ChoiceIcons = PlacementPreset.Icons,
-                FullWidth = true,
+                Dropdown = true,
                 AfterChange = () => PlacementPreset.Apply(Settings.NewPreset.value),
             });
         }

@@ -247,6 +247,7 @@
   <String key="Preset.Default">Avec mât</String>
   <String key="Preset.Wall">Accroché au mur</String>
   <String key="Preset.Banner">Bannière</String>
+  <String key="Preset.Custom">Personnalisé</String>
 
   <!-- The Flagpole button of each window, and its popup. -->
   <String key="NewPoleButton.Label">Mât</String>
