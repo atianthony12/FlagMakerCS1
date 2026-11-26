@@ -37,6 +37,8 @@ using Debug = UnityEngine.Debug;
 ///   RF_DETAILS "18,32"  the cloth's details (cells along), one row each (times the winds and patterns)
 ///   RF_REFINES "1,4"    drawn cells a cloth cell (FlagMesh.Refine), one row each; RF_SMOOTH "0": edges not smoothed
 ///   RF_COLLIDE "0"      self-collision off (on, as in the game, by default)
+///   RF_SPAN "1"         the air's added mass down the hoist (FlagCloth.SpanwiseAir): 1 an ellipse with the drag
+///                       against the even inertia (the game's), 0 even (before 2026-11-26), 2 the ellipse throughout
 ///   RF_COUNTRIES "fr,us,np"  countries' flags instead of RF_PATTERNS (images from RealFlag\Resources\Flags)
 ///   RF_DARKNESS "0,20,40"    the cloth's darkness, percent (FlagSpec.Darkness): each design once per value
 ///   RF_WORN "0,0,0|60,40,30,50" each design once per wear,dirt,holes[,torn[,torn edges]] (percent: FlagSpec.Wear, Dirt, Holes, Tear, TearEdges); RF_WEARSEED 0..255
@@ -181,6 +183,7 @@ public static class FlagPreview
         int[] refines = ParseInts(Env("RF_REFINES", "1"));
         FlagMesh.SmoothEdges = Env("RF_SMOOTH", "1") != "0";
         bool collide = Env("RF_COLLIDE", "1") != "0";
+        FlagCloth.SpanwiseAir = Env("RF_SPAN", "1") == "2" ? 2 : Env("RF_SPAN", "1") == "0" ? 0 : 1;
         bool plate = Env("RF_PLATE", "0") == "1";
 
         // RF_VARIED: a waving flag in the varied air (gusts and eddies of several sizes, ClothJob.Varied) as the game flies it.

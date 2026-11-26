@@ -80,6 +80,8 @@ techniques were written from scratch after them, and they are credited here with
     M. J. Shelley and J. Zhang, "Flapping and bending bodies interacting with fluid
       flows", Annu. Rev. Fluid Mech. 43 (2011).
     S. Taneda, "Waving motions of flags", J. Phys. Soc. Japan 24 (1968).
+    J. N. Newman, "Marine Hydrodynamics", MIT Press (1977), 4.13 -- the flat plate's
+      cross-flow: the air's added mass spread down the hoist as an ellipse.
     P. Causin, J.-F. Gerbeau and F. Nobile, "Added-mass effect in the design of
       partitioned algorithms for fluid-structure problems", CMAME 194 (2005).
     S. F. Hoerner, "Fluid-Dynamic Drag" (1965).

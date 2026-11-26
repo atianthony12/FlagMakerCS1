@@ -129,15 +129,19 @@ namespace RealFlag.Flags
         /// <summary>
         /// What makes a loop: every flag with the same key plays the same one. The cloth's size,
         /// cut, hoist line, fabric, halyard and back plate, its share of the breeze, the detail it
-        /// is made at, whether the cloth collides with itself, and its take (FlagSpec.Take).
+        /// is made at, whether the cloth collides with itself, and its take (FlagSpec.Take); and
+        /// how the air is spread down the hoist (FlagCloth.SpanwiseAir, 2026-11-26: "|air 1"), so
+        /// a loop baked before the change -- in memory or on disk -- is never played after it.
         /// </summary>
         public static string Key(FlagSpec spec, int detail, bool selfCollision)
         {
             CultureInfo inv = CultureInfo.InvariantCulture;
-            return spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
-                   spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
-                   (selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "") + "|" +
-                   spec.WindShare.ToString("R", inv) + "|" + (spec.HasBackPlate ? 1 : 0) + "|" + detail + "|" + spec.Take + "|" + spec.HeldNow;
+            string key = spec.Length.ToString("R", inv) + "|" + spec.Proportion + "|" + spec.HoistedFrom + "|" + spec.Tilt.ToString("R", inv) + "|" +
+                         spec.Lean.ToString("R", inv) + "|" + spec.Waviness.ToString("R", inv) + "|" + (spec.OnHalyard ? 1 : 0) + "|" +
+                         (selfCollision ? 1 : 0) + "|" + spec.Cut + "|" + (FlagCut.UsesDepth(spec.Cut) ? spec.CutDepth.ToString("R", inv) : "") + "|" +
+                         spec.WindShare.ToString("R", inv) + "|" + (spec.HasBackPlate ? 1 : 0) + "|" + detail + "|" + spec.Take + "|" + spec.HeldNow;
+            // Even air (0) keeps the key it always had: loops already on disk still play with it.
+            return FlagCloth.SpanwiseAir == 0 ? key : key + "|air " + FlagCloth.SpanwiseAir;
         }
 
         /// <summary>

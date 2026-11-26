@@ -123,6 +123,37 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// RunAt's flag, its droop and reach (as Droop) AVERAGED over 12 s after 8 s, not one moment:
+    /// a gusty flag's single moment swung the details' checks by more than they judge (the even
+    /// air, at four places: 2 m/s droop 63..80 deg, and 81 over 4 s at 32 cells; with the ellipse
+    /// down the hoist, 2026-11-26, one moment at 24 cells read 81 deg -- 73 on average, the even
+    /// air's 70).
+    /// </summary>
+    public static string HangAt(float wind, float waviness, int detail)
+    {
+        FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(waviness), 1f, 0f, detail);
+        c.GroundY = -12f;
+        float height = 12f;
+        int sub = c.SubStepsFor(FlagWind.SpeedAt(wind, height), 1f / 60f);
+        float dt = 1f / 60f / sub;
+        int settle = (int)(8f / dt), steps = (int)(20f / dt), n = 0;
+        double droop = 0, reach = 0;
+        for (int s = 0; s < steps; s++)
+        {
+            FlagAir air = FlagWind.Air(wind, 1f, 1f, 0f, height, waviness, 3f, s * dt, 0f, 0f);
+            c.Step(dt, ref air);
+            if (s >= settle && s % sub == 0)
+            {
+                string[] d = Droop(c).Split(',');
+                droop += double.Parse(d[0], Inv);
+                reach += double.Parse(d[1], Inv);
+                n++;
+            }
+        }
+        return (droop / n).ToString("F1", Inv) + "," + (reach / n).ToString("F2", Inv);
+    }
+
+    /// <summary>
     /// Volumetric Weather's wind at a flag (its SpeedAt): the mean x (1 + gusts (2 g - 1)), g a
     /// smoothstep(0.3, 0.75) of noise passing -- here two sines, 0..1 over a few seconds.
     /// </summary>
@@ -3672,6 +3703,51 @@ public static class ClothTests
     }
 
     /// <summary>
+    /// The air's added mass down the hoist (FlagCloth.SpanwiseAir, the game's 1: the ellipse).
+    /// Returns, for a 3 x 2 m cloth at 32 cells, a column's mean share, its top, middle and
+    /// bottom shares; whether 0 gives 1 everywhere; a swallowtail's fly column's mean (its two
+    /// tails each their own span, each averaging 1); whether the loop key carries the air (and
+    /// even air keeps the key it always had).
+    /// </summary>
+    public static string SpanShares()
+    {
+        int mode = FlagCloth.SpanwiseAir;
+        try
+        {
+            FlagCloth.SpanwiseAir = 1;
+            FlagCloth c = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32);
+            int rows = c.Rows;
+            double sum = 0;
+            for (int j = 0; j < rows; j++) sum += c.SpanShare(5, j);
+            double mean = sum / rows;
+
+            FlagCloth t = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32, 0f, -1f, 0f, FlagCut.Swallowtail, FlagCut.DefaultDepth);
+            double tails = 0;
+            for (int j = 0; j < t.Rows; j++) tails += t.SpanShare(t.Columns - 1, j);
+            tails /= t.Rows;
+
+            FlagSpec f = LoopSpec(3f, 667, FlagHoist.Side, 0f, true, 1f, FlagCut.Rectangle, 1f, false);
+            string withAir = LoopMotion.Key(f, 32, true);
+
+            FlagCloth.SpanwiseAir = 0;
+            FlagCloth e = new FlagCloth(3f, 2f, FlagFabric.Standard(1f), 1f, 0f, 32);
+            bool even = true;
+            for (int j = 0; j < e.Rows; j++)
+                for (int i = 0; i < e.Columns; i++)
+                    if (e.SpanShare(i, j) != 1f) even = false;
+            string evenKey = LoopMotion.Key(f, 32, true);
+
+            bool keyed = withAir != evenKey && withAir.EndsWith("|air 1") && evenKey.IndexOf("|air", StringComparison.Ordinal) < 0;
+            return mean.ToString("F4", Inv) + "," + c.SpanShare(5, 0).ToString("F3", Inv) + "," + c.SpanShare(5, rows / 2).ToString("F3", Inv) + "," +
+                   c.SpanShare(5, rows - 1).ToString("F3", Inv) + "," + even + "," + tails.ToString("F4", Inv) + "," + keyed;
+        }
+        finally
+        {
+            FlagCloth.SpanwiseAir = mode;
+        }
+    }
+
+    /// <summary>
     /// A flag that plays a loop through the save (FlagCodec) and a paste (Sanitised): the value
     /// kept; one past the last known pulled back to waving.
     /// </summary>
@@ -6758,10 +6834,10 @@ foreach ($case in @(@(0, 1, 18, 3, 2), @(2, 1, 18, 3, 2), @(12, 1, 18, 3, 2), @(
 $g = [ClothTests]::Grids(3, 2); $g1 = [ClothTests]::Grids(1, 0.667); $g15 = [ClothTests]::Grids(14.5, 7.25)
 Check "the details' grids: finer on big flags, none under 8 cm" ($g -eq "19x13 25x17 33x22 39x26 39x26 39x26" -and $g1 -eq "13x9 13x9 13x9 13x9 13x9 13x9" -and $g15 -eq "19x10 25x13 33x17 41x21 53x27 65x33") ("3 x 2 m: " + $g + "; 1 m: " + $g1 + "; 14.5 m at 1:2: " + $g15)
 foreach ($d in 24, 32, 40) {
-    $c0 = [ClothTests]::Droop([ClothTests]::RunAt(0, 12, 1, $d)) -split ","
-    $c2 = [ClothTests]::Droop([ClothTests]::RunAt(2, 12, 1, $d)) -split ","
-    $c6 = [ClothTests]::Droop([ClothTests]::RunAt(6, 12, 1, $d)) -split ","
-    Check "$d cells: hangs in calm air, lifts at 2 m/s, flies at 6 m/s" ((N $c0[0]) -gt 65 -and (N $c2[0]) -gt 10 -and (N $c2[0]) -lt 80 -and (N $c6[0]) -lt 15 -and (N $c6[1]) -gt 0.9) ("droop " + $c0[0] + " / " + $c2[0] + " / " + $c6[0] + " deg, reach at 6 m/s " + $c6[1] + " L")
+    $c0 = [ClothTests]::HangAt(0, 1, $d) -split ","
+    $c2 = [ClothTests]::HangAt(2, 1, $d) -split ","
+    $c6 = [ClothTests]::HangAt(6, 1, $d) -split ","
+    Check "$d cells: hangs in calm air, lifts at 2 m/s, flies at 6 m/s (over 12 s)" ((N $c0[0]) -gt 65 -and (N $c2[0]) -gt 10 -and (N $c2[0]) -lt 80 -and (N $c6[0]) -lt 15 -and (N $c6[1]) -gt 0.9) ("droop " + $c0[0] + " / " + $c2[0] + " / " + $c6[0] + " deg, reach at 6 m/s " + $c6[1] + " L")
 }
 foreach ($pair in @(@(18, 32), @(32, 18), @(18, 40))) {
     $cd = [ClothTests]::ChangeDetail($pair[0], $pair[1]) -split ","
@@ -6933,9 +7009,13 @@ foreach ($pcase in @(@(4, 90), @(12, 90), @(6, 270), @(12, 270), @(6, 0), @(12, 
     $pr = [ClothTests]::PlateRun($pcase[0], $pcase[1], $true) -split ","
     Check ("a plated banner at " + $pcase[0] + " m/s, the wind " + $pcase[1] + " deg from its heading: never behind its plate, healthy") ($pr[0] -eq "True" -and (N $pr[1]) -ge -0.001 -and (N $pr[3]) -le 1.15 -and $pr[4] -eq "0" -and $pr[5] -eq "True") ("most behind " + $pr[1] + " m, out to " + $pr[2] + " m in front, worst link " + $pr[3] + ", knots " + $pr[4])
 }
+# Its worst link: the one biggest stretch while the wind presses it onto the plate (contact, as
+# against a pole: those allow 20-25%). 1.15 until 2026-11-26, when the even air itself read 1.158 at
+# 8 m/s via 0 and the ellipse down the hoist 1.152 at 6 (over 5-9 m/s and 0-180 deg: 1.07-1.16 even,
+# 1.10-1.17 the ellipse; no knot in any): 1.20.
 foreach ($pcase in @(@(6, 0), @(12, 0), @(12, 180), @(20, 0))) {
     $pt = [ClothTests]::PlateTurn($pcase[0], $pcase[1]) -split ","
-    Check ("a plated banner flying out at " + $pcase[0] + " m/s, the wind coming round onto its plate via " + $pcase[1] + " deg: hangs pressed to it, never folded over its hoist") ($pt[0] -eq "True" -and (N $pt[1]) -lt 0 -and (N $pt[2]) -lt -2.5 -and (N $pt[3]) -le 1.15 -and $pt[4] -eq "0" -and (N $pt[5]) -ge -0.001) ("highest " + $pt[1] + " m, fly down to " + $pt[2] + " m, worst link " + $pt[3] + ", knots " + $pt[4] + ", most behind " + $pt[5] + " m")
+    Check ("a plated banner flying out at " + $pcase[0] + " m/s, the wind coming round onto its plate via " + $pcase[1] + " deg: hangs pressed to it, never folded over its hoist") ($pt[0] -eq "True" -and (N $pt[1]) -lt 0 -and (N $pt[2]) -lt -2.5 -and (N $pt[3]) -le 1.20 -and $pt[4] -eq "0" -and (N $pt[5]) -ge -0.001) ("highest " + $pt[1] + " m, fly down to " + $pt[2] + " m, worst link " + $pt[3] + ", knots " + $pt[4] + ", most behind " + $pt[5] + " m")
 }
 $pfree = [ClothTests]::PlateRun(12, 90, $false) -split ","
 Check "the same banner with no plate, the wind at the wall's side: it does swing back (what the plate stops)" ((N $pfree[1]) -lt -0.5) ("most behind " + $pfree[1] + " m, worst link " + $pfree[3])
@@ -7056,6 +7136,14 @@ Check "a loop goes round: frame 0 -> 1, the last -> the first, the same after th
 Check "a hundred props in a row are each at their own place in a loop" ($ln[1] -eq "True") $ln[1]
 Check "a loop's grid by its size on the screen: 5 px cells, 4 to 128 along" ($ln[2] -eq "4 4 8 24 64 128") ("2, 20, 40, 100, 300, 2000 px: " + $ln[2])
 Check "a loop's key: the cloth and its breeze, never the design (colours, wear, the pole's height)" ($ln[3] -eq "True,True,True,True,True") ("same design-only, other Wind on it, other length, other detail, other self-collision: " + $ln[3])
+$sp = [ClothTests]::SpanShares() -split ","
+$spMean = [double]::Parse($sp[0], [Globalization.CultureInfo]::InvariantCulture)
+$spTop = [double]::Parse($sp[1], [Globalization.CultureInfo]::InvariantCulture)
+$spMid = [double]::Parse($sp[2], [Globalization.CultureInfo]::InvariantCulture)
+$spBot = [double]::Parse($sp[3], [Globalization.CultureInfo]::InvariantCulture)
+$spTails = [double]::Parse($sp[5], [Globalization.CultureInfo]::InvariantCulture)
+Check "the air down the hoist: an ellipse averaging 1 (the added mass unchanged), light at the edges, the same top and bottom; even with it off" ([math]::Abs($spMean - 1) -lt 1e-3 -and $spTop -gt 0.1 -and $spTop -lt 0.5 -and $spMid -gt 1.2 -and $spMid -lt 1.4 -and [math]::Abs($spTop - $spBot) -lt 1e-3 -and $sp[4] -eq "True") ("mean " + $sp[0] + ", top " + $sp[1] + ", middle " + $sp[2] + ", bottom " + $sp[3] + "; off: all 1 " + $sp[4])
+Check "a swallowtail's tails each their own span, averaging 1; the loop key carries the air (even air keeps its old key)" ([math]::Abs($spTails - 1) -lt 1e-3 -and $sp[6] -eq "True") ("the fly column's mean " + $sp[5] + "; key " + $sp[6])
 Check "a loop's length grows as the root of the flag's (5 s to 3 m, 12 s at most), a frame every 2 steps under 6 m, 4 from there; no finer than High" ($ln[4] -eq "5.0/2 5.0/2 7.1/4 10.0/4 12.0/4" -and $ln[5] -eq "32 18") ("1, 3, 6, 12, 30 m: " + $ln[4] + "; detail under Extreme / Low: " + $ln[5])
 $cl = [ClothTests]::CodecLoop()
 Check "a looping flag through the save: kept; a motion past the last known pulled back to waving; it moves, keeps no one shape, says so" ($cl -eq "3,0,True,False,True") $cl

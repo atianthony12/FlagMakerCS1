@@ -17,6 +17,9 @@
 #   ... -Refines "1,4"             one row per drawn refinement (FlagMesh.Refine: drawn cells a cloth cell)
 #   ... -NoSmooth                  the cloth's edges drawn as they are (ClothSurface.SmoothEdges off)
 #   ... -NoCollide                 self-collision off (on in the game by default)
+#   ... -NoSheet                   the frames alone, no contact sheet (a long -Seq for a video)
+#   ... -Span 0                    the air's added mass down the hoist (FlagCloth.SpanwiseAir): 1 an ellipse with the drag
+#                                  against the even inertia (the game's, the default), 0 even (before 2026-11-26), 2 the ellipse throughout
 #   ... -Countries "fr,us,np"      countries' flags (their images) instead of -Patterns
 #   ... -Darkness "0,20,40"        each design once per cloth darkness (percent, the panel's)
 #   ... -Worn "0,0,0|60,40,30,50"  each design once per wear,dirt,holes[,torn[,torn edges]] (percent, the panel's); -WearSeed 0..255
@@ -92,6 +95,8 @@ param(
     [string]$Refines = "1",
     [switch]$NoSmooth,
     [switch]$NoCollide,
+    [ValidateSet(0, 1, 2)][int]$Span = 1,
+    [switch]$NoSheet,
     [string]$Countries = "",
     [string]$Darkness = "0",
     [string]$Worn = "0,0,0",
@@ -187,6 +192,7 @@ $env:RF_DETAILS = $Details
 $env:RF_REFINES = $Refines
 $env:RF_SMOOTH = if ($NoSmooth) { "0" } else { "1" }
 $env:RF_COLLIDE = if ($NoCollide) { "0" } else { "1" }
+$env:RF_SPAN = "$Span"
 $env:RF_COUNTRIES = $Countries
 $env:RF_DARKNESS = $Darkness
 $env:RF_WORN = $Worn
@@ -247,6 +253,8 @@ if ($p.ExitCode -ne 0 -or -not ($lines | Where-Object { $_ -eq "RF PREVIEW OK" }
     throw "the GPU preview did not finish; see $log"
 }
 if ($Bench -gt 0) { return }
+# -NoSheet: the frames alone (tools\preview\out\gpu-frames\rf-<row>-<col>.png), for a long -Seq made into a video.
+if ($NoSheet) { "frames in $frames"; return }
 
 # The sheet: the frames in the order rendered, row by row; -Columns wraps a long row (a -Seq).
 $frameLines = @($lines | Where-Object { $_ -match "^RF FRAME " } | ForEach-Object {

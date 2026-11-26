@@ -114,7 +114,8 @@ its translated names are the Unicode standard's, likewise.
 
 The cloth, the air acting on it, the wind and the fabric shader follow published work --
 position-based dynamics, long range attachments, Lighthill's slender-body theory of the
-fluttering flag, the Eurocode's wind profile and turbulence, the power law of the wind over a
+fluttering flag (its added mass spread down the hoist as a flat plate's cross-flow, after
+Newman), the Eurocode's wind profile and turbulence, the power law of the wind over a
 city (Davenport, ASCE 7) and its roughness from the buildings (Lettau), the WMO's 3 s gust,
 gusts and eddies of several sizes (Perlin's sum of octaves, Kaimal et al.'s surface-layer
 spectra), the "Charlie" sheen, crowd

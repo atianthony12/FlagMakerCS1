@@ -427,6 +427,23 @@ namespace RealFlag.Flags
         private float[] _span;
         private int[] _fillOrder, _fillStart, _fillA, _fillB;
 
+        /// <summary>
+        /// The air's added mass down the hoist (2026-11-26). 1, the game's (the author's choice,
+        /// "Keep mode 1", after the preview's side-by-side): an ellipse, most in the middle of the
+        /// span and none at its free edges (<see cref="PrepareSpanShares"/>), in the reactive term
+        /// and gravity's share, the resistive drag against the even inertia as before. 0: the same
+        /// on every row (before 2026-11-26). 2: the ellipse in the drag too -- tried: the light
+        /// edges then held to the air more tightly and calmed. Measured (a 3 m flag, 32 cells,
+        /// varied air, four places): mode 1 against 0, the fly +11% at 12 m/s, the top edge +23%
+        /// and the twist +22% at 3 m/s, 6 m/s within the noise, reach and stretch unchanged.
+        /// The preview's -Span compares them. Read when a cloth is made (the shares) and each
+        /// step (the drag). A change here changes every loop: <see cref="LoopMotion.Key"/>'s air.
+        /// </summary>
+        public static int SpanwiseAir = 1;
+
+        /// <summary>Each particle's share of its span's mean added mass (the ellipse; 1 everywhere with <see cref="SpanwiseAir"/> off).</summary>
+        private float[] _spanShare;
+
         /// <summary>Cut the same way (the same cloth cells, on a grid of the same size).</summary>
         public bool SameCut(FlagCloth other)
         {
@@ -705,6 +722,7 @@ namespace RealFlag.Flags
             if (_shaped)
                 PrepareCut();
 
+            PrepareSpanShares();
             BuildLinks();
             SetFabric(fabric);
             Reset(dirX, dirZ);
@@ -2310,14 +2328,20 @@ namespace RealFlag.Flags
                 float nx = Nx[k], ny = Ny[k], nz = Nz[k];
                 float vx = Vx[k], vy = Vy[k], vz = Vz[k];
 
-                // A cut cloth: the added mass of its own span down the column (a tail's, a point's).
+                // Its share of the added mass down its span (the ellipse, PrepareSpanShares) -- of
+                // its own span down the column on a cut cloth (a tail's, a point's).
                 float share = shareAll, drag = dragAll;
-                if (_shaped)
+                float w = _spanShare[k];
+                if (_shaped || w != 1f)
                 {
-                    float own = _fabric.AddedMass * AirDensity * (float)Math.PI * _span[k] * 0.25f;
+                    float own = (_shaped ? _fabric.AddedMass * AirDensity * (float)Math.PI * _span[k] * 0.25f : added) * w;
                     float mass = sigma + own;
                     share = own / mass;
-                    drag = _fabric.Drag * AirDensity / (2f * mass) * dt;
+                    if (_shaped || SpanwiseAir >= 2)
+                    {
+                        float dragMass = SpanwiseAir >= 2 || !_shaped ? mass : sigma + own / w;
+                        drag = _fabric.Drag * AirDensity / (2f * dragMass) * dt;
+                    }
                 }
 
                 // Gravity: its normal part moves the cloth AND the air it carries.
@@ -3775,6 +3799,79 @@ namespace RealFlag.Flags
                 px[a] -= rx * ma; py[a] -= ry * ma; pz[a] -= rz * ma;
                 px[b] += rx * mb; py[b] += ry * mb; pz[b] += rz * mb;
             }
+        }
+
+        /// <summary>
+        /// Each particle's share of the added mass down its span. The slender-body force on a
+        /// strip across the flow is the cross-flow of a flat plate of the span's width H: its
+        /// potential on the plate is +-V sqrt((H/2)^2 - z^2) (Newman 1977, "Marine Hydrodynamics",
+        /// 4.13), so the air's pressure on it, and the mass of air it carries, go as that ellipse --
+        /// the most in the middle, none at a free edge -- and sum to the strip's rho pi H^2 / 4, the
+        /// added mass the reactive term already uses (Lighthill 1960). Evened out, the edges were
+        /// driven as hard as the middle and every row moved alike; on the ellipse the top and bottom
+        /// edges are lighter and freer than the middle. Each particle takes the ellipse's mean over
+        /// its own strip of the span (half a cell either way, clipped at the ends: an edge particle
+        /// keeps a little), scaled so the run's particles average 1 -- the total is unchanged. A
+        /// cut cloth's runs are its own spans down each column (<see cref="PrepareCut"/>).
+        /// </summary>
+        private void PrepareSpanShares()
+        {
+            int cols = Columns, rows = Rows;
+            _spanShare = new float[Count];
+            for (int k = 0; k < Count; k++)
+                _spanShare[k] = 1f;
+
+            if (SpanwiseAir <= 0)
+                return;
+
+            for (int i = 0; i < cols; i++)
+            {
+                int j = 0;
+                while (j < rows)
+                {
+                    if (_shaped && _out[j * cols + i])
+                    {
+                        j++;
+                        continue;
+                    }
+
+                    int start = j;
+                    while (j < rows && !(_shaped && _out[j * cols + i]))
+                        j++;
+
+                    // The run start .. j - 1: its strips on x in [-1, 1] across the span.
+                    int count = j - start;
+                    if (count < 3)
+                        continue;
+
+                    float cells = count - 1;
+                    double sum = 0.0;
+                    for (int r = start; r < j; r++)
+                    {
+                        double a = Math.Max(-1.0, 2.0 * (r - start - 0.5) / cells - 1.0);
+                        double b = Math.Min(1.0, 2.0 * (r - start + 0.5) / cells - 1.0);
+                        double mean = (EllipseArea(b) - EllipseArea(a)) / (b - a);
+                        _spanShare[r * cols + i] = (float)mean;
+                        sum += mean;
+                    }
+
+                    float scale = (float)(count / sum);
+                    for (int r = start; r < j; r++)
+                        _spanShare[r * cols + i] *= scale;
+                }
+            }
+        }
+
+        /// <summary>The integral of sqrt(1 - x^2) from 0 to x.</summary>
+        private static double EllipseArea(double x)
+        {
+            return 0.5 * (x * Math.Sqrt(Math.Max(0.0, 1.0 - x * x)) + Math.Asin(x));
+        }
+
+        /// <summary>A particle's share of its span's mean added mass (<see cref="PrepareSpanShares"/>), for the tests.</summary>
+        public float SpanShare(int i, int j)
+        {
+            return _spanShare[j * Columns + i];
         }
 
         /// <summary>
