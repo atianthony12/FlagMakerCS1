@@ -60,6 +60,11 @@
   </String>
   <String key="GameUpdate.Options">游戏更新后已关闭（{0}）：旗帜已隐藏，仍保存在存档中。请保持启用。</String>
 
+  <String key="Mod.CameMidCity">
+    Flag Maker 在此城市打开时被更新或启用。它在此城市中停止工作；保存时旗帜保持上次保存的样子。\n\n
+    重新加载城市即可看到它们。
+  </String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">旗帜不能变成 Procedural Objects，它们保持原样。</String>
   <String key="Mod.CrowdLoop">

@@ -809,6 +809,8 @@ namespace RealFlag.Flags
             _ready = true;
             _preRender = PreRender;
             Camera.onPreRender += _preRender;
+            _postRender = PostRender;
+            Camera.onPostRender += _postRender;
 
             ReadOptions();
 
@@ -992,17 +994,66 @@ namespace RealFlag.Flags
         /// rows at half size, all of them with this), each render of a frame its own when it renders
         /// twice. LateUpdate's on-screen value stands for anything else. Called for every camera, so
         /// a reference test first, and nothing allocated.
+        ///
+        /// Any other camera that draws the props' layer in perspective (another mod's reflection
+        /// camera, a second view) draws our meshes too (EveryCamera): its own value for its render,
+        /// from its own height and angle -- it drew the ropes and arms at the game render's pixel
+        /// scale. Cameras that cannot draw our layer (the UI's, Dynamic Resolution's empty stand-in)
+        /// and orthographic ones (no angle to a pixel) are left alone, as before. After such a
+        /// render the game render's value is put back (PostRender): a camera rendered from inside
+        /// the game's render leaves the rest of it as it was.
         /// </summary>
         private void PreRender(Camera camera)
         {
-            if (!ReferenceEquals(camera, _camera))
+            if (ReferenceEquals(camera, _camera))
+            {
+                _gamePixelRadius = FlagPoleMesh.PixelRadius(FlagPoleMesh.PixelsPerRadian(camera.pixelHeight, camera.fieldOfView));
+                Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, _gamePixelRadius);
+                return;
+            }
+
+            if ((camera.cullingMask & (1 << _layer)) == 0 || camera.orthographic)
                 return;
 
+            _otherPixelRadius = true;
             Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(FlagPoleMesh.PixelsPerRadian(camera.pixelHeight, camera.fieldOfView)));
         }
 
-        /// <summary>PreRender as one delegate, so it is taken off Camera.onPreRender again.</summary>
-        private Camera.CameraCallback _preRender;
+        /// <summary>After another camera's render that set its own tube radius (PreRender): the game render's value back.</summary>
+        private void PostRender(Camera camera)
+        {
+            if (!_otherPixelRadius || ReferenceEquals(camera, _camera))
+                return;
+
+            _otherPixelRadius = false;
+            Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, _gamePixelRadius);
+        }
+
+        /// <summary>
+        /// The tubes' radius the game's camera was last given (its render's, or LateUpdate's on-screen
+        /// one), and whether another camera's render has set its own since.
+        /// </summary>
+        private float _gamePixelRadius = FlagPoleMesh.PixelRadius(1000f);
+        private bool _otherPixelRadius;
+
+        /// <summary>
+        /// The game camera's height on the screen, pixels: its own pixelHeight while it has no
+        /// target (between renders, as a rule), else the screen's times its rect -- Dynamic
+        /// Resolution's Apply leaves its target set until the next render, and one LateUpdate took
+        /// that target's size for the screen's (a frame of flags at the wrong detail and size).
+        /// </summary>
+        private static float OnScreenHeight(Camera camera)
+        {
+            if (camera.targetTexture == null)
+                return camera.pixelHeight;
+            return Screen.height * camera.rect.height;
+        }
+
+        /// <summary>The height LateUpdate took the frame's sizes from (OnScreenHeight).</summary>
+        private float _screenHeight = 1080f;
+
+        /// <summary>PreRender and PostRender as one delegate each, so they are taken off Camera.onPreRender and onPostRender again.</summary>
+        private Camera.CameraCallback _preRender, _postRender;
 
         /// <summary>
         /// Graphics.DrawMesh's camera for every flag, pole and ghost: none, so each is drawn by every
@@ -1022,6 +1073,9 @@ namespace RealFlag.Flags
             if (_preRender != null)
                 Camera.onPreRender -= _preRender;
             _preRender = null;
+            if (_postRender != null)
+                Camera.onPostRender -= _postRender;
+            _postRender = null;
 
             // First: nothing may still be stepping a cloth whose mesh is about to go.
             if (!_worker.Stop())
@@ -1038,6 +1092,7 @@ namespace RealFlag.Flags
             _stillShapes.Clear();
             _settledLike.Clear();
             _groupList.Clear();
+            LetGoNow();
             DestroyLoops();
             if (_loopCache != null)
                 _loopCache.Stop();
@@ -1078,6 +1133,37 @@ namespace RealFlag.Flags
             DropPole(f);
             if (f.Prop != 0)
                 FlagPicking.Publish(f.Prop, null);
+        }
+
+        /// <summary>
+        /// Meshes and loops let go after this frame's draws were queued (Plan runs after Draw):
+        /// destroyed at the start of the next LateUpdate, once the frame they were queued for has
+        /// rendered. Object.Destroy runs before the frame renders, so a mesh queued with
+        /// Graphics.DrawMesh and destroyed in the same LateUpdate was drawn by no camera: a flag
+        /// taking its loop blinked out for one frame. Emptied in OnDestroy too.
+        /// </summary>
+        private readonly List<FlagMesh> _meshesLater = new List<FlagMesh>();
+        private readonly List<FlagLoop> _loopsLater = new List<FlagLoop>();
+
+        private void LetGoLater(FlagMesh mesh)
+        {
+            _meshesLater.Add(mesh);
+        }
+
+        private void LetGoLater(FlagLoop loop)
+        {
+            _loopsLater.Add(loop);
+        }
+
+        /// <summary>Whatever was let go last frame, destroyed now (its frame has rendered).</summary>
+        private void LetGoNow()
+        {
+            for (int i = 0; i < _meshesLater.Count; i++)
+                _meshesLater[i].Destroy();
+            _meshesLater.Clear();
+            for (int i = 0; i < _loopsLater.Count; i++)
+                _loopsLater[i].Destroy();
+            _loopsLater.Clear();
         }
 
         private static void DropPole(FlagInstance f)
@@ -1128,6 +1214,9 @@ namespace RealFlag.Flags
 
         private void LateUpdate()
         {
+            // Last frame's let-go meshes and loops: that frame has rendered with them.
+            LetGoNow();
+
             if (!_ready)
                 return;
 
@@ -1195,9 +1284,12 @@ namespace RealFlag.Flags
                 _wind = wind;
                 // On-screen pixels (between renders the game's camera has no target and its own
                 // rect, whatever renders it); each render puts the tubes' radius right for its own
-                // size again (PreRender).
-                _pixelsPerRadian = FlagPoleMesh.PixelsPerRadian(_camera.pixelHeight, _camera.fieldOfView);
-                Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, FlagPoleMesh.PixelRadius(_pixelsPerRadian));
+                // size again (PreRender). Dynamic Resolution's Apply leaves its target set until
+                // the next render, and one LateUpdate saw the target's size (OnScreenHeight).
+                _screenHeight = OnScreenHeight(_camera);
+                _pixelsPerRadian = FlagPoleMesh.PixelsPerRadian(_screenHeight, _camera.fieldOfView);
+                _gamePixelRadius = FlagPoleMesh.PixelRadius(_pixelsPerRadian);
+                Shader.SetGlobalFloat(FlagPoleMesh.IdPixelRadius, _gamePixelRadius);
                 _detailChanges = 0;
                 _refineChanges = 0;
                 LogCamera();
@@ -1849,6 +1941,12 @@ namespace RealFlag.Flags
             float pixels = size / Mathf.Max(f.Distance, 1f) * _pixelsPerRadian;
             int finer = DetailFor(pixels / DetailBand), coarser = DetailFor(pixels * DetailBand);
             int wanted = f.Detail < finer ? finer : f.Detail > coarser ? coarser : f.Detail;
+
+            // In view for its shadow alone (Cull): no finer than a far flag's cloth, the coarsest
+            // (FlagCloth.CellsAlong, Low) -- one just behind the camera is near, and asked for the
+            // finest while nothing of it but its shadow is on the screen.
+            if (f.ShadowOnly)
+                wanted = Math.Min(wanted, FlagCloth.CellsAlong);
             if (wanted == f.Detail)
                 return;
 
@@ -1890,7 +1988,9 @@ namespace RealFlag.Flags
         /// <summary>Once, and again when the screen or the camera's angle changes: where a 3 m flag changes detail here.</summary>
         private void LogCamera()
         {
-            int key = _camera.pixelHeight * 1000 + Mathf.RoundToInt(_camera.fieldOfView * 10f);
+            // The on-screen height the frame's sizes are taken from (OnScreenHeight).
+            int height = Mathf.RoundToInt(_screenHeight);
+            int key = height * 1000 + Mathf.RoundToInt(_camera.fieldOfView * 10f);
             if (key == _loggedCamera)
                 return;
 
@@ -1924,7 +2024,7 @@ namespace RealFlag.Flags
             if (big.Length > 0)
                 text += "; a 10 m flag " + big;
 
-            string line = "flags: camera " + _camera.pixelHeight + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
+            string line = "flags: camera " + height + " px high, " + _camera.fieldOfView.ToString("F1") + " deg: a 3 m flag gets " + text +
                           " (the option allows up to " + UI.SettingsCatalog.DetailLogName(_finest) + "); it is drawn to " +
                           (3f * _pixelsPerRadian / DrawPixels).ToString("F0") + " m, moves to " + (3f * _pixelsPerRadian / MovePixels).ToString("F0") +
                           " m, at the full rate within " + (3f * _pixelsPerRadian / FullRatePixels).ToString("F0") + " m";
@@ -2496,11 +2596,14 @@ namespace RealFlag.Flags
                 _order[n++] = f;
             }
 
+            // Biggest on the screen first -- every flag seen before every one in view for its shadow
+            // alone (Cull): one just behind the camera is big and took the moving places and the
+            // fine detail from flags on the screen. Among the seen, the order is as it always was.
             for (int i = 1; i < n; i++)
             {
                 FlagInstance x = _order[i];
                 int j = i - 1;
-                while (j >= 0 && _order[j].Pixels < x.Pixels)
+                while (j >= 0 && (_order[j].ShadowOnly != x.ShadowOnly ? _order[j].ShadowOnly : _order[j].Pixels < x.Pixels))
                 {
                     _order[j + 1] = _order[j];
                     j--;
@@ -2652,8 +2755,10 @@ namespace RealFlag.Flags
         /// <summary>The flag shows this cloth from now on (a still or flat flag's shape made), at Normal, in a new mesh.</summary>
         private void Adopt(FlagInstance f, FlagCloth cloth)
         {
+            // Mostly called from Plan, after the old mesh was queued to draw this frame: it goes
+            // after the frame's renders (LetGoLater), not before them.
             if (f.Mesh != null)
-                f.Mesh.Destroy();
+                LetGoLater(f.Mesh);
             f.Cloth = cloth;
             f.Detail = cloth.Detail;
             f.Mesh = new FlagMesh(cloth, f.Refine);
@@ -4158,7 +4263,8 @@ namespace RealFlag.Flags
         /// <summary>The least radius of a pick volume this far off, metres: <paramref name="pixels"/> of a 1080-line view there.</summary>
         private float PickAperture(float distance, float pixels)
         {
-            float pixelHeight = _camera != null ? _camera.pixelHeight : 1080f;
+            // The height _pixelsPerRadian was taken from (OnScreenHeight), so the two agree.
+            float pixelHeight = _camera != null ? _screenHeight : 1080f;
             return Mathf.Max(distance, 1f) * pixels * pixelHeight / (1080f * Mathf.Max(_pixelsPerRadian, 1f));
         }
 

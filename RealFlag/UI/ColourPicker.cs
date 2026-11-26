@@ -186,6 +186,16 @@ namespace RealFlag.UI
             // A whole code applies as it is typed or pasted; anything else waits for Enter.
             field.eventTextChanged += (component, text) =>
             {
+                // The game's field cuts a paste at its length wherever it falls, and a full field
+                // takes no second half of a typed emoji: half of one left in it stops the game's
+                // text drawing (TextCut). Put right (which comes back here) only when full: below
+                // it, a typed emoji's halves come one key event apiece, the second still to come.
+                if (text.Length >= field.maxLength && TextCut.HasLoneSurrogate(text))
+                {
+                    field.text = TextCut.Whole(text);
+                    return;
+                }
+
                 uint rgb;
                 if (!_refreshing && FlagColours.TryParseHex(text, out rgb))
                     Pick(rgb, false);

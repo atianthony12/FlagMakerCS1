@@ -52,6 +52,9 @@ namespace RealFlag.Flags
         public float DiskAskedAt;
         public bool DiskDone;
 
+        /// <summary>Real time the main thread first saw the folder's thread begin that read (Request.Begun); below 0 until then.</summary>
+        public float DiskBegunAt = -1f;
+
         /// <summary>The identity its bake was begun with (LoopFile.Identity: its key and the edges' smoothing), kept in the folder under it once made.</summary>
         public string BakeIdentity;
     }
@@ -131,11 +134,17 @@ namespace RealFlag.Flags
         private LoopCache _loopCache;
 
         /// <summary>
-        /// A loop asked of the loops' folder begins no bake for this long, seconds of real time:
-        /// past it the folder's answer is given up on (dropped when it comes) and the loop is made
-        /// as ever. A read is a few milliseconds; this is for a disk that hangs.
+        /// A loop asked of the loops' folder begins no bake for this long, seconds of real time,
+        /// from when the folder's thread BEGAN its read: past it the folder's answer is given up
+        /// on (dropped when it comes) and the loop is made as ever. A read is a few milliseconds;
+        /// this is for a disk that hangs. Counted from the ask, a city's reads queued one behind
+        /// another on a slow disk ran out of it while still waiting their turn, and each was made
+        /// instead (seconds of a thread's work).
         /// </summary>
         private const float DiskPatience = 2f;
+
+        /// <summary>A read the folder's thread has not begun this long after the ask, seconds (the one before it hangs), is given up on too.</summary>
+        private const float DiskCeiling = 10f;
 
         /// <summary>Loops read from the folder taken a frame at most: each is a texture made on the main thread (a city's load may answer many at once).</summary>
         private const int DiskTakesPerFrame = 2;
@@ -652,8 +661,10 @@ namespace RealFlag.Flags
         /// </summary>
         private void LetClothGo(FlagInstance f)
         {
+            // Its mesh was queued to draw this frame, before Plan took the loop: it goes after
+            // the frame's renders (LetGoLater), or the flag blinked out for a frame.
             if (f.Mesh != null)
-                f.Mesh.Destroy();
+                LetGoLater(f.Mesh);
             f.Mesh = null;
             f.Cloth = null;
             f.Pose = null;
@@ -717,7 +728,7 @@ namespace RealFlag.Flags
                     e.Bake = null;
                     if (bake.Failed)
                     {
-                        e.FailedUntil = float.MaxValue;
+                        FailedForGood(e);
                         _loopsFailed++;
                         Log.Warn("flags: a loop could not be made (" + bake.Problem + "); its flags wave instead -- " + e.Spec.Describe());
                     }
@@ -725,7 +736,7 @@ namespace RealFlag.Flags
                     {
                         // Its texture could not be made (no float textures, no memory): never again
                         // this session -- left to throw, it was baked afresh every second for good.
-                        e.FailedUntil = float.MaxValue;
+                        FailedForGood(e);
                         _loopsFailed++;
                     }
                     else
@@ -746,8 +757,12 @@ namespace RealFlag.Flags
                 // Let go: made, and wanted by no flag for as long as an unseen cloth is kept; being
                 // made or never begun, and wanted by none for a moment (a slider passed through it)
                 // -- one only stand-ins asked for, its making begun, after StandInKeepBegun.
+                // One whose making failed for good goes too once unwanted (it was kept for the rest
+                // of the city): FailedForGood keeps its key from being made again. One with no
+                // room waits out its retry as ever.
                 float unwanted = e.Loop == null && e.Bake != null && OnlyStandIns(e) ? StandInKeepBegun : Unwanted;
-                bool idle = e.Loop != null ? now - e.Wanted > ReleaseSeconds : now - e.Wanted > unwanted && now >= e.FailedUntil;
+                bool idle = e.Loop != null ? now - e.Wanted > ReleaseSeconds
+                                           : now - e.Wanted > unwanted && (now >= e.FailedUntil || e.FailedUntil == float.MaxValue);
                 if (idle)
                 {
                     if (e.Loop == null && OnlyStandIns(e) && Log.Detailed)
@@ -778,6 +793,14 @@ namespace RealFlag.Flags
 
                     if (e.Bake == null)
                     {
+                        // Its making failed for good earlier in this city, under an entry let go
+                        // since (FailedForGood): not made again.
+                        if (_loopsFailedForGood.Count > 0 && _loopsFailedForGood.Contains(e.Key))
+                        {
+                            e.FailedUntil = float.MaxValue;
+                            continue;
+                        }
+
                         if (now - e.Since < Debounce)
                             continue;
 
@@ -856,6 +879,13 @@ namespace RealFlag.Flags
                     // Waited for (in hand, or its flags undrawn): most of the frame itself.
                     if (inHand || now - e.Waited < Unwanted)
                         room = Math.Max(room, BakeShareWaited * _frameTime * 1000.0);
+
+                    // No cloth threads (they did not start): the job runs on the main thread,
+                    // inside the frame, so any share of the frame lengthened the frame by as much,
+                    // and the next frame's share with it (frames grew towards 4x). A fixed few
+                    // milliseconds a frame instead, whatever the frame takes.
+                    if (!_worker.Threaded)
+                        room = inHand ? BakeMsInHand : BakeMs;
                     double stepCost = Math.Max(1e-6, (double)bake.SubSteps * bake.Count * _unitCost);
                     bake.StepsNext = (int)Math.Max(bake.FrameSteps, Math.Min(4096.0, room / stepCost));
                     spent += bake.StepsNext * stepCost;
@@ -863,6 +893,21 @@ namespace RealFlag.Flags
                     Queue(null, ref job);
                 }
             }
+        }
+
+        /// <summary>
+        /// The keys of loops whose making failed for good in this city (the bake gave up, or the
+        /// graphics card would not hold its texture): an entry for one is not made again, even once
+        /// the failed entry itself is let go (PlanLoops). One short key for each shape that failed,
+        /// in place of the whole entry kept for the rest of the city.
+        /// </summary>
+        private readonly HashSet<string> _loopsFailedForGood = new HashSet<string>();
+
+        /// <summary>The entry's loop is not to be made again in this city (its flags wave instead).</summary>
+        private void FailedForGood(LoopEntry e)
+        {
+            e.FailedUntil = float.MaxValue;
+            _loopsFailedForGood.Add(e.Key);
         }
 
         /// <summary>No room for one more loop (MaxLoops, none to let go): its flags wave, tried again after RetrySeconds; said once.</summary>
@@ -880,7 +925,8 @@ namespace RealFlag.Flags
         /// The loops' folder's say on an entry's loop: asked the first time (its identity: the key
         /// and the edges' smoothing a bake would take now); Pending while the read is out -- or read
         /// but not to be taken this frame (<paramref name="mayTake"/>) -- no longer than
-        /// <see cref="DiskPatience"/>; Hit with the loop; Miss when none is there, the folder is
+        /// <see cref="DiskPatience"/> from the read's start (<see cref="DiskCeiling"/> from the
+        /// ask while it has not begun); Hit with the loop; Miss when none is there, the folder is
         /// off, or it took too long (then its late answer is dropped). Hit and Miss settle it
         /// (DiskDone): never asked again.
         /// </summary>
@@ -898,16 +944,24 @@ namespace RealFlag.Flags
             {
                 e.Disk = _loopCache.Ask(LoopFile.Identity(e.Key, FlagMesh.SmoothEdges));
                 e.DiskAskedAt = now;
+                e.DiskBegunAt = -1f;
             }
 
             LoopCache.Answer answer = _loopCache.Poll(e.Disk);
             if (answer == LoopCache.Answer.Pending)
             {
-                if (now - e.DiskAskedAt <= DiskPatience)
+                // The patience runs from the read's own start (DiskPatience), within a ceiling
+                // from the ask for one that never starts.
+                if (e.DiskBegunAt < 0f && e.Disk.Begun)
+                    e.DiskBegunAt = now;
+                bool late = e.DiskBegunAt >= 0f ? now - e.DiskBegunAt > DiskPatience : now - e.DiskAskedAt > DiskCeiling;
+                if (!late)
                     return LoopCache.Answer.Pending;
 
                 if (Log.Detailed)
-                    Log.Detail("flags: the loops' folder did not answer within " + DiskPatience.ToString("F0") + " s; the loop is made afresh (" + e.Spec.Describe() + ")");
+                    Log.Detail("flags: the loops' folder did not answer within " + (e.DiskBegunAt >= 0f ? DiskPatience.ToString("F0") + " s of beginning the read" :
+                                                                                     DiskCeiling.ToString("F0") + " s of the ask (its read not begun)") +
+                               "; the loop is made afresh (" + e.Spec.Describe() + ")");
                 answer = LoopCache.Answer.Miss;
             }
             else if (answer == LoopCache.Answer.Hit && !mayTake)
@@ -933,7 +987,7 @@ namespace RealFlag.Flags
         {
             if (!TryMakeLoop(e, read, null))
             {
-                e.FailedUntil = float.MaxValue;
+                FailedForGood(e);
                 _loopsFailed++;
                 return;
             }
@@ -1000,7 +1054,9 @@ namespace RealFlag.Flags
             LoopEntry e = _loopList[i];
             if (e.Loop != null)
             {
-                e.Loop.Destroy();
+                // Its flags may have been drawn with it this frame (MakeRoom takes one stand-ins
+                // still play): its texture and grids go after the frame's renders (LetGoLater).
+                LetGoLater(e.Loop);
                 if (Log.Detailed)
                     Log.Detail("flags: a loop let go, wanted by no flag for " + ReleaseSeconds.ToString("F0") + " s or to make room (" + e.Spec.Describe() + ")");
             }

@@ -68,6 +68,12 @@
   </String>
   <String key="GameUpdate.Options">Desactivado tras una actualización del juego ({0}): banderas ocultas, guardadas en tus partidas. Déjalo activado.</String>
 
+  <String key="Mod.CameMidCity">
+    Flag Maker se actualizó o se activó con esta ciudad abierta. Aquí el mod se desactiva; al
+    guardar, las banderas se quedan como en el último guardado.\n\n
+    Vuelve a cargar la ciudad para verlas.
+  </String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Las banderas no pueden convertirse en Procedural Objects. Siguen igual.</String>
   <String key="Mod.CrowdLoop">

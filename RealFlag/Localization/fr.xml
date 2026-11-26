@@ -71,6 +71,12 @@
   </String>
   <String key="GameUpdate.Options">Désactivé après une mise à jour du jeu ({0}) : drapeaux cachés, gardés dans vos sauvegardes. Laissez-le activé.</String>
 
+  <String key="Mod.CameMidCity">
+    Flag Maker a été mis à jour ou activé pendant que cette ville était ouverte. Il reste
+    désactivé ici ; sauvegarder garde les drapeaux tels qu'à la dernière sauvegarde.\n\n
+    Rechargez la ville pour les revoir.
+  </String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Les drapeaux ne peuvent pas devenir des Procedural Objects. Ils restent tels quels.</String>
   <String key="Mod.CrowdLoop">

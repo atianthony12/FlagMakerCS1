@@ -30,7 +30,8 @@ namespace RealFlag.Flags
     /// The tidying, on that thread: once a session, part-written files left over (*.tmp) and files
     /// of another build (their first bytes read only) are deleted; after a write, while the folder
     /// is over <see cref="MaxFolderBytes"/>, the file read or written longest ago goes (a read
-    /// touches its file's time).
+    /// touches its file's time). A file it cannot open or delete (read-only, held by another
+    /// program) is skipped and left, never one of the folder's errors.
     /// </remarks>
     public sealed class LoopCache
     {
@@ -61,6 +62,13 @@ namespace RealFlag.Flags
 
             internal volatile int State; // an Answer
             internal volatile bool Forgotten;
+
+            /// <summary>
+            /// The folder's thread has begun this read (set there, read on the main thread): reads
+            /// are done one at a time, so one queued behind others waits its turn before any of
+            /// the main thread's patience is its own (FlagRenderer.FromDisk).
+            /// </summary>
+            internal volatile bool Begun;
 
             /// <summary>The loop read, once Hit. Shared with whoever takes it, never changed (LoopData).</summary>
             public LoopData Data;
@@ -359,6 +367,7 @@ namespace RealFlag.Flags
                 return;
             }
 
+            r.Begun = true;
             Stopwatch clock = Stopwatch.StartNew();
             string path = PathOf(r.Identity);
             var info = new FileInfo(path);
@@ -416,9 +425,42 @@ namespace RealFlag.Flags
 
         private void Refused(string path, string why)
         {
-            File.Delete(path);
-            Say(SayDetail, "flags: a kept loop's file was refused and deleted (" + why + "): " + Path.GetFileName(path) + "; its loop is made afresh");
+            bool deleted = TryDelete(new FileInfo(path));
+            Say(SayDetail, "flags: a kept loop's file was refused and " + (deleted ? "deleted" : "left (it could not be deleted)") + " (" + why + "): " +
+                           Path.GetFileName(path) + "; its loop is made afresh");
         }
+
+        /// <summary>
+        /// One file deleted; false, said once a session (detailed log), when it cannot be -- read-only,
+        /// or held by another program. Never thrown: one such file threw out of the tidying every
+        /// time it was begun again, and the session's errors (MaxErrors) were used up in a moment,
+        /// the folder off -- every session, the file still there. It is skipped and left.
+        /// </summary>
+        private bool TryDelete(FileInfo f)
+        {
+            try
+            {
+                f.Delete();
+                return true;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                Stuck(f, e);
+                return false;
+            }
+        }
+
+        /// <summary>A file that could not be opened or deleted, skipped: said once a session, in the detailed log.</summary>
+        private void Stuck(FileInfo f, Exception e)
+        {
+            if (_stuckSaid)
+                return;
+            _stuckSaid = true;
+            Say(SayDetail, "flags: a file in the loops' folder could not be opened or deleted (" + e.GetType().Name + ": " + e.Message + "), left as it is: " +
+                           f.Name + " (said once; any others are skipped alike)");
+        }
+
+        private static volatile bool _stuckSaid;
 
         /// <summary>One write: the whole file under a name of its own, then put in the loop's place (as SavedPatterns and SettingsXml replace theirs).</summary>
         private void Write(string identity, LoopData loop)
@@ -499,15 +541,18 @@ namespace RealFlag.Flags
         /// </summary>
         private void Tidy()
         {
-            int parts = 0, older = 0;
+            // A file that cannot be opened or deleted is skipped (TryDelete), never thrown.
+            int parts = 0, older = 0, skipped = 0;
             if (Directory.Exists(_folder))
             {
                 foreach (FileInfo f in new DirectoryInfo(_folder).GetFiles("*.tmp"))
                 {
                     if (ReadsWaiting())
                         return;
-                    f.Delete();
-                    parts++;
+                    if (TryDelete(f))
+                        parts++;
+                    else
+                        skipped++;
                 }
 
                 var head = new byte[LoopFile.HeadBytes];
@@ -516,21 +561,32 @@ namespace RealFlag.Flags
                     if (ReadsWaiting())
                         return;
                     int got = 0;
-                    using (var s = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    try
                     {
-                        while (got < head.Length)
+                        using (var s = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
-                            int n = s.Read(head, got, head.Length - got);
-                            if (n <= 0)
-                                break;
-                            got += n;
+                            while (got < head.Length)
+                            {
+                                int n = s.Read(head, got, head.Length - got);
+                                if (n <= 0)
+                                    break;
+                                got += n;
+                            }
                         }
+                    }
+                    catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                    {
+                        Stuck(f, e);
+                        skipped++;
+                        continue;
                     }
 
                     if (!LoopFile.IsOurs(head, got, _stamp))
                     {
-                        f.Delete();
-                        older++;
+                        if (TryDelete(f))
+                            older++;
+                        else
+                            skipped++;
                     }
                 }
             }
@@ -538,32 +594,56 @@ namespace RealFlag.Flags
             _tidied = true;
             lock (_lock)
                 _pruneDue = true;
-            if (parts + older > 0)
-                Say(SayDetail, "flags: the loops' folder tidied -- " + older + " file(s) of another build of the mod and " + parts + " part-written file(s) deleted");
+            if (parts + older + skipped > 0)
+                Say(SayDetail, "flags: the loops' folder tidied -- " + older + " file(s) of another build of the mod and " + parts + " part-written file(s) deleted" +
+                               (skipped > 0 ? ", " + skipped + " that could not be opened or deleted left" : ""));
         }
 
         /// <summary>While the folder is over its size, the file used longest ago goes.</summary>
         private void Prune()
         {
+            // A file gone since the listing counts nothing (SizeOf); one that cannot be deleted is
+            // skipped and still counted as there.
             FileInfo[] files = LoopFiles();
             long total = 0;
             foreach (FileInfo f in files)
-                total += f.Length;
+                total += SizeOf(f);
             if (total <= MaxFolderBytes)
                 return;
 
             Array.Sort(files, (a, b) => a.LastWriteTimeUtc.CompareTo(b.LastWriteTimeUtc));
-            int deleted = 0;
+            int deleted = 0, skipped = 0;
             foreach (FileInfo f in files)
             {
                 if (total <= MaxFolderBytes)
                     break;
-                total -= f.Length;
-                f.Delete();
-                deleted++;
+                long bytes = SizeOf(f);
+                if (TryDelete(f))
+                {
+                    total -= bytes;
+                    deleted++;
+                }
+                else
+                {
+                    skipped++;
+                }
             }
 
-            Say(SayDetail, "flags: " + deleted + " kept loop(s) used longest ago deleted, to keep the loops' folder under " + MaxFolderBytes / (1024 * 1024) + " MB");
+            Say(SayDetail, "flags: " + deleted + " kept loop(s) used longest ago deleted, to keep the loops' folder under " + MaxFolderBytes / (1024 * 1024) + " MB" +
+                           (skipped > 0 ? " (" + skipped + " that could not be deleted left)" : ""));
+        }
+
+        /// <summary>A listed file's length; 0 for one gone (or unreadable) since the listing.</summary>
+        private static long SizeOf(FileInfo f)
+        {
+            try
+            {
+                return f.Length;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                return 0;
+            }
         }
 
         /// <summary>The first read or write that worked this session: where the loops are kept, said once.</summary>

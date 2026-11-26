@@ -89,6 +89,7 @@ colors or your own pictures, on a flagpole or hanging on its own.
 | Right click | Rotates it by 45° |
 | Right-click and drag | Rotates it freely |
 | Page Up / Page Down | Raises or lowers it, pole included: 12.5 cm per press, hold to keep going. Hold Shift to go 8× faster, Alt to go 8× finer |
+| Home | Puts it back down after Page Up / Page Down |
 | Ctrl+Z | Takes away the flag you just placed. Ctrl+Y (or Ctrl+Shift+Z) puts it back |
 | Esc | Stops placing |
 

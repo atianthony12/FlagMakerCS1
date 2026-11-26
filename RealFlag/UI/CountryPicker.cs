@@ -94,7 +94,17 @@ namespace RealFlag.UI
             _search = _ui.AddTextField(this, new Vector2(PanelWidth - 24f - 64f, 26f), new Vector3(12f + 64f, y), 40);
             _search.padding = new RectOffset(6, 6, 5, 3);
             _search.horizontalAlignment = UIHorizontalAlignment.Left;
-            _search.eventTextChanged += (component, text) => Filter();
+            _search.eventTextChanged += (component, text) =>
+            {
+                // The game's field cuts a paste at its length wherever it falls, and a full field
+                // takes no second half of a typed emoji: half of one left in it stops the game's
+                // text drawing (TextCut). Put right (which comes back here) only when full: below
+                // it, a typed emoji's halves come one key event apiece, the second still to come.
+                if (text.Length >= _search.maxLength && TextCut.HasLoneSurrogate(text))
+                    _search.text = TextCut.Whole(text);
+                else
+                    Filter();
+            };
             y += 34f;
 
             // The list: a dark box of rows, the scrollbar at its right.

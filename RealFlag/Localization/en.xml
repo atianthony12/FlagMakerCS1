@@ -68,6 +68,14 @@
   </String>
   <String key="GameUpdate.Options">Off after a game update ({0}): flags hidden, kept in your saves. Keep it enabled.</String>
 
+  <!-- Steam updated the mod (or it was switched on) with a city open: this copy never read the
+       city's flags, so it stays off there and its saves leave them as they were. Shown once. -->
+  <String key="Mod.CameMidCity">
+    Flag Maker was updated or switched on while this city was open. It stays off here; saving
+    keeps the flags as they were last saved.\n\n
+    Load the city again to see them.
+  </String>
+
   <!-- Procedural Objects' or Move It's "Convert to PO" on a flag: refused, the flag left as it is. -->
   <String key="Mod.NoProcedural">Flags can't become Procedural Objects. They stay as they are.</String>
 

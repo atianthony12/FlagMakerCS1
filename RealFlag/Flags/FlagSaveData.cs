@@ -56,6 +56,28 @@ namespace RealFlag.Flags
             get { return _kept != null; }
         }
 
+        /// <summary>
+        /// This copy of the mod loaded the city now open: its OnLoadData ran for it (the game's IL:
+        /// LoadingManager.LoadSimulationData reaches SimulationManager.LateUpdateData, which calls
+        /// every extension's OnLoadData before anything else, on both its paths -- a save, and a
+        /// new map or editor with no asset -- so every load of every mode). False after unload, and
+        /// in a copy that came in with the city open: Steam installed an update of the mod (the
+        /// game swaps the assembly and runs the new copy's OnEnabled, never its OnLoadData or
+        /// OnLevelLoaded), or the mod was switched on in it. Such a copy has none of the city's
+        /// designs or heights (its statics are empty), so its saves must not write ours.
+        /// </summary>
+        public static bool LoadedHere
+        {
+            get { return _loadedHere; }
+        }
+
+        // Volatile: set on the simulation thread (OnLoadData), cleared on the main thread (the
+        // unload), read on both (OnSaveData runs on the simulation thread).
+        private static volatile bool _loadedHere;
+
+        /// <summary>A save of a city this copy did not load was said in the log (once a city).</summary>
+        private static bool _notLoadedSaid;
+
         /// <summary>From now on the city's saves carry its design and height data exactly as they were loaded (nothing, if it had none).</summary>
         public static void Keep(string because)
         {
@@ -71,6 +93,10 @@ namespace RealFlag.Flags
         /// <summary>The city unloaded (Loader).</summary>
         public static void Forget()
         {
+            // First: a save running now on the simulation thread then writes nothing of ours
+            // (OnSaveData reads it again before it would erase).
+            _loadedHere = false;
+            _notLoadedSaid = false;
             _loaded = null;
             _loadedHeights = null;
             _kept = null;
@@ -83,6 +109,10 @@ namespace RealFlag.Flags
         {
             base.OnLoadData();
             Forget();
+
+            // Before the try: whatever the reading does, this copy loaded the city (a throw below
+            // keeps both keys as they came, Keep).
+            _loadedHere = true;
 
             try
             {
@@ -219,6 +249,16 @@ namespace RealFlag.Flags
                     return;
                 }
 
+                // A city this copy did not load (LoadedHere): it knows none of its flags, and the
+                // erase below would take every design and height out of the save. Both keys are
+                // left as the game's storage has them -- what was loaded, or what the copy before
+                // this one last wrote -- as the GameUpdate.Off branch leaves them.
+                if (!_loadedHere)
+                {
+                    SayNotLoadedHere();
+                    return;
+                }
+
                 // Off after a game update with nothing kept (no designs, or loading them threw):
                 // our keys are left as the save has them, never erased -- the game carries a key
                 // no extension writes (a city saved while the mod was off keeps its designs:
@@ -242,6 +282,16 @@ namespace RealFlag.Flags
                         heights.Add(new KeyValuePair<uint, ushort>(f.Key, posY));
                 }
 
+                // Read again: the mod torn down while this save ran (Mod.OnDisabled, the mark
+                // cleared before the designs and the prefab) found some or all of the flags gone
+                // for that reason, not because the city lost them. Still set here, the teardown
+                // had not begun when the flags above were read.
+                if (!_loadedHere)
+                {
+                    SayNotLoadedHere();
+                    return;
+                }
+
                 // None: no key at all, so a city that never had a flag carries nothing of ours.
                 if (alive.Count == 0)
                 {
@@ -263,6 +313,16 @@ namespace RealFlag.Flags
             {
                 Log.Error("flags: saving the flag designs threw; the save goes on without them.", e);
             }
+        }
+
+        private static void SayNotLoadedHere()
+        {
+            if (_notLoadedSaid)
+                return;
+
+            _notLoadedSaid = true;
+            Log.Warn("flags: this copy of Flag Maker did not load the city (it was updated or switched on while the city was open): " +
+                     "the city's flag designs and heights are saved as they were, untouched. Load the city again to use them");
         }
 
         private void Erase(string key)

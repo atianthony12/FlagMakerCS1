@@ -1046,8 +1046,10 @@ namespace RealFlag.Flags
             if (!FlagMotion.IsKnown(s.Motion))
                 s.Motion = FlagMotion.Waves;
             s.Name = s.Name ?? string.Empty;
+            // Cut without splitting a character (TextCut): the name is the Existing flags list's
+            // label, and a label holding half a pair stops the game's text drawing.
             if (s.Name.Length > 64)
-                s.Name = s.Name.Substring(0, 64);
+                s.Name = TextCut.First(s.Name, 64);
 
             // A country's flag takes any shape since 2026-11-10 (the author: "allow vertical flags and
             // aspect ratios, including enabling the preset shapes also on country flags"): choosing

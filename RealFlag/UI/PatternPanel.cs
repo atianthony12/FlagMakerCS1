@@ -213,7 +213,17 @@ namespace RealFlag.UI
             _name.padding = new RectOffset(6, 6, 5, 3);
             _name.horizontalAlignment = UIHorizontalAlignment.Left;
             _name.tooltip = Localization.Get("Pattern.NameTip");
-            _name.eventTextChanged += (component, text) => RefreshButtons();
+            _name.eventTextChanged += (component, text) =>
+            {
+                // The game's field cuts a paste at its length wherever it falls, and a full field
+                // takes no second half of a typed emoji: half of one left in it stops the game's
+                // text drawing (TextCut). Put right (which comes back here) only when full: below
+                // it, a typed emoji's halves come one key event apiece, the second still to come.
+                if (text.Length >= _name.maxLength && TextCut.HasLoneSurrogate(text))
+                    _name.text = TextCut.Whole(text);
+                else
+                    RefreshButtons();
+            };
             y += 32f;
 
             float half = (Inner - 6f) * 0.5f;

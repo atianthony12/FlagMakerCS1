@@ -39,17 +39,20 @@ namespace RealFlag.Flags
             if (slash >= 0)
                 t = t.Substring(slash + 1);
 
+            // Any half character first made a '?', which goes with the rest below; then cut without
+            // splitting one (TextCut): the name is shown on the panel's labels, and a label holding
+            // half a pair stops the game's text drawing. A file whose name changes here is not
+            // listed (FlagImageFolder).
+            t = TextCut.Whole(t);
             var sb = new StringBuilder(t.Length);
             foreach (char c in t)
             {
                 if (c < ' ' || c == '"' || c == '<' || c == '>' || c == '|' || c == ':' || c == '*' || c == '?')
                     continue;
                 sb.Append(c);
-                if (sb.Length == MaxLength)
-                    break;
             }
 
-            string clean = sb.ToString().Trim();
+            string clean = TextCut.First(sb.ToString(), MaxLength).Trim();
             return clean == "." || clean == ".." ? string.Empty : clean;
         }
 

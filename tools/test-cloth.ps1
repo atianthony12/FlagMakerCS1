@@ -2141,6 +2141,48 @@ public static class ClothTests
                FlagColours.Hex(t.Colour1) + "," + (t.Name == "");
     }
 
+    /// <summary>
+    /// TextCut (an emoji is two UTF-16 units; half of one in a label stops the game's text
+    /// drawing): its cut, its test for a half, its repair; then the three cuts of outside text --
+    /// a saved pattern's name (40), a picture's file name (128), a flag's name (64) -- with an
+    /// emoji across the cut. Each part "1" when right.
+    /// </summary>
+    public static string TextCuts()
+    {
+        // Built from their numbers: the script is read as ANSI, so no literal emoji in it.
+        string hi = new string((char)0xD83D, 1), lo = new string((char)0xDE00, 1), e = hi + lo;
+        var r = new List<string>();
+        r.Add(RealFlag.TextCut.First("ab" + e, 3) == "ab" && RealFlag.TextCut.First("ab" + e, 4) == "ab" + e && RealFlag.TextCut.First("abc", 2) == "ab" &&
+              RealFlag.TextCut.First(null, 3) == "" && RealFlag.TextCut.First("x", 0) == "" && RealFlag.TextCut.First("ab" + e, 9) == "ab" + e ? "1" : "0");
+        r.Add(RealFlag.TextCut.HasLoneSurrogate(hi) && RealFlag.TextCut.HasLoneSurrogate(lo) && RealFlag.TextCut.HasLoneSurrogate("a" + hi + "b") &&
+              RealFlag.TextCut.HasLoneSurrogate(lo + hi) && !RealFlag.TextCut.HasLoneSurrogate(e + e) && !RealFlag.TextCut.HasLoneSurrogate("") &&
+              !RealFlag.TextCut.HasLoneSurrogate(null) && !RealFlag.TextCut.HasLoneSurrogate("plain") ? "1" : "0");
+        string whole = "x" + e;
+        r.Add(RealFlag.TextCut.Whole("a" + hi + "b") == "a?b" && RealFlag.TextCut.Whole(lo + hi) == "??" && RealFlag.TextCut.Whole(e + lo) == e + "?" &&
+              ReferenceEquals(RealFlag.TextCut.Whole(whole), whole) && RealFlag.TextCut.Whole(null) == "" ? "1" : "0");
+
+        // A saved pattern's name: the emoji across 40 goes whole; one that fits stays; a half is a '?'.
+        string a39 = new string('a', 39), a38 = new string('a', 38);
+        r.Add(SavedPatternFile.Sanitise(a39 + e + "zz") == a39 && SavedPatternFile.Sanitise(a38 + e + "zz") == a38 + e &&
+              SavedPatternFile.Sanitise("p" + hi + "q") == "p?q" ? "1" : "0");
+
+        // A picture's file name: the same across 128, a half dropped (as '?' is); plain names as before.
+        string b127 = new string('b', 127), b126 = new string('b', 126);
+        r.Add(FlagImageNames.Sanitise(b127 + e + ".png") == b127 && FlagImageNames.Sanitise(b126 + e + ".png") == b126 + e &&
+              FlagImageNames.Sanitise("pic" + hi + ".png") == "pic.png" && FlagImageNames.Sanitise(new string('c', 200)).Length == 128 &&
+              FlagImageNames.Sanitise("dir/my flag?.png") == "my flag.png" ? "1" : "0");
+
+        // A flag's name: the same across 64.
+        FlagSpec s = FlagSpec.Default;
+        string n63 = new string('n', 63), n62 = new string('n', 62);
+        s.Name = n63 + e + "x";
+        string cut63 = s.Sanitised().Name;
+        s.Name = n62 + e + "x";
+        string cut62 = s.Sanitised().Name;
+        r.Add(cut63 == n63 && cut62 == n62 + e && !RealFlag.TextCut.HasLoneSurrogate(cut63) ? "1" : "0");
+        return string.Join("", r.ToArray());
+    }
+
     // ---- tilted hoists, the pole, the drawn surface, the paused flag ------------------------
 
     static bool HoistOnLine(FlagCloth c)
@@ -7103,6 +7145,8 @@ Check "a language's names: its order first, a flag it lacks after them in Englis
 $img = [ClothTests]::Images($asm.GetManifestResourceNames()) -split ","
 Check "every flag's image and thumbnail are in the DLL" ($img[1] -eq "0") ($img[0] + " images, " + $img[1] + " missing")
 Check "a spec from a save or a paste is pulled into range" ([ClothTests]::Sanitise() -eq "5,30.0,667,1.0,#123456,True") ([ClothTests]::Sanitise())
+$tc = [ClothTests]::TextCuts()
+Check "text is never cut inside an emoji (TextCut: the cut, a half found, a half made '?'); a saved pattern's name at 40, a picture's file name at 128, a flag's name at 64 keep a pair across the cut whole or leave it out" ($tc -eq "111111") ("cut, halves, repair, pattern name, file name, flag name: " + $tc)
 
 $colours = [ClothTests]::Colours() -split "\|"
 Check "hex colours read and written" ($colours[0] -eq "#1A2B3C #00FF00 refused refused") $colours[0]

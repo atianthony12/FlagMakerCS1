@@ -30,6 +30,18 @@ namespace RealFlag
             if (_root != null)
                 return;
 
+            // This copy came in while the city was loading, after the copy before it had read the
+            // city's flags (FlagSaveData.LoadedHere: every load runs OnLoadData before this): it
+            // has none of them, so it stands down as for a game update -- nothing drawn or placed,
+            // and its saves leave the city's designs and heights as they are.
+            if (!FlagSaveData.LoadedHere)
+            {
+                Log.Warn("flags: this copy of Flag Maker did not load the city (updated or switched on while it loaded): " +
+                         "it stays off in this city; its flags stay in it and in its saves as they were");
+                SayCameMidCity();
+                return;
+            }
+
             // Made during loading by FlagLoadingHook; made (and bound) here only if the mod was
             // switched on after the city had loaded.
             FlagPrefab.EnsureCreated(true);
@@ -90,19 +102,33 @@ namespace RealFlag
         public override void OnLevelUnloading()
         {
             base.OnLevelUnloading();
+            LetGo();
+        }
 
+        /// <summary>
+        /// Everything this copy runs in a city, let go: the city unloading, or the mod disabled or
+        /// replaced (Mod.OnDisabled -- Steam's update of the mod swaps the assembly with the city
+        /// open, and the old copy never hears OnLevelUnloading: its controller would go on
+        /// drawing, stepping and showing its button into the next city). With no city loaded there
+        /// is nothing to let go and nothing throws. The flag prefab stays in the game's collection
+        /// and the city's props stay bound to it (Forget drops only the reference).
+        /// </summary>
+        internal static void LetGo()
+        {
             // This city's flags go with it; the next city's come with its save. Each step on its
             // own, and the controller destroyed whatever threw: one throw here would otherwise
             // leave _root set, so the next city never got a controller (the mod dead until a
             // restart) while this city's kept running in it (the 2026-11-07 sweep).
             try
             {
+                // First: with the city open (Mod.OnDisabled), a save on the simulation thread must
+                // not find the designs gone below and erase them from the save (FlagSaveData).
+                Step(FlagSaveData.Forget, "the flags' kept data");
                 Step(FlagTool.Remove, "the flag tool");
                 Step(LineFlags.Forget, "Line Tool");
                 Step(FlagEditor.Clear, "the selection");
                 Step(FlagUndo.Clear, "the undo steps");
                 Step(FlagRegistry.Clear, "the flags' designs");
-                Step(FlagSaveData.Forget, "the flags' kept data");
                 Step(FlagPrefab.Forget, "the flag prefab");
                 Step(GameCamera.Forget, "the game's camera");
             }
@@ -248,6 +274,47 @@ namespace RealFlag
                      : platform == RuntimePlatform.LinuxPlayer || platform == RuntimePlatform.LinuxEditor
                          ? Localization.Get("Mod.UnsupportedLinux", Log.Path)
                          : Localization.Get("Mod.Unsupported"));
+        }
+
+        /// <summary>
+        /// A city is open in the game (not an editor): the load has finished and not been undone.
+        /// LoadingManager.m_loadingComplete is set true by LoadLevelComplete and false by LoadLevel,
+        /// LoadIntro (the main menu) and UnloadLevel (IL); ToolController.m_mode is what
+        /// LoadingWrapper.currentMode reads (IL), null-checked here, as it is not there, for the
+        /// main menu. Compiled references to public fields: nothing for GameUpdate.Require.
+        /// </summary>
+        internal static bool CityOpen()
+        {
+            // .exists first: .instance would make the manager at start-up.
+            if (!Singleton<LoadingManager>.exists || !Singleton<LoadingManager>.instance.m_loadingComplete)
+                return false;
+
+            ToolController properties = Singleton<ToolManager>.exists ? Singleton<ToolManager>.instance.m_properties : null;
+            return properties != null && properties.m_mode == ItemClass.Availability.Game;
+        }
+
+        private static bool _midCityShown;
+
+        /// <summary>
+        /// The player told, once: this copy came in with the city open (Mod.OnEnabled) or loading
+        /// (OnLevelLoaded), and stays off in it. Through the game's ThreadingWrapper.QueueMainThread,
+        /// which runs it at once on the main thread and queues it there from any other (IL): Steam's
+        /// "item installed" comes from the platform's native callbacks, whose thread the IL cannot show.
+        /// </summary>
+        internal static void SayCameMidCity()
+        {
+            if (_midCityShown)
+                return;
+
+            ThreadingWrapper threading = Singleton<SimulationManager>.exists ? Singleton<SimulationManager>.instance.m_ThreadingWrapper : null;
+            if (threading != null)
+            {
+                // Marked only once it is on its way: without the wrapper, a later call may still show it.
+                _midCityShown = true;
+                threading.QueueMainThread(() => Show(Localization.Get("Mod.CameMidCity")));
+            }
+            else
+                Log.Warn("Could not show the message that Flag Maker came in with the city open (no threading wrapper)");
         }
 
         /// <summary>The game's own message box, with the mod's name (main thread only).</summary>

@@ -46,9 +46,11 @@ namespace RealFlag.Flags
                     kept.Append(c);
             }
 
-            string text = kept.ToString().Trim();
+            // Cut without splitting a character, and any half one shown as '?' (TextCut): the name
+            // is a button's label, and a label holding half a pair stops the game's text drawing.
+            string text = TextCut.Whole(kept.ToString().Trim());
             if (text.Length > MaxName)
-                text = text.Substring(0, MaxName).TrimEnd();
+                text = TextCut.First(text, MaxName).TrimEnd();
 
             return text;
         }
