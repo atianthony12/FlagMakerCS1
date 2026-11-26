@@ -190,11 +190,20 @@ Shader "RealFlag/FlagCloth"
             float face : VFACE;
         };
 
-        // Particle (i, j) of the cloth, in the tile whose first texel is `at` (one moment's
-        // texture: (0, 0); a loop's: one frame's tile).
-        float3 RFGrid(float2 at, float i, float j)
+        // Particle (i, j) of the cloth: one moment's texture (its tile at (0, 0)), or a loop's
+        // (_RFUseGrid 2) between its two frames' tiles (_RFGridAt.xy and .zw) by _RFGridBlend.
+        // The patch is linear in its particles, so blending them here is blending the two
+        // patches -- and it is ONE patch: two patches, blended after, came out torn into a
+        // saw-tooth at every cell under OpenGL (the GLSL of the second call; D3D11 was right).
+        float3 RFGrid(float i, float j)
         {
-            return tex2Dlod(_RFGrid, float4((at.x + i + 0.5) * _RFGridSize.z, (at.y + j + 0.5) * _RFGridSize.w, 0.0, 0.0)).xyz;
+            float3 p = tex2Dlod(_RFGrid, float4((_RFGridAt.x + i + 0.5) * _RFGridSize.z, (_RFGridAt.y + j + 0.5) * _RFGridSize.w, 0.0, 0.0)).xyz;
+            if (_RFUseGrid > 1.5)
+            {
+                float3 q = tex2Dlod(_RFGrid, float4((_RFGridAt.z + i + 0.5) * _RFGridSize.z, (_RFGridAt.w + j + 0.5) * _RFGridSize.w, 0.0, 0.0)).xyz;
+                p = lerp(p, q, _RFGridBlend);
+            }
+            return p;
         }
 
         // Catmull-Rom weights at t of the points i0 - 1 .. i0 + 2 of n, and their derivatives,
@@ -212,12 +221,12 @@ Shader "RealFlag/FlagCloth"
         }
 
         // One row of the 4 x 4 patch into the position and its two derivatives.
-        void RFRow(float2 at, float j, float wj, float dj, float4 i4, float4 wu, float4 du, inout float3 p, inout float3 pu, inout float3 pv)
+        void RFRow(float j, float wj, float dj, float4 i4, float4 wu, float4 du, inout float3 p, inout float3 pu, inout float3 pv)
         {
-            float3 a = RFGrid(at, i4.x, j);
-            float3 b = RFGrid(at, i4.y, j);
-            float3 c = RFGrid(at, i4.z, j);
-            float3 e = RFGrid(at, i4.w, j);
+            float3 a = RFGrid(i4.x, j);
+            float3 b = RFGrid(i4.y, j);
+            float3 c = RFGrid(i4.z, j);
+            float3 e = RFGrid(i4.w, j);
             float3 row = wu.x * a + wu.y * b + wu.z * c + wu.w * e;
             float3 rowd = du.x * a + du.y * b + du.z * c + du.w * e;
             p += wj * row;
@@ -225,16 +234,16 @@ Shader "RealFlag/FlagCloth"
             pv += dj * row;
         }
 
-        // The 4 x 4 patch of the tile at `at`: the position and its two derivatives.
-        void RFPatch(float2 at, float4 i4, float4 j4, float4 wu, float4 du, float4 wv, float4 dv, out float3 p, out float3 pu, out float3 pv)
+        // The 4 x 4 patch: the position and its two derivatives.
+        void RFPatch(float4 i4, float4 j4, float4 wu, float4 du, float4 wv, float4 dv, out float3 p, out float3 pu, out float3 pv)
         {
             p = float3(0.0, 0.0, 0.0);
             pu = float3(0.0, 0.0, 0.0);
             pv = float3(0.0, 0.0, 0.0);
-            RFRow(at, j4.x, wv.x, dv.x, i4, wu, du, p, pu, pv);
-            RFRow(at, j4.y, wv.y, dv.y, i4, wu, du, p, pu, pv);
-            RFRow(at, j4.z, wv.z, dv.z, i4, wu, du, p, pu, pv);
-            RFRow(at, j4.w, wv.w, dv.w, i4, wu, du, p, pu, pv);
+            RFRow(j4.x, wv.x, dv.x, i4, wu, du, p, pu, pv);
+            RFRow(j4.y, wv.y, dv.y, i4, wu, du, p, pu, pv);
+            RFRow(j4.z, wv.z, dv.z, i4, wu, du, p, pu, pv);
+            RFRow(j4.w, wv.w, dv.w, i4, wu, du, p, pu, pv);
         }
 
         void vert(inout appdata_full v, out Input o)
@@ -266,20 +275,8 @@ Shader "RealFlag/FlagCloth"
             float3 p;
             float3 pu;
             float3 pv;
-            RFPatch(_RFGridAt.xy, i4, j4, wu, du, wv, dv, p, pu, pv);
-
-            // A loop (_RFUseGrid 2): between two of its frames -- the patch is linear in its
-            // particles, so the two patches blended are the patch of the particles blended.
-            if (_RFUseGrid > 1.5)
-            {
-                float3 q;
-                float3 qu;
-                float3 qv;
-                RFPatch(_RFGridAt.zw, i4, j4, wu, du, wv, dv, q, qu, qv);
-                p = lerp(p, q, _RFGridBlend);
-                pu = lerp(pu, qu, _RFGridBlend);
-                pv = lerp(pv, qv, _RFGridBlend);
-            }
+            // A loop (_RFUseGrid 2): between two of its frames, blended particle by particle (RFGrid).
+            RFPatch(i4, j4, wu, du, wv, dv, p, pu, pv);
 
             // The front: along the fly x down the hoist, as FlagCloth.ComputeNormals.
             float3 n = cross(pu, pv);
