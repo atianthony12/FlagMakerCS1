@@ -1,4 +1,4 @@
-Fully animated, customizable flags that react to wind. Supports custom images (with cropping and adjusting), comes with all UN countries' flags, and a simple pattern creator.
+Fully animated and customizable flags. Supports custom images (with cropping and adjusting), comes with all UN countries' flags, and a simple pattern creator.
 
 [hr][/hr]
 [h1]How to use[/h1]
@@ -6,11 +6,11 @@ Fully animated, customizable flags that react to wind. Supports custom images (w
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a city[/b] (new or saved). The mod does not run in the editors (read why below).
 [*][b]Press F6[/b] (or click the mod's button) to open the panel. The key can be changed in the mod's options.
-[*][b]Click + New flag[/b], choose a country flag, pattern or add your own image. The default motion (animation) is [b]Waving[/b], the flag reacts to physics and wind. Change it to [b]Loop[/b] if you want it to play the flag animation endlessly for better performance.
+[*][b]Click + New flag[/b], select a preset or customize it yourself.
 [*][b]To edit a flag[/b], click Pick on the map, or choose it in the list on the Flags tab.
 [/olist]
 [h3]Note on the Asset Editor[/h3]
-It makes perfect sense for this mod to be available in the Asset Editor so you can add flags to your buildings. But, adding a flag to your asset will mean that you have to list this mod as a Required Item, which I'm not sure is best practice. I'm looking for a way to let you export flags as animations and share them without requiring this mod, but I'm not sure it's possible. If I give up on this, I'll make the mod work in the Asset Editor as well.
+It makes perfect sense for this mod to be available in the Asset Editor so you can add flags to your buildings. But, adding a flag to your asset will mean that you have to list this mod as a Required Item, which I'm not sure is best practice. Let me know if you'd like this regardless and I'll make it work.
 
 [hr][/hr]
 [h1]Overview[/h1]
@@ -18,9 +18,9 @@ It makes perfect sense for this mod to be available in the Asset Editor so you c
 [list]
 [*]250+ countries flags (including EU, UN)
 [*]Simple pattern creator
-[*]Ability to add your own flag picture
+[*]Add your own flag picture
 [*]Flags can be up to 30m wide/tall, hoisted from the side or the top
-[*]Presets: With pole, Hanging on wall and Banner
+[*]Presets: With pole, Hanging on wall and Banner as a quick way to make the flag you want
 [*]Wear and tear, and dirt
 [*]Draggable as Props with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1619685021]Move It[/url][/b], and can be placed in a line or circle with [b][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2956939040]Line Tool[/url][/b]
 [/list]
@@ -28,7 +28,7 @@ It makes perfect sense for this mod to be available in the Asset Editor so you c
 [list]
 [*][b]Waving[/b]: the default, physics-based, the most realistic, the flag waves in the wind and collides with other buildings. Recommended only to be used on a few flags at a time
 [*][b]Loop[/b]: the flag will replay the waving animation over and over, and it's not affected by physics or wind. Best performance
-[*][b]Still[/b]: the flag animation will be paused. Useful for taking screenshots
+[*][b]Still[/b]: the flag animation will be paused
 [*][b]Flat[/b]: no motion at all, just a flat 2D texture
 [/list]
 [h3]Flagpoles[/h3]
@@ -52,15 +52,16 @@ With the [i]Waving[/i] motion, the flags run on your CPU, it uses a minimal amou
 [quote]Incompatible with [b]Extended Managers Library[/b] and any mod that uses it, such as Prop Anarchy.
 [/quote]
 Tested with hundreds of mods, no other mod conflicted.
-[b]Removing the mod[/b] will not corrupt your save, but when you save without it the existing flags will be deleted permanently.
+[b]Removing the mod[/b] will not corrupt your save, but when you save without it the existing flags will be deleted permanently as they are treated as Props.
 [h3]Known issues / limitations[/h3]
 [list]
-[*][b]Flags can't turn to Procedural Objects[/b]: this is intentional for now, but if it becomes requested I will look into it.
+[*][b]Flags can't turn to Procedural Objects[/b]
+[*][b]Vertical countries' flags not how they're supposed to be[/b]: at the moment the mod just takes the country flag and rotates it 90deg. Later on proper countries' vertical flags might be added.
 [/list]
 
 [hr][/hr]
 [h1]Source code[/h1]
-Open source (MIT). Includes UnifiedUILib by kianzarrin, CitiesHarmony.API by boformer and MoveItIntegration by Quboid, thanks to all three. Country flags from [url=https://flagpedia.net]Flagpedia[/url]. Full license info on the repository.
+Open source (MIT). Full license info on the repository.
 This mod was made with substantial help from AI. I set the goals, made the design decisions, and did all of the in-game testing and tuning.
 [h3][url=https://github.com/atianthony12/FlagMakerCS1]Open on GitHub[/url][/h3]
 
