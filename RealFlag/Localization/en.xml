@@ -75,8 +75,7 @@
   <String key="Mod.CrowdLoop">
     Many waving flags close together slow the game down, so new flags here are placed as Loop:
     it looks much the same and costs almost nothing.\n\n
-    Want them waving? Choose Waving in the New flag window, or turn off Place crowds as Loop in
-    Settings.
+    Want them waving? Choose Waving again in the New flag window.
   </String>
 
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
@@ -202,7 +201,7 @@
   <String key="SelRecapture.Tooltip">Records the loop again, so the flag waves a different way.</String>
   <String key="Motion.Recording">Recording... {0}%</String>
   <String key="Motion.CantRecord">Can't record</String>
-  <!-- Under Motion in the New flag window, while it went to Loop by itself (Settings: Place crowds as Loop). -->
+  <!-- Under Motion in the New flag window, while it went to Loop by itself (past 20 waving flags near the new one; always on). -->
   <String key="Motion.CrowdNote">Many flags here: new ones loop.</String>
   <String key="NewHeld.Label">Anchor points</String>
   <String key="NewHeld.Tooltip">Pins more of the flag, so it stays open instead of drooping, like a street banner. It still ripples.</String>
@@ -436,15 +435,9 @@
   <String key="Image.Cut">Cut out</String>
   <String key="Image.Through">Show flag</String>
 
-  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. -->
   <String key="Group.Wind">Wind</String>
   <String key="WindFromGame.Label">Use the game's wind</String>
-  <String key="GameWindNow.Status">Now {0} at 10 m, toward {1}°</String>
-  <String key="GameWindNow.Weather">Volumetric Weather's: {0} at 10 m, toward {1}°</String>
-  <String key="GameWindNow.Rain">, rain +{0}%</String>
-  <String key="GameWindNow.Fog">, fog -{0}%</String>
-  <String key="GameWindNow.Own">Your own wind, below</String>
-  <String key="GameWindNow.NoCity">The game's wind, once a city loads</String>
   <String key="WindSpeed.Label">Wind speed</String>
   <String key="WindGusts.Label">Gusts</String>
   <String key="WindMode.Label">Direction</String>
@@ -508,9 +501,6 @@
   <String key="SharedMotion.Tooltip">Similar flags reuse one flag's movement, which saves a lot of CPU when there are many flags.</String>
   <String key="LoopStandIns.Label">Loop in big crowds</String>
   <String key="LoopStandIns.Tooltip">When too many flags are in view to simulate, the rest play a loop instead of standing still.</String>
-  <!-- A new waving flag with 20 waving flags near it (or a Line Tool row of more than 20) is placed as Loop. -->
-  <String key="CrowdLoops.Label">Place crowds as Loop</String>
-  <String key="CrowdLoops.Tooltip">Past 20 waving flags nearby, new ones loop.</String>
   <!-- Not shown: a line in the settings file. -->
   <String key="CrowdLoopsTold.Label">Told why crowds of new flags are placed as Loop</String>
   <String key="VariedWind.Label">Gusts and eddies of several sizes</String>

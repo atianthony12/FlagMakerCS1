@@ -2197,13 +2197,8 @@ namespace RealFlag.UI
                 AfterChange = State("the game's wind", OnOff(Settings.WindFromGame)),
             });
 
-            Add(new Row
-            {
-                Kind = RowKind.Status,
-                Panel = PanelPage.Settings,
-                Id = "GameWindNow",
-                StatusText = GameWindText,
-            });
+            // The line under the switch with the game's wind now ("Your own wind, below" with the
+            // player's) went 2026-11-26 (the author: "remove ... the wind indicator, no need for that").
 
             Add(new Row
             {
@@ -2248,43 +2243,6 @@ namespace RealFlag.UI
                 Format = Degrees,
                 Enabled = () => Settings.WindMode == null || Settings.WindMode.value == Settings.WindModes.Fixed,
             });
-        }
-
-        /// <summary>
-        /// The Settings tab's line under the switch: the game's wind as it is now (over open level
-        /// ground: a flag on a hill gets more, in a valley or by a forest less), or that the
-        /// player's own is in use.
-        /// </summary>
-        private static string GameWindText()
-        {
-            if (Settings.WindFromGame != null && !Settings.WindFromGame.value)
-                return Localization.Get("GameWindNow.Own");
-
-            UnityEngine.Vector3 direction;
-            float weather, rain, fog;
-            if (!GameWind.Read(out direction, out weather, out rain, out fog))
-                return Localization.Get("GameWindNow.NoCity");
-
-            // Volumetric Weather's wind when it is on (2026-10-30): its weather is in it already.
-            float vwSpeed;
-            bool overridden;
-            UnityEngine.Vector3 vwDirection;
-            if (WeatherModWind.TryRead(out vwDirection, out vwSpeed, out overridden))
-            {
-                float vwDegrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(vwDirection.z, vwDirection.x) * UnityEngine.Mathf.Rad2Deg, 360f);
-                // One line whether its weather or its Now tab sets it (the author, 2026-11-10: remove "set on its Now tab").
-                return Localization.Get("GameWindNow.Weather", WindText(vwSpeed), vwDegrees.ToString("F0"));
-            }
-
-            float speed = GameWind.BaseSpeed * weather;
-            // As a flag's rotation, the way the "Angle" slider reads it (FlagProps.Direction).
-            float degrees = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(direction.z, direction.x) * UnityEngine.Mathf.Rad2Deg, 360f);
-            string text = Localization.Get("GameWindNow.Status", WindText(speed), degrees.ToString("F0"));
-            if (rain >= 0.01f)
-                text += Localization.Get("GameWindNow.Rain", (50f * rain).ToString("F0"));
-            if (fog >= 0.01f)
-                text += Localization.Get("GameWindNow.Fog", (50f * fog).ToString("F0"));
-            return text;
         }
 
         /// <summary>The game's options page: the mod itself, and the reset button at the very bottom.</summary>
@@ -2514,16 +2472,8 @@ namespace RealFlag.UI
             // Crowds placed as Loop (2026-11-12; the author: players "are lazy and won't bother
             // changing the motion"): past ClothPlan.CrowdMost waving flags near a new one, or a
             // Line Tool row that long, the new flag's Motion goes to Loop (FlagRenderer.Crowd.cs).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = PanelPage.Settings,
-                Options = OptionsPage.General,
-                Bool = Settings.CrowdLoops,
-                DefaultBool = Settings.Defaults.CrowdLoops,
-                AfterChange = State("crowds of new waving flags placed as Loop", OnOff(Settings.CrowdLoops)),
-            });
-
+            // Always, no row since 2026-11-26 (the author: "remove 'Place crowds as Loop' anyway
+            // and keep it on always", beside Loop in big crowds it read as the same thing).
             // Whether the one-off message about it has been shown: kept in the file, no row.
             Add(new Row
             {

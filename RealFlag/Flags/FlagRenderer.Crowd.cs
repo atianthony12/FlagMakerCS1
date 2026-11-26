@@ -24,12 +24,12 @@ namespace RealFlag.Flags
         /// <summary>The one-off message is due (shown from LateUpdate, never inside the prop scan).</summary>
         private static bool _crowdTell;
 
-        /// <summary>The switch may happen: the option on, the new flag waving, not held.</summary>
+        /// <summary>The switch may happen: the new flag waving, not held (always on since 2026-11-26: no option).</summary>
         private static bool CrowdArmed
         {
             get
             {
-                return Settings.IsInitialised && Settings.CrowdLoops.value && !_crowdHeld &&
+                return Settings.IsInitialised && !_crowdHeld &&
                        Settings.NewMotion.value == FlagMotion.Waves;
             }
         }
@@ -110,7 +110,7 @@ namespace RealFlag.Flags
         {
             Settings.NewMotion.value = FlagMotion.Loop;
             _crowdSwitched = true;
-            Log.Msg("flags: " + why + " -- new flags play a loop from here (Motion set to Loop; \"Place crowds as Loop\" in Settings)");
+            Log.Msg("flags: " + why + " -- new flags play a loop from here (Motion set to Loop; Waving again keeps them waving)");
 
             if (!Settings.CrowdLoopsTold.value)
                 _crowdTell = true;

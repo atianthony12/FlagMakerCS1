@@ -73,9 +73,9 @@ The first release.
 - **Loop in big crowds** (Settings tab, on by default): with more waving flags in view than can
   move at once, those left over play a loop instead of standing frozen, and take their cloth up
   again when there is room.
-- **Place crowds as Loop** (Settings tab, on by default): past twenty waving flags close together,
-  new flags there are placed as Loop, with a note in the New flag window. Flags already placed are
-  never changed.
+- **Crowds placed as Loop**: past twenty waving flags close together, new flags there are placed
+  as Loop, with a note in the New flag window (choose Waving again to keep them waving). Flags
+  already placed are never changed.
 - **Hundreds of flags**: a flag far out of view lets its cloth go after two minutes, and takes it
   up again from a like flag's shape when it comes back into view.
 - **Loops kept on disk**: a loop is made once and kept in `FlagMaker\Loops` (up to 200 MB), so a

@@ -76,8 +76,7 @@
   <String key="Mod.CrowdLoop">
     Beaucoup de drapeaux flottants proches les uns des autres ralentissent le jeu : ici, les
     nouveaux sont donc placés en Boucle, presque pareil à l'œil et presque gratuit.\n\n
-    Vous les voulez flottants ? Choisissez Flottant dans la fenêtre Nouveau drapeau, ou désactivez
-    Placer les foules en boucle dans Réglages.
+    Vous les voulez flottants ? Choisissez de nouveau Flottant dans la fenêtre Nouveau drapeau.
   </String>
 
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
@@ -434,15 +433,9 @@
   <String key="Image.Cut">Découper</String>
   <String key="Image.Through">Afficher</String>
 
-  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. -->
   <String key="Group.Wind">Vent</String>
   <String key="WindFromGame.Label">Utiliser le vent du jeu</String>
-  <String key="GameWindNow.Status">Maintenant {0} à 10 m, vers {1}°</String>
-  <String key="GameWindNow.Weather">Volumetric Weather : {0} à 10 m, vers {1}°</String>
-  <String key="GameWindNow.Rain">, pluie +{0} %</String>
-  <String key="GameWindNow.Fog">, brouillard -{0} %</String>
-  <String key="GameWindNow.Own">Votre propre vent, ci-dessous</String>
-  <String key="GameWindNow.NoCity">Le vent du jeu, une fois une ville chargée</String>
   <String key="WindSpeed.Label">Vitesse du vent</String>
   <String key="WindGusts.Label">Rafales</String>
   <String key="WindMode.Label">Direction</String>
@@ -506,8 +499,6 @@
   <String key="SharedMotion.Tooltip">Les drapeaux semblables reprennent le mouvement d’un seul, ce qui économise beaucoup de CPU quand il y a beaucoup de drapeaux.</String>
   <String key="LoopStandIns.Label">Boucle pour les grands groupes</String>
   <String key="LoopStandIns.Tooltip">Quand trop de drapeaux sont visibles pour être simulés, les autres jouent une boucle au lieu de rester immobiles.</String>
-  <String key="CrowdLoops.Label">Placer les foules en boucle</String>
-  <String key="CrowdLoops.Tooltip">Passé 20 drapeaux flottants proches, les nouveaux en boucle.</String>
   <String key="CrowdLoopsTold.Label">Prévenu de pourquoi les foules de nouveaux drapeaux sont placées en boucle</String>
   <String key="VariedWind.Label">Rafales et tourbillons de plusieurs tailles</String>
   <String key="PanelFolded.Label">Groupes repliés du panneau</String>

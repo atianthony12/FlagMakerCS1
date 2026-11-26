@@ -64,7 +64,7 @@
   <String key="Mod.NoProcedural">旗帜不能变成 Procedural Objects，它们保持原样。</String>
   <String key="Mod.CrowdLoop">
     大量飘动的旗帜挤在一起会拖慢游戏，所以这里的新旗帜改用循环：看起来几乎一样，几乎不耗性能。\n\n
-    想让它们飘动？在新建旗帜窗口选择飘动，或在设置中关闭“密集放置时用循环”。
+    想让它们飘动？在新建旗帜窗口重新选择飘动。
   </String>
 
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
@@ -421,15 +421,9 @@
   <String key="Image.Cut">抠出</String>
   <String key="Image.Through">显示旗帜</String>
 
-  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. -->
   <String key="Group.Wind">风</String>
   <String key="WindFromGame.Label">使用游戏的风</String>
-  <String key="GameWindNow.Status">当前 10 米高处 {0}，吹向 {1}°</String>
-  <String key="GameWindNow.Weather">体积天气：10 米高处 {0}，吹向 {1}°</String>
-  <String key="GameWindNow.Rain">，雨 +{0}%</String>
-  <String key="GameWindNow.Fog">，雾 -{0}%</String>
-  <String key="GameWindNow.Own">你自己的风，见下方</String>
-  <String key="GameWindNow.NoCity">加载城市后显示游戏的风</String>
   <String key="WindSpeed.Label">风速</String>
   <String key="WindGusts.Label">阵风</String>
   <String key="WindMode.Label">方向</String>
@@ -493,8 +487,6 @@
   <String key="SharedMotion.Tooltip">相似的旗帜共用一面旗帜的动作，旗帜很多时能大幅节省 CPU。</String>
   <String key="LoopStandIns.Label">旗帜过多时循环</String>
   <String key="LoopStandIns.Tooltip">视野内旗帜太多、无法全部模拟时，其余旗帜播放循环动画，而不是静止不动。</String>
-  <String key="CrowdLoops.Label">密集放置时用循环</String>
-  <String key="CrowdLoops.Tooltip">附近飘动旗帜超过 20 面时，新旗帜用循环。</String>
   <String key="CrowdLoopsTold.Label">已提示过为何密集放置的新旗帜用循环</String>
   <String key="VariedWind.Label">多种尺度的阵风与涡流</String>
   <String key="PanelFolded.Label">面板中折叠的分组</String>

@@ -116,14 +116,10 @@ namespace RealFlag
         public static BoolSetting LoopStandIns { get; private set; }
 
         /// <summary>
-        /// Crowds placed as Loop (FlagRenderer.Crowd.cs, ClothPlan.CrowdMost): a new waving flag with
-        /// many waving flags near it, or a big Line Tool row, switches the new flag's Motion to
-        /// Loop, and says so. On by default (the author, 2026-11-12: players "are lazy and won't
-        /// bother changing the motion"); off, new flags keep the Motion chosen.
+        /// The player has been told once, in a message, why their flags went to Loop -- crowds are
+        /// always placed as Loop (FlagRenderer.Crowd.cs, ClothPlan.CrowdMost; its switch, CrowdLoops,
+        /// went 2026-11-26: an old file's line is ignored). Kept in the file, no row.
         /// </summary>
-        public static BoolSetting CrowdLoops { get; private set; }
-
-        /// <summary>The player has been told once, in a message, why their flags went to Loop. Kept in the file, no row.</summary>
         public static BoolSetting CrowdLoopsTold { get; private set; }
 
         /// <summary>
@@ -431,7 +427,6 @@ namespace RealFlag
             public const int ClothThreads = 0;
             public const bool SharedMotion = true;
             public const bool LoopStandIns = true;
-            public const bool CrowdLoops = true;
             public const bool CrowdLoopsTold = false;
             public const bool VariedWind = true;
 
@@ -481,7 +476,7 @@ namespace RealFlag
             /// <summary>
             /// Waving (2026-11-13, the author: "Let's make Waving the default again"). A loop for one
             /// day before (2026-11-12: a loop costs almost nothing, a waving cloth a thread's time);
-            /// crowds of waving flags are still placed as Loop (Settings.CrowdLoops). FlagSpec.Default
+            /// crowds of waving flags are still placed as Loop (FlagRenderer.Crowd.cs). FlagSpec.Default
             /// and the older formats are Waves too: a saved flag keeps its own.
             /// </summary>
             public const int Motion = FlagMotion.Waves;
@@ -613,7 +608,6 @@ namespace RealFlag
                 ClothThreads = new IntSetting("ClothThreads", Defaults.ClothThreads);
                 SharedMotion = new BoolSetting("SharedMotion", Defaults.SharedMotion);
                 LoopStandIns = new BoolSetting("LoopStandIns", Defaults.LoopStandIns);
-                CrowdLoops = new BoolSetting("CrowdLoops", Defaults.CrowdLoops);
                 CrowdLoopsTold = new BoolSetting("CrowdLoopsTold", Defaults.CrowdLoopsTold);
                 VariedWind = new BoolSetting("VariedWind", Defaults.VariedWind);
                 PanelFolded = new IntSetting("PanelFolded", Defaults.PanelFolded);

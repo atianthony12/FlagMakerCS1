@@ -73,8 +73,7 @@
   <String key="Mod.CrowdLoop">
     Muchas banderas ondeando juntas ralentizan el juego, así que las nuevas aquí se colocan en
     Bucle: se ve casi igual y no cuesta casi nada.\n\n
-    ¿Las quieres ondeando? Elige Ondeando en la ventana Nueva bandera, o desactiva Colocar grupos
-    en bucle en Ajustes.
+    ¿Las quieres ondeando? Vuelve a elegir Ondeando en la ventana Nueva bandera.
   </String>
 
   <!-- The flag prop's name, where the game or another mod (Move It, Find It) shows one. -->
@@ -431,15 +430,9 @@
   <String key="Image.Cut">Recortar</String>
   <String key="Image.Through">Ver tela</String>
 
-  <!-- The Settings tab: the wind, the game's unless the player sets their own. {0} of the status is the wind and its Beaufort force, {1} its direction as a flag's rotation. -->
+  <!-- The Settings tab: the wind, the game's unless the player sets their own. -->
   <String key="Group.Wind">Viento</String>
   <String key="WindFromGame.Label">Usar el viento del juego</String>
-  <String key="GameWindNow.Status">Ahora {0} a 10 m, hacia {1}°</String>
-  <String key="GameWindNow.Weather">Volumetric Weather: {0} a 10 m, hacia {1}°</String>
-  <String key="GameWindNow.Rain">, lluvia +{0}%</String>
-  <String key="GameWindNow.Fog">, niebla -{0}%</String>
-  <String key="GameWindNow.Own">Tu propio viento, abajo</String>
-  <String key="GameWindNow.NoCity">El viento del juego, al cargar una ciudad</String>
   <String key="WindSpeed.Label">Velocidad del viento</String>
   <String key="WindGusts.Label">Ráfagas</String>
   <String key="WindMode.Label">Dirección</String>
@@ -503,8 +496,6 @@
   <String key="SharedMotion.Tooltip">Las banderas parecidas reutilizan el movimiento de una sola, lo que ahorra mucha CPU cuando hay muchas banderas.</String>
   <String key="LoopStandIns.Label">Bucle en grandes grupos</String>
   <String key="LoopStandIns.Tooltip">Cuando hay demasiadas banderas a la vista para simularlas, las demás reproducen un bucle en vez de quedarse quietas.</String>
-  <String key="CrowdLoops.Label">Colocar grupos en bucle</String>
-  <String key="CrowdLoops.Tooltip">Con más de 20 banderas ondeando cerca, las nuevas en bucle.</String>
   <String key="CrowdLoopsTold.Label">Avisado de por qué los grupos de banderas nuevas se colocan en bucle</String>
   <String key="VariedWind.Label">Ráfagas y remolinos de varios tamaños</String>
   <String key="PanelFolded.Label">Grupos plegados del panel</String>
