@@ -1808,7 +1808,10 @@ namespace RealFlag.UI
         /// (the author, of the icon buttons tried the day before: "I don't like the icons tbh. I
         /// think it's best if we do a dropdown instead"): a dropdown -- With pole, Hanging on wall,
         /// Banner, and Custom, which it shows when the settings make none (choosing it changes
-        /// nothing).
+        /// nothing). 2026-11-26 (the author: "the preset should also apply flagpole styles, etc.
+        /// the purpose of presets is to make it easy for the user to just plop a flag without
+        /// customizing"): a choice writes the pole's style too -- the whole Flagpole popup, its
+        /// look the defaults' -- never the flag's design.
         /// </summary>
         private static void AddNewPreset()
         {

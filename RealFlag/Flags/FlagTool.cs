@@ -852,13 +852,48 @@ namespace RealFlag.Flags
 
         /// <summary>
         /// Every frame while Line Tool places a row: the raise and lower keys lift the whole row, as
-        /// they lift the new flag. This tool is not out then and gets no GUI events: read from Input.
+        /// they lift the new flag, and Home puts it back down (<see cref="ResetLiftKey"/>). This tool
+        /// is not out then and gets no GUI events: read from Input. Line Tool reads no Home of its
+        /// own (2026-11-26, its IL: Return, keypad Enter, Esc, Ctrl and Shift only).
         /// </summary>
         public void RaiseOverLine()
         {
             UpdateRaise(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl),
                         Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift),
                         Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt));
+            ResetLiftKey(true);
+        }
+
+        /// <summary>The key that puts the new flag (or row) back on the surface under it: bound by nothing of the game's (DefaultSettings' IL, 2026-11-26).</summary>
+        private const KeyCode ResetLiftCode = KeyCode.Home;
+
+        /// <summary>Its name in the placing hint and the log: "Home".</summary>
+        private static readonly string ResetLiftName = ResetLiftCode.ToString();
+
+        /// <summary>
+        /// Placing: Home, once a press (Input.GetKeyDown, as Delete and Ctrl+Z), takes the lift the
+        /// raise and lower keys gave the new flag (or Line Tool's row) away -- back on the surface
+        /// under the pointer. Not while a text field has the keyboard (Home moves its caret) or
+        /// something is asked, not with Ctrl or Alt; nothing done, nothing said, with no lift. A
+        /// selected flag has no such key: Ctrl+Z takes a whole run of steps back.
+        /// </summary>
+        private void ResetLiftKey(bool row)
+        {
+            if (!Input.GetKeyDown(ResetLiftCode) || Mathf.Abs(_lift) <= 1e-4f)
+                return;
+
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            if (control || alt || ColossalFramework.UI.UIView.HasModalInput() || ColossalFramework.UI.UIView.HasInputFocus())
+                return;
+
+            EndRaise();
+            float was = _lift;
+            _lift = 0f;
+            // The tooltip back to its hint at once, not "Raised 0 m" for a second.
+            _raisedAt = -1f;
+            Log.Msg("flags: the " + (row ? "row's" : "new flag's") + " height reset: on the surface under it again, " +
+                    was.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " m off it before (" + ResetLiftName + ")");
         }
 
         /// <summary>The new flag's (or row's) lift off what it stands on, metres.</summary>
@@ -990,13 +1025,50 @@ namespace RealFlag.Flags
             return code != KeyCode.None && Input.GetKey(code) && key.Control == control;
         }
 
-        /// <summary>The raise and lower keys' names, as the game's key mapping shows them.</summary>
+        /// <summary>
+        /// The raise and lower keys' names, as the game's key mapping shows them -- but Page Up and
+        /// Page Down abbreviated (2026-11-26, the author: "don't write 'Page Up', just write the
+        /// abbreviation, PgUp"): "PgUp / PgDn", any modifier as the game names it.
+        /// </summary>
         private string RaiseKeys()
         {
             if (_raiseKey == null || _lowerKey == null)
-                return "Page Up / Page Down";
+                return "PgUp / PgDn";
 
-            return _raiseKey.ToLocalizedString("KEYNAME") + " / " + _lowerKey.ToLocalizedString("KEYNAME");
+            return KeyName(_raiseKey) + " / " + KeyName(_lowerKey);
+        }
+
+        /// <summary>
+        /// A key's name as SavedInputKey.ToLocalizedString("KEYNAME") gives it (its IL: Ctrl, Alt,
+        /// Shift in that order, each its KEYNAME and " + ", then the key's), PgUp and PgDn short.
+        /// </summary>
+        private static string KeyName(SavedInputKey key)
+        {
+            KeyCode code = key.Key;
+            string own = code == KeyCode.PageUp ? "PgUp" : code == KeyCode.PageDown ? "PgDn" : null;
+            if (own == null)
+                return key.ToLocalizedString("KEYNAME");
+
+            return (key.Control ? ModifierName(KeyCode.LeftControl, "Ctrl") : "") +
+                   (key.Alt ? ModifierName(KeyCode.LeftAlt, "Alt") : "") +
+                   (key.Shift ? ModifierName(KeyCode.LeftShift, "Shift") : "") + own;
+        }
+
+        /// <summary>"Ctrl + ", in the game's language.</summary>
+        private static string ModifierName(KeyCode code, string fallback)
+        {
+            string id = code.ToString();
+            try
+            {
+                if (ColossalFramework.Globalization.Locale.Exists("KEYNAME", id))
+                    return ColossalFramework.Globalization.Locale.Get("KEYNAME", id) + " + ";
+            }
+            catch (Exception)
+            {
+                // No locale yet: the plain name.
+            }
+
+            return fallback + " + ";
         }
 
         protected override void OnToolUpdate()
@@ -1035,6 +1107,7 @@ namespace RealFlag.Flags
             if (CurrentMode == Mode.Place)
             {
                 Hovered = 0;
+                ResetLiftKey(false);
                 bool turning = UpdateTurn();
                 EdgeSnap snap;
                 valid = TryGhostHit(out hit, out snap);
@@ -1053,11 +1126,12 @@ namespace RealFlag.Flags
                 }
 
                 // Raised or lowered off the surface: said while the keys work, and over the hint after.
+                string resetKey = ResetLiftName;
                 string text = FlagPrefab.Info == null ? Localization.Get("Tool.NoPrefab")
                             : turning ? Localization.Get("Gizmo.Heading", shownDegrees.ToString("0", System.Globalization.CultureInfo.InvariantCulture))
                             : ShowingRaise && _raisedFlag == 0 ? RaiseText(_lift)
-                            : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys())
-                            : Localization.Get("Tool.PlaceHint", RaiseKeys());
+                            : Mathf.Abs(_lift) > 1e-4f ? RaiseText(_lift) + "\n" + Localization.Get("Tool.PlaceHint", RaiseKeys(), resetKey)
+                            : Localization.Get("Tool.PlaceHint", RaiseKeys(), resetKey);
                 if (onEdge && FlagPrefab.Info != null)
                     text = Localization.Get(snap.Wall ? "Tool.OnWall" : "Tool.OnEdge") + "\n" + text;
                 ShowToolInfo(valid, valid ? text : null, hit);

@@ -376,7 +376,7 @@
   <String key="Status.NoPrefab">No se pudo cargar la bandera. Mira el registro.</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">Clic para poner. Clic derecho para girar. {0} para subir o bajar (Mayús para más rápido, Alt para más fino).</String>
+  <String key="Tool.PlaceHint">Clic para poner. Clic derecho para girar. {0} para subir o bajar (Mayús más rápido, Alt más fino), {1} para restablecer.</String>
   <String key="Tool.OnEdge">En el borde del tejado.</String>
   <String key="Tool.OnWall">En la pared.</String>
   <String key="Tool.Raised">Subida {0} m</String>

@@ -366,7 +366,7 @@
   <String key="Status.NoPrefab">无法加载旗帜。请查看日志。</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细）。</String>
+  <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细），{1} 复位。</String>
   <String key="Tool.OnEdge">在屋顶边缘。</String>
   <String key="Tool.OnWall">在墙上。</String>
   <String key="Tool.Raised">已升高 {0} 米</String>

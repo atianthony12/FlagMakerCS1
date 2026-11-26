@@ -5,9 +5,11 @@ using RealFlag.Flags;
 namespace RealFlag.UI
 {
     /// <summary>
-    /// What a placement preset sets of the new flag: how it is hoisted, its pole, what holds it,
-    /// its size. Never its design (country, pattern, colours, picture, wear, motion, darkness, the
-    /// pole's colours, profile and shine). PURE.
+    /// What a placement preset sets of the new flag: how it is hoisted, what holds it, its size,
+    /// and its whole pole as the New flag window's Flagpole popup holds it -- style, height, ropes,
+    /// base, position, finish, profile, colours, shine, thickness, wear, the block (2026-11-26).
+    /// Never the flag's own design (country, pattern, colours, picture, cut, wear and tears,
+    /// motion, waviness, darkness). PURE.
     /// </summary>
     public struct PlacementValues
     {
@@ -22,6 +24,19 @@ namespace RealFlag.UI
         /// <summary>The flag's size as the Width and Height rows keep it (FlagSize): its length and its proportion (hoist / length x 1000).</summary>
         public float Length;
         public int Proportion;
+
+        /// <summary>The pole's look, as the Flagpole popup's rows (Settings.NewPoleColour ... NewBlockWear): colours sRGB, the rest in the settings' own units.</summary>
+        public int PoleColour, TopColour, RopeColour;
+        public float PoleThickness;
+        public int PoleProfile;
+        public float PoleShine, PoleWear, PoleRust, PoleDirt, RopeThickness;
+        public int PoleFinish;
+
+        /// <summary>The concrete block, drawn only with a Block base: its shape, width and height (m), colour and wear.</summary>
+        public int BlockShape;
+        public float BlockWidth, BlockHeight;
+        public int BlockColour;
+        public float BlockWear;
     }
 
     /// <summary>
@@ -34,6 +49,11 @@ namespace RealFlag.UI
     /// nothing of its own, Settings.NewPreset is DERIVED from the settings (<see cref="Sync"/>,
     /// every frame) and choosing one writes them (<see cref="Apply"/>). Nothing of it is in a
     /// flag's spec or a save; the New flag window's settings are not undone (FlagUndo).
+    /// 2026-11-26 (the author: "When a preset is selected, the preset should also apply flagpole
+    /// styles, etc. the purpose of presets is to make it easy for the user to just plop a flag
+    /// without customizing. Also, 'With a pole' should be the default selected value"): a preset
+    /// writes the whole pole too, its look the defaults' in all three; a fresh install, every
+    /// setting at its default, shows With pole (test-settings.ps1 proves it).
     /// </summary>
     public static class PlacementPreset
     {
@@ -59,32 +79,56 @@ namespace RealFlag.UI
         /// flag: a short ball-top pole tilted 45 degrees out from the wall (the heading out of it:
         /// FlagEdgeSnap.OnWall), no ropes, no base on the wall, a 1.5 x 1 m flag. Banner: a 6 m
         /// flat-topped pole on its collar, no ropes, the cloth held along its top edge (its arm,
-        /// FlagPoleShape.ArmTop), 1.2 m wide and 3 m tall, its bottom free.
+        /// FlagPoleShape.ArmTop), 1.2 m wide and 3 m tall, its bottom free. The pole's look
+        /// (finish, profile, colours, shine, thickness, wear, block) is the defaults' in all three
+        /// (<see cref="DefaultLook"/>): no preset of its own was asked for.
         /// </summary>
         public static readonly PlacementValues[] Presets =
         {
-            new PlacementValues
+            DefaultLook(new PlacementValues
             {
                 HoistedFrom = Settings.Defaults.HoistedFrom, Tilt = Settings.Defaults.Tilt, Lean = Settings.Defaults.Lean,
                 Pole = Settings.Defaults.Pole, Height = Settings.Defaults.Height, Ropes = Settings.Defaults.Ropes,
                 PoleBase = Settings.Defaults.PoleBase, PolePosition = Settings.Defaults.PolePosition, Held = Settings.Defaults.Held,
                 Length = Settings.Defaults.Length, Proportion = Settings.Defaults.Proportion,
-            },
-            new PlacementValues
+            }),
+            DefaultLook(new PlacementValues
             {
                 HoistedFrom = FlagHoist.Side, Tilt = 45f, Lean = 0f,
                 Pole = FlagPoleStyle.Ball, Height = 2.5f, Ropes = 0,
                 PoleBase = FlagPoleBase.None, PolePosition = 1f, Held = FlagHold.None,
                 Length = 1.5f, Proportion = 667,
-            },
-            new PlacementValues
+            }),
+            DefaultLook(new PlacementValues
             {
                 HoistedFrom = FlagHoist.Side, Tilt = 0f, Lean = 0f,
                 Pole = FlagPoleStyle.Flat, Height = 6f, Ropes = 0,
                 PoleBase = FlagPoleBase.Collar, PolePosition = 1f, Held = FlagHold.TopEdge,
                 Length = 1.2f, Proportion = 2500,
-            },
+            }),
         };
+
+        /// <summary>The values with the pole's look the New flag window's defaults (Settings.Defaults). PURE.</summary>
+        private static PlacementValues DefaultLook(PlacementValues v)
+        {
+            v.PoleColour = Settings.Defaults.PoleColour;
+            v.TopColour = Settings.Defaults.TopColour;
+            v.RopeColour = Settings.Defaults.RopeColour;
+            v.PoleThickness = Settings.Defaults.PoleThickness;
+            v.PoleProfile = Settings.Defaults.PoleProfile;
+            v.PoleShine = Settings.Defaults.PoleShine;
+            v.PoleWear = Settings.Defaults.PoleWear;
+            v.PoleRust = Settings.Defaults.PoleRust;
+            v.PoleDirt = Settings.Defaults.PoleDirt;
+            v.RopeThickness = Settings.Defaults.RopeThickness;
+            v.PoleFinish = Settings.Defaults.PoleFinish;
+            v.BlockShape = Settings.Defaults.BlockShape;
+            v.BlockWidth = Settings.Defaults.BlockWidth;
+            v.BlockHeight = Settings.Defaults.BlockHeight;
+            v.BlockColour = Settings.Defaults.BlockColour;
+            v.BlockWear = Settings.Defaults.BlockWear;
+            return v;
+        }
 
         /// <summary>The preset these values make, or <see cref="Custom"/>: every one alike (the floats to well under a slider's step). PURE.</summary>
         public static int Of(PlacementValues v)
@@ -98,12 +142,27 @@ namespace RealFlag.UI
             return Custom;
         }
 
+        /// <summary>
+        /// Every field <see cref="Write"/> writes, compared: one left out would show a preset over
+        /// settings it does not make, and choosing it again would change nothing (a setting ignores
+        /// its own value). Ints and colours exactly; the floats to well under a slider's step and
+        /// well over FlagMaker.xml's rounding (four decimals of what the row shows: 1e-6 of a
+        /// percentage's value, 5e-5 m) -- percentages (5% steps) to 0.001, metres (0.05 m steps) to 0.005.
+        /// </summary>
         private static bool Same(PlacementValues a, PlacementValues b)
         {
             return a.HoistedFrom == b.HoistedFrom && Math.Abs(a.Tilt - b.Tilt) < 0.05f && Math.Abs(a.Lean - b.Lean) < 0.05f &&
                    a.Pole == b.Pole && Math.Abs(a.Height - b.Height) < 0.01f && a.Ropes == b.Ropes && a.PoleBase == b.PoleBase &&
                    Math.Abs(a.PolePosition - b.PolePosition) < 0.001f && (a.Held & FlagHold.All) == (b.Held & FlagHold.All) &&
-                   Math.Abs(a.Length - b.Length) < 0.005f && a.Proportion == b.Proportion;
+                   Math.Abs(a.Length - b.Length) < 0.005f && a.Proportion == b.Proportion &&
+                   a.PoleColour == b.PoleColour && a.TopColour == b.TopColour && a.RopeColour == b.RopeColour &&
+                   Math.Abs(a.PoleThickness - b.PoleThickness) < 0.001f && a.PoleProfile == b.PoleProfile &&
+                   Math.Abs(a.PoleShine - b.PoleShine) < 0.001f && Math.Abs(a.PoleWear - b.PoleWear) < 0.001f &&
+                   Math.Abs(a.PoleRust - b.PoleRust) < 0.001f && Math.Abs(a.PoleDirt - b.PoleDirt) < 0.001f &&
+                   Math.Abs(a.RopeThickness - b.RopeThickness) < 0.001f && a.PoleFinish == b.PoleFinish &&
+                   a.BlockShape == b.BlockShape && Math.Abs(a.BlockWidth - b.BlockWidth) < 0.005f &&
+                   Math.Abs(a.BlockHeight - b.BlockHeight) < 0.005f && a.BlockColour == b.BlockColour &&
+                   Math.Abs(a.BlockWear - b.BlockWear) < 0.001f;
         }
 
         /// <summary>The new flag's values now.</summary>
@@ -122,6 +181,22 @@ namespace RealFlag.UI
                 Held = Settings.NewHeld.value,
                 Length = Settings.NewLength.value,
                 Proportion = Settings.NewProportion.value,
+                PoleColour = Settings.NewPoleColour.value,
+                TopColour = Settings.NewTopColour.value,
+                RopeColour = Settings.NewRopeColour.value,
+                PoleThickness = Settings.NewPoleThickness.value,
+                PoleProfile = Settings.NewPoleProfile.value,
+                PoleShine = Settings.NewPoleShine.value,
+                PoleWear = Settings.NewPoleWear.value,
+                PoleRust = Settings.NewPoleRust.value,
+                PoleDirt = Settings.NewPoleDirt.value,
+                RopeThickness = Settings.NewRopeThickness.value,
+                PoleFinish = Settings.NewPoleFinish.value,
+                BlockShape = Settings.NewBlockShape.value,
+                BlockWidth = Settings.NewBlockWidth.value,
+                BlockHeight = Settings.NewBlockHeight.value,
+                BlockColour = Settings.NewBlockColour.value,
+                BlockWear = Settings.NewBlockWear.value,
             };
         }
 
@@ -133,11 +208,11 @@ namespace RealFlag.UI
         }
 
         /// <summary>
-        /// A preset chosen: its settings written. The size as the Width and Height rows write it --
-        /// the length and proportion themselves (FlagSize), whatever the window's picture or
-        /// country: a picture is cropped to the new shape, never stretched (FlagCrop), a country's
-        /// flag stretched to it (CropMap.ForCountry), as when the player sizes the flag by hand.
-        /// Custom changes nothing.
+        /// A preset chosen: its settings written (<see cref="Write"/>), the log told. The size as
+        /// the Width and Height rows write it -- the length and proportion themselves (FlagSize),
+        /// whatever the window's picture or country: a picture is cropped to the new shape, never
+        /// stretched (FlagCrop), a country's flag stretched to it (CropMap.ForCountry), as when the
+        /// player sizes the flag by hand. Custom changes nothing.
         /// </summary>
         public static void Apply(int preset)
         {
@@ -145,6 +220,23 @@ namespace RealFlag.UI
                 return;
 
             PlacementValues p = Presets[preset];
+            Write(p);
+
+            Log.Msg("setting: preset = " + LogName(preset) + " (" + Describe(p) + ")" +
+                    (Settings.NewImage.value != 0 ? "; the picture cropped to the new shape" : ""));
+            Sync();
+        }
+
+        /// <summary>
+        /// The values written over the New flag window's settings, every field of them (each one
+        /// <see cref="Same"/> and <see cref="Now"/> know). No log line: Apply's, and the offline
+        /// test's way in (test-settings.ps1).
+        /// </summary>
+        public static void Write(PlacementValues p)
+        {
+            if (Settings.NewHoistedFrom == null)
+                return;
+
             Settings.NewHoistedFrom.value = p.HoistedFrom;
             Settings.NewTilt.value = p.Tilt;
             Settings.NewLean.value = p.Lean;
@@ -156,10 +248,22 @@ namespace RealFlag.UI
             Settings.NewHeld.value = p.Held;
             Settings.NewLength.value = p.Length;
             Settings.NewProportion.value = p.Proportion;
-
-            Log.Msg("setting: preset = " + LogName(preset) + " (" + Describe(p) + ")" +
-                    (Settings.NewImage.value != 0 ? "; the picture cropped to the new shape" : ""));
-            Sync();
+            Settings.NewPoleColour.value = p.PoleColour;
+            Settings.NewTopColour.value = p.TopColour;
+            Settings.NewRopeColour.value = p.RopeColour;
+            Settings.NewPoleThickness.value = p.PoleThickness;
+            Settings.NewPoleProfile.value = p.PoleProfile;
+            Settings.NewPoleShine.value = p.PoleShine;
+            Settings.NewPoleWear.value = p.PoleWear;
+            Settings.NewPoleRust.value = p.PoleRust;
+            Settings.NewPoleDirt.value = p.PoleDirt;
+            Settings.NewRopeThickness.value = p.RopeThickness;
+            Settings.NewPoleFinish.value = p.PoleFinish;
+            Settings.NewBlockShape.value = p.BlockShape;
+            Settings.NewBlockWidth.value = p.BlockWidth;
+            Settings.NewBlockHeight.value = p.BlockHeight;
+            Settings.NewBlockColour.value = p.BlockColour;
+            Settings.NewBlockWear.value = p.BlockWear;
         }
 
         public static string LogName(int preset)
@@ -173,14 +277,15 @@ namespace RealFlag.UI
             }
         }
 
-        /// <summary>For the log: "hoisted from its side, tilted 45 deg, lean 0 deg, a ball-top pole 2.5 m, ropes 0, base 2, at 100% of it, held at its hoist only, 1.5 m x 667".</summary>
+        /// <summary>For the log: "hoisted from its side, tilted 45 deg, lean 0 deg, a ball-top pole 2.5 m, ropes 0, base 2, at 100% of it, held at its hoist only, 1.5 m x 667, painted tapered #E4E5E2".</summary>
         private static string Describe(PlacementValues p)
         {
             CultureInfo inv = CultureInfo.InvariantCulture;
             return "hoisted from its " + (p.HoistedFrom == FlagHoist.Top ? "top" : "side") + ", tilted " + p.Tilt.ToString("0.#", inv) +
                    " deg, lean " + p.Lean.ToString("0.#", inv) + " deg, pole " + FlagPoleStyle.LogName(p.Pole) + " " + p.Height.ToString("0.#", inv) +
                    " m, ropes " + p.Ropes + ", base " + p.PoleBase + ", at " + (p.PolePosition * 100f).ToString("F0", inv) + "% of it, held at " +
-                   FlagHold.LogName(p.Held) + ", " + p.Length.ToString("0.##", inv) + " m long at " + FlagProportion.Name(p.Proportion);
+                   FlagHold.LogName(p.Held) + ", " + p.Length.ToString("0.##", inv) + " m long at " + FlagProportion.Name(p.Proportion) + ", " +
+                   FlagPoleFinish.LogName(p.PoleFinish) + " " + FlagPoleProfile.LogName(p.PoleProfile) + " " + FlagColours.Hex((uint)p.PoleColour);
         }
     }
 }

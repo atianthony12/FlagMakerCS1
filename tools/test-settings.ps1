@@ -295,5 +295,82 @@ Check "bits: 19 pulled in to 3, and said" ("" + ($null -ne $said) + "," + $bits.
 $said = $applyInt.Invoke($null, @($mask, "top"))
 Check "bits: words refused, the value kept" ("" + ($null -ne $said) + "," + $bits.value) "True,3"
 
+# ---- the placement presets (UI.PlacementPreset) -------------------------------------------
+# 2026-11-26 (the author: "the preset should also apply flagpole styles ... 'With a pole' should be
+# the default selected value"). Settings.Init cannot run here (it reads FlagMaker.xml and starts
+# the saver; Apply logs): every New* setting is built as Init builds it -- NewX from
+# Settings.Defaults.X, checked against Settings.cs's own lines -- transient, through its private
+# setter, and the preset written by PlacementPreset.Write (Apply less its log line). Nothing here
+# reads or writes FlagMaker.xml or FlagMaker.log.
+$settingsType = $asm.GetType("RealFlag.Settings", $true)
+$defaultsType = $asm.GetType("RealFlag.Settings+Defaults", $true)
+$floatType = $asm.GetType("RealFlag.FloatSetting", $true)
+$boolType = $asm.GetType("RealFlag.BoolSetting", $true)
+$presetType = $asm.GetType("RealFlag.UI.PlacementPreset", $true)
+$valuesType = $asm.GetType("RealFlag.UI.PlacementValues", $true)
+$settingsSrc = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot "..\RealFlag\Settings.cs"))
+$unmatched = @()
+$built = 0
+foreach ($p in $settingsType.GetProperties([System.Reflection.BindingFlags]"Public, Static")) {
+    if (-not $p.Name.StartsWith("New")) { continue }
+    $t = $p.PropertyType
+    if ($t -ne $intType -and $t -ne $floatType -and $t -ne $boolType) { continue }
+    $field = $defaultsType.GetField($p.Name.Substring(3))
+    if ($null -eq $field) { continue }
+    if ($settingsSrc -notmatch ('\b' + $p.Name + ' = new \w+Setting\("' + $p.Name + '", Defaults\.' + $field.Name + '\);')) { $unmatched += $p.Name; continue }
+    $p.GetSetMethod($true).Invoke($null, @([Activator]::CreateInstance($t, @($p.Name, $field.GetValue($null), $true))))
+    $built++
+}
+$newPreset = [Activator]::CreateInstance($intType, @("NewPreset", 3, $true))
+$settingsType.GetProperty("NewPreset").GetSetMethod($true).Invoke($null, @($newPreset))
+function Setting([string]$name) { return $settingsType.GetProperty($name).GetValue($null, $null) }
+function PresetNow() { return $presetType.GetMethod("Of").Invoke($null, @($presetType.GetMethod("Now").Invoke($null, $null))) }
+
+Check "presets: Init builds every New* setting from Settings.Defaults by its own name" ($unmatched -join ",") ""
+Check "presets: the New* settings with a default built here" ($built -gt 40) "True"
+Check "presets: every setting at its default (a fresh install) is With pole" (PresetNow) 0
+$presetType.GetMethod("Sync").Invoke($null, $null)
+Check "presets: and the dropdown says so (NewPreset derived: Custom before Sync)" $newPreset.value 0
+
+$presets = $presetType.GetField("Presets").GetValue($null)
+$write = $presetType.GetMethod("Write")
+$write.Invoke($null, @($presets.GetValue(1)))
+Check "presets: Hanging on wall written is Hanging on wall" (PresetNow) 1
+(Setting "NewPoleFinish").value = 1
+(Setting "NewPoleColour").value = 0x123456
+(Setting "NewBlockWidth").value = [single]1.5
+Check "presets: its pole galvanized, recoloured, its block widened: Custom" (PresetNow) 3
+$write.Invoke($null, @($presets.GetValue(0)))
+Check "presets: With pole written is With pole again" (PresetNow) 0
+$pole = @("PoleColour", "TopColour", "RopeColour", "PoleThickness", "PoleProfile", "PoleShine", "PoleWear", "PoleRust", "PoleDirt",
+          "RopeThickness", "PoleFinish", "BlockShape", "BlockWidth", "BlockHeight", "BlockColour", "BlockWear",
+          "Pole", "Height", "Ropes", "PoleBase", "PolePosition", "HoistedFrom", "Tilt", "Lean", "Held", "Length", "Proportion")
+$off = @()
+foreach ($n in $pole) {
+    if ("" + (Setting ("New" + $n)).value -cne "" + $defaultsType.GetField($n).GetValue($null)) { $off += $n }
+}
+Check "presets: and every pole field back at its default (finish, colour, block ...)" ($off -join ",") ""
+
+# The file's round trip (four decimals of what each row shows) keeps every preset itself.
+$percent = @("PolePosition", "PoleThickness", "PoleShine", "PoleWear", "PoleRust", "PoleDirt", "RopeThickness", "BlockWear")
+$plain = @("Tilt", "Lean", "Height", "Length", "BlockWidth", "BlockHeight")
+$tripped = @()
+for ($i = 0; $i -lt $presets.Length; $i++) {
+    $box = $presets.GetValue($i)
+    foreach ($n in ($percent + $plain)) {
+        $f = $valuesType.GetField($n)
+        $v = [single]$f.GetValue($box)
+        if ($percent -contains $n) {
+            $text = $fmt::FormatNumber([double][TestHelp]::Mul($v, 100))
+            $f.SetValue($box, [TestHelp]::Div([single][double]::Parse($text, [System.Globalization.CultureInfo]::InvariantCulture), 100))
+        } else {
+            $text = $fmt::FormatNumber([double]$v)
+            $f.SetValue($box, [single][double]::Parse($text, [System.Globalization.CultureInfo]::InvariantCulture))
+        }
+    }
+    $tripped += $presetType.GetMethod("Of").Invoke($null, @($box))
+}
+Check "presets: each one through FlagMaker.xml's numbers is itself" ($tripped -join ",") "0,1,2"
+
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

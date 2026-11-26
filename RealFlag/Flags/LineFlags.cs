@@ -38,7 +38,7 @@ namespace RealFlag.Flags
     ///   protected DefaultTool.m_accuratePosition. Those are the one fragile part: gone, a row is
     ///   placed all the same, with only Line Tool's guide line to show for it.
     /// - Its points lie on the terrain (TerrainManager.SampleDetailHeight): never a roof or a bridge.
-    ///   Page Up and Page Down still lift the whole row (FlagTool.RaiseOverLine).
+    ///   Page Up and Page Down still lift the whole row, Home puts it back down (FlagTool.RaiseOverLine).
     /// Whatever spacing and so on the player had in Line Tool goes back when the flags let it go.
     /// Main thread.
     /// </remarks>

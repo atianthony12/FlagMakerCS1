@@ -381,7 +381,7 @@
   <String key="Status.NoPrefab">The flag couldn't be loaded. See the log.</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">Click to place. Right-click to rotate. {0} to raise or lower (Shift for faster, Alt for finer).</String>
+  <String key="Tool.PlaceHint">Click to place. Right-click to rotate. {0} to raise or lower (Shift faster, Alt finer), {1} to reset.</String>
   <String key="Tool.OnEdge">On the roof's edge.</String>
   <String key="Tool.OnWall">On the wall.</String>
   <String key="Tool.Raised">Raised {0} m</String>

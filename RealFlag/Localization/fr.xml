@@ -379,7 +379,7 @@
   <String key="Status.NoPrefab">Le drapeau n’a pas pu être chargé. Voir le journal.</String>
 
   <!-- The tool's hints at the cursor. -->
-  <String key="Tool.PlaceHint">Cliquez pour placer. Clic droit pour tourner. {0} pour monter ou descendre (Maj plus vite, Alt plus fin).</String>
+  <String key="Tool.PlaceHint">Cliquez pour placer. Clic droit pour tourner. {0} pour monter ou descendre (Maj plus vite, Alt plus fin), {1} pour réinitialiser.</String>
   <String key="Tool.OnEdge">Au bord du toit.</String>
   <String key="Tool.OnWall">Sur le mur.</String>
   <String key="Tool.Raised">Relevé de {0} m</String>

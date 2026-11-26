@@ -5116,6 +5116,17 @@ public static class ClothTests
         bool defaults = d.HoistedFrom == FlagHoist.Side && d.Tilt == 0f && d.Lean == 0f && d.Pole == FlagPoleStyle.Ball && d.Height == 10f &&
                         d.Ropes == FlagSpec.DefaultRopes && d.PoleBase == FlagPoleBase.Collar && d.PolePosition == 1f && d.Held == 0 &&
                         d.Length == 3f && d.Proportion == FlagProportion.Default;
+        // The pole's look (2026-11-26): the defaults' in all three.
+        for (int i = 0; i < P.Length; i++)
+        {
+            var q = P[i];
+            defaults &= q.PoleColour == (int)FlagSpec.DefaultPoleColour && q.TopColour == (int)FlagSpec.DefaultTopColour &&
+                        q.RopeColour == (int)FlagSpec.DefaultRopeColour && q.PoleThickness == 1f && q.PoleProfile == FlagPoleProfile.Tapered &&
+                        q.PoleShine == FlagSpec.DefaultPoleShine && q.PoleWear == 0f && q.PoleRust == 0f && q.PoleDirt == 0f &&
+                        q.RopeThickness == 1f && q.PoleFinish == FlagPoleFinish.Painted && q.BlockShape == FlagBlockShape.Square &&
+                        q.BlockWidth == FlagSpec.DefaultBlockWidth && q.BlockHeight == FlagSpec.DefaultBlockHeight &&
+                        q.BlockColour == (int)FlagSpec.DefaultBlockColour && q.BlockWear == 0f;
+        }
         var w = P[1];
         bool wall = w.HoistedFrom == FlagHoist.Side && w.Tilt == 45f && w.Lean == 0f && w.Pole == FlagPoleStyle.Ball && w.Height == 2.5f &&
                     w.Ropes == 0 && w.PoleBase == FlagPoleBase.None && w.PolePosition == 1f && w.Held == FlagHold.None &&
@@ -5125,11 +5136,12 @@ public static class ClothTests
                       b.Ropes == 0 && b.PoleBase == FlagPoleBase.Collar && b.PolePosition == 1f && b.Held == FlagHold.TopEdge &&
                       b.Length == 1.2f && b.Proportion == 2500;
 
-        // Any one of the eleven changed: Custom; a hair off (under a slider's step): still the preset.
+        // Any one of the twenty-seven changed by a slider's step (or another choice): Custom; a hair
+        // off (under a slider's step, over FlagMaker.xml's rounding): still the preset.
         bool custom = true, near = true;
         for (int i = 0; i < P.Length; i++)
         {
-            for (int f = 0; f < 11; f++)
+            for (int f = 0; f < 27; f++)
             {
                 var v = P[i];
                 switch (f)
@@ -5145,12 +5157,30 @@ public static class ClothTests
                     case 8: v.Held ^= FlagHold.BottomEdge; break;
                     case 9: v.Length += 0.1f; break;
                     case 10: v.Proportion += 1; break;
+                    case 11: v.PoleColour ^= 1; break;
+                    case 12: v.TopColour ^= 1; break;
+                    case 13: v.RopeColour ^= 1; break;
+                    case 14: v.PoleThickness += 0.05f; break;
+                    case 15: v.PoleProfile = FlagPoleProfile.Fluted; break;
+                    case 16: v.PoleShine += 0.05f; break;
+                    case 17: v.PoleWear += 0.05f; break;
+                    case 18: v.PoleRust += 0.05f; break;
+                    case 19: v.PoleDirt += 0.05f; break;
+                    case 20: v.RopeThickness += 0.05f; break;
+                    case 21: v.PoleFinish = FlagPoleFinish.Galvanized; break;
+                    case 22: v.BlockShape = FlagBlockShape.Round; break;
+                    case 23: v.BlockWidth += 0.05f; break;
+                    case 24: v.BlockHeight += 0.05f; break;
+                    case 25: v.BlockColour ^= 1; break;
+                    case 26: v.BlockWear += 0.05f; break;
                 }
                 custom &= RealFlag.UI.PlacementPreset.Of(v) == RealFlag.UI.PlacementPreset.Custom;
             }
 
             var h = P[i];
             h.Tilt += 0.01f; h.Height += 0.001f; h.Length += 0.001f;
+            h.PoleShine += 0.0001f; h.PoleThickness += 0.0001f; h.RopeThickness += 0.0001f; h.PoleWear += 0.0001f;
+            h.BlockWidth += 0.001f; h.BlockHeight += 0.001f; h.BlockWear += 0.0001f;
             near &= RealFlag.UI.PlacementPreset.Of(h) == i;
         }
 
@@ -7160,7 +7190,7 @@ Check "snap on the surface the cloth keeps off (the drawn shapes): the edge foun
 # The New flag window's placement presets (2026-11-19; the author: "Presets for flag orientation,
 # like flags on buildings ... Default ... Wall Flag ... A third option would be those banners").
 $pp = [ClothTests]::PlacementPresets() -split ","
-Check "the placement presets: each one's values make it, Default the New flag window's defaults, Wall flag's and Banner's the brief's, any one value changed Custom, a hair off still the preset; their sizes as seen; the wall flag snaps to walls, Default and Banner not; tilted out 10 deg up to where its pole stops standing" (($pp | Where-Object { $_ -ne "True" }).Count -eq 0) ("of / defaults / wall / banner / custom / near / sizes / snaps / band: " + ($pp -join ","))
+Check "the placement presets: each one's values make it, Default the New flag window's defaults, Wall flag's and Banner's the brief's, the pole's look the defaults' in all three, any one value changed Custom (the pole's look too), a hair off still the preset; their sizes as seen; the wall flag snaps to walls, Default and Banner not; tilted out 10 deg up to where its pole stops standing" (($pp | Where-Object { $_ -ne "True" }).Count -eq 0) ("of / defaults / wall / banner / custom / near / sizes / snaps / band: " + ($pp -join ","))
 # Snap to walls: the face found on the grid round the pointer, a few cm out of the drawn one (the
 # grid grows a wall up to half a node out into a one-node slope), never in it, at any height; no wall
 # on a roof, on the ground, in the wall's top, on a kerb; a turned wall's way out; the wall flag's pole

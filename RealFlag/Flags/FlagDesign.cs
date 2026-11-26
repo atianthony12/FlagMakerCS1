@@ -1345,6 +1345,11 @@ namespace RealFlag.Flags
         {
             return value == Painted || value == Galvanized;
         }
+
+        public static string LogName(int value)
+        {
+            return value == Galvanized ? "galvanized" : "painted";
+        }
     }
 
     /// <summary>
