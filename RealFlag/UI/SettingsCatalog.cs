@@ -935,13 +935,14 @@ namespace RealFlag.UI
                                       IntSetting proportion, IntSetting hoistedFrom, IntSetting motion, FloatSetting waviness, FloatSetting windShare,
                                       FloatSetting darkness,
                                       FloatSetting wear, FloatSetting tear, FloatSetting tearEdges, FloatSetting dirt, FloatSetting holes,
-                                      IntSetting cut, FloatSetting cutDepth, IntSetting held, Action changed, Func<bool> enabled,
-                                      Action placeRows)
+                                      IntSetting cut, FloatSetting cutDepth, IntSetting held, Action changed, Func<bool> enabled)
         {
-            // In folding groups, in the author's order (2026-11-11: "reorder the sections, in New
-            // flag too: 1. design 2. size and shape 3. pole and placement etc."): Design (Darkness
-            // with it), Size and shape, Pole and placement (the window's own rows, placeRows),
-            // Movement, Wear and tear.
+            // In the author's order (2026-11-11: "reorder the sections, in New flag too: 1. design
+            // 2. size and shape 3. pole and placement etc."): the design (Darkness with it), the size
+            // and shape, then the folding groups Movement and Wear and tear. 2026-11-26 ("Needed
+            // changes ahead of launch"): the design and the size laid straight on the page, no
+            // headings, no folding; only the extras fold. The window's Flagpole button and its rows
+            // come before these, Line Tool's after (BuildNew, BuildExisting).
             Func<bool> patterned = () => (enabled == null || enabled()) && (country == null || country.value == 0);
             Action resized = changed ?? Nothing;
 
@@ -957,7 +958,6 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Country,
                 Panel = page,
-                Group = "Design",
                 Int = country,
                 DefaultInt = Settings.Defaults.Country,
                 AfterChange = () =>
@@ -1060,7 +1060,6 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Shape,
                 Panel = page,
-                Group = "Size",
                 Id = shapeId,
                 Presets = FlagProportion.Shapes,
                 PresetActive = shape => FlagSize.IsShape(FlownProportion(country, proportion), hoistedFrom.value, shape),
@@ -1194,15 +1193,6 @@ namespace RealFlag.UI
                 Enabled = () => (enabled == null || enabled()) && FlagCut.UsesDepth(cut.value),
             });
 
-            // Pole and placement: the window's own (its Flagpole button first, which starts the group).
-            if (placeRows != null)
-            {
-                int first = Rows.Count;
-                placeRows();
-                if (Rows.Count > first)
-                    Rows[first].Group = "Place";
-            }
-
             // Also held at (the author, 2026-11-11: banners "hoisted from the side, but are steady
             // at the top and bottom ... the flag itself is cloth and ripples"; "Yes, toggles"): a
             // toggle a bit (FlagHold), each a little flag with the edge it holds in gold, hoisted
@@ -1310,19 +1300,8 @@ namespace RealFlag.UI
                 ShownWhile = () => motion.value == FlagMotion.Loop,
             });
 
-            // Why the new flag went to Loop by itself (crowds placed as Loop, 2026-11-12): shown
-            // while that switch holds.
-            if (page == PanelPage.New)
-            {
-                Add(new Row
-                {
-                    Kind = RowKind.Status,
-                    Panel = page,
-                    Id = "NewCrowdNote",
-                    StatusText = () => Localization.Get("Motion.CrowdNote"),
-                    ShownWhile = FlagRenderer.CrowdNoteShown,
-                });
-            }
+            // No note here when a crowd sends the new flag to Loop (the author, 2026-11-26: the
+            // "Many flags here: new ones loop." row removed); its one-time pop-up still says it.
 
             Add(new Row
             {
@@ -1789,12 +1768,16 @@ namespace RealFlag.UI
                 Colour1 = Settings.NewColour1,
             };
 
+            // The author, 2026-11-26: the Preset first, the Flagpole button right under it, then the
+            // design; Line Tool's rows last, folded.
             AddNewPreset();
+            AddNewPlacement();
             AddDesign(PanelPage.New, "NewShape", "NewWidth", "NewTall", "NewRecapture", Settings.NewCountry, Settings.NewImage, pictures, Settings.NewPattern,
                       Settings.NewColour1, Settings.NewColour2, Settings.NewColour3, Settings.NewLength, Settings.NewProportion,
                       Settings.NewHoistedFrom, Settings.NewMotion, Settings.NewWaviness, Settings.NewWindShare, Settings.NewDarkness,
                       Settings.NewWear, Settings.NewTear, Settings.NewTearEdges, Settings.NewDirt, Settings.NewHoles,
-                      Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null, AddNewPlacement);
+                      Settings.NewCut, Settings.NewCutDepth, Settings.NewHeld, null, null);
+            AddNewLineTool();
             AddNewHidden();
         }
 
@@ -1811,7 +1794,8 @@ namespace RealFlag.UI
         /// nothing). 2026-11-26 (the author: "the preset should also apply flagpole styles, etc.
         /// the purpose of presets is to make it easy for the user to just plop a flag without
         /// customizing"): a choice writes the pole's style too -- the whole Flagpole popup, its
-        /// look the defaults' -- never the flag's design.
+        /// look the defaults' -- never the flag's design. Later that day ("Needed changes ahead of
+        /// launch"): no group heading, the window's first row.
         /// </summary>
         private static void AddNewPreset()
         {
@@ -1819,7 +1803,6 @@ namespace RealFlag.UI
             {
                 Kind = RowKind.Choice,
                 Panel = PanelPage.New,
-                Group = "Preset",
                 Int = Settings.NewPreset,
                 DefaultInt = PlacementPreset.Default,
                 ChoiceValues = PlacementPreset.Values,
@@ -1829,7 +1812,11 @@ namespace RealFlag.UI
             });
         }
 
-        /// <summary>The New flag window's Pole and placement group: its Flagpole button first (it starts the group), the status line last.</summary>
+        /// <summary>
+        /// The New flag window's Flagpole button and the rows under it, atop the window: the ones
+        /// of the old Pole and placement group that are not Line Tool's (the author, 2026-11-26).
+        /// No Rotation row (the tool's right-button turn sets it: AddNewHidden) and no status line.
+        /// </summary>
         private static void AddNewPlacement()
         {
             // The new flag stands where it is put (FlagStand), Page Up and Page Down raising it: no
@@ -1843,53 +1830,6 @@ namespace RealFlag.UI
                     Settings.NewBlockWear, null, null, null);
             AddPoleWear(PanelPage.PoleNew, Settings.NewPole, Settings.NewHoistedFrom, Settings.NewPoleWear, Settings.NewPoleRust,
                         Settings.NewPoleDirt, null, null);
-
-            // Rows of flags, by the Line Tool mod: these three only with it (LineFlags).
-            Func<bool> inRows = () => Settings.NewPlacing.value != LineFlags.Single;
-            Add(new Row
-            {
-                Kind = RowKind.Segmented,
-                Panel = PanelPage.New,
-                Int = Settings.NewPlacing,
-                DefaultInt = LineFlags.Single,
-                ChoiceValues = LineFlags.Values,
-                ChoiceKeys = LineFlags.NameKeys,
-                ChoiceIcons = LineFlags.Icons,
-                AfterChange = () => LineFlags.Choose(Settings.NewPlacing.value),
-                Shown = LineFlags.IsAvailable,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Panel = PanelPage.New,
-                Float = Settings.NewLineSpacing,
-                DefaultFloat = Settings.Defaults.LineSpacing,
-                Min = 1f, Max = 100f, Step = 0.5f,
-                Format = Metres,
-                Enabled = inRows,
-                Shown = LineFlags.IsAvailable,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = PanelPage.New,
-                Bool = Settings.NewLineAlong,
-                DefaultBool = Settings.Defaults.LineAlong,
-                Enabled = inRows,
-                Shown = LineFlags.IsAvailable,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Panel = PanelPage.New,
-                Float = Settings.NewRotation,
-                DefaultFloat = Settings.Defaults.Rotation,
-                Min = 0f, Max = 359f, Step = 1f,
-                Format = Degrees,
-            });
 
             // A wall flag goes on the wall the pointer is on (2026-11-19, with the presets): shown
             // only for a pole tilted out by its side hoist (FlagEdgeSnap.WallFlag), one flag at a
@@ -1935,19 +1875,69 @@ namespace RealFlag.UI
                 Enabled = () => Settings.NewHoistedFrom.value == FlagHoist.Top && FlagMotion.Moves(Settings.NewMotion.value),
                 ShownWhile = newTop,
             });
+        }
+
+        /// <summary>
+        /// The New flag window's Line tool group, last (the author, 2026-11-26: "Pole and placement"
+        /// becomes "Line tool", at the bottom): rows of flags by the Line Tool mod, only with it
+        /// (LineFlags). Its heading rides on the first row, so without the mod the group's rows and
+        /// heading are all left out (RowSet skips a row not Shown before it looks at its Group).
+        /// </summary>
+        private static void AddNewLineTool()
+        {
+            Func<bool> inRows = () => Settings.NewPlacing.value != LineFlags.Single;
+            Add(new Row
+            {
+                Kind = RowKind.Segmented,
+                Panel = PanelPage.New,
+                Group = "LineTool",
+                Int = Settings.NewPlacing,
+                DefaultInt = LineFlags.Single,
+                ChoiceValues = LineFlags.Values,
+                ChoiceKeys = LineFlags.NameKeys,
+                ChoiceIcons = LineFlags.Icons,
+                AfterChange = () => LineFlags.Choose(Settings.NewPlacing.value),
+                Shown = LineFlags.IsAvailable,
+            });
 
             Add(new Row
             {
-                Kind = RowKind.Status,
+                Kind = RowKind.Value,
                 Panel = PanelPage.New,
-                Id = "NewStatus",
-                StatusText = FlagRenderer.Describe,
+                Float = Settings.NewLineSpacing,
+                DefaultFloat = Settings.Defaults.LineSpacing,
+                Min = 1f, Max = 100f, Step = 0.5f,
+                Format = Metres,
+                Enabled = inRows,
+                Shown = LineFlags.IsAvailable,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.New,
+                Bool = Settings.NewLineAlong,
+                DefaultBool = Settings.Defaults.LineAlong,
+                Enabled = inRows,
+                Shown = LineFlags.IsAvailable,
             });
         }
 
         /// <summary>The New flag window's settings with no row of their own: kept in the file, put back by a reset.</summary>
         private static void AddNewHidden()
         {
+            // The new flag's starting angle: no row since 2026-11-26 (the author removed the
+            // Rotation slider); the tool's right-button turn and Copy to new flag set it. Kept in the
+            // file, put back by a reset.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Float = Settings.NewRotation,
+                DefaultFloat = Settings.Defaults.Rotation,
+                Min = 0f, Max = 359f, Step = 1f,
+                Format = Degrees,
+            });
+
             // What the width and height sliders work through: kept in the file, put back by a
             // reset, but not shown as they are.
             Add(new Row
@@ -2118,12 +2108,14 @@ namespace RealFlag.UI
                 Enabled = selected,
             };
 
+            // As the New flag window (the author, 2026-11-26: "Same goes for editing a flag too, they
+            // should also look the same"): the Flagpole button first, then the design.
+            AddSelPlacement(selected);
             AddDesign(PanelPage.Existing, "SelShape", "SelWidth", "SelTall", "SelRecapture", Settings.SelCountry, Settings.SelImage, pictures, Settings.SelPattern,
                       Settings.SelColour1, Settings.SelColour2, Settings.SelColour3, Settings.SelLength, Settings.SelProportion,
                       Settings.SelHoistedFrom, Settings.SelMotion, Settings.SelWaviness, Settings.SelWindShare, Settings.SelDarkness,
                       Settings.SelWear, Settings.SelTear, Settings.SelTearEdges, Settings.SelDirt, Settings.SelHoles,
-                      Settings.SelCut, Settings.SelCutDepth, Settings.SelHeld, FlagEditor.ApplyDesign, selected,
-                      () => AddSelPlacement(selected));
+                      Settings.SelCut, Settings.SelCutDepth, Settings.SelHeld, FlagEditor.ApplyDesign, selected);
 
             for (int i = firstSelected; i < Rows.Count; i++)
             {
@@ -2137,7 +2129,7 @@ namespace RealFlag.UI
             }
         }
 
-        /// <summary>The Flags tab's Pole and placement group, the selected flag's: its Flagpole button first (it starts the group).</summary>
+        /// <summary>The selected flag's Flagpole button and Back plate, first of its rows (2026-11-26); no Rotation row (the gizmo's rings turn it).</summary>
         private static void AddSelPlacement(Func<bool> selected)
         {
             // The selected flag's pole height (its foot stays, the flag goes with the pole's top) is
@@ -2152,18 +2144,6 @@ namespace RealFlag.UI
 
             AddPoleWear(PanelPage.PoleExisting, Settings.SelPole, Settings.SelHoistedFrom, Settings.SelPoleWear, Settings.SelPoleRust,
                         Settings.SelPoleDirt, FlagEditor.ApplyDesign, selected);
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Panel = PanelPage.Existing,
-                Float = Settings.SelRotation,
-                DefaultFloat = Settings.Defaults.Rotation,
-                Min = 0f, Max = 359f, Step = 1f,
-                Format = Degrees,
-                AfterChange = FlagEditor.ApplyRotation,
-                Enabled = selected,
-            });
 
             Add(new Row
             {

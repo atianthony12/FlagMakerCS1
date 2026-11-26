@@ -4848,20 +4848,6 @@ namespace RealFlag.Flags
                                                                       false, true);
             Singleton<ToolManager>.instance.m_drawCallData.m_overlayCalls++;
         }
-
-        /// <summary>One line for the panel: how many flags, how many in view.</summary>
-        public static string Describe()
-        {
-            FlagRenderer r = Instance;
-            if (r == null)
-                return Localization.Get("Status.NoCity");
-            if (!r._ready)
-                return Localization.Get("Status.Failed");
-            if (FlagPrefab.Info == null)
-                return Localization.Get("Status.NoPrefab");
-
-            return Localization.Get("Status.Flags", r.Count, r.VisibleCount);
-        }
     }
 
     /// <summary>The wind this frame, as the panel sets it: speed at 10 m, gustiness, and where it blows.</summary>

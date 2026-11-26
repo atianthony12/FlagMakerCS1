@@ -34,12 +34,6 @@ namespace RealFlag.Flags
             }
         }
 
-        /// <summary>The New flag window's note under Motion: shown while a switch holds.</summary>
-        public static bool CrowdNoteShown()
-        {
-            return _crowdSwitched && !_crowdHeld && Settings.IsInitialised && Settings.NewMotion.value == FlagMotion.Loop;
-        }
-
         /// <summary>The New flag window's Motion row changed (its AfterChange): Waving after a switch is the player's say.</summary>
         public static void CrowdMotionChosen(int motion)
         {

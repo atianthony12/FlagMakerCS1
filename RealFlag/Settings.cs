@@ -137,11 +137,15 @@ namespace RealFlag
         /// </summary>
         public static IntSetting PanelFolded { get; private set; }
 
-        /// <summary>The groups that fold, by their bit in <see cref="PanelFolded"/>. Append only: the file keeps the bits.</summary>
+        /// <summary>
+        /// The groups that fold, by their bit in <see cref="PanelFolded"/>. Append only: the file keeps
+        /// the bits. Design, Size, Place and Preset fold no more (the author, 2026-11-26: only the
+        /// extras fold -- Movement, Wear and tear, Line tool); their bits stay theirs, unused.
+        /// </summary>
         public static readonly string[] FoldGroups =
         {
             "Design", "Size", "Place", "Movement", "Wear", "Wind", "Language", "Panel", "Flags", "Cloth", "Diagnostics", "StartingOver",
-            "Preset",
+            "Preset", "LineTool",
         };
 
         /// <summary>
@@ -431,11 +435,12 @@ namespace RealFlag
             public const bool VariedWind = true;
 
             /// <summary>
-            /// Folded at first: Wear and tear (most flags are new) and the Settings tab's Language,
-            /// In-game panel, Diagnostics and Starting over (set once). Bits by FoldGroups:
-            /// Wear 16, Language 64, Panel 128, Diagnostics 1024, StartingOver 2048.
+            /// Folded at first: Wear and tear (most flags are new), the New flag window's Line tool
+            /// (an extra) and the Settings tab's Language, In-game panel, Diagnostics and Starting
+            /// over (set once). Bits by FoldGroups: Wear 16, Language 64, Panel 128, Diagnostics 1024,
+            /// StartingOver 2048, LineTool 8192.
             /// </summary>
-            public const int PanelFolded = 16 | 64 | 128 | 1024 | 2048;
+            public const int PanelFolded = 16 | 64 | 128 | 1024 | 2048 | 8192;
 
             // ---- the wind ----
             /// <summary>The game's wind, until the player sets their own.</summary>
@@ -448,8 +453,19 @@ namespace RealFlag
             public const float WindDirection = 0f;
 
             // ---- the new flag ----
-            /// <summary>None: the pattern below.</summary>
-            public const int Country = 0;
+            /// <summary>
+            /// The United Nations' flag (the author, 2026-11-26: "By default, country flag should be
+            /// selected not pattern, and it should be 'United Nations'"): its number in this
+            /// version's table, from its code -- a number is only a session's handle; the file keeps
+            /// the code. 0 (none: the pattern) if the table ever lost it.
+            /// </summary>
+            public static int Country
+            {
+                get { return FlagCountries.NumberOf(CountryCode); }
+            }
+
+            /// <summary>The new flag's country at first, by code (<see cref="Country"/>).</summary>
+            public const string CountryCode = "un";
 
             /// <summary>No picture; laid as a picture just picked is: filling the flag, its middle in the middle, upright, see-through parts cut out.</summary>
             public const int Image = 0;

@@ -207,7 +207,6 @@
   <String key="SelRecapture.Tooltip">Enregistre la boucle à nouveau, pour que le drapeau ondule autrement.</String>
   <String key="Motion.Recording">Enregistrement... {0} %</String>
   <String key="Motion.CantRecord">Impossible d'enregistrer</String>
-  <String key="Motion.CrowdNote">Beaucoup de drapeaux ici : les nouveaux en boucle.</String>
   <String key="NewHeld.Label">Points d'ancrage</String>
   <String key="NewHeld.Tooltip">Fixe davantage le drapeau, pour qu'il reste ouvert au lieu de pendre, comme une bannière de lampadaire. Il ondule toujours.</String>
   <String key="SelHeld.Label">Points d'ancrage</String>
@@ -230,12 +229,9 @@
   <String key="SelWindShare.Label">Effet du vent</String>
   <String key="NewDarkness.Label">Assombrir</String>
   <String key="SelDarkness.Label">Assombrir</String>
-  <String key="Group.Preset">Préréglages</String>
-  <String key="Group.Design">Apparence</String>
-  <String key="Group.Size">Taille et forme</String>
-  <String key="Group.Place">Mât et placement</String>
   <String key="Group.Movement">Animation</String>
   <String key="Group.Wear">Usure</String>
+  <String key="Group.LineTool">Outil de ligne</String>
   <String key="NewWear.Label">Usé</String>
   <String key="SelWear.Label">Usé</String>
   <String key="NewTear.Label">Déchiré</String>
@@ -359,7 +355,6 @@
   <String key="NewBackPlate.Label">Plaque arrière</String>
 
   <String key="NewRotation.Label">Rotation</String>
-  <String key="SelRotation.Label">Rotation</String>
   <String key="SelBackPlate.Label">Plaque arrière</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
@@ -376,12 +371,6 @@
   <String key="CopyToNew.Label">Copier</String>
   <String key="DeleteFlag.Label">Supprimer</String>
   <String key="DeleteFlag.Confirm">Supprimer ce drapeau ?</String>
-
-  <!-- Status lines. -->
-  <String key="Status.Flags">Drapeaux : {0}, dans la vue : {1}.</String>
-  <String key="Status.NoCity">Aucune ville chargée.</String>
-  <String key="Status.Failed">Les drapeaux ne peuvent pas être affichés ici. Voir le journal.</String>
-  <String key="Status.NoPrefab">Le drapeau n’a pas pu être chargé. Voir le journal.</String>
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Cliquez pour placer. Clic droit pour tourner. {0} pour monter ou descendre (Maj plus vite, Alt plus fin), {1} pour réinitialiser.</String>
@@ -422,7 +411,6 @@
   <String key="Image.TitleExisting">Image du drapeau choisi</String>
   <String key="Image.Open">Ouvrir le dossier Images</String>
   <String key="Image.OpenTip">Ouvrir le dossier (ajoutez-y des .png/.jpg)</String>
-  <String key="Image.Hint">Mettez des fichiers .png ou .jpg dans le dossier Images : ils apparaîtront ici.</String>
   <String key="Image.Empty">Aucune image. Ouvrez le dossier et mettez-y des fichiers .png ou .jpg.</String>
   <String key="Image.None">Aucune</String>
   <String key="Image.NoneRow">Aucune (motif ou pays)</String>

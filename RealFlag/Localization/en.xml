@@ -209,8 +209,6 @@
   <String key="SelRecapture.Tooltip">Records the loop again, so the flag waves a different way.</String>
   <String key="Motion.Recording">Recording... {0}%</String>
   <String key="Motion.CantRecord">Can't record</String>
-  <!-- Under Motion in the New flag window, while it went to Loop by itself (past 20 waving flags near the new one; always on). -->
-  <String key="Motion.CrowdNote">Many flags here: new ones loop.</String>
   <String key="NewHeld.Label">Anchor points</String>
   <String key="NewHeld.Tooltip">Pins more of the flag, so it stays open instead of drooping, like a street banner. It still ripples.</String>
   <String key="SelHeld.Label">Anchor points</String>
@@ -233,12 +231,9 @@
   <String key="SelWindShare.Label">Wind effect</String>
   <String key="NewDarkness.Label">Darkness</String>
   <String key="SelDarkness.Label">Darkness</String>
-  <String key="Group.Preset">Presets</String>
-  <String key="Group.Design">Design</String>
-  <String key="Group.Size">Size and shape</String>
-  <String key="Group.Place">Pole and placement</String>
   <String key="Group.Movement">Movement</String>
   <String key="Group.Wear">Wear and tear</String>
+  <String key="Group.LineTool">Line tool</String>
   <String key="NewWear.Label">Worn</String>
   <String key="SelWear.Label">Worn</String>
   <String key="NewTear.Label">Torn</String>
@@ -363,7 +358,6 @@
   <String key="NewBackPlate.Label">Back plate</String>
 
   <String key="NewRotation.Label">Rotation</String>
-  <String key="SelRotation.Label">Rotation</String>
   <String key="SelBackPlate.Label">Back plate</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
@@ -380,12 +374,6 @@
   <String key="CopyToNew.Label">Copy</String>
   <String key="DeleteFlag.Label">Delete</String>
   <String key="DeleteFlag.Confirm">Delete this flag?</String>
-
-  <!-- Status lines. -->
-  <String key="Status.Flags">Flags: {0}, in view: {1}.</String>
-  <String key="Status.NoCity">No city loaded.</String>
-  <String key="Status.Failed">Flags can't be drawn here. See the log.</String>
-  <String key="Status.NoPrefab">The flag couldn't be loaded. See the log.</String>
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Click to place. Right-click to rotate. {0} to raise or lower (Shift faster, Alt finer), {1} to reset.</String>
@@ -426,7 +414,6 @@
   <String key="Image.TitleExisting">Selected flag's image</String>
   <String key="Image.Open">Open images folder</String>
   <String key="Image.OpenTip">Open folder (add .png/.jpg here)</String>
-  <String key="Image.Hint">Put .png or .jpg files in the Images folder and they'll show up here.</String>
   <String key="Image.Empty">No pictures yet. Open the folder and put .png or .jpg files in it.</String>
   <String key="Image.None">None</String>
   <String key="Image.NoneRow">None (pattern or country)</String>

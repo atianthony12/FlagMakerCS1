@@ -194,7 +194,6 @@
   <String key="SelRecapture.Tooltip">重新录制循环，让旗帜换一种方式飘动。</String>
   <String key="Motion.Recording">正在录制... {0}%</String>
   <String key="Motion.CantRecord">无法录制</String>
-  <String key="Motion.CrowdNote">这里旗帜很多：新旗帜用循环。</String>
   <String key="NewHeld.Label">锚点</String>
   <String key="NewHeld.Tooltip">固定旗帜的更多部位，让它像街灯横幅一样保持展开、不会垂下，同时仍会飘动。</String>
   <String key="SelHeld.Label">锚点</String>
@@ -217,12 +216,9 @@
   <String key="SelWindShare.Label">风力影响</String>
   <String key="NewDarkness.Label">暗度</String>
   <String key="SelDarkness.Label">暗度</String>
-  <String key="Group.Preset">预设</String>
-  <String key="Group.Design">外观</String>
-  <String key="Group.Size">尺寸与形状</String>
-  <String key="Group.Place">旗杆与摆放</String>
   <String key="Group.Movement">动态</String>
   <String key="Group.Wear">磨损与破旧</String>
+  <String key="Group.LineTool">线条工具</String>
   <String key="NewWear.Label">磨损</String>
   <String key="SelWear.Label">磨损</String>
   <String key="NewTear.Label">撕裂</String>
@@ -346,7 +342,6 @@
   <String key="NewBackPlate.Label">背板</String>
 
   <String key="NewRotation.Label">朝向</String>
-  <String key="SelRotation.Label">朝向</String>
   <String key="SelBackPlate.Label">背板</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
@@ -363,12 +358,6 @@
   <String key="CopyToNew.Label">复制</String>
   <String key="DeleteFlag.Label">删除</String>
   <String key="DeleteFlag.Confirm">删除这面旗帜？</String>
-
-  <!-- Status lines. -->
-  <String key="Status.Flags">旗帜：{0}，视野内：{1}。</String>
-  <String key="Status.NoCity">没有加载城市。</String>
-  <String key="Status.Failed">这里无法绘制旗帜。请查看日志。</String>
-  <String key="Status.NoPrefab">无法加载旗帜。请查看日志。</String>
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">点击放置。右键旋转。{0} 升高或降低（按 Shift 更快，Alt 更精细），{1} 复位。</String>
@@ -409,7 +398,6 @@
   <String key="Image.TitleExisting">选中旗帜的图片</String>
   <String key="Image.Open">打开 Images 文件夹</String>
   <String key="Image.OpenTip">打开文件夹（在此添加 .png/.jpg）</String>
-  <String key="Image.Hint">把 .png 或 .jpg 文件放入 Images 文件夹，它们就会出现在这里。</String>
   <String key="Image.Empty">还没有图片。打开文件夹，把 .png 或 .jpg 文件放进去。</String>
   <String key="Image.None">无</String>
   <String key="Image.NoneRow">无（图案或国家）</String>

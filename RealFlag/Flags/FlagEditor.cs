@@ -370,21 +370,6 @@ namespace RealFlag.Flags
             return TryEntry(out entry);
         }
 
-        public static void ApplyRotation()
-        {
-            FlagEntry e;
-            if (_loading || !TryEntry(out e))
-                return;
-
-            FlagState before = FlagUndo.Now(Selected);
-            _quietUntil = Time.realtimeSinceStartup + 0.6f;
-            LetBaseGo();
-            float angle = Settings.SelRotation.value * Mathf.Deg2Rad;
-            FlagProps.Rotate(Selected, angle);
-            FlagUndo.Sent(Selected, before.Present ? new Vector3(before.X, before.Y, before.Z) : e.Anchor, angle);
-            FlagUndo.Changed(Selected, before, false);
-        }
-
         /// <summary>
         /// The Flagpole popup's Pole height: the selected flag's pole this long, its foot where it
         /// was -- the flag goes up or down its axis with the pole's top. (Move It, the gizmo's arrows

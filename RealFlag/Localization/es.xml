@@ -204,7 +204,6 @@
   <String key="SelRecapture.Tooltip">Graba el bucle de nuevo, para que la bandera ondee de otra forma.</String>
   <String key="Motion.Recording">Grabando... {0}%</String>
   <String key="Motion.CantRecord">No se puede grabar</String>
-  <String key="Motion.CrowdNote">Muchas banderas aquí: las nuevas en bucle.</String>
   <String key="NewHeld.Label">Puntos de anclaje</String>
   <String key="NewHeld.Tooltip">Fija más partes de la bandera, para que quede abierta en vez de caer, como un banderín de farola. Sigue ondeando.</String>
   <String key="SelHeld.Label">Puntos de anclaje</String>
@@ -227,12 +226,9 @@
   <String key="SelWindShare.Label">Efecto del viento</String>
   <String key="NewDarkness.Label">Oscuridad</String>
   <String key="SelDarkness.Label">Oscuridad</String>
-  <String key="Group.Preset">Preajustes</String>
-  <String key="Group.Design">Apariencia</String>
-  <String key="Group.Size">Tamaño y forma</String>
-  <String key="Group.Place">Asta y colocación</String>
   <String key="Group.Movement">Animación</String>
   <String key="Group.Wear">Desgaste y deterioro</String>
+  <String key="Group.LineTool">Herramienta de línea</String>
   <String key="NewWear.Label">Gastada</String>
   <String key="SelWear.Label">Gastada</String>
   <String key="NewTear.Label">Rasgada</String>
@@ -356,7 +352,6 @@
   <String key="NewBackPlate.Label">Placa trasera</String>
 
   <String key="NewRotation.Label">Giro</String>
-  <String key="SelRotation.Label">Giro</String>
   <String key="SelBackPlate.Label">Placa trasera</String>
 
   <!-- A standing pole's height, its foot to the flag's top (the flag stands where it is put; Page Up/Down raise it). -->
@@ -373,12 +368,6 @@
   <String key="CopyToNew.Label">Copiar</String>
   <String key="DeleteFlag.Label">Eliminar</String>
   <String key="DeleteFlag.Confirm">¿Eliminar esta bandera?</String>
-
-  <!-- Status lines. -->
-  <String key="Status.Flags">Banderas: {0}, en pantalla: {1}.</String>
-  <String key="Status.NoCity">No hay ciudad cargada.</String>
-  <String key="Status.Failed">No se pueden dibujar banderas aquí. Mira el registro.</String>
-  <String key="Status.NoPrefab">No se pudo cargar la bandera. Mira el registro.</String>
 
   <!-- The tool's hints at the cursor. -->
   <String key="Tool.PlaceHint">Clic para poner. Clic derecho para girar. {0} para subir o bajar (Mayús más rápido, Alt más fino), {1} para restablecer.</String>
@@ -419,7 +408,6 @@
   <String key="Image.TitleExisting">Imagen de la bandera seleccionada</String>
   <String key="Image.Open">Abrir la carpeta de imágenes</String>
   <String key="Image.OpenTip">Abrir carpeta (pon aquí .png/.jpg)</String>
-  <String key="Image.Hint">Pon archivos .png o .jpg en la carpeta Images y aparecerán aquí.</String>
   <String key="Image.Empty">Aún no hay imágenes. Abre la carpeta y pon en ella archivos .png o .jpg.</String>
   <String key="Image.None">Ninguna</String>
   <String key="Image.NoneRow">Ninguna (diseño o país)</String>

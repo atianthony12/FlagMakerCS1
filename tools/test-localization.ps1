@@ -92,7 +92,7 @@ foreach ($b in $blocks) {
     if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
 }
 
-# A group given to a row once it is made (AddDesign's placement rows: Rows[first].Group = "Place").
+# A group given to a row once it is made (Rows[first].Group = "..."; none since 2026-11-26, kept for any later one).
 foreach ($m in [regex]::Matches($catalog, '\]\.Group = "(\w+)"')) { [void]$needed.Add("Group." + $m.Groups[1].Value) }
 
 # The design rows, from each AddDesign(PanelPage.X, "Shape", "Width", "Height", Settings.A, ...) call: every

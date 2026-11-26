@@ -18,7 +18,7 @@ namespace RealFlag.Flags
     /// </summary>
     /// <remarks>
     /// Recorded where the mod changes a placed flag for the player: FlagEditor's ApplyDesign,
-    /// ApplyTransform, ApplyRotation, ApplyPoleHeight and ConfirmDelete, FlagTool's placing. NOT
+    /// ApplyTransform, ApplyPoleHeight and ConfirmDelete, FlagTool's placing. NOT
     /// the renderer's own writes (a pole's cast length kept, a height fixed, flags stood on the
     /// ground at load), nor Move It's, Line Tool's or any other tool's: Move It keeps its own undo.
     /// A step's states are whole (place, turn, the whole FlagSpec), so every row present and to

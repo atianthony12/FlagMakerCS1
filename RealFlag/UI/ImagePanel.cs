@@ -166,12 +166,9 @@ namespace RealFlag.UI
             };
             y += 32f;
 
-            _hint = _ui.AddLabel(this, Localization.Get("Image.Hint"), new Vector3(Margin, y), 0.7f);
-            _hint.autoSize = false;
-            _hint.wordWrap = true;
-            _hint.size = new Vector2(Inner, 30f);
-            _ui.Paint(_hint, _ui.Theme.Status);
-            y += 34f;
+            // No line under the folder button (the author, 2026-11-26: the "Put .png or .jpg files
+            // in the Images folder" line removed -- "these eyebrows are not needed at all"); with
+            // no pictures yet, the list itself says so (below).
 
             // The list: a dark box of rows, the scrollbar at its right.
             _box = AddUIComponent<UIPanel>();
@@ -208,6 +205,15 @@ namespace RealFlag.UI
                 _buttons[i] = button;
                 _thumbs[i] = thumb;
             }
+
+            // No pictures yet: said in the list, under its None row, only while it is the only row
+            // (Filter), as the Flags tab's and the Pattern window's lists say they are empty.
+            _hint = _ui.AddLabel(_box, Localization.Get("Image.Empty"), new Vector3(10f, 3f + RowHeight + 8f), 0.7f);
+            _hint.autoSize = false;
+            _hint.wordWrap = true;
+            _hint.size = new Vector2(rowWidth - 14f, 40f);
+            _hint.isInteractive = false;
+            _ui.Paint(_hint, _ui.Theme.Status);
 
             float barWidth = PanelLook.ListBarWidth(_ui);
             _bar = PanelLook.AddListBar(_ui, _box, new Vector2(barWidth, _box.height - 6f), new Vector3(_box.width - 3f - barWidth, 3f));
@@ -408,7 +414,7 @@ namespace RealFlag.UI
                 _shown.Add(e.Name);
 
             _offset = Mathf.Clamp(_offset, 0, Mathf.Max(0, _shown.Count - Rows));
-            _hint.text = Localization.Get(_shown.Count > 1 || chosen.Length > 0 ? "Image.Hint" : "Image.Empty");
+            _hint.isVisible = _shown.Count == 1;
             FillRows();
         }
 
