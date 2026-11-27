@@ -10,9 +10,8 @@ colors or your own pictures, on a flagpole or hanging on its own.
 <!-- Hero image: a GIF of a few flags waving over a street, e.g.
 <img src="Workshop/Screenshots/hero.gif" width="720" alt="Flags waving over a city street"> -->
 
-<!-- Link the Workshop badge once the item is live. -->
 [![Cities: Skylines](https://img.shields.io/badge/Cities%3A%20Skylines-mod-01ABF8)](https://store.steampowered.com/app/255710/Cities_Skylines/)
-![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-coming%20soon-lightgrey?logo=steam)
+[![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3846794625)
 [![Requires Harmony](https://img.shields.io/badge/requires-Harmony-blue)](https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402)
 ![Languages](https://img.shields.io/badge/languages-EN%20%C2%B7%20ES%20%C2%B7%20FR%20%C2%B7%20ZH-informational)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -67,7 +66,8 @@ colors or your own pictures, on a flagpole or hanging on its own.
 ## Getting started
 
 1. **Subscribe** to [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402)
-   and Flag Maker, and enable both (in Skyve too, if you use it).
+   and [Flag Maker](https://steamcommunity.com/sharedfiles/filedetails/?id=3846794625), and enable
+   both (in Skyve too, if you use it).
 2. **Load a city** (new or saved). The mod doesn't run in the editors.
 3. **Press F6** (or click the mod's button) to open the panel. You can change the key in the mod's
    options.

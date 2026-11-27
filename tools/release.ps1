@@ -42,8 +42,8 @@ param(
 $ErrorActionPreference = "Continue"
 
 $root = Split-Path -Parent $PSScriptRoot
-# The published item's id: empty until the first upload (then into this line, README and CHANGELOG).
-$workshopId = ""
+# The published item's id (1.0.0, 2026-11-27): every update goes through its subscribed folder.
+$workshopId = "3846794625"
 $workshop = "C:\Program Files (x86)\Steam\steamapps\workshop\content\255710\$workshopId"
 $deployed = "$env:LOCALAPPDATA\Colossal Order\Cities_Skylines\Addons\Mods\RealFlag"
 $parked = "$env:LOCALAPPDATA\Colossal Order\Cities_Skylines\RealFlag-dev-parked"

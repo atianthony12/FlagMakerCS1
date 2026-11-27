@@ -4,7 +4,10 @@ Notable changes to Flag Maker. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Each Workshop upload is one version
 below; the mods list shows it after the mod's name, and the first line of `FlagMaker.log` gives
 it with the exact build. The version is `Mod.Version` in `RealFlag/Mod.cs` (0.x while in
-development).
+development). On the Steam Workshop:
+[Flag Maker](https://steamcommunity.com/sharedfiles/filedetails/?id=3846794625).
+
+## 1.0.1 — unreleased
 
 ## 1.0.0 — 2026-11-27
 
