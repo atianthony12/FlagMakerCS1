@@ -16,7 +16,7 @@ ecosystem.
 | --- | --- | --- | --- |
 | [`UnifiedUILib.dll`](https://github.com/kianzarrin/UnifiedUI) | kianzarrin | MIT | Registers the mod's button with Unified UI, and hosts the button panel itself when the Unified UI mod is not enabled |
 | [`CitiesHarmony.API.dll`](https://github.com/boformer/CitiesHarmony) | boformer | MIT | Bootstrap shim: waits for the Harmony mod and prompts the player to install it if it is missing |
-| [ModsLibCS1](https://github.com/anthonytoumaibrahim/ModsLibCS1) (git submodule `ModsLibCS1/`) | This mod's author's own UI library | MIT | The panel's controls and looks, compiled into `FlagMaker.dll` (not a DLL of its own) |
+| [ModsLibCS1](https://github.com/atianthony12/ModsLibCS1) (git submodule `ModsLibCS1/`) | This mod's author's own UI library | MIT | The panel's controls and looks, compiled into `FlagMaker.dll` (not a DLL of its own) |
 | [`MoveItIntegration.dll`](https://github.com/Quboid/CS-MoveIt) | Quboid (Move It) | MIT | The interfaces Move It looks for in other mods, so a copied, pasted or restored flag keeps its design. Taken from Move It's own Workshop folder; with Move It installed, the game uses the copy it loaded first |
 
 ## Artwork
