@@ -355,10 +355,14 @@ foreach ($t in $tests) {
 Step "Dynamic Resolution and Lumina, in the Unity 5.6 editor (D3D11 and OpenGL Core)"
 $render = Join-Path $root "tools\preview\gpu-render.ps1"
 $dynFrameDiff = 0.03
+$dynMinShadow = 20   # px of shadow the plain shot must show for the shadow check to mean anything
 $inv = [System.Globalization.CultureInfo]::InvariantCulture
 function DynResRun([string]$api, [string]$drawOn) {
+    # -Times 10: a moment whose shadow is well in the shot. At gpu-render's default 8 s the
+    # spanwise air (0b58ce3) left 2 px of it, which a 50% render rounds to 0 (2026-11-27: 48 px
+    # at 10 s, 75 at 50%, 49 at 150%). $dynMinShadow below catches the next motion change.
     $a = @("-DynRes", "0.5,1.5,0.5+1.5,1", "-DrawOn", $drawOn, "-Pole", "1", "-Blocks", "0,0.8,0.5", "-Finish", "galvanized",
-           "-Name", "release-dynres-$api-$drawOn")
+           "-Times", "10", "-Name", "release-dynres-$api-$drawOn")
     if ($api -eq "GLCore") { $a += "-GLCore" }
     $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $render @a 2>&1 | ForEach-Object { "$_" })
     if ($LASTEXITCODE -ne 0 -or @($out | Where-Object { $_ -eq "RF PREVIEW OK" }).Count -eq 0) { return $null }
@@ -384,6 +388,11 @@ foreach ($api in @("D3D11", "GLCore")) {
         if ($null -eq $cols -or $cols.Count -lt 6) { Stop-Release "gpu-render -DynRes ($api, -DrawOn $drawOn) did not finish: tools\preview\gpu-render.log"; continue }
         $bad = @()
         $said = @()
+        if ($drawOn -eq "game") {
+            $plain = @($cols | Where-Object { $_.Label -eq "plain" })
+            $plainShadow = if ($plain.Count -gt 0) { $plain[0].PlainShadow } else { -1 }
+            if ($plainShadow -lt $dynMinShadow) { $bad += "the plain shot shows $plainShadow px of shadow, too little to judge (under $dynMinShadow): move the gate's -Times" }
+        }
         foreach ($c in ($cols | Where-Object { $_.Label -ne "plain" })) {
             $factor = ($c.Label -split " ")[1]
             $second = $c.Label -match "render 2 of 2"
