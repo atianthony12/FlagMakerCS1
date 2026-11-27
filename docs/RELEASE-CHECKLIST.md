@@ -179,7 +179,9 @@ stands.
 - [ ] The item's id into `tools\release.ps1` (`$workshopId`), README (its install line) and
       CHANGELOG.
 - [ ] Tag `v1.0.0` (annotated) on the uploaded build's commit, pushed; then the **GitHub release**:
-      a zip of exactly the five uploaded files in a `RealFlag/` folder, notes = what the version
+      a zip of exactly the five uploaded files in a `FlagMaker/` folder (ALWAYS FlagMaker, never
+      RealFlag: the author's call 2026-11-27; forward-slash entries, not PowerShell 5.1's
+      Compress-Archive, whose backslashes break other unzippers), notes = what the version
       brings + a link to `CHANGELOG.md` at the tag + how to install by hand (the folder into
       `Addons\Mods`, Harmony `2040656402` subscribed), latest.
       `gh release create v1.0.0 FlagMaker-1.0.0.zip --title "Flag Maker 1.0.0" --notes-file ... --latest`
