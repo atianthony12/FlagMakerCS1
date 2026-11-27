@@ -120,10 +120,16 @@ the ground in front of it. With a pole, the pole's foot goes there. Without one,
 corner on the pole side goes there, where a rope would clip on.
 
 The window remembers your last flag's settings, and the small icon at the end of each row resets
-that row.
+that row. **Movement**, **Wear and tear** and **Line tool** fold: click a heading to open or close it.
+To turn the flag while you place it, right-click (see [Controls](#controls)).
 
 | Setting | What it does |
 | --- | --- |
+| **Preset** | **With pole**, **Hanging on wall** (the pole sticks out of the wall under your mouse) or **Banner** (hangs from an arm on its pole): sets how the flag hangs, its pole and its size in one go, never its design. Change any of those yourself and it shows **Custom**. |
+| **Flagpole** | Opens the Flagpole window, see [Flagpoles](#flagpoles). |
+| **Snap to walls** | For a flag on a wall pole: it goes on the wall under your mouse. |
+| **Snap to edges** | A banner hanging from its top snaps to the edge of a roof near your mouse, so it hangs down the facade. |
+| **Back plate** | A banner hanging from its top stays in front of a plate along its top edge, never swinging back into the wall behind it. |
 | **Country** | Any country's or territory's flag. It keeps your flag's size and stretches to fit, turned on a tall shape the way a flag hung upright is shown; the Shape row's reset icon gives it its real proportions. Search by name (in your language or in English) or by country code. |
 | **Your image** | A picture of your own, see [Your own pictures](#your-own-pictures). |
 | **Pattern** | Opens the Pattern window, with 15 patterns in up to 3 colors and a preview. Pick colors from the palette, with the sliders, or type or paste a hex code. You can save a pattern and its colors under a name, and use it in any city. |
@@ -131,14 +137,16 @@ that row.
 | **Width**, **Height** | From 0.5 to 30 m each. Turn on **Lock width and height** to keep the proportions while you resize. |
 | **Shape**, **Cut depth** | The outline of the flag's free end: rectangle, swallowtail, swallowtail and tongue, pennant, burgee, pointed or rounded. Cut depth sets how deep the notch or the point goes. The cloth itself is cut, not just the picture. |
 | **Hangs from** | **Side**, like a flag on a pole, or **Top**, like a banner from a crossbar or a balcony. Hanging from the top, the design turns the way a real flag hung vertically does, with the corner box at the top left.[^flagcode] |
-| **Motion** | **Waving** in the wind, **Loop**, **Still** or **Flat**, see [below](#loop-still-and-flat-flags). |
-| **How wavy** | How much the cloth ripples, from 0 to 200%. |
-| **Wind on it** | How much of the wind reaches the flag. At 0% a banner just hangs, and around 10 to 25% it sways gently. |
 | **Darkness** | Tones a flag's colors down so its white and yellow don't glare in the sun: 30% to begin with, up to 80%. |
-| **Worn**, **Torn**, **Torn edges**, **Dirt**, **Holes** | Wear and tear: faded colors and a frayed end, an end ripped to tatters like a pirate flag, torn top and bottom edges, grime and rain streaks, bullet holes, burns and tears. Every flag gets its own. |
-| **Flagpole** | Opens the Flagpole window, see [Flagpoles](#flagpoles). |
-| **Rotation** | Which way the flag points. |
-| **Snap to edges** | A banner hanging from its top snaps to the edge of a roof near your mouse, so it hangs down the facade. |
+| **Anchor points** (Movement) | Besides its hoist, the flag can be held by its top edge, its bottom edge, its far edge or its far corners, like a banner tied on more than one side. |
+| **Motion** (Movement) | **Waving** in the wind, **Loop**, **Still** or **Flat**, see [below](#loop-still-and-flat-flags). |
+| **How wavy** (Movement) | How much the cloth ripples, from 0 to 200%. |
+| **Wind effect** (Movement) | How much of the wind reaches the flag. At 0% a banner just hangs, and around 10 to 25% it sways gently. |
+| **Worn**, **Torn**, **Torn edges**, **Dirt**, **Holes** (Wear and tear) | Faded colors and a frayed end, an end ripped to tatters like a pirate flag, torn top and bottom edges, grime and rain streaks, bullet holes, burns and tears. Every flag gets its own. |
+| **Place**, **Spacing**, **Point along the line** (Line tool) | Rows of flags, only with the Line Tool mod, see [With Line Tool](#with-line-tool). |
+
+Snap to walls shows only for a flag on a wall pole, and Snap to edges and Back plate only for a
+flag hanging from its top.
 
 ### Loop, still and flat flags
 
@@ -146,7 +154,7 @@ A **loop** flag plays a few seconds of its own waving over and over. It flies in
 its own, the way it points, so it waves even when the game's wind is too weak to lift a flag. It
 doesn't react to the wind, the weather or buildings, and your graphics card plays it back, so it
 costs almost nothing however many you place. Flags with the same shape share one loop, each
-starting at its own moment so a row is never in step. **Wind on it** sets how strong its breeze is.
+starting at its own moment so a row is never in step. **Wind effect** sets how strong its breeze is.
 The first flag of a shape takes a few seconds to appear while its loop is made.
 
 A **still** flag is frozen in one shape, as if it was caught in a steady breeze blowing the way it
@@ -219,7 +227,8 @@ hold a pose. Switch one back to Waving and it starts flying again from where it 
 ### The Flags tab
 
 - It lists every flag in your city. Click one in the list (or use **Pick on the map**) to select
-  it. Its design, size, pole and rotation show up in the tab, and any change applies right away.
+  it. Its design, size and pole show up in the tab, and any change applies right away. Turn it
+  with the gizmo's rings.
 - A selected flag gets a gizmo[^gizmo] with arrows, a knob and rings to move and rotate it (see
   [Controls](#controls)).
 - **Go to** (or double-click it in the list) moves the camera to it, **Delete** removes it, and
@@ -265,7 +274,7 @@ logging**.
 
 ### With Line Tool
 
-- If you have the Line Tool mod, the New flag window gets a **Place** row: **One flag**, **Straight
+- If you have the Line Tool mod, the New flag window gets a **Line tool** group with a **Place** row: **One flag**, **Straight
   line**, **Curve**, **Freeform** or **Circle**, with **Spacing** and **Point along the line**.
   Without Line Tool, you won't see any of this.
 - Every flag in the row gets the window's design and its own pole, and you see them all before you
